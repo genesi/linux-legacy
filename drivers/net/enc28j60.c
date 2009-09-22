@@ -1811,3 +1811,4 @@ module_param_named(debug, debug.msg_enable, int, 0);
 module_param(random_mac, int, 0444);
 module_param_array(mac, charp, NULL, 0);
 MODULE_PARM_DESC(debug, "Debug verbosity level (0=none, ..., ffff=all)");
+MODULE_ALIAS("spi:" DRV_NAME);
