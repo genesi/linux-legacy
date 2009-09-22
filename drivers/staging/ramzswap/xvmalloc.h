@@ -1,7 +1,11 @@
 /*
  * xvmalloc memory allocator
  *
+<<<<<<< HEAD
  * Copyright (C) 2008, 2009, 2010  Nitin Gupta
+=======
+ * Copyright (C) 2008, 2009  Nitin Gupta
+>>>>>>> 644bf7b... Staging: xvmalloc memory allocator
  *
  * This code is released using a dual license strategy: BSD/GPL
  * You can choose the licence that better fits your requirements.

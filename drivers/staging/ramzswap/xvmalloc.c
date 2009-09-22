@@ -1,7 +1,11 @@
 /*
  * xvmalloc memory allocator
  *
+<<<<<<< HEAD
  * Copyright (C) 2008, 2009, 2010  Nitin Gupta
+=======
+ * Copyright (C) 2008, 2009  Nitin Gupta
+>>>>>>> 644bf7b... Staging: xvmalloc memory allocator
  *
  * This code is released using a dual license strategy: BSD/GPL
  * You can choose the licence that better fits your requirements.
@@ -273,7 +277,11 @@ static void remove_block(struct xv_pool *pool, struct page *page, u32 offset,
 }
 
 /*
+<<<<<<< HEAD
  * Allocate a page and add it to freelist of given pool.
+=======
+ * Allocate a page and add it freelist of given pool.
+>>>>>>> 644bf7b... Staging: xvmalloc memory allocator
  */
 static int grow_pool(struct xv_pool *pool, gfp_t flags)
 {

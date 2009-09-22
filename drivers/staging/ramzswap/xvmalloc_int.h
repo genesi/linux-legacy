@@ -1,7 +1,11 @@
 /*
  * xvmalloc memory allocator
  *
+<<<<<<< HEAD
  * Copyright (C) 2008, 2009, 2010  Nitin Gupta
+=======
+ * Copyright (C) 2008, 2009  Nitin Gupta
+>>>>>>> 644bf7b... Staging: xvmalloc memory allocator
  *
  * This code is released using a dual license strategy: BSD/GPL
  * You can choose the licence that better fits your requirements.
@@ -62,7 +66,11 @@ struct link_free {
 
 struct block_header {
 	union {
+<<<<<<< HEAD
 		/* This common header must be XV_ALIGN bytes */
+=======
+		/* This common header must be ALIGN bytes */
+>>>>>>> 644bf7b... Staging: xvmalloc memory allocator
 		u8 common[XV_ALIGN];
 		struct {
 			u16 size;
