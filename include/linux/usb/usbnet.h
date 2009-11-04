@@ -88,6 +88,7 @@ struct driver_info {
 #define FLAG_WLAN	0x0080		/* use "wlan%d" names */
 #define FLAG_SEND_ZLP	0x0200		/* hw requires ZLPs are sent */
 
+#define FLAG_LINK_INTR	0x0800		/* updates link (carrier) status */
 
 	/* init device ... can sleep, or cause probe() failure */
 	int	(*bind)(struct usbnet *, struct usb_interface *);
