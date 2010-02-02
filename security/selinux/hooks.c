@@ -2044,11 +2044,11 @@ static int selinux_quota_on(struct dentry *dentry)
 	return dentry_has_perm(cred, NULL, dentry, FILE__QUOTAON);
 }
 
-static int selinux_syslog(int type)
+static int selinux_syslog(int type, int context)
 {
 	int rc;
 
-	rc = cap_syslog(type);
+	rc = cap_syslog(type, context);
 	if (rc)
 		return rc;
 

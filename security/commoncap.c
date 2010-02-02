@@ -27,6 +27,7 @@
 #include <linux/sched.h>
 #include <linux/prctl.h>
 #include <linux/securebits.h>
+#include <linux/syslog.h>
 
 /*
  * If a non-root user executes a setuid-root binary in
@@ -956,12 +957,16 @@ error:
 /**
  * cap_syslog - Determine whether syslog function is permitted
  * @type: Function requested
+ * @context: What context this request came from (/proc or syscall)
  *
  * Determine whether the current process is permitted to use a particular
  * syslog function, returning 0 if permission is granted, -ve if not.
  */
-int cap_syslog(int type)
+int cap_syslog(int type, int context)
 {
+	/* /proc/kmsg can open be opened by CAP_SYS_ADMIN */
+	if (type != 1 && context == SYSLOG_CONTEXT_PROC)
+		return 0;
 	if ((type != 3 && type != 10) && !capable(CAP_SYS_ADMIN))
 		return -EPERM;
 	return 0;

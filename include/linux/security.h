@@ -76,7 +76,7 @@ extern int cap_task_prctl(int option, unsigned long arg2, unsigned long arg3,
 extern int cap_task_setscheduler(struct task_struct *p, int policy, struct sched_param *lp);
 extern int cap_task_setioprio(struct task_struct *p, int ioprio);
 extern int cap_task_setnice(struct task_struct *p, int nice);
-extern int cap_syslog(int type);
+extern int cap_syslog(int type, int context);
 extern int cap_vm_enough_memory(struct mm_struct *mm, long pages);
 
 struct msghdr;
@@ -1293,6 +1293,7 @@ static inline void security_free_mnt_opts(struct security_mnt_opts *opts)
  *	logging to the console.
  *	See the syslog(2) manual page for an explanation of the @type values.
  *	@type contains the type of action.
+ *	@context contains the context of action (/proc or syscall).
  *	Return 0 if permission is granted.
  * @settime:
  *	Check permission to change the system time.
@@ -1372,7 +1373,7 @@ struct security_operations {
 	int (*sysctl) (struct ctl_table *table, int op);
 	int (*quotactl) (int cmds, int type, int id, struct super_block *sb);
 	int (*quota_on) (struct dentry *dentry);
-	int (*syslog) (int type);
+	int (*syslog) (int type, int context);
 	int (*settime) (struct timespec *ts, struct timezone *tz);
 	int (*vm_enough_memory) (struct mm_struct *mm, long pages);
 
@@ -1654,7 +1655,7 @@ int security_acct(struct file *file);
 int security_sysctl(struct ctl_table *table, int op);
 int security_quotactl(int cmds, int type, int id, struct super_block *sb);
 int security_quota_on(struct dentry *dentry);
-int security_syslog(int type);
+int security_syslog(int type, int context);
 int security_settime(struct timespec *ts, struct timezone *tz);
 int security_vm_enough_memory(long pages);
 int security_vm_enough_memory_mm(struct mm_struct *mm, long pages);
@@ -1894,9 +1895,9 @@ static inline int security_quota_on(struct dentry *dentry)
 	return 0;
 }
 
-static inline int security_syslog(int type)
+static inline int security_syslog(int type, int context)
 {
-	return cap_syslog(type);
+	return cap_syslog(type, context);
 }
 
 static inline int security_settime(struct timespec *ts, struct timezone *tz)

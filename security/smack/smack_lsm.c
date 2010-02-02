@@ -163,12 +163,12 @@ static int smack_ptrace_traceme(struct task_struct *ptp)
  *
  * Returns 0 on success, error code otherwise.
  */
-static int smack_syslog(int type)
+static int smack_syslog(int type, int context)
 {
 	int rc;
 	char *sp = current_security();
 
-	rc = cap_syslog(type);
+	rc = cap_syslog(type, context);
 	if (rc != 0)
 		return rc;
 
