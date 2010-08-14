@@ -598,6 +598,10 @@ static void pata_fsl_bmdma_start(struct ata_queued_cmd *qc)
 
 	priv->dma_done = 0;
 
+#if defined(CONFIG_LEDS_TRIGGER_IDE_DISK)
+	ledtrig_ide_activity();
+#endif
+
 	ata_sff_exec_command(ap, &qc->tf);
 }
 
