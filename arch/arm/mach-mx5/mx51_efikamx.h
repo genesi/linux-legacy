@@ -29,6 +29,7 @@ extern void __init mx51_efikamx_init_i2c(void);
 extern void __init mx51_efikamx_init_i2c2(void);
 extern void __init mx51_efikamx_init_nor(void);
 extern void __init mx51_efikamx_init_display(void);
+extern void __init mx51_efikamx_init_audio(void);
 extern void __init mx51_efikamx_init_usb(void);
 extern void __init mx51_efikamx_init_pata(void);
 extern void __init mx51_efikamx_init_usb(void);
