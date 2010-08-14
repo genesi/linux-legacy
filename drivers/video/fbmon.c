@@ -40,7 +40,8 @@
  * EDID parser
  */
 
-#undef DEBUG  /* define this for verbose EDID parsing output */
+//#undef DEBUG  /* define this for verbose EDID parsing output */
+#define DEBUG	1
 
 #ifdef DEBUG
 #define DPRINTK(fmt, args...) printk(fmt,## args)
@@ -492,18 +493,25 @@ static int get_est_timing(unsigned char *block, struct fb_videomode *mode)
 	return num;
 }
 
-static int get_std_timing(unsigned char *block, struct fb_videomode *mode)
+static int get_std_timing(u8 edid_ver, u8 edid_rev, unsigned char *block, struct fb_videomode *mode)
 {
 	int xres, yres = 0, refresh, ratio, i;
 
+	if( edid_ver < 1 || (edid_ver == 1 && edid_rev < 3 ) )
 	xres = (block[0] + 31) * 8;
+	else
+		xres = (block[0] * 8) + 248;	/* edid v1.3 */
+
 	if (xres <= 256)
 		return 0;
 
 	ratio = (block[1] & 0xc0) >> 6;
 	switch (ratio) {
-	case 0:
+	case 0:		/* aspect ratio 16:10 in v1.3,  ratio 1:1 prior to v1.3 */
+		if( edid_ver < 1 || (edid_ver == 1 && edid_rev < 3 ) )
 		yres = xres;
+		else
+			yres = (xres *10)/16;
 		break;
 	case 1:
 		yres = (xres * 3)/4;
@@ -531,13 +539,13 @@ static int get_std_timing(unsigned char *block, struct fb_videomode *mode)
 	return 1;
 }
 
-static int get_dst_timing(unsigned char *block,
+static int get_dst_timing(u8 edid_ver, u8 edid_rev, unsigned char *block,
 			  struct fb_videomode *mode)
 {
 	int j, num = 0;
 
 	for (j = 0; j < 6; j++, block += STD_TIMING_DESCRIPTION_SIZE)
-		num += get_std_timing(block, &mode[num]);
+		num += get_std_timing(edid_ver, edid_rev, block, &mode[num]);
 
 	return num;
 }
@@ -573,13 +581,21 @@ static void get_detailed_timing(unsigned char *block,
 	}
 	mode->flag = FB_MODE_IS_DETAILED;
 
-	DPRINTK("      %d MHz ",  PIXEL_CLOCK/1000000);
-	DPRINTK("%d %d %d %d ", H_ACTIVE, H_ACTIVE + H_SYNC_OFFSET,
-	       H_ACTIVE + H_SYNC_OFFSET + H_SYNC_WIDTH, H_ACTIVE + H_BLANKING);
-	DPRINTK("%d %d %d %d ", V_ACTIVE, V_ACTIVE + V_SYNC_OFFSET,
-	       V_ACTIVE + V_SYNC_OFFSET + V_SYNC_WIDTH, V_ACTIVE + V_BLANKING);
-	DPRINTK("%sHSync %sVSync\n\n", (HSYNC_POSITIVE) ? "+" : "-",
-	       (VSYNC_POSITIVE) ? "+" : "-");
+	DPRINTK("      \"%dx%d%s%d\" %d ",  
+		mode->xres, mode->yres, INTERLACED ? "i@" : "@", mode->refresh,
+		PIXEL_CLOCK/1000000);
+	DPRINTK("%d %d %d %d ", 
+		mode->xres, 
+		mode->xres + mode->right_margin,
+		mode->xres + mode->right_margin + mode->hsync_len, 
+		mode->xres + mode->right_margin + mode->hsync_len + mode->left_margin );
+	DPRINTK("%d %d %d %d ", 
+		mode->yres, 
+		mode->yres + mode->lower_margin,
+		mode->yres + mode->lower_margin + mode->vsync_len, 
+		mode->yres + mode->lower_margin + mode->vsync_len + mode->upper_margin );
+	DPRINTK("%shsync %svsync\n", (HSYNC_POSITIVE) ? "+" : "-",
+		   (VSYNC_POSITIVE) ? "+" : "-" );
 }
 
 /**
@@ -599,6 +615,9 @@ static struct fb_videomode *fb_create_modedb(unsigned char *edid, int *dbsize)
 	unsigned char *block;
 	int num = 0, i, first = 1;
 
+	int offset = 0;
+	u8 edid_ver = 0, edid_rev = 0;
+	
 	mode = kzalloc(50 * sizeof(struct fb_videomode), GFP_KERNEL);
 	if (mode == NULL)
 		return NULL;
@@ -611,6 +630,9 @@ static struct fb_videomode *fb_create_modedb(unsigned char *edid, int *dbsize)
 
 	*dbsize = 0;
 
+	edid_ver = edid[EDID_STRUCT_VERSION];
+	edid_rev = edid[EDID_STRUCT_REVISION];
+	
 	DPRINTK("   Detailed Timings\n");
 	block = edid + DETAILED_TIMING_DESCRIPTIONS_START;
 	for (i = 0; i < 4; i++, block+= DETAILED_TIMING_DESCRIPTION_SIZE) {
@@ -631,12 +653,43 @@ static struct fb_videomode *fb_create_modedb(unsigned char *edid, int *dbsize)
 	DPRINTK("   Standard Timings\n");
 	block = edid + STD_TIMING_DESCRIPTIONS_START;
 	for (i = 0; i < STD_TIMING; i++, block += STD_TIMING_DESCRIPTION_SIZE)
-		num += get_std_timing(block, &mode[num]);
+		num += get_std_timing(edid_ver, edid_rev, block, &mode[num]);
 
+	DPRINTK("   Detail Timings\n");
 	block = edid + DETAILED_TIMING_DESCRIPTIONS_START;
 	for (i = 0; i < 4; i++, block+= DETAILED_TIMING_DESCRIPTION_SIZE) {
 		if (block[0] == 0x00 && block[1] == 0x00 && block[3] == 0xfa)
-			num += get_dst_timing(block + 5, &mode[num]);
+			num += get_dst_timing(edid_ver, edid_rev, block + 5, &mode[num]);
+	}
+
+	/* how many additional extension blocks available */
+	if (edid[126] > 0 ) { 
+		if (edid[DETAILED_TIMING_DESCRIPTIONS_BLOCK1_START] == 0x02) {
+			/* This block is CEA extension */
+			DPRINTK("----------------------------------------\n");
+			DPRINTK("   EIA/CEA-861 Information\n");
+			DPRINTK("   Revision number: %d\n", 
+						edid[DETAILED_TIMING_DESCRIPTIONS_BLOCK1_START+1] );
+			DPRINTK("   DTV underscan: %s\n",
+						(edid[DETAILED_TIMING_DESCRIPTIONS_BLOCK1_START+3] & 0x80 ) ?
+							"Supported" : "Not supported");
+			DPRINTK("   Basic audio: %s\n",
+						(edid[DETAILED_TIMING_DESCRIPTIONS_BLOCK1_START+3] & 0x40 ) ?
+							"Supported" : "Not supported");
+
+			offset = edid[DETAILED_TIMING_DESCRIPTIONS_BLOCK1_START + 2];
+			if (offset > 0) {
+				block = edid + DETAILED_TIMING_DESCRIPTIONS_BLOCK1_START + offset;
+
+				DPRINTK("   Detailed Timings\n");
+				for (i = 0; i < 5; i++, block+= DETAILED_TIMING_DESCRIPTION_SIZE) {
+					if (!(block[0] == 0x00 && block[1] == 0x00)) {
+						get_detailed_timing(block, &mode[num]);
+						num++;
+					}
+				}
+			}
+		}
 	}
 
 	/* Yikes, EDID data is totally useless */

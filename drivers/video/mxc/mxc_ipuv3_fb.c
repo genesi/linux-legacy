@@ -48,6 +48,24 @@
 #include <asm/uaccess.h>
 #include <mach/hardware.h>
 
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+
+#include <../arch/arm/mach-mx5/mx51_efikamx.h>
+
+#ifndef dev_dbg
+#define dev_dbg(dev, format, arg...)            \
+        dev_printk(KERN_INFO , dev , format , ## arg)
+#endif
+
+extern int mxc_debug;
+extern int clock_auto;
+extern int extsync;
+extern int pixclk_limit;
+extern void mxcfb_adjust(struct fb_var_screeninfo *var );
+#endif
+
+
+
 /*
  * Driver name
  */
@@ -146,6 +164,19 @@ static int mxcfb_set_fix(struct fb_info *info)
 	fix->visual = FB_VISUAL_TRUECOLOR;
 	fix->xpanstep = 1;
 	fix->ypanstep = 1;
+
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+	if( clock_auto && extsync ) {
+		if ( var->pixclock < pixclk_limit ) {
+			printk(KERN_INFO "exceed pixel clock limit %d, auto adjust to 720p\n", pixclk_limit );
+			fb_find_mode( var, info, "1280x720-24@60", NULL, 0, NULL, 0 );
+		}
+		var->sync |= FB_SYNC_EXT;	/* x window need it otherwise refresh rate will become bigger than user specified */
+	}
+	/* skip mxc_sdc_fb.2 (overlay) configure */
+	if ( ((struct mxcfb_info *)info->par)->ipu_ch != MEM_FG_SYNC)
+		mxcfb_adjust( var );
+#endif
 
 	return 0;
 }
@@ -1677,7 +1708,11 @@ static int mxcfb_probe(struct platform_device *pdev)
 	mxcfb_check_var(&fbi->var, fbi);
 
 	/* Default Y virtual size is 2x panel size */
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+	fbi->var.yres_virtual = fbi->var.yres * 2;
+#else
 	fbi->var.yres_virtual = fbi->var.yres * 3;
+#endif
 
 	mxcfb_set_fix(fbi);
 

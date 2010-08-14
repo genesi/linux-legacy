@@ -264,12 +264,24 @@ static const struct fb_videomode modedb[] = {
 	/* 1280x800, 60 Hz, 47.403 kHz hsync, WXGA 16:10 aspect ratio */
 	NULL, 60, 1280, 800, 12048, 200, 64, 24, 1, 136, 3,
 	0, FB_VMODE_NONINTERLACED
-    }, {
-       /* 720x576i @ 50 Hz, 15.625 kHz hsync (PAL RGB) */
+    }, 
+	{ /* 1280x720 @ 60 CEA-MODE 4 */
+	  "1280x720-16@60", 60, 1280, 720, 13468, 220, 110, 20, 5, 40, 5,
+	FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT, FB_VMODE_NONINTERLACED 
+	},
+	{ /* 1280x720 @ 50 Hz CEA-MODE 19 */
+	  "1280x720-16@50", 50, 1280, 720, 13468, 220, 440, 20, 5, 40, 5,
+	FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT, FB_VMODE_NONINTERLACED 
+	},
+	{ /* 1280x768, 60Hz, 68.26MHz  */
+	"1280x768-16@60", 60, 1280, 768, 14650, 80, 48, 12, 3, 32, 7,
+	FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT, FB_VMODE_NONINTERLACED 	
+	},
+	{ /* 720x576i @ 50 Hz, 15.625 kHz hsync (PAL RGB) */
        NULL, 50, 720, 576, 74074, 64, 16, 39, 5, 64, 5,
        0, FB_VMODE_INTERLACED
-    }, {
-       /* 800x520i @ 50 Hz, 15.625 kHz hsync (PAL RGB) */
+    },
+	{ /* 800x520i @ 50 Hz, 15.625 kHz hsync (PAL RGB) */
        NULL, 50, 800, 520, 58823, 144, 64, 72, 28, 80, 5,
        0, FB_VMODE_INTERLACED
     },
@@ -402,19 +414,17 @@ const struct fb_videomode vesa_modes[] = {
 EXPORT_SYMBOL(vesa_modes);
 #endif /* CONFIG_FB_MODE_HELPERS */
 
-static int my_atoi(const char *name)
+int fb_dump_mode( char *func_char, struct fb_videomode *mode)
 {
-    int val = 0;
+	printk( KERN_INFO  "%s geometry %u %u %u\n", 
+	  func_char,  mode->xres, mode->yres, mode->pixclock);
+	printk( KERN_INFO  "%s timings %u %u %u %u %u %u %u\n",
+	  func_char, mode->pixclock, mode->left_margin, mode->right_margin, 
+	  mode->upper_margin, mode->lower_margin, mode->hsync_len, mode->vsync_len );
+	printk( KERN_INFO  "%s flag %u sync %u vmode %u\n",
+	  func_char, mode->flag, mode->sync, mode->vmode );
 
-    for (;; name++) {
-	switch (*name) {
-	    case '0' ... '9':
-		val = 10*val+(*name-'0');
-		break;
-	    default:
-		return val;
-	}
-    }
+	return 0;
 }
 
 /**
@@ -525,6 +535,9 @@ int fb_find_mode(struct fb_var_screeninfo *var,
     /* Did the user specify a video mode? */
     if (!mode_option)
 	mode_option = fb_mode_option;
+	
+	printk(KERN_INFO "mode_option=%s\n", mode_option);
+	
     if (mode_option) {
 	const char *name = mode_option;
 	unsigned int namelen = strlen(name);
@@ -539,7 +552,7 @@ int fb_find_mode(struct fb_var_screeninfo *var,
 		    namelen = i;
 		    if (!refresh_specified && !bpp_specified &&
 			!yres_specified) {
-			refresh = my_atoi(&name[i+1]);
+				refresh = simple_strtol(&name[i+1], NULL, 10);
 			refresh_specified = 1;
 			if (cvt || rb)
 			    cvt = 0;
@@ -549,7 +562,7 @@ int fb_find_mode(struct fb_var_screeninfo *var,
 		case '-':
 		    namelen = i;
 		    if (!bpp_specified && !yres_specified) {
-			bpp = my_atoi(&name[i+1]);
+				bpp = simple_strtol(&name[i+1], NULL, 10);
 			bpp_specified = 1;
 			if (cvt || rb)
 			    cvt = 0;
@@ -558,7 +571,7 @@ int fb_find_mode(struct fb_var_screeninfo *var,
 		    break;
 		case 'x':
 		    if (!yres_specified) {
-			yres = my_atoi(&name[i+1]);
+				yres = simple_strtol(&name[i+1], NULL, 10);
 			yres_specified = 1;
 		    } else
 			goto done;
@@ -585,11 +598,12 @@ int fb_find_mode(struct fb_var_screeninfo *var,
 		    goto done;
 	    }
 	}
+		
 	if (i < 0 && yres_specified) {
-	    xres = my_atoi(name);
+		    xres = simple_strtol(name, NULL, 10);
 	    res_specified = 1;
 	}
-done:
+	done:
 	if (cvt) {
 	    struct fb_videomode cvt_mode;
 	    int ret;
@@ -609,8 +623,8 @@ done:
 	    else
 		cvt_mode.vmode &= ~FB_VMODE_INTERLACED;
 
-	    ret = fb_find_mode_cvt(&cvt_mode, margins, rb);
-
+	    ret = fb_find_mode_cvt(&cvt_mode, margins, rb);	
+		
 	    if (!ret && !fb_try_mode(var, info, &cvt_mode, bpp)) {
 		DPRINTK("modedb CVT: CVT mode ok\n");
 		return 1;
