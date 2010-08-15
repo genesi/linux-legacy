@@ -1043,6 +1043,13 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 	dev_dbg(g_ipu_dev, "pixel clk = %d\n", pixel_clk);
 
 	if (sig.ext_clk) {
+
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+		/* workaround for monitor become blank when width > 1024 (such as 1280x720)
+		 * possible due to g_di_clk[disp] > ipu clk 133MHz
+		 * TOFIX: make this compile in but board_is_efikamx it..
+		 */
+#else
 		/* Set the  PLL to be an even multiple of the pixel clock. not round div for tvout*/
 		if ((clk_get_usecount(g_pixel_clk[0]) == 0) &&
 				(clk_get_usecount(g_pixel_clk[1]) == 0)) {
@@ -1057,6 +1064,8 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 				clk_set_rate(g_di_clk[disp], pixel_clk);
 			}
 		}
+#endif
+
 		clk_set_parent(g_pixel_clk[disp], g_di_clk[disp]);
 	} else {
 		if (clk_get_usecount(g_pixel_clk[disp]) != 0)
