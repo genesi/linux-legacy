@@ -1053,9 +1053,13 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 		 * TOFIX: make this compile in but board_is_efikamx it..
 		 */
 #else
-		/* Set the  PLL to be an even multiple of the pixel clock. not round div for tvout*/
-		if ((clk_get_usecount(g_pixel_clk[0]) == 0) &&
-				(clk_get_usecount(g_pixel_clk[1]) == 0)) {
+		/*
+		 * Set the  PLL to be an even multiple of the pixel clock.
+		 * Not round div for tvout and ldb.
+		 * Did not consider both DI come from the same ext clk, if
+		 * meet such case, ext clk rate should be set specially.
+		 */
+		if (clk_get_usecount(g_pixel_clk[disp]) == 0) {
 			di_parent = clk_get_parent(g_di_clk[disp]);
 			if (strcmp(di_parent->name, "tve_clk") != 0 &&
 			    strcmp(di_parent->name, "ldb_di0_clk") != 0 &&
