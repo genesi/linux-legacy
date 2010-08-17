@@ -12,7 +12,7 @@
  * http://www.opensource.org/licenses/gpl-license.html
  * http://www.gnu.org/copyleft/gpl.html
  */
- 
+
 #include <linux/types.h>
 #include <linux/delay.h>
 #include <linux/pm.h>
@@ -134,8 +134,9 @@ static struct mxc_dvfs_platform_data dvfs_core_data = {
 	.delay_time = 30,
 #if defined(CONFIG_MX51_GIGAHERTZ)
 	.num_wp = 3,
-#endif
+#else
 	.num_wp = 2,
+#endif
 };
 
 static struct mxc_dvfsper_data dvfs_per_data = {
@@ -160,13 +161,9 @@ void __init mx51_efikamx_timer_init(void)
 {
 	/* Change the CPU voltages for TO2*/
 	if (cpu_is_mx51_rev(CHIP_REV_2_0) <= 1) {
-
 #if defined(CONFIG_MX51_GIGAHERTZ)
-		cpu_wp_auto[0].cpu_voltage = 1175000; // for 1GHz
-		cpu_wp_auto[1].cpu_voltage = 1100000;
 		cpu_wp_auto[2].cpu_voltage = 1000000;
 #else
-		cpu_wp_auto[0].cpu_voltage = 1100000;
 		cpu_wp_auto[1].cpu_voltage = 1000000;
 #endif
 	}
@@ -178,7 +175,6 @@ void __init mx51_efikamx_timer_init(void)
 
 void __init mx51_efikamx_init_soc(void)
 {
-	/* these are all "cpu" stuff -> move to cpu.c */
 	mxc_register_device(&mxc_dma_device, NULL);
 	mxc_register_device(&mxc_wdt_device, NULL);
 	mxc_register_device(&mx51_lpmode_device, NULL);
@@ -196,5 +192,5 @@ void __init mx51_efikamx_init_soc(void)
 		mxc_register_device(&mxc_dvfs_per_device, &dvfs_per_data);
 	}
 
-	/* mxc_register_device(&mxcscc_device, NULL); broken */
+	mxc_register_device(&mxcscc_device, NULL);
 }
