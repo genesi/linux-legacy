@@ -2425,7 +2425,7 @@ static int _clk_cspi_set_parent(struct clk *clk, struct clk *parent)
 
 static struct clk cspi_main_clk = {
 	.name = "cspi_main_clk",
-	.parent = &pll3_sw_clk,
+	.parent = &pll3_sw_clk, // reparented to lp_apm_clk on mx51
 	.recalc = _clk_cspi_recalc,
 	.set_parent = _clk_cspi_set_parent,
 	.flags = RATE_PROPAGATES,
@@ -2538,7 +2538,11 @@ static struct clk ssi1_clk[] = {
 	{
 	 .name = "ssi_clk",
 	 .id = 0,
-	 .parent = &pll3_sw_clk,
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+	.parent = &pll2_sw_clk,
+#else
+	.parent = &pll3_sw_clk,
+#endif
 	 .set_parent = _clk_ssi1_set_parent,
 	 .secondary = &ssi1_clk[1],
 	 .recalc = _clk_ssi1_recalc,
@@ -2601,7 +2605,11 @@ static struct clk ssi2_clk[] = {
 	{
 	 .name = "ssi_clk",
 	 .id = 1,
-	 .parent = &pll3_sw_clk,
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+	.parent = &pll2_sw_clk,
+#else
+	.parent = &pll3_sw_clk,
+#endif
 	 .set_parent = _clk_ssi2_set_parent,
 	 .secondary = &ssi2_clk[1],
 	 .recalc = _clk_ssi2_recalc,
@@ -2710,7 +2718,7 @@ static unsigned long _clk_ssi_ext1_round_rate(struct clk *clk,
 
 static struct clk ssi_ext1_clk = {
 	.name = "ssi_ext1_clk",
-	.parent = &pll3_sw_clk,
+	.parent = &pll3_sw_clk, // reparented to ssi_clk on mx51
 	.set_parent = _clk_ssi_ext1_set_parent,
 	.set_rate = _clk_ssi_ext1_set_rate,
 	.round_rate = _clk_ssi_ext1_round_rate,
@@ -2761,7 +2769,7 @@ static int _clk_ssi_ext2_set_parent(struct clk *clk, struct clk *parent)
 
 static struct clk ssi_ext2_clk = {
 	.name = "ssi_ext2_clk",
-	.parent = &pll3_sw_clk,
+	.parent = &pll3_sw_clk, // reparented to ssi_clk on mx51
 	.set_parent = _clk_ssi_ext2_set_parent,
 	.recalc = _clk_ssi_ext2_recalc,
 	.enable_reg = MXC_CCM_CCGR3,
@@ -2921,7 +2929,7 @@ static int _clk_usboh3_set_parent(struct clk *clk, struct clk *parent)
 static struct clk usboh3_clk[] = {
 	{
 	 .name = "usboh3_clk",
-	 .parent = &pll3_sw_clk,
+	 .parent = &pll3_sw_clk, // reparented to pll2 on mx51
 	 .set_parent = _clk_usboh3_set_parent,
 	 .recalc = _clk_usboh3_recalc,
 	 .enable = _clk_enable,
@@ -2988,7 +2996,7 @@ static struct clk usb_phy_clk[] = {
 	{
 	.name = "usb_phy1_clk",
 	.id = 0,
-	.parent = &pll3_sw_clk,
+	.parent = &pll3_sw_clk, // reparented to 24MHz on MX51
 	.secondary = &tmax3_clk,
 	.set_parent = _clk_usb_phy_set_parent,
 	.recalc = _clk_usb_phy_recalc,
@@ -3000,7 +3008,11 @@ static struct clk usb_phy_clk[] = {
 	{
 	.name = "usb_phy2_clk",
 	.id = 1,
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+	.parent = &pll2_sw_clk,
+#else
 	.parent = &pll3_sw_clk,
+#endif
 	.secondary = &tmax3_clk,
 	.set_parent = _clk_usb_phy_set_parent,
 	.recalc = _clk_usb_phy_recalc,
@@ -3174,7 +3186,7 @@ static struct clk esdhc2_clk[] = {
 	{
 	 .name = "esdhc_clk",
 	 .id = 1,
-	 .parent = &pll3_sw_clk,
+	 .parent = &pll3_sw_clk, // note; gets reparented to pll2??
 	 .set_parent = _clk_esdhc2_set_parent,
 	 .enable = _clk_enable,
 	 .enable_reg = MXC_CCM_CCGR3,
@@ -3496,7 +3508,11 @@ static int _clk_sim_set_rate(struct clk *clk, unsigned long rate)
 static struct clk sim_clk[] = {
 	{
 	.name = "sim_clk",
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+	.parent = &esdhc1_clk[0],
+#else
 	.parent = &pll3_sw_clk,
+#endif
 	.set_parent = _clk_sim_set_parent,
 	.secondary = &sim_clk[1],
 	.recalc = _clk_sim_recalc,
@@ -3677,7 +3693,7 @@ static struct clk spdif0_clk[] = {
 	{
 	.name = "spdif_clk",
 	.id = 0,
-	.parent = &pll3_sw_clk,
+	.parent = &pll3_sw_clk, // gets reparented on mx51
 	.set_parent = _clk_spdif0_set_parent,
 	.recalc = _clk_spdif0_recalc,
 	.enable = _clk_enable,
@@ -3736,7 +3752,7 @@ static struct clk spdif1_clk[] = {
 	{
 	.name = "spdif_clk",
 	.id = 1,
-	.parent = &pll3_sw_clk,
+	.parent = &pll3_sw_clk, // gets reparented on mx51
 	.set_parent = _clk_spdif1_set_parent,
 	.recalc = _clk_spdif1_recalc,
 	.enable = _clk_enable,
@@ -4639,6 +4655,22 @@ int __init mx51_clocks_init(unsigned long ckil, unsigned long osc, unsigned long
 	clk_set_parent(&arm_axi_clk, &axi_a_clk);
 	clk_set_parent(&ipu_clk[0], &axi_b_clk);
 
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+	/* set uart clock source */
+	clk_set_parent(&uart_main_clk, &pll2_sw_clk);
+
+	/* after change reference parent clock from pll3 to pll2 
+	* (in order to let pll2 adjustable for various screen resolution),
+	* need to adjust original children clock to approximate original clock rate.
+	*/
+
+	clk_set_parent(&csi0_clk, &pll2_sw_clk);
+	clk_set_parent(&csi1_clk, &pll2_sw_clk);
+	clk_set_rate(&csi0_clk, clk_get_rate(&pll2_sw_clk)/12);
+	clk_set_rate(&csi1_clk, clk_get_rate(&pll2_sw_clk)/12);
+
+#else
+
 	if (uart_at_24) {
 		/* Move UART to run from lp_apm */
 		clk_set_parent(&uart_main_clk, &lp_apm_clk);
@@ -4664,6 +4696,8 @@ int __init mx51_clocks_init(unsigned long ckil, unsigned long osc, unsigned long
 		    (1 << MXC_CCM_CSCDR1_UART_CLK_PODF_OFFSET);
 		__raw_writel(reg, MXC_CCM_CSCDR1);
 	}
+
+#endif
 
 	propagate_rate(&osc_clk);
 	propagate_rate(&pll1_sw_clk);
