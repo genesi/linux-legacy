@@ -70,7 +70,9 @@ static void putc(int ch)
 #endif
 }
 
-#define flush() do { } while (0)
+static inline void flush(void)
+{
+}
 
 /*
  * nothing to do
