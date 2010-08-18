@@ -432,6 +432,10 @@ out:
 
 #include <linux/smp.h>
 
+#if defined(CONFIG_ARCH_MX51) && defined(CONFIG_NEON)
+#include <mach/hardware.h>
+#endif
+
 /*
  * VFP support code initialisation.
  */
@@ -498,7 +502,8 @@ static int __init vfp_init(void)
 		 * load/store instructions, integer and single
 		 * precision floating point operations.
 		 */
-		if ((fmrx(MVFR1) & 0x000fff00) == 0x00011100)
+		if (((fmrx(MVFR1) & 0x000fff00) == 0x00011100)
+			&& cpu_is_mx51_rev(CHIP_REV_3_0) > 0)
 			elf_hwcap |= HWCAP_NEON;
 #endif
 	}
