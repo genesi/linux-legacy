@@ -522,6 +522,9 @@ void __init mx51_efikamx_init_display(void)
 	gpio_request(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIO), "dvi_power");
 	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIO), 1);
 
+	mxc_ipu_data.di_clk[0] = clk_get(NULL, "ipu_di0_clk");
+	mxc_ipu_data.di_clk[1] = clk_get(NULL, "ipu_di1_clk");
+
 	mxc_register_device(&mxc_ipu_device, &mxc_ipu_data);
 	mxc_register_device(&mxcvpu_device, &mxc_vpu_data);
 	mxc_register_device(&gpu_device, NULL);
@@ -621,20 +624,20 @@ static int __init video_mode_setup(char *options)
 		return 1;
 
 	video_mode = simple_strtol(options, NULL, 10);
-	
+
 	printk("video mode=%d\n", video_mode);
 
 	return 1;
 }
 
 static int __init clock_setup(char *options)
-{	
+{
 	if (!options || !*options)
 		return 1;
-	
+
 	clock_auto = simple_strtol(options, NULL, 10);
 	printk("clock_auto=%d\n", clock_auto);
-	
+
 	return 1;
 }
 
@@ -646,7 +649,7 @@ static int __init vmode_setup(char *options)
 	memset( vmode, 0, sizeof(vmode));
 	strncpy( vmode, options, sizeof(vmode)-1 );
 	printk("vmode=%s\n", vmode );
-	
+
 	return 1;
 }
 
@@ -654,10 +657,10 @@ static int __init video_max_res_setup(char *options)
 {
 	if (!options || !*options)
 		return 1;
-	
+
 	video_max_res = simple_strtol(options, NULL, 10);
 	printk("video_max_res=%d\n", video_max_res);
-	
+
 	return 1;
 }
 
@@ -665,7 +668,7 @@ static int __init video_1080p_setup(char *options)
 {
 	if (!options || !*options)
 		return 1;
-	
+
 	video_1080p = simple_strtol(options, NULL, 10);
 	printk("video_1080p=%d\n", video_1080p);
 
