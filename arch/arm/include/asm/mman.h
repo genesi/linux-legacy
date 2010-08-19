@@ -1,4 +1,7 @@
 #ifndef __ARM_MMAN_H__
+
+#define arch_mmap_check(addr, len, flags) \
+       (((flags) & MAP_FIXED && (addr) < FIRST_USER_ADDRESS) ? -EINVAL : 0)
 #define __ARM_MMAN_H__
 
 #include <asm-generic/mman-common.h>
