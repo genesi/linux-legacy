@@ -40,8 +40,8 @@
 #define uV_to_V(uV) (uV_to_mV(uV) / 1000)
 
 /* Coin cell charger enable */
-#define CIONCHEN_LSH	23
-#define CIONCHEN_WID	1
+#define COINCHEN_LSH	23
+#define COINCHEN_WID	1
 /* Coin cell charger voltage setting */
 #define VCOIN_LSH	20
 #define VCOIN_WID	3
@@ -82,6 +82,15 @@
 #define REG_MODE_1_ALL_MASK	(CAM_STBY_MASK | VIDEO_STBY_MASK |\
 				AUDIO_STBY_MASK | SD_STBY_MASK)
 
+/* switch mode setting */
+#define	SW1MODE_LSB	0
+#define	SW2MODE_LSB	10
+#define	SW3MODE_LSB	0
+#define	SW4MODE_LSB	8
+
+#define	SWMODE_MASK	0xF
+#define SWMODE_AUTO	0x8
+
 /* CPU */
 static struct regulator_consumer_supply sw1_consumers[] = {
 	{
@@ -95,11 +104,13 @@ static struct regulator_consumer_supply vdig_consumers[] = {
 		.supply = "VDDA",
 		.dev_name = "1-000a",
 	},
+#if 0
 	{
 		/* sgtl5000 */
 		.supply = "VDDD",
 		.dev_name = "1-000a",
 	},
+#endif
 };
 
 static struct regulator_consumer_supply vvideo_consumers[] = {
@@ -175,6 +186,7 @@ static struct regulator_init_data viohi_init = {
 	.constraints = {
 		.name = "VIOHI",
 		.boot_on = 1,
+		.always_on = 1,
 	}
 };
 
@@ -182,6 +194,7 @@ static struct regulator_init_data vusb_init = {
 	.constraints = {
 		.name = "VUSB",
 		.boot_on = 1,
+		.always_on = 1,
 	}
 };
 
@@ -194,8 +207,8 @@ static struct regulator_init_data swbst_init = {
 static struct regulator_init_data vdig_init = {
 	.constraints = {
 		.name = "VDIG",
-		.min_uV = mV_to_uV(1050),
-		.max_uV = mV_to_uV(1800),
+		.min_uV = mV_to_uV(1650),
+		.max_uV = mV_to_uV(1650),
 		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
 		.boot_on = 1,
 	},
@@ -210,6 +223,7 @@ static struct regulator_init_data vpll_init = {
 		.max_uV = mV_to_uV(1800),
 		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
 		.boot_on = 1,
+		.always_on = 1,
 	}
 };
 
@@ -220,6 +234,7 @@ static struct regulator_init_data vusb2_init = {
 		.max_uV = mV_to_uV(2775),
 		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
 		.boot_on = 1,
+		.always_on = 1,
 	}
 };
 
@@ -233,7 +248,7 @@ static struct regulator_init_data vvideo_init = {
 		.apply_uV =1,
 	},
 	.num_consumer_supplies = ARRAY_SIZE(vvideo_consumers),
-	.consumer_supplies = vvideo_consumers,	
+	.consumer_supplies = vvideo_consumers,
 };
 
 static struct regulator_init_data vaudio_init = {
@@ -337,9 +352,30 @@ static int mc13892_regulator_init(struct mc13892 *mc13892)
 	value |= REG_MODE_1_ALL_MASK;
 	pmic_write_reg(REG_MODE_1, value, 0xffffff);
 
+	/* enable switch auto mode (ENGR00120510 ENGR00121057) */
+	pmic_read_reg(REG_IDENTIFICATION, &value, 0xffffff);
+	/* only for mc13892 2.0A */
+	if ((value & 0x0000FFFF) == 0x45d0) {
+		pmic_read_reg(REG_SW_4, &value, 0xffffff);
+		register_mask = (SWMODE_MASK << SW1MODE_LSB) |
+		       (SWMODE_MASK << SW2MODE_LSB);
+		value &= ~register_mask;
+		value |= (SWMODE_AUTO << SW1MODE_LSB) |
+			(SWMODE_AUTO << SW2MODE_LSB);
+		pmic_write_reg(REG_SW_4, value, 0xffffff);
+
+		pmic_read_reg(REG_SW_5, &value, 0xffffff);
+		register_mask = (SWMODE_MASK << SW3MODE_LSB) |
+			(SWMODE_MASK << SW4MODE_LSB);
+		value &= ~register_mask;
+		value |= (SWMODE_AUTO << SW3MODE_LSB) |
+			(SWMODE_AUTO << SW4MODE_LSB);
+		pmic_write_reg(REG_SW_5, value, 0xffffff);
+	}
+
 	/* Enable coin cell charger */
-	value = BITFVAL(CIONCHEN, 1) | BITFVAL(VCOIN, VCOIN_3_0V);
-	register_mask = BITFMASK(CIONCHEN) | BITFMASK(VCOIN);
+	value = BITFVAL(COINCHEN, 1) | BITFVAL(VCOIN, VCOIN_3_0V);
+	register_mask = BITFMASK(COINCHEN) | BITFMASK(VCOIN);
 	pmic_write_reg(REG_POWER_CTL0, value, register_mask);
 
 #if defined(CONFIG_RTC_DRV_MXC_V2) || defined(CONFIG_RTC_DRV_MXC_V2_MODULE)
@@ -347,7 +383,7 @@ static int mc13892_regulator_init(struct mc13892 *mc13892)
 	register_mask = BITFMASK(DRM);
 	pmic_write_reg(REG_POWER_CTL0, value, register_mask);
 #endif
-	
+
 	mc13892_register_regulator(mc13892, MC13892_SW1, &sw1_init);
 	mc13892_register_regulator(mc13892, MC13892_SW2, &sw2_init);
 	mc13892_register_regulator(mc13892, MC13892_SW3, &sw3_init);
@@ -370,6 +406,8 @@ static int mc13892_regulator_init(struct mc13892 *mc13892)
 	mc13892_register_regulator(mc13892, MC13892_GPO3, &gpo3_init);
 	mc13892_register_regulator(mc13892, MC13892_GPO4, &gpo4_init);
 
+//	regulator_has_full_constraints();
+
 	return 0;
 }
 
@@ -380,7 +418,7 @@ static struct mc13892_platform_data mc13892_plat = {
 static struct spi_board_info __initdata mc13892_spi_device = {
 	.modalias = "pmic_spi",
 	.irq = IOMUX_TO_IRQ(MX51_PIN_GPIO1_6),
-	.max_speed_hz = 1000000,	/* max spi SCK clock speed in HZ */
+	.max_speed_hz = 6000000,	/* max spi SCK clock speed in HZ */
 	.bus_num = 1,
 	.chip_select = 0,
 	.platform_data = &mc13892_plat,
