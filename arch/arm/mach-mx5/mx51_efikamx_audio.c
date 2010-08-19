@@ -98,6 +98,9 @@ static struct mxc_spdif_platform_data mx51_efikamx_spdif_data = {
 
 void mx51_efikamx_init_audio(void)
 {
+	struct clk *ssi_ext1;
+	int rate;
+
 	CONFIG_IOMUX(mx51_efikamx_audio_iomux_pins);
 
 	/* TODO: move these two to the  IOMUX stuff above */
@@ -119,9 +122,11 @@ void mx51_efikamx_init_audio(void)
 	mxc_register_device(&mxc_ssi1_device, NULL);
 	mxc_register_device(&mxc_ssi2_device, NULL);
 
-	if (cpu_is_mx51_rev(CHIP_REV_1_1) == 2) {
-		mx51_efikamx_audio_data.sysclk = 26000000;
-	}
+	ssi_ext1 = clk_get(NULL, "ssi_ext1_clk");
+	rate = clk_round_rate(ssi_ext1, 24000000);
+	clk_set_rate(ssi_ext1, rate);
+	clk_enable(ssi_ext1);
+	mx51_efikamx_audio_data.sysclk = rate;
 
 	gpio_request(IOMUX_TO_GPIO(EFIKAMX_AMP_ENABLE), "audio_amp_enable");
 	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_AMP_ENABLE), 0);
