@@ -2967,6 +2967,7 @@ unsigned long nr_iowait(void)
 
 /* Variables and functions for calc_load */
 static atomic_long_t calc_load_tasks;
+static atomic_long_t calc_load_tasks_deferred;
 static unsigned long calc_load_update;
 unsigned long avenrun[3];
 EXPORT_SYMBOL(avenrun);
@@ -3021,7 +3022,7 @@ void calc_global_load(void)
  */
 static void calc_load_account_active(struct rq *this_rq)
 {
-	long nr_active, delta;
+	long nr_active, delta, deferred;
 
 	nr_active = this_rq->nr_running;
 	nr_active += (long) this_rq->nr_uninterruptible;
@@ -3029,6 +3030,25 @@ static void calc_load_account_active(struct rq *this_rq)
 	if (nr_active != this_rq->calc_load_active) {
 		delta = nr_active - this_rq->calc_load_active;
 		this_rq->calc_load_active = nr_active;
+
+		/*
+		 * Update calc_load_tasks only once per cpu in 10 tick update
+		 * window.
+		 */
+		if (unlikely(time_before(jiffies, this_rq->calc_load_update) &&
+			     time_after_eq(jiffies, calc_load_update))) {
+			if (delta)
+				atomic_long_add(delta,
+						&calc_load_tasks_deferred);
+			return;
+		}
+
+		if (calc_load_tasks_deferred.counter) {
+			deferred = atomic_long_xchg(&calc_load_tasks_deferred,
+						    0);
+			delta += deferred;
+		}
+
 		atomic_long_add(delta, &calc_load_tasks);
 	}
 }
@@ -3072,8 +3092,8 @@ static void update_cpu_load(struct rq *this_rq)
 	}
 
 	if (time_after_eq(jiffies, this_rq->calc_load_update)) {
-		this_rq->calc_load_update += LOAD_FREQ;
 		calc_load_account_active(this_rq);
+		this_rq->calc_load_update += LOAD_FREQ;
 	}
 }
 
