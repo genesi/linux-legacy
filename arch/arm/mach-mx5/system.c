@@ -15,10 +15,15 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <asm/io.h>
+#include <asm/mach-types.h>
 #include <mach/hardware.h>
 #include <asm/proc-fns.h>
 #include <asm/system.h>
 #include "crm_regs.h"
+
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+#include "mx51_efikamx.h"
+#endif
 
 /*!
  * @defgroup MSL_MX51 i.MX51 Machine Specific Layer (MSL)
@@ -176,4 +181,8 @@ void arch_reset(char mode)
 
 	/* Assert SRS signal */
 	mxc_wd_reset();
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+	if (machine_is_mx51_efikamx())
+		mx51_efikamx_reboot();
+#endif
 }
