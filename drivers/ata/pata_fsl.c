@@ -26,6 +26,7 @@
 #include <linux/fsl_devices.h>
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
+#include <linux/leds.h>
 #include <mach/dma.h>
 
 #define DRV_NAME "pata_fsl"
