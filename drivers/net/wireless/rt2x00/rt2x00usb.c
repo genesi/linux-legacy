@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 2004 - 2009 rt2x00 SourceForge Project
+	Copyright (C) 2004 - 2009 Ivo van Doorn <IvDoorn@gmail.com>
 	<http://rt2x00.serialmonkey.com>
 
 	This program is free software; you can redistribute it and/or modify
@@ -47,6 +47,8 @@ int rt2x00usb_vendor_request(struct rt2x00_dev *rt2x00dev,
 	    (requesttype == USB_VENDOR_REQUEST_IN) ?
 	    usb_rcvctrlpipe(usb_dev, 0) : usb_sndctrlpipe(usb_dev, 0);
 
+	if (!test_bit(DEVICE_STATE_PRESENT, &rt2x00dev->flags))
+		return -ENODEV;
 
 	for (i = 0; i < REGISTER_BUSY_COUNT; i++) {
 		status = usb_control_msg(usb_dev, pipe, request, requesttype,
@@ -60,8 +62,10 @@ int rt2x00usb_vendor_request(struct rt2x00_dev *rt2x00dev,
 		 * -ENODEV: Device has disappeared, no point continuing.
 		 * All other errors: Try again.
 		 */
-		else if (status == -ENODEV)
+		else if (status == -ENODEV) {
+			clear_bit(DEVICE_STATE_PRESENT, &rt2x00dev->flags);
 			break;
+		}
 	}
 
 	ERROR(rt2x00dev,
@@ -156,10 +160,13 @@ EXPORT_SYMBOL_GPL(rt2x00usb_vendor_request_large_buff);
 
 int rt2x00usb_regbusy_read(struct rt2x00_dev *rt2x00dev,
 			   const unsigned int offset,
-			   struct rt2x00_field32 field,
+			   const struct rt2x00_field32 field,
 			   u32 *reg)
 {
 	unsigned int i;
+
+	if (!test_bit(DEVICE_STATE_PRESENT, &rt2x00dev->flags))
+		return -ENODEV;
 
 	for (i = 0; i < REGISTER_BUSY_COUNT; i++) {
 		rt2x00usb_register_read_lock(rt2x00dev, offset, reg);
@@ -251,22 +258,14 @@ int rt2x00usb_write_tx_data(struct queue_entry *entry)
 }
 EXPORT_SYMBOL_GPL(rt2x00usb_write_tx_data);
 
-static inline void rt2x00usb_kick_tx_entry(struct queue_entry *entry)
-{
-	struct queue_entry_priv_usb *entry_priv = entry->priv_data;
-
-	if (test_and_clear_bit(ENTRY_DATA_PENDING, &entry->flags))
-		usb_submit_urb(entry_priv->urb, GFP_ATOMIC);
-}
-
 void rt2x00usb_kick_tx_queue(struct rt2x00_dev *rt2x00dev,
 			     const enum data_queue_qid qid)
 {
 	struct data_queue *queue = rt2x00queue_get_queue(rt2x00dev, qid);
 	unsigned long irqflags;
 	unsigned int index;
-	unsigned int index_done;
-	unsigned int i;
+	struct queue_entry *entry;
+	struct queue_entry_priv_usb *entry_priv;
 
 	/*
 	 * Only protect the range we are going to loop over,
@@ -276,23 +275,14 @@ void rt2x00usb_kick_tx_queue(struct rt2x00_dev *rt2x00dev,
 	 */
 	spin_lock_irqsave(&queue->lock, irqflags);
 	index = queue->index[Q_INDEX];
-	index_done = queue->index[Q_INDEX_DONE];
 	spin_unlock_irqrestore(&queue->lock, irqflags);
 
-	/*
-	 * Start from the TX done pointer, this guarentees that we will
-	 * send out all frames in the correct order.
-	 */
-	if (index_done < index) {
-		for (i = index_done; i < index; i++)
-			rt2x00usb_kick_tx_entry(&queue->entries[i]);
-	} else {
-		for (i = index_done; i < queue->limit; i++)
-			rt2x00usb_kick_tx_entry(&queue->entries[i]);
+	if(index == 0) index = queue->limit;
+	index -= 1;
 
-		for (i = 0; i < index; i++)
-			rt2x00usb_kick_tx_entry(&queue->entries[i]);
-	}
+	entry = &queue->entries[index];
+	entry_priv = entry->priv_data;
+	usb_submit_urb(entry_priv->urb, GFP_ATOMIC);
 }
 EXPORT_SYMBOL_GPL(rt2x00usb_kick_tx_queue);
 
@@ -355,6 +345,13 @@ static void rt2x00usb_interrupt_rxdone(struct urb *urb)
 		usb_submit_urb(urb, GFP_ATOMIC);
 		return;
 	}
+
+	/*
+	 * Trim the received data to its real length. Doing this way, we can
+	 * check latter that we are not trying to access data out of the
+	 * received frame.
+	 */
+	skb_trim(entry->skb, urb->actual_length);
 
 	/*
 	 * Fill in desc fields of the skb descriptor
@@ -645,6 +642,8 @@ int rt2x00usb_probe(struct usb_interface *usb_intf,
 	rt2x00dev->dev = &usb_intf->dev;
 	rt2x00dev->ops = ops;
 	rt2x00dev->hw = hw;
+
+	rt2x00_set_chip_intf(rt2x00dev, RT2X00_CHIP_INTF_USB);
 
 	retval = rt2x00usb_alloc_reg(rt2x00dev);
 	if (retval)

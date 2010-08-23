@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 2004 - 2009 rt2x00 SourceForge Project
+	Copyright (C) 2004 - 2009 Ivo van Doorn <IvDoorn@gmail.com>
 	<http://rt2x00.serialmonkey.com>
 
 	This program is free software; you can redistribute it and/or modify
@@ -29,7 +29,7 @@
 #include <linux/prefetch.h>
 
 /**
- * DOC: Entrie frame size
+ * DOC: Entry frame size
  *
  * Ralink PCI devices demand the Frame size to be a multiple of 128 bytes,
  * for USB devices this restriction does not apply, but the value of
@@ -45,13 +45,13 @@
 /**
  * DOC: Number of entries per queue
  *
- * Under normal load without fragmentation 12 entries are sufficient
+ * Under normal load without fragmentation, 12 entries are sufficient
  * without the queue being filled up to the maximum. When using fragmentation
- * and the queue threshold code we need to add some additional margins to
+ * and the queue threshold code, we need to add some additional margins to
  * make sure the queue will never (or only under extreme load) fill up
  * completely.
- * Since we don't use preallocated DMA having a large number of queue entries
- * will have only minimal impact on the memory requirements for the queue.
+ * Since we don't use preallocated DMA, having a large number of queue entries
+ * will have minimal impact on the memory requirements for the queue.
  */
 #define RX_ENTRIES	24
 #define TX_ENTRIES	24
@@ -92,14 +92,14 @@ enum data_queue_qid {
  * @SKBDESC_DMA_MAPPED_TX: &skb_dma field has been mapped for TX
  * @SKBDESC_IV_STRIPPED: Frame contained a IV/EIV provided by
  *	mac80211 but was stripped for processing by the driver.
- * @SKBDESC_L2_PADDED: Payload has been padded for 4-byte alignment,
- *	the padded bytes are located between header and payload.
+ * @SKBDESC_NOT_MAC80211: Frame didn't originate from mac80211,
+ *	don't try to pass it back.
  */
 enum skb_frame_desc_flags {
 	SKBDESC_DMA_MAPPED_RX = 1 << 0,
 	SKBDESC_DMA_MAPPED_TX = 1 << 1,
 	SKBDESC_IV_STRIPPED = 1 << 2,
-	SKBDESC_L2_PADDED = 1 << 3
+	SKBDESC_NOT_MAC80211 = 1 << 3,
 };
 
 /**
@@ -214,6 +214,7 @@ struct rxdone_entry_desc {
  *
  * @TXDONE_UNKNOWN: Hardware could not determine success of transmission.
  * @TXDONE_SUCCESS: Frame was successfully send
+ * @TXDONE_FALLBACK: Frame was sent using a fallback rate table.
  * @TXDONE_FAILURE: Frame was not successfully send
  * @TXDONE_EXCESSIVE_RETRY: In addition to &TXDONE_FAILURE, the
  *	frame transmission failed due to excessive retries.
@@ -221,6 +222,7 @@ struct rxdone_entry_desc {
 enum txdone_entry_desc_flags {
 	TXDONE_UNKNOWN,
 	TXDONE_SUCCESS,
+	TXDONE_FALLBACK,
 	TXDONE_FAILURE,
 	TXDONE_EXCESSIVE_RETRY,
 };
@@ -232,7 +234,9 @@ enum txdone_entry_desc_flags {
  * after the device is done with transmission.
  *
  * @flags: TX done flags (See &enum txdone_entry_desc_flags).
- * @retry: Retry count.
+ * @retry: Retry count. If TXDONE_FALLBACK is not set, the frame was sent
+ * (retry+1) times at the same rate. If TXDONE_FALLBACK is set, the frame was
+ * sent once for each lower rates, up to (retry+1) times in total.
  */
 struct txdone_entry_desc {
 	unsigned long flags;

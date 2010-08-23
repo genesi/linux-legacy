@@ -1,5 +1,5 @@
 /*
-	Copyright (C) 2004 - 2009 rt2x00 SourceForge Project
+	Copyright (C) 2004 - 2009 Ivo van Doorn <IvDoorn@gmail.com>
 	<http://rt2x00.serialmonkey.com>
 
 	This program is free software; you can redistribute it and/or modify
@@ -40,6 +40,9 @@ int rt2x00pci_regbusy_read(struct rt2x00_dev *rt2x00dev,
 			   u32 *reg)
 {
 	unsigned int i;
+
+	if (!test_bit(DEVICE_STATE_PRESENT, &rt2x00dev->flags))
+		return 0;
 
 	for (i = 0; i < REGISTER_BUSY_COUNT; i++) {
 		rt2x00pci_register_read(rt2x00dev, offset, reg);
@@ -309,6 +312,8 @@ int rt2x00pci_probe(struct pci_dev *pci_dev, const struct pci_device_id *id)
 	rt2x00dev->hw = hw;
 	rt2x00dev->irq = pci_dev->irq;
 	rt2x00dev->name = pci_name(pci_dev);
+
+	rt2x00_set_chip_intf(rt2x00dev, RT2X00_CHIP_INTF_PCI);
 
 	/*
 	 * Determine RT chipset by reading PCI header.
