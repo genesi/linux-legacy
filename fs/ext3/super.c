@@ -1650,6 +1650,10 @@ static int ext3_fill_super (struct super_block *sb, void *data, int silent)
 	sbi->s_resuid = le16_to_cpu(es->s_def_resuid);
 	sbi->s_resgid = le16_to_cpu(es->s_def_resgid);
 
+	/* enable barriers by default */
+#ifdef CONFIG_EXT3_DEFAULTS_TO_BARRIERS_ENABLED
+	set_opt(sbi->s_mount_opt, BARRIER);
+#endif
 	set_opt(sbi->s_mount_opt, RESERVATION);
 
 	if (!parse_options ((char *) data, sb, &journal_inum, &journal_devnum,
@@ -2325,6 +2329,13 @@ static int ext3_commit_super(struct super_block *sb,
 	es->s_free_blocks_count = cpu_to_le32(ext3_count_free_blocks(sb));
 	es->s_free_inodes_count = cpu_to_le32(ext3_count_free_inodes(sb));
 	BUFFER_TRACE(sbh, "marking dirty");
+
+	/* We only read the superblock once. The in-memory version is
+	 * always the most recent. If ext3_error is called after a
+	 * superblock write failure, it will be !uptodate. This write
+	 * will likely fail also, but it avoids the WARN_ON in
+	 * mark_buffer_dirty. */
+	set_buffer_uptodate(sbh);
 	mark_buffer_dirty(sbh);
 	if (sync)
 		error = sync_dirty_buffer(sbh);
