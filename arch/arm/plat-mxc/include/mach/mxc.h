@@ -209,6 +209,24 @@ struct mxc_w1_config {
  * data. It includes the SPI  bus number and the maximum number of
  * slaves/chips it supports.
  */
+
+
+/* micken: added battery support */
+
+struct mxc_battery_platform_data {
+  int batt_in_irq;
+  int ac_in_irq;
+  int batt_low_irq;
+  int (*get_batt_in_status) (void);
+  int (*get_ac_in_status) (void);
+  int (*get_batt_low_status) (void);
+  void (*set_batt_low_led) (int);
+};
+
+
+
+
+
 struct mxc_spi_master {
 	/*!
 	 * SPI Master's bus number.
@@ -314,6 +332,11 @@ struct mxc_lcd_platform_data {
 	char *io_reg;
 	char *core_reg;
 	char *analog_reg;
+  // micken: backlight etc for efikasb
+        void (*power_on_lcd) (int);
+        void (*power_on_lvds) (int);
+        void (*turn_on_backlight) (int);
+        void (*lvds_enable) (int);
 	void (*reset) (void);
 };
 

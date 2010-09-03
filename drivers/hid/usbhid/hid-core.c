@@ -36,7 +36,7 @@
 #include <linux/hid-debug.h>
 #include <linux/hidraw.h>
 #include "usbhid.h"
-
+#include "../hid-ids.h" // micken: for logitech id
 /*
  * Version Information
  */
@@ -552,6 +552,12 @@ void usbhid_submit_report(struct hid_device *hid, struct hid_report *report, uns
 }
 EXPORT_SYMBOL_GPL(usbhid_submit_report);
 
+
+#ifdef CONFIG_MACH_MX51_EFIKASB
+extern void mxc_turn_on_caps_led(int on);
+#endif
+
+
 static int usb_hidinput_input_event(struct input_dev *dev, unsigned int type, unsigned int code, int value)
 {
 	struct hid_device *hid = input_get_drvdata(dev);
@@ -582,6 +588,14 @@ static int usb_hidinput_input_event(struct input_dev *dev, unsigned int type, un
 		spin_unlock_irqrestore(&usbhid->lock, flags);
 	}
 	usbhid_submit_report(hid, field->report, USB_DIR_OUT);
+
+#ifdef CONFIG_MACH_MX51_EFIKASB
+        /* ron: Caps Lock LED */
+        if(code == 0x01) {
+	  mxc_turn_on_caps_led(value);
+        }
+#endif
+
 
 	return 0;
 }
@@ -1130,6 +1144,18 @@ static int hid_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	hid->bus = BUS_USB;
 	hid->vendor = le16_to_cpu(dev->descriptor.idVendor);
 	hid->product = le16_to_cpu(dev->descriptor.idProduct);
+
+#ifdef CONFIG_MACH_MX51_EFIKASB
+        /* ron: skip the Logitech G15 GamePanel LCD */
+	// inherited Ron's code , Byron 2010.03.10                                                                                                                                                                      
+        if(hid->vendor == USB_VENDOR_ID_LOGITECH &&
+           hid->product == USB_DEVICE_ID_LOGITECH_G15_GAMEPANEL) {
+	  ret = -ENODEV;
+	  goto err;
+        }
+#endif
+
+
 	hid->name[0] = 0;
 	if (intf->cur_altsetting->desc.bInterfaceProtocol ==
 			USB_INTERFACE_PROTOCOL_MOUSE)

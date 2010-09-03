@@ -36,6 +36,15 @@ config LEDS_MC13892
 	tristate "LED Support for mc13892 pmic"
 	depends on LEDS_CLASS && MXC_MC13892_LIGHT
 
+
+config LEDS_EFIKASB
+        tristate "LED Support for Efikasb Platform"
+        depends on LEDS_CLASS && MACH_MX51_EFIKASB
+        help
+          This option enable support for the LEDs on Efikasb Platform.
+
+
+
 config LEDS_LOCOMO
 	tristate "LED Support for Locomo device"
 	depends on LEDS_CLASS && SHARP_LOCOMO

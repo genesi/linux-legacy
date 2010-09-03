@@ -696,6 +696,98 @@ static int dpm_suspend(pm_message_t state)
 	return error;
 }
 
+
+/* ron: suspend the USB Host if all device are disconnected */
+// Inherited Ron's added, Byron 2010.03.10                                                                                                                                                                                     // micken : added to efikasb kernel 2010.09.03 
+int suspend_device_by_name(char *dev_name, pm_message_t state)
+{
+  struct list_head list;
+  int error = 0;
+
+  INIT_LIST_HEAD(&list);
+  mutex_lock(&dpm_list_mtx);
+  while (!list_empty(&dpm_list)) {
+    struct device *dev = to_device(dpm_list.prev);
+
+    get_device(dev);
+    mutex_unlock(&dpm_list_mtx);
+
+    if(strcmp(dev_name, dev->kobj.name) == 0) {
+
+      //error = suspend_device(dev, state);                                                                                                                                                                   
+      error= device_suspend(dev,state);//2010.03.10 ,Byron                                                                                                                            
+
+      mutex_lock(&dpm_list_mtx);
+      if (error) {
+	pm_dev_err(dev, state, "", error);
+	put_device(dev);
+	break;
+      }
+
+      dev->power.status = DPM_OFF;
+      break;
+    }
+
+
+    if (!list_empty(&dev->power.entry))
+      list_move(&dev->power.entry, &list);
+    put_device(dev);
+
+  }
+  list_splice(&list, dpm_list.prev);
+  mutex_unlock(&dpm_list_mtx);
+  return error;
+}
+EXPORT_SYMBOL(suspend_device_by_name);
+
+
+// inheriated V28 Byron 2010.03.10                                                                                                                                                                                              // micken: added to efikasb 2010.09.03
+int resume_device_by_name(char *dev_name, pm_message_t state)
+{
+  struct list_head list;
+  int error = 0;
+
+  INIT_LIST_HEAD(&list);
+  mutex_lock(&dpm_list_mtx);
+  transition_started = false;
+  while (!list_empty(&dpm_list)) {
+    struct device *dev = to_device(dpm_list.next);
+
+    get_device(dev);
+
+    if(strcmp(dev_name, dev->kobj.name) == 0) {
+
+      if (dev->power.status >= DPM_OFF) {
+
+	dev->power.status = DPM_RESUMING;
+	mutex_unlock(&dpm_list_mtx);
+
+	//error = resume_device(dev, state);                                                                                                                                                            
+	error=device_resume(dev,state); //2010.03.10 Byron                                                                                                              
+
+	mutex_lock(&dpm_list_mtx);
+	if (error)
+	  pm_dev_err(dev, state, "", error);
+      } else if (dev->power.status == DPM_SUSPENDING) {
+	/* Allow new children of the device to be registered */
+	dev->power.status = DPM_RESUMING;
+      }
+      break;
+    }
+
+    if (!list_empty(&dev->power.entry))
+      list_move_tail(&dev->power.entry, &list);
+    put_device(dev);
+  }
+  list_splice(&list, &dpm_list);
+  mutex_unlock(&dpm_list_mtx);
+
+  return error;
+}
+EXPORT_SYMBOL(resume_device_by_name);
+
+
+
 /**
  *	device_prepare - Execute the ->prepare() callback(s) for given device.
  *	@dev:	Device.

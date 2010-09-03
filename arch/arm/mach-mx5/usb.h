@@ -29,7 +29,8 @@ extern void gpio_usbotg_utmi_inactive(void);
 extern void __init mx5_usb_dr_init(void);
 extern void __init mx5_usbh1_init(void);
 extern void __init mx5_usbh2_init(void);
-
+// micken: name clash with efikamx mainline ?
+extern void __init mx51_usbh2_init(void);
 typedef void (*driver_vbus_func)(bool);
 extern void mx5_set_host1_vbus_func(driver_vbus_func);
 extern void mx5_set_otghost_vbus_func(driver_vbus_func);

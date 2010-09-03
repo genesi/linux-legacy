@@ -124,4 +124,12 @@ config MXS_VBUS_CURRENT_DRAW
 	  Say Y to enable 100mA limitation when USB vbus power on system
 	  before enumeration to match USB2.0 requirement.
 
+
+config BATTERY_EFIKASB
+        tristate "Efikasb battery driver"
+        depends on I2C
+        help
+          Say Y here to enable support for Efikasb battery.
+
+
 endif # POWER_SUPPLY

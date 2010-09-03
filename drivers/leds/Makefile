@@ -8,6 +8,7 @@ obj-$(CONFIG_LEDS_TRIGGERS)		+= led-triggers.o
 obj-$(CONFIG_LEDS_ATMEL_PWM)		+= leds-atmel-pwm.o
 obj-$(CONFIG_LEDS_BD2802)		+= leds-bd2802.o
 obj-$(CONFIG_LEDS_MC13892)		+= leds-mc13892.o
+obj-$(CONFIG_LEDS_EFIKASB)               += leds-efikasb.o
 obj-$(CONFIG_LEDS_STMP378X)		+= leds-stmp378x-pwm.o
 obj-$(CONFIG_LEDS_LOCOMO)		+= leds-locomo.o
 obj-$(CONFIG_LEDS_MIKROTIK_RB532)	+= leds-rb532.o

@@ -51,6 +51,13 @@ MODULE_PARM_DESC(debug, "HID debugging (0=off, 1=probing info, 2=continuous data
 EXPORT_SYMBOL_GPL(hid_debug);
 #endif
 
+
+
+//inherited V28 ,2010.03.10 Byron                                                                                                                                                                                               
+#ifdef CONFIG_MACH_MX51_EFIKASB
+extern void mxc_reset_idle_timer(void);
+#endif
+
 /*
  * Register a new report for a device.
  */
@@ -916,6 +923,11 @@ static void hid_input_field(struct hid_device *hid, struct hid_field *field,
 			hid_process_event(hid, field, &field->usage[n], value[n], interrupt);
 			continue;
 		}
+
+		/* ron: add kunlun custom Fn + XX key */
+                //inherited Ron's code, Byron 2010.03.10                                                                                                                                                                        
+                if((field->usage[n].hid & HID_USAGE_PAGE) == HID_UP_CUSTOM)
+		  hid_process_event(hid, field, &field->usage[n], value[n], interrupt);
 
 		if (field->value[n] >= min && field->value[n] <= max
 			&& field->usage[field->value[n] - min].hid

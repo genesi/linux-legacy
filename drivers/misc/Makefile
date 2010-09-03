@@ -21,5 +21,6 @@ obj-$(CONFIG_HP_ILO)		+= hpilo.o
 obj-$(CONFIG_ISL29003)		+= isl29003.o
 obj-$(CONFIG_C2PORT)		+= c2port/
 obj-$(CONFIG_MXS_PERSISTENT)	+= mxs-persistent.o
+obj-$(CONFIG_MX51_EFIKASB_DEBUG) += mx51_efikasb_debug.o
 obj-y				+= eeprom/
 obj-y				+= cb710/
