@@ -166,7 +166,7 @@ static int mxcfb_set_fix(struct fb_info *info)
 	fix->ypanstep = 1;
 
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
-	if (board_is_mx51_efikamx()) {
+	if (machine_is_mx51_efikamx()) {
 		if( clock_auto && extsync ) {
 			if ( var->pixclock < pixclk_limit ) {
 				printk(KERN_INFO "exceed pixel clock limit %d, auto adjust to 720p\n", pixclk_limit );
@@ -1711,7 +1711,7 @@ static int mxcfb_probe(struct platform_device *pdev)
 
 	/* Default Y virtual size is 2x panel size */
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
-	if (0 || board_is_mx51_efikamx()) /* disabled pending retest */
+	if (0 || machine_is_mx51_efikamx()) /* disabled pending retest */
 		fbi->var.yres_virtual = fbi->var.yres * 2;
 	else
 #else
