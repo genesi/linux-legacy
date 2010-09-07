@@ -48,7 +48,7 @@ static int efikasb_led_probe(struct platform_device *dev)
 
 	}
 
-	printk(KERN_INFO "Registered Efikasb Message Alarm LED\n");
+	printk(KERN_INFO "Registered Efika MX Smartbook Message Alarm LED\n");
 
 	return 0;
 
@@ -97,6 +97,6 @@ static void __exit efikasb_led_exit(void)
 module_init(efikasb_led_init);
 module_exit(efikasb_led_exit);
 
-MODULE_DESCRIPTION("Led driver for Efikasb LEDs");
+MODULE_DESCRIPTION("Led driver for Efika MX Smartbook LEDs");
 MODULE_AUTHOR("Ron Lee <ron1_lee@pegatroncorp.com> Pegatron Inc.");
 MODULE_LICENSE("GPL");

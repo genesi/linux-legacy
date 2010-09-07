@@ -38,10 +38,10 @@ config LEDS_MC13892
 
 
 config LEDS_EFIKASB
-        tristate "LED Support for Efikasb Platform"
+        tristate "LED Support for Efika MX Smartbook"
         depends on LEDS_CLASS && MACH_MX51_EFIKASB
         help
-          This option enable support for the LEDs on Efikasb Platform.
+          This option enable support for the LEDs on Efika MX Smartbook.
 
 
 
