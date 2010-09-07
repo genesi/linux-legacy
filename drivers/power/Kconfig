@@ -126,10 +126,10 @@ config MXS_VBUS_CURRENT_DRAW
 
 
 config BATTERY_EFIKASB
-        tristate "Efikasb battery driver"
+        tristate "Efika MX Smartbook battery driver"
         depends on I2C
         help
-          Say Y here to enable support for Efikasb battery.
+          Say Y here to enable support for Efika MX Smartbook battery.
 
 
 endif # POWER_SUPPLY

@@ -1,5 +1,5 @@
 /*
- * Efikasb Smart Battery driver
+ * Efika MX Smart Battery driver
  *
  * Copyright (C) 2009 Ron Lee <ron1_lee@pegatroncorp.com>
  *
@@ -764,7 +764,7 @@ static int efikasb_batt_i2c_probe(struct i2c_client *client,
         }
 
 
-	printk("Probe Efikasb Battery: %s %s %s: %d%%, AC %s\n",
+	printk("Probe Efika MX Smartbook Battery: %s %s %s: %d%%, AC %s\n",
 	       di->mfg_name, di->model_name,
 	       di->batt_in ? "Inserted" : "Removed", di->capacity,
 	       di->ac_in ? "Inserted" : "Removed");
@@ -835,7 +835,7 @@ static int __init efikasb_batt_init(void)
 
 	ret = i2c_add_driver(&efikasb_batt_i2c_driver);
 	if(ret)
-		printk(KERN_ERR "Unable to register Efikasb Battery Driver\n");
+		printk(KERN_ERR "Unable to register Efika MX Smartbook Battery Driver\n");
 
 	return ret;
 }
@@ -849,7 +849,7 @@ static void __exit efikasb_batt_exit(void)
 module_exit(efikasb_batt_exit);
 
 MODULE_AUTHOR("Ron Lee <ron1_lee@pegatroncorp.com>");
-MODULE_DESCRIPTION("Efikasb Smart Battery Driver");
+MODULE_DESCRIPTION("Efika MX Smart Battery Driver");
 MODULE_LICENSE("GPL");
 
 
