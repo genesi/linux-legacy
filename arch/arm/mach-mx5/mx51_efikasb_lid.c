@@ -156,9 +156,9 @@ static int __init mxc_init_efikasb_lid(void)
                 goto err2;
         }
 
-        efikasb_lid_inputdev->name = "Efikasb Lid Switch";
-        efikasb_lid_inputdev->phys = "Efikasb/input1";
-        efikasb_lid_inputdev->uniq = "Efikasb";
+        efikasb_lid_inputdev->name = "efikasb Lid Switch";
+        efikasb_lid_inputdev->phys = "efikasb/input1";
+        efikasb_lid_inputdev->uniq = "efikasb";
         efikasb_lid_inputdev->id.bustype = BUS_HOST;
         efikasb_lid_inputdev->id.vendor = PCI_VENDOR_ID_FREESCALE;
         
@@ -171,7 +171,7 @@ static int __init mxc_init_efikasb_lid(void)
 
         ret = input_register_device(efikasb_lid_inputdev);
         if(ret) {
-                pr_err("Failed to register Efikasb lid input device\n");
+                pr_err("Failed to register efikasb lid input device\n");
                 ret = -ENODEV;
                 goto err1;
         }

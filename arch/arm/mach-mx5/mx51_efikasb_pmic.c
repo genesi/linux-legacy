@@ -1,5 +1,5 @@
 /*
- * mx51-efikasb-pmic-mc13892.c  --  i.MX51 Efikasb Driver for Atlas MC13892 PMIC
+ * mx51_efikasb_pmic.c  --  Efika MX Smartbook Driver for Atlas MC13892 PMIC
  */
  /*
   * Copyright 2009-2010 Pegatron Corporation. All Rights Reserved.
@@ -325,7 +325,7 @@ static int mc13892_regulator_init(struct mc13892 *mc13892)
 {
 	unsigned int value, register_mask;
 
-	printk("Initializing regulators for Efikasb 5.1.\n");
+	printk("Initializing regulators for Efika MX Smartbook\n");
 	if (mxc_cpu_is_rev(CHIP_REV_2_0) < 0)
 		sw2_init.constraints.state_mem.uV = 1100000;
 	else if (mxc_cpu_is_rev(CHIP_REV_2_0) == 1) {

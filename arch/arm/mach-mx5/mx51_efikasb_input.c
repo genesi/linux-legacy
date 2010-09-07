@@ -417,7 +417,7 @@ static int __init mxc_init_efikasb_inputdev(void)
 		pr_err("Failed to allocate hotkey input device\n");
 		return -ENOMEM;
 	}
-	efikasb_inputdev->name = "Genesi Efikasb Extra Buttons";
+	efikasb_inputdev->name = "Genesi Efika MX Smartbook Extra Buttons";
 	efikasb_inputdev->phys = "genesi-efikasb/input0";
 	efikasb_inputdev->uniq = "genesi-efikasb";
 	efikasb_inputdev->id.bustype = BUS_HOST;

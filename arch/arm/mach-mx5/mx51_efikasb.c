@@ -676,7 +676,8 @@ EXPORT_SYMBOL(gpio_gps_access);
 
 static void __init mxc_board_init(void)
 {
-	struct clk *clk;
+	struct clk *clk, *ssi_ext1;
+	int rate;
 
 //	printk(" [VV] mxc_board_init.\n");
 
@@ -726,6 +727,7 @@ static void __init mxc_board_init(void)
 	mxc_register_device(&mxc_pwm_backlight_device, &mxc_pwm_backlight_data);
 	mxc_register_device(&mxc_ssi1_device, NULL);
 	mxc_register_device(&mxc_ssi2_device, NULL);
+
 	mxc_register_device(&pata_fsl_device, &ata_data);
 	mxc_register_device(&mxc_alsa_spdif_device, &mxc_spdif_data);
 	mxc_register_device(&mxc_fec_device, NULL);
@@ -750,9 +752,13 @@ static void __init mxc_board_init(void)
 
 #if defined(CONFIG_SND_SOC_IMX_3STACK_SGTL5000) \
 	|| defined(CONFIG_SND_SOC_IMX_3STACK_SGTL5000_MODULE)
-	if (cpu_is_mx51_rev(CHIP_REV_1_1) == 2) {
-		sgtl5000_data.sysclk = 26000000;
-	}
+
+	ssi_ext1 = clk_get(NULL, "ssi_ext1_clk");
+	rate = clk_round_rate(ssi_ext1, 24000000);
+	clk_set_rate(ssi_ext1, rate);
+	clk_enable(ssi_ext1);
+	sgtl5000_data.sysclk = rate;
+
 
 	gpio_direction_output(IOMUX_TO_GPIO(AUD_MUTE_PIN), 0);
 	mxc_register_device(&mxc_sgtl5000_device, &sgtl5000_data);
@@ -793,7 +799,7 @@ static struct sys_timer mxc_timer = {
  * initialize __mach_desc_MX51_EFIKASB data structure.
  */
 /* *INDENT-OFF* */
-MACHINE_START(MX51_EFIKASB, "Freescale MX51 Efikasb Board")
+MACHINE_START(MX51_EFIKASB, "Genesi Efika MX (Smartbook)")
 	/* Maintainer: Genesi, Inc. */
 	.fixup = fixup_mxc_board,
 	.map_io = mx5_map_io,
