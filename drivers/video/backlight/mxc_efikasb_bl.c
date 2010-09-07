@@ -38,7 +38,7 @@
 
 #define MXC_MAX_BL_LEVEL          11
 #define MXC_MIN_BL_LEVEL          0
-#define MXC_DFL_BL_LEVEL          6
+#define MXC_DFL_BL_LEVEL          11 /* hack, should be 6 to give a decent display, but it flickers */
 
 #define MXC_MAX_INTENSITY 	255
 #define MXC_DEFAULT_INTENSITY 	127
@@ -132,24 +132,24 @@ void mxc_set_brightness(struct mxcbl_dev_data *mxc_bl, uint8_t level)
 	unsigned long long c;
 	unsigned long period_cycles, duty_cycles, prescale;
 	int duty_ns, period_ns;
-	
+
 	//printk("mxc_set_brightness: level=%x\n", level);
 
 #if 0
- 	period_ns = MXC_PWM_PERIOD_NS; 
- 	duty_ns = level * period_ns / MXC_MAX_INTENSITY; 
-	
- 	c = clk_get_rate(mxc_bl->clk) * 665 / 80; 
- 	c = c * period_ns; 
- 	do_div(c, 1000000000); 
- 	period_cycles = c; 
-	
- 	prescale = period_cycles / 0x10000 + 1; 
+ 	period_ns = MXC_PWM_PERIOD_NS;
+ 	duty_ns = level * period_ns / MXC_MAX_INTENSITY;
 
- 	period_cycles /= prescale; 
- 	c = (unsigned long long)period_cycles * duty_ns; 
- 	do_div(c, period_ns); 
- 	duty_cycles = c; 
+ 	c = clk_get_rate(mxc_bl->clk) * 665 / 80;
+ 	c = c * period_ns;
+ 	do_div(c, 1000000000);
+ 	period_cycles = c;
+
+ 	prescale = period_cycles / 0x10000 + 1;
+
+ 	period_cycles /= prescale;
+ 	c = (unsigned long long)period_cycles * duty_ns;
+ 	do_div(c, period_ns);
+ 	duty_cycles = c;
 #else
 	/* ron: hard code the PWM configuration */
 	prescale = 300;
@@ -173,9 +173,15 @@ static int mxcbl_set_brightness(struct backlight_device *bd)
         int level = bd->props.brightness;
         struct mxcbl_dev_data *devdata = dev_get_drvdata(&bd->dev);
 
+#if 1
+	/* HACK - only turn on or off since halfway levels
+	   seem to misconfigure the PWM and cause flickering */
+	if (level > 0) level = MXC_MAX_BL_LEVEL;
+#endif
+
         if (level > MXC_MAX_BL_LEVEL)
                 return 0;
-        
+
 	if (bd->props.power != FB_BLANK_UNBLANK)
 		level = 0;
 	if (bd->props.fb_blank != FB_BLANK_UNBLANK)
