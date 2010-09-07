@@ -260,7 +260,7 @@ config BACKLIGHT_MXC_MC13892
 
 
 config BACKLIGHT_MXC_EFIKASB
-       tristate "MXC Efikasb LCD Backlight Driver"
+       tristate "Efika MX Smartbook LCD Backlight Driver"
        depends on BACKLIGHT_MXC
        default y
 

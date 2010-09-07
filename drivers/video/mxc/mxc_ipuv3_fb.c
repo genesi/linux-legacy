@@ -166,16 +166,18 @@ static int mxcfb_set_fix(struct fb_info *info)
 	fix->ypanstep = 1;
 
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
-	if( clock_auto && extsync ) {
-		if ( var->pixclock < pixclk_limit ) {
-			printk(KERN_INFO "exceed pixel clock limit %d, auto adjust to 720p\n", pixclk_limit );
-			fb_find_mode( var, info, "1280x720-24@60", NULL, 0, NULL, 0 );
+	if (board_is_mx51_efikamx()) {
+		if( clock_auto && extsync ) {
+			if ( var->pixclock < pixclk_limit ) {
+				printk(KERN_INFO "exceed pixel clock limit %d, auto adjust to 720p\n", pixclk_limit );
+				fb_find_mode( var, info, "1280x720-24@60", NULL, 0, NULL, 0 );
+			}
+			var->sync |= FB_SYNC_EXT;	/* x window need it otherwise refresh rate will become bigger than user specified */
 		}
-		var->sync |= FB_SYNC_EXT;	/* x window need it otherwise refresh rate will become bigger than user specified */
+		/* skip mxc_sdc_fb.2 (overlay) configure */
+		if ( ((struct mxcfb_info *)info->par)->ipu_ch != MEM_FG_SYNC)
+			mxcfb_adjust( var );
 	}
-	/* skip mxc_sdc_fb.2 (overlay) configure */
-	if ( ((struct mxcfb_info *)info->par)->ipu_ch != MEM_FG_SYNC)
-		mxcfb_adjust( var );
 #endif
 
 	return 0;
@@ -1709,9 +1711,11 @@ static int mxcfb_probe(struct platform_device *pdev)
 
 	/* Default Y virtual size is 2x panel size */
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
-	fbi->var.yres_virtual = fbi->var.yres * 2;
+	if (0 || board_is_mx51_efikamx()) /* disabled pending retest */
+		fbi->var.yres_virtual = fbi->var.yres * 2;
+	else
 #else
-	fbi->var.yres_virtual = fbi->var.yres * 3;
+		fbi->var.yres_virtual = fbi->var.yres * 3;
 #endif
 
 	mxcfb_set_fix(fbi);

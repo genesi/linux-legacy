@@ -16,7 +16,7 @@
 /*!
  * @file mxc_efikasb_bl.c
  *
- * @brief Backlight Driver for LCDC PWM on Freescale MXC/i.MX  Efikasb platforms.
+ * @brief Backlight Driver for LCDC PWM on Genesi Efika MX Smartbook.
  *
  * This file contains API defined in include/linux/clk.h for setting up and
  * retrieving clocks.
@@ -327,6 +327,6 @@ static void __exit mxcbl_exit(void)
 module_init(mxcbl_init);
 module_exit(mxcbl_exit);
 
-MODULE_DESCRIPTION("Pegatron iMX51 Efikasb LCDC PWM Backlight Driver");
+MODULE_DESCRIPTION("Genesi Efika MX Smartbook Backlight Driver");
 MODULE_AUTHOR("Pegatron Corp.");
 MODULE_LICENSE("GPL");
