@@ -70,6 +70,8 @@ extern void mxcfb_adjust(struct fb_var_screeninfo *var );
  * Driver name
  */
 #define MXCFB_NAME      "mxc_sdc_fb"
+#define MXCFB_DEFAULT_BPP 32 /* fsl default is 16 */
+
 /*!
  * Structure containing the MXC specific framebuffer information.
  */
@@ -607,7 +609,7 @@ static int mxcfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	if ((var->bits_per_pixel != 32) && (var->bits_per_pixel != 24) &&
 	    (var->bits_per_pixel != 16) && (var->bits_per_pixel != 12) &&
 	    (var->bits_per_pixel != 8))
-		var->bits_per_pixel = 16;
+		var->bits_per_pixel = MXCFB_DEFAULT_BPP;
 
 	switch (var->bits_per_pixel) {
 	case 8:
@@ -1687,7 +1689,7 @@ static int mxcfb_probe(struct platform_device *pdev)
 	fbi->var.yres = 320;
 
 	if (!mxcfbi->default_bpp)
-		mxcfbi->default_bpp = 16;
+		mxcfbi->default_bpp = MXCFB_DEFAULT_BPP;
 
 	if (plat_data && !mxcfbi->ipu_di_pix_fmt)
 		mxcfbi->ipu_di_pix_fmt = plat_data->interface_pix_fmt;
