@@ -172,7 +172,9 @@ static int mxcfb_set_fix(struct fb_info *info)
 		if( clock_auto && extsync ) {
 			if ( var->pixclock < pixclk_limit ) {
 				printk(KERN_INFO "exceed pixel clock limit %d, auto adjust to 720p\n", pixclk_limit );
-				fb_find_mode( var, info, "1280x720-24@60", NULL, 0, NULL, 0 );
+				fb_find_mode( var, info, "1280x720-32@60", NULL, 0, NULL, 0 );
+				/* BUG: this should be the same bit depth as the current mode,
+					or if it resyncs a 1280x720p mode it won't reclock */
 			}
 			var->sync |= FB_SYNC_EXT;	/* x window need it otherwise refresh rate will become bigger than user specified */
 		}

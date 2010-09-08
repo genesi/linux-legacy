@@ -48,6 +48,8 @@ int cs8556_reinit(struct fb_var_screeninfo *var);
 
 #define MEGA              1000000
 
+#define EFIKAMX_DEFAULT_BPP 32 /* please keep synced with mxc_ipu3_fb.c */
+
 int __initdata video_output = { VIDEO_OUT_STATIC_HDMI };
 int __initdata video_mode = { VIDEO_OUT_STATIC_HDMI };
 int __initdata hdmi_audio_auto_sw = { 0 };
@@ -115,8 +117,8 @@ static struct resource mxcfb_resources[] = {
 
 static struct mxc_fb_platform_data mxcfb_data[] = {
 	{
-		.interface_pix_fmt = IPU_PIX_FMT_RGB24,
-		.mode_str = "800x600-16@60", // safe default for HDMI
+		.interface_pix_fmt = IPU_PIX_FMT_BGR32,
+		.mode_str = "800x600-32@60", // safe default for HDMI
 	},
 	{
 		.interface_pix_fmt = IPU_PIX_FMT_RGB565,
@@ -480,7 +482,7 @@ void mxcfb_update_default_var(struct fb_var_screeninfo *var,
 	/* user specified vmode,  ex: support reduce blanking, such as 1280x768MR-16@60 */
 	if ( vmode[0] ) {
 		/* use edid support modedb or modedb in modedb.c */
-		modeidx = fb_find_mode(var, info, vmode, specs->modedb, specs->modedb_len, def_mode, 16);
+		modeidx = fb_find_mode(var, info, vmode, specs->modedb, specs->modedb_len, def_mode, 32);
 	}
 	else if ( specs->modedb ) {
 
