@@ -61,6 +61,11 @@ extern int mxc_debug;
 extern int clock_auto;
 extern int extsync;
 extern void mxcfb_adjust(struct fb_var_screeninfo *var );
+
+#elif defined(CONFIG_MACH_MX51_EFIKASB)
+// when platforms merge this horrific thing goes away
+#include <../arch/arm/mach-mx5/mx51_efikasb.h>
+
 #endif
 
 

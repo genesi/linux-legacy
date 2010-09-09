@@ -150,4 +150,6 @@
 
 extern int __init mx51_efikasb_init_mc13892(void);
 
+#define MXCFB_DEFAULT_BPP	16 /* 16 because the panel is */
+
 #endif				/* __ASM_ARCH_MXC_BOARD_MX51_LANGE51_H__ */
