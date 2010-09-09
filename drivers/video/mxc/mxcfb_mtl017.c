@@ -44,7 +44,8 @@
 #include <mach/mxc_edid.h>
 #include <mach/hardware.h>
 
-#define EDID_LENGTH       128
+#define EDID_LENGTH	128
+#define DEBUG_MTL017	1
 
 extern int register_backlight_notifier(struct notifier_block *nb);
 extern int unregister_backlight_notifier(struct notifier_block *nb);
@@ -57,7 +58,7 @@ struct mtl017_dev_data {
 	u8 *regs;
 	int suspending;
         int disp_on;
-        
+
         struct semaphore sem;
 
 	void (*reset)(void);
@@ -74,7 +75,7 @@ typedef struct mtl017_dev_data_tag {
 	u8 *regs;
 	int suspending;
         int disp_on;
-        
+
         struct semaphore sem;
 
 	void (*reset)(void);
@@ -113,16 +114,19 @@ static void dump_edid(unsigned char *id)
 	int i;
 
 	printk("EDID Dump:\n");
-	for (i=0; i < EDID_LENGTH; i++) {
-		printk("[%x]=%x\n", i, id[i]);
-	}
+	for (i = 0; i < EDID_LENGTH; i+=32) {
+		int j;
 
-	printk("\n");
+		for ( j = 0; j < 32; j++) {
+			printk("%02x", id[i+j]);
+		}
+		printk("\n");
+	}
 }
 
 static void dump_screeninfo(struct fb_var_screeninfo *einfo)
 {
-	printk("resolution: r(%d, %d), v(%d, %d) o(%d, %d)\n", 
+	printk("resolution: r(%d, %d), v(%d, %d) o(%d, %d)\n",
 	       einfo->xres,
 	       einfo->yres,
 	       einfo->xres_virtual,
@@ -324,7 +328,6 @@ static u8 mtl017_auo_tbl[] = {
 	0x30,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
 	0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
 	0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
-	
 };
 
 static u8 mtl017_cpt_tbl[] = {
@@ -506,9 +509,9 @@ static int mtl017_read_edid(struct i2c_adapter *adp, unsigned char *edid)
 
 /* ron: for AUO B101AW02 1024x600 LCD Panel */
 static struct fb_videomode auo_mode = {
-	.name = "AUO B101AW02 1024x600", 
+	.name = "AUO B101AW02 1024x600",
 	.refresh = 60,
-	.xres = 1024, 
+	.xres = 1024,
 	.yres = 600,
 /* 	.pixclock = 16666, */   /* ron: 66MHz display clock*/
 	.pixclock = 22800,	/* ron: 44MHz display clock*/
@@ -524,7 +527,7 @@ static struct fb_videomode auo_mode = {
 
 /* ron: for AUO B101EW01 1280x720 LCD Panel */
 static struct fb_videomode auo_hires_mode = {
-	.name = "AUO B101EW01 1280x720", 
+	.name = "AUO B101EW01 1280x720",
 	.refresh = 60,
 	.xres = 1280,
 	.yres = 720,
@@ -557,9 +560,9 @@ static struct fb_videomode cpt_mode = {
 };
 
 static struct fb_videomode cmo_mode = {
-	.name = "CMO N101L6-L0D 1024x600", 
+	.name = "CMO N101L6-L0D 1024x600",
 	.refresh = 60,
-	.xres = 1024, 
+	.xres = 1024,
 	.yres = 600,
 	.pixclock = 22800,	/* ron: 44MHz display clock*/
 	.left_margin = 80,
@@ -611,14 +614,14 @@ static void mtl017_find_videomode(mtl017_dev_data *mtl017)
 {
 	int i;
 	struct i2c_adapter *adp;
-	struct fb_var_screeninfo var; 
+	struct fb_var_screeninfo var;
 	int err;
 
 	adp = i2c_get_adapter(1);
 	err = mtl017_read_edid(adp, mtl017->edid);
 
 	dump_edid(mtl017->edid);
-	/* ron: use edid to parse screeninfo, 
+	/* ron: use edid to parse screeninfo,
 	   but these parameters have some problem */
 	memset(&var, 0, sizeof(var));
 	fb_parse_edid(mtl017->edid, &var);
@@ -639,7 +642,6 @@ static void mtl017_find_videomode(mtl017_dev_data *mtl017)
 
 	mtl017->regs = NULL;
 	mtl017->mode = NULL;
-	
 }
 
 static void lcd_init_fb(struct fb_info *info)
@@ -738,18 +740,18 @@ static int __devinit mtl017_probe(struct i2c_client *client, const struct i2c_de
 	mtl017->suspending = 0;
 	mtl017->client = client;
 	if(plat) {
-		mtl017->reset = 
+		mtl017->reset =
 				plat->reset;
-		mtl017->power_on_lcd = 
+		mtl017->power_on_lcd =
 				plat->power_on_lcd;
-                mtl017->power_on_lvds = 
+                mtl017->power_on_lvds =
 				plat->power_on_lvds;
-                mtl017->turn_on_backlight = 
+                mtl017->turn_on_backlight =
 				plat->turn_on_backlight;
-                mtl017->lvds_enable = 
+                mtl017->lvds_enable =
 				plat->lvds_enable;
 	}
-        
+
 /*         mtl017->lock = SPIN_LOCK_UNLOCKED; */
         sema_init(&mtl017->sem, 1);
 
@@ -765,7 +767,7 @@ static int __devinit mtl017_probe(struct i2c_client *client, const struct i2c_de
 			fb_show_logo(registered_fb[i], 0);
 		}
 	}
-        
+
 	fb_register_client(&fb_nb);
         register_backlight_notifier(&bl_nb);
 
@@ -824,7 +826,6 @@ static void mtl017_conf(u8 *reg_tbl)
                                 goto retry;
 			return;
 		}
-                
 	}
 
 }
@@ -840,7 +841,7 @@ static void disp_power_on(void)
 
                 if(mtl017->power_on_lcd)
                         mtl017->power_on_lcd(1);
-                
+
                 msleep(10);
 
                 if(mtl017->lvds_enable)
@@ -854,7 +855,7 @@ static void disp_power_on(void)
                 msleep(5);
 
                 mtl017_conf(mtl017->regs);
-                
+
                 msleep(200);
 
                 if(mtl017->turn_on_backlight)
@@ -862,15 +863,15 @@ static void disp_power_on(void)
         } else {
                 if(mtl017->lvds_enable)
                         mtl017->lvds_enable(-1);
-                
+
                 if(mtl017->power_on_lcd)
                         mtl017->power_on_lcd(1);
-                
+
                 if(mtl017->power_on_lvds)
                         mtl017->power_on_lvds(1);
 
                 mtl017_conf(mtl017->regs);
-                
+
                 msleep(200);
 
                 if(mtl017->turn_on_backlight)
@@ -893,7 +894,7 @@ static void disp_power_off(void)
                 mtl017->turn_on_backlight(0);
 
         msleep(200);
-        
+
         if(mtl017->mode == &auo_mode) {
                 if(mtl017->lvds_enable)
                         mtl017->lvds_enable(0);
