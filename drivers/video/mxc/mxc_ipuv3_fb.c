@@ -60,7 +60,6 @@
 extern int mxc_debug;
 extern int clock_auto;
 extern int extsync;
-extern int pixclk_limit;
 extern void mxcfb_adjust(struct fb_var_screeninfo *var );
 #endif
 
@@ -170,8 +169,8 @@ static int mxcfb_set_fix(struct fb_info *info)
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
 	if (machine_is_mx51_efikamx()) {
 		if( clock_auto && extsync ) {
-			if ( var->pixclock < pixclk_limit ) {
-				printk(KERN_INFO "exceed pixel clock limit %d, auto adjust to 720p\n", pixclk_limit );
+			if ( var->pixclock < PIXCLK_LIMIT ) {
+				printk(KERN_INFO "exceed pixel clock limit %ld, auto adjust to 720p\n", PIXCLK_LIMIT );
 				if (MXCFB_DEFAULT_BPP == 32)
 					fb_find_mode( var, info, "1280x720-32@60", NULL, 0, NULL, 0 );
 				else

@@ -69,6 +69,12 @@ extern void mx51_efikamx_power_off(void);
 
 extern int mxc_init_fb(void);
 extern void mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_mem);
-#define DBG(x) { printk(KERN_ERR "Efika MX: "); printk x ; }
+#define DBG(x) { printk(KERN_INFO "Efika MX: "); printk x ; }
+
+// also valid values: 125000 (leaves some bandwdith), 133333 (IPU max on MX51)
+// arbitrarily chosen to be 117MHz just because I heard someone at Freescale
+// mention this as the best value to leave enough for the VPU and so on..
+#define PIXCLK_LIMIT KHZ2PICOS(117000)
+
 
 #endif /* __MX51_EFIKAMX_H__ */

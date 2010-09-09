@@ -61,12 +61,7 @@ int __initdata mxc_debug = { 1 };
 int __initdata extsync = { 1 };
 int __initdata sink_dvi = { 0 };                /* default is HDMI */
 int __initdata sink_monitor = { 0 };    /* default is TV */
-int __initdata pixclk_limit = { 8000 }; /* 125MHz */
 int __initdata video_max_res = { 0 };   /* use supported max resolution in edid modelist */
-int __initdata video_1080p = { 0 };
-/* if video_1080p is true, pixclk_limit will set to 6000, up to 1920x1080.
-  * otherwise pixclk_limit is set to 8000
-  */
 
 u8 edid[256];
 
@@ -262,7 +257,7 @@ void mxcfb_videomode_to_modelist(const struct fb_info *info, const struct fb_vid
 
 		del = 0;
 
-		if ( modedb[i].pixclock < pixclk_limit ) {
+		if ( modedb[i].pixclock < PIXCLK_LIMIT ) {
 			printk(KERN_INFO "%ux%u%s%u pclk=%u removed (exceed limit)\n",
 				modedb[i].xres, modedb[i].yres,
 				(modedb[i].vmode & FB_VMODE_INTERLACED ) ? "i@" : "@",
@@ -540,13 +535,8 @@ int mxc_init_fb(void)
 
 	mxcfb_initialized = 1;
 
-	if ( video_1080p ) {
-		pixclk_limit = KHZ2PICOS(149250);
-		video_max_res = 1;
-	}
-
-	printk("*** %s vmode=%s video-mode=%d clock_auto=%d pixclk_limit=%d video_1080p=%d\n", 
-		  __func__, vmode, video_mode, clock_auto, pixclk_limit, video_1080p );
+	printk("*** %s vmode=%s video-mode=%d clock_auto=%d\n", 
+		  __func__, vmode, video_mode, clock_auto);
 
 	if( video_output == VIDEO_OUT_STATIC_HDMI )
 	{
@@ -666,17 +656,6 @@ static int __init video_max_res_setup(char *options)
 	return 1;
 }
 
-static int __init video_1080p_setup(char *options)
-{
-	if (!options || !*options)
-		return 1;
-
-	video_1080p = simple_strtol(options, NULL, 10);
-	printk("video_1080p=%d\n", video_1080p);
-
-	return 1;
-}
-
 __setup("vga", vga_setup);
 __setup("hdmi", hdmi_setup);
 __setup("spdif", hdmi_spdif_setup);
@@ -685,4 +664,3 @@ __setup("video_mode=", video_mode_setup);
 __setup("clock_auto=", clock_setup);
 __setup("vmode=", vmode_setup);
 __setup("video_max_res=", video_max_res_setup);
-__setup("video_1080p=", video_1080p_setup);
