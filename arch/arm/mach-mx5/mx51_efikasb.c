@@ -746,9 +746,7 @@ static void __init mxc_board_init(void)
 	mxc_register_device(&mxcsdhc2_device, &mmc2_data);
 #endif
 	mxc_register_device(&mxc_rtc_device, &srtc_data);
-	mxc_register_device(&mxc_w1_master_device, &mxc_w1_data);
 	mxc_register_device(&mxc_ipu_device, &mxc_ipu_data);
-	mxc_register_device(&mxc_tve_device, &tve_data);
 	mxc_register_device(&mxcvpu_device, &mxc_vpu_data);
 	mxc_register_device(&gpu_device, NULL);
 	mxc_register_device(&mxcscc_device, NULL);	/* eric 20100521: SCC support */
@@ -765,7 +763,6 @@ static void __init mxc_board_init(void)
 
 	mxc_register_device(&pata_fsl_device, &ata_data);
 	mxc_register_device(&mxc_alsa_spdif_device, &mxc_spdif_data);
-	mxc_register_device(&mxc_fec_device, NULL);
 
 	mxc_init_fb();
 	mxc_register_device(&mxcbl_device, NULL);
