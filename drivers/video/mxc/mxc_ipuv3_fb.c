@@ -693,7 +693,9 @@ static int mxcfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 		vtotal = var->yres + var->lower_margin + var->vsync_len +
 		    var->upper_margin;
 		var->pixclock = (vtotal * htotal * 6UL) / 100UL;
-		var->pixclock = KHZ2PICOS(var->pixclock);
+
+		if (var->pixclock) /* avoid div0 error, Arnaud Patard, Mandriva */
+			var->pixclock = KHZ2PICOS(var->pixclock);
 		dev_dbg(info->device,
 			"pixclock set for 60Hz refresh = %u ps\n",
 			var->pixclock);
@@ -1445,10 +1447,13 @@ static int mxcfb_map_video_memory(struct fb_info *fbi)
 		fbi->fix.smem_len = fbi->var.yres_virtual *
 				    fbi->fix.line_length;
 
-	fbi->screen_base = dma_alloc_writecombine(fbi->device,
+	/* line_length is 0 sometimes (BAH!) so temporarily hack it so this doesn't OOPS */
+	if (fbi->fix.smem_len)
+		fbi->screen_base = dma_alloc_writecombine(fbi->device,
 				fbi->fix.smem_len,
 				(dma_addr_t *)&fbi->fix.smem_start,
 				GFP_DMA);
+
 	if (fbi->screen_base == 0) {
 		dev_err(fbi->device, "Unable to allocate framebuffer memory\n");
 		fbi->fix.smem_len = 0;

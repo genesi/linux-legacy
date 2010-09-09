@@ -1344,6 +1344,10 @@ static int mxc_v4l2out_streamon(vout_data * vout)
 	vout->display_buf_size = vout->xres *
 		vout->yres * fbi->var.bits_per_pixel / 8;
 
+	/* avoid crashing if the YUV overlay was not allocated. Temporary workaround.
+	   thanks to Arnaud Patard, Mandriva. Hacked in by Matt at Genesi */
+
+	if (fbi && fbi->screen_base) {
 	/* fill black color for init fb, we assume fb has double buffer*/
 	if (format_is_yuv(vout->v2f.fmt.pix.pixelformat)) {
 		int i;
@@ -1386,6 +1390,7 @@ static int mxc_v4l2out_streamon(vout_data * vout)
 	} else
 		memset(fbi->screen_base, 0x0,
 				fbi->fix.line_length * fbi->var.yres_virtual);
+	} // NEKO
 
 	if (INTERLACED_CONTENT(vout))
 		vout->post_proc_ch = MEM_VDI_PRP_VF_MEM;
