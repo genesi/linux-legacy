@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.31.14
-# Thu Sep  9 13:27:09 2010
+# Thu Sep  9 16:14:08 2010
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -954,8 +954,8 @@ CONFIG_I2C_HELPER_AUTO=y
 # I2C system bus drivers (mostly embedded / system-on-chip)
 #
 # CONFIG_I2C_GPIO is not set
-# CONFIG_I2C_IMX is not set
-CONFIG_I2C_MXC=y
+CONFIG_I2C_IMX=y
+# CONFIG_I2C_MXC is not set
 # CONFIG_I2C_MXC_HS is not set
 # CONFIG_I2C_OCORES is not set
 # CONFIG_I2C_SIMTEC is not set

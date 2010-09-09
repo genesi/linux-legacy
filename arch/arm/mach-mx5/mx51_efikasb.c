@@ -1,7 +1,7 @@
-/* 
+/*
  * Copyright 2009-2010 Pegatron Corporation. All Rights Reserved.
  * Copyright 2009-2010 Genesi USA, Inc. All Rights Reserved.
- * 
+ *
  */
 
 /*
@@ -44,6 +44,7 @@
 #include <asm/mach/arch.h>
 #include <asm/mach/time.h>
 #include <asm/mach/keypad.h>
+#include <mach/i2c.h>
 #include <mach/gpio.h>
 #include <mach/mmc.h>
 #include <mach/mxc_dvfs.h>
@@ -56,6 +57,11 @@
 #include "crm_regs.h"
 #include "usb.h"
 #include <mach/clock.h>
+
+#if defined(CONFIG_I2C_MXC) && defined(CONFIG_I2C_IMX)
+#error pick CONFIG_I2C_MXC or CONFIG_I2C_IMX but not both, please..
+#endif
+
 
 /*!
  * @file mach-mx51/mx51_efikasb.c
@@ -156,9 +162,36 @@ static struct mxc_spi_master mxcspi1_data = {
 	.chipselect_inactive = mx51_efikasb_gpio_spi_chipselect_inactive,
 };
 
-static struct mxc_i2c_platform_data mxci2c_data = {
+#if defined(CONFIG_I2C_MXC)
+static struct mxc_i2c_platform_data mx51_efikasb_i2c2_data = {
 	.i2c_clk = 100000,
 };
+#elif defined(CONFIG_I2C_IMX)
+static struct imxi2c_platform_data mx51_efikasb_imxi2c2_data = {
+	.bitrate = 100000,
+};
+
+static struct resource imxi2c2_resources[] = {
+	{
+		.start = I2C2_BASE_ADDR,
+		.end = I2C2_BASE_ADDR + SZ_4K - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = MXC_INT_I2C2,
+		.end = MXC_INT_I2C2,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device imxi2c2_device = {
+	.name = "imx-i2c",
+	.id = 1,
+	.resource = imxi2c2_resources,
+	.num_resources = ARRAY_SIZE(imxi2c2_resources),
+};
+#endif
+
 
 static struct mxc_srtc_platform_data srtc_data = {
 	.srtc_sec_mode_addr = 0x83F98840,
@@ -238,7 +271,7 @@ static struct mxc_fb_platform_data fb_data[] = {
 	},
 	{
 	 .interface_pix_fmt = IPU_PIX_FMT_RGB565,
-	 .mode_str = "1024x768M-16@60", /* ron: TBD */
+	 .mode_str = "1024x600M-16@60", /* ron: TBD */
 	},
 
 };
@@ -349,7 +382,7 @@ static struct mxc_battery_platform_data efikasb_batt_data = {
 	.set_batt_low_led = NULL/* mxc_turn_on_batt_low_led */,
 };
 
-#if defined(CONFIG_I2C_MXC) || defined(CONFIG_I2C_MXC_MODULE)
+#if defined(CONFIG_I2C_MXC) || defined(CONFIG_I2C_MXC_MODULE) || defined(CONFIG_I2C_IMX) || defined(CONFIG_I2C_IMX_MODULE)
 static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
 	{
 		.type = "sgtl5000-i2c",
@@ -704,7 +737,9 @@ static void __init mxc_board_init(void)
 	mxc_register_device(&mxc_wdt_device, NULL);
 	mxc_register_device(&mxcspi1_device, &mxcspi1_data);
 #if defined(CONFIG_I2C_MXC) || defined(CONFIG_I2C_MXC_MODULE)
-	mxc_register_device(&mxci2c_devices[1], &mxci2c_data);
+	mxc_register_device(&mxci2c_devices[1], &mx51_efikasb_i2c2_data);
+#elif defined(CONFIG_I2C_IMX) || defined(CONFIG_I2C_IMX_MODULE)
+	mxc_register_device(&imxi2c2_device, &mx51_efikasb_imxi2c2_data);
 #endif
 #if defined(CONFIG_MMC_IMX_ESDHCI) || defined(CONFIG_MMC_IMX_ESDHCI_MODULE)
 	mxc_register_device(&mxcsdhc1_device, &mmc1_data);
@@ -735,7 +770,6 @@ static void __init mxc_board_init(void)
 	mxc_init_fb();
 	mxc_register_device(&mxcbl_device, NULL);
 	mxc_register_device(&mxc_led_device, NULL);
-//	printk(" [VV] invoking mx51_efikasb_init_mc13892.\n");
 	mx51_efikasb_init_mc13892();
 
 #if defined(CONFIG_MTD) || defined(CONFIG_MTD_MODULE)
@@ -743,7 +777,7 @@ static void __init mxc_board_init(void)
 				ARRAY_SIZE(mxc_spi_board_info));
 #endif
 
-#if defined(CONFIG_I2C_MXC) || defined(CONFIG_I2C_MXC_MODULE)
+#if defined(CONFIG_I2C_MXC) || defined(CONFIG_I2C_MXC_MODULE) || defined(CONFIG_I2C_IMX) || defined(CONFIG_I2C_IMX_MODULE)
 	i2c_register_board_info(1, mxc_i2c1_board_info,
 				ARRAY_SIZE(mxc_i2c1_board_info));
 #endif
