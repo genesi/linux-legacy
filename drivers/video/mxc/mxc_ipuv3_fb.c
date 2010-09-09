@@ -69,7 +69,6 @@ extern void mxcfb_adjust(struct fb_var_screeninfo *var );
  * Driver name
  */
 #define MXCFB_NAME      "mxc_sdc_fb"
-#define MXCFB_DEFAULT_BPP 16 /* fsl default is 16 */
 
 /*!
  * Structure containing the MXC specific framebuffer information.
@@ -172,9 +171,9 @@ static int mxcfb_set_fix(struct fb_info *info)
 			if ( var->pixclock < PIXCLK_LIMIT ) {
 				printk(KERN_INFO "exceed pixel clock limit %ld, auto adjust to 720p\n", PIXCLK_LIMIT );
 				if (MXCFB_DEFAULT_BPP == 32)
-					fb_find_mode( var, info, "1280x720-32@60", NULL, 0, NULL, 0 );
+					fb_find_mode( var, info, "1280x720-32@60", NULL, 0, NULL, 32 );
 				else
-					fb_find_mode( var, info, "1280x720-16@60", NULL, 0, NULL, 0 );
+					fb_find_mode( var, info, "1280x720-16@60", NULL, 0, NULL, 16 );
 
 				/* BUG: this should be the same bit depth as the current mode,
 					or if it resyncs a 1280x720p mode it won't reclock */
@@ -675,7 +674,7 @@ static int mxcfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 		var->red.msb_right = 0;
 
 		var->green.length = 8;
-		var->green.offset = 24;
+		var->green.offset = 8;
 		var->green.msb_right = 0;
 
 		var->blue.length = 8;
@@ -683,7 +682,7 @@ static int mxcfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 		var->blue.msb_right = 0;
 
 		var->transp.length = 8;
-		var->transp.offset = 8;
+		var->transp.offset = 24;
 		var->transp.msb_right = 0;
 		break;
 	}

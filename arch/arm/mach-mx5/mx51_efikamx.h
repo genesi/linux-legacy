@@ -75,6 +75,6 @@ extern void mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_m
 // arbitrarily chosen to be 117MHz just because I heard someone at Freescale
 // mention this as the best value to leave enough for the VPU and so on..
 #define PIXCLK_LIMIT KHZ2PICOS(117000)
-
+#define MXCFB_DEFAULT_BPP 16
 
 #endif /* __MX51_EFIKAMX_H__ */
