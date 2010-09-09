@@ -900,7 +900,7 @@ int RTUSB_VendorRequest(struct rt_rtmp_adapter *pAd,
 
 			retryCount++;
 			if (ret < 0) {
-				DBGPRINT(RT_DEBUG_OFF, ("#\n"));
+//				DBGPRINT(RT_DEBUG_OFF, ("#\n"));
 				RTMPusecDelay(5000);
 			}
 		} while ((ret < 0) && (retryCount < MAX_RETRY_COUNT));
