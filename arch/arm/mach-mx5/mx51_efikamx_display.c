@@ -48,7 +48,7 @@ int cs8556_reinit(struct fb_var_screeninfo *var);
 
 #define MEGA              1000000
 
-#define EFIKAMX_DEFAULT_BPP 32 /* please keep synced with mxc_ipu3_fb.c */
+#define EFIKAMX_DEFAULT_BPP 16 /* please keep synced with mxc_ipu3_fb.c */
 
 int __initdata video_output = { VIDEO_OUT_STATIC_HDMI };
 int __initdata video_mode = { VIDEO_OUT_STATIC_HDMI };
