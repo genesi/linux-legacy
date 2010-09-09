@@ -135,7 +135,7 @@ static int __init mxc_init_efikasb_lid(void)
 {
         int ret ;
         struct kobject *lid_kobj;
-        
+
         platform_device_register(&efikasb_lid_dev);
 
         lid_kobj = kobject_create_and_add("status", &efikasb_lid_dev.dev.kobj);
@@ -143,7 +143,7 @@ static int __init mxc_init_efikasb_lid(void)
                 ret = -ENOMEM;
                 goto err3;
         }
-        
+
         ret = sysfs_create_group(lid_kobj, &status_attr_group);
         if(ret) {
                 goto err2;
@@ -156,12 +156,12 @@ static int __init mxc_init_efikasb_lid(void)
                 goto err2;
         }
 
-        efikasb_lid_inputdev->name = "efikasb Lid Switch";
+        efikasb_lid_inputdev->name = "Efika MX Smartbook Lid Switch";
         efikasb_lid_inputdev->phys = "efikasb/input1";
         efikasb_lid_inputdev->uniq = "efikasb";
         efikasb_lid_inputdev->id.bustype = BUS_HOST;
         efikasb_lid_inputdev->id.vendor = PCI_VENDOR_ID_FREESCALE;
-        
+
         set_bit(EV_SW, efikasb_lid_inputdev->evbit);
         set_bit(SW_LID, efikasb_lid_inputdev->swbit);
 
@@ -171,7 +171,7 @@ static int __init mxc_init_efikasb_lid(void)
 
         ret = input_register_device(efikasb_lid_inputdev);
         if(ret) {
-                pr_err("Failed to register efikasb lid input device\n");
+                pr_err("Failed to register Efika MX Smartbook lid input device\n");
                 ret = -ENODEV;
                 goto err1;
         }
@@ -188,8 +188,6 @@ static int __init mxc_init_efikasb_lid(void)
         platform_device_unregister(&efikasb_lid_dev);
 
         return ret;
-        
-
 }
 
 late_initcall(mxc_init_efikasb_lid);
