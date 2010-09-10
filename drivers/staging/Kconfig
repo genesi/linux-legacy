@@ -125,7 +125,5 @@ source "drivers/staging/pata_rdc/Kconfig"
 
 source "drivers/staging/udlfb/Kconfig"
 
-source "drivers/staging/ramzswap/Kconfig"
-
 endif # !STAGING_EXCLUDE_BUILD
 endif # STAGING
