@@ -32,6 +32,12 @@
 
 #include "ramzswap_drv.h"
 
+/* Module params (documentation at end) */
+static unsigned int num_devices;
+static unsigned long disksize_kb;
+static unsigned long memlimit_kb;
+static char backing_swap[MAX_SWAP_NAME_LEN];
+
 /* Globals */
 static int ramzswap_major;
 static struct ramzswap *devices;
@@ -481,7 +487,7 @@ static int setup_backing_swap(struct ramzswap *rzs)
 		goto out;
 	}
 
-	pr_info("Using backing swap device: %s\n", rzs->backing_swap_name);
+	pr_debug("Using backing swap device: %s\n", rzs->backing_swap_name);
 
 	swap_file = filp_open(rzs->backing_swap_name,
 				O_RDWR | O_LARGEFILE, 0);
@@ -1082,7 +1088,7 @@ static void reset_device(struct ramzswap *rzs)
 
 static int ramzswap_ioctl_init_device(struct ramzswap *rzs)
 {
-	int ret;
+	int ret, dev_id;
 	size_t num_pages;
 	struct page *page;
 	union swap_header *swap_header;
@@ -1091,6 +1097,8 @@ static int ramzswap_ioctl_init_device(struct ramzswap *rzs)
 		pr_info("Device already initialized!\n");
 		return -EBUSY;
 	}
+
+	dev_id = rzs - devices;
 
 	ret = setup_backing_swap(rzs);
 	if (ret)
@@ -1176,6 +1184,15 @@ static int ramzswap_ioctl_init_device(struct ramzswap *rzs)
 
 	rzs->init_done = 1;
 
+	if (rzs->backing_swap) {
+		pr_info("/dev/ramzswap%d initialized: "
+			"backing_swap=%s, memlimit_kb=%zu\n",
+			dev_id, rzs->backing_swap_name, rzs->memlimit >> 10);
+	} else {
+		pr_info("/dev/ramzswap%d initialized: "
+			"disksize_kb=%zu", dev_id, rzs->disksize >> 10);
+	}
+
 	pr_debug("Initialization done!\n");
 	return 0;
 
@@ -1214,7 +1231,7 @@ static int ramzswap_ioctl(struct block_device *bdev, fmode_t mode,
 			goto out;
 		}
 		rzs->disksize = disksize_kb << 10;
-		pr_info("Disk size set to %zu kB\n", disksize_kb);
+		pr_debug("Disk size set to %zu kB\n", disksize_kb);
 		break;
 
 	case RZSIO_SET_MEMLIMIT_KB:
@@ -1229,7 +1246,7 @@ static int ramzswap_ioctl(struct block_device *bdev, fmode_t mode,
 			goto out;
 		}
 		rzs->memlimit = memlimit_kb << 10;
-		pr_info("Memory limit set to %zu kB\n", memlimit_kb);
+		pr_debug("Memory limit set to %zu kB\n", memlimit_kb);
 		break;
 
 	case RZSIO_SET_BACKING_SWAP:
@@ -1244,7 +1261,7 @@ static int ramzswap_ioctl(struct block_device *bdev, fmode_t mode,
 			goto out;
 		}
 		rzs->backing_swap_name[MAX_SWAP_NAME_LEN - 1] = '\0';
-		pr_info("Backing swap set to %s\n", rzs->backing_swap_name);
+		pr_debug("Backing swap set to %s\n", rzs->backing_swap_name);
 		break;
 
 	case RZSIO_GET_STATS:
@@ -1367,6 +1384,7 @@ static void destroy_device(struct ramzswap *rzs)
 static int __init ramzswap_init(void)
 {
 	int ret, dev_id;
+	struct ramzswap *rzs;
 
 	if (num_devices > max_num_devices) {
 		pr_warning("Invalid value for num_devices: %u\n",
@@ -1388,7 +1406,7 @@ static int __init ramzswap_init(void)
 	}
 
 	/* Allocate the device array and initialize each one */
-	pr_info("Creating %u devices ...\n", num_devices);
+	pr_debug("Creating %u devices ...\n", num_devices);
 	devices = kzalloc(num_devices * sizeof(struct ramzswap), GFP_KERNEL);
 	if (!devices) {
 		ret = -ENOMEM;
@@ -1399,6 +1417,38 @@ static int __init ramzswap_init(void)
 		ret = create_device(&devices[dev_id], dev_id);
 		if (ret)
 			goto free_devices;
+	}
+
+	/*
+	 * Initialize the first device (/dev/ramzswap0)
+	 * if parameters are provided
+	 */
+	rzs = &devices[0];
+
+	/*
+	 * User specifies either <disksize_kb> or <backing_swap, memlimit_kb>
+	 */
+	if (disksize_kb) {
+		rzs->disksize = disksize_kb << 10;
+		ret = ramzswap_ioctl_init_device(rzs);
+		goto out;
+	}
+
+	if (backing_swap[0]) {
+		rzs->memlimit = memlimit_kb << 10;
+		strncpy(rzs->backing_swap_name, backing_swap,
+			MAX_SWAP_NAME_LEN);
+		rzs->backing_swap_name[MAX_SWAP_NAME_LEN - 1] = '\0';
+		ret = ramzswap_ioctl_init_device(rzs);
+		goto out;
+	}
+
+	/* User specified memlimit_kb but not backing_swap */
+	if (memlimit_kb) {
+		pr_info("memlimit_kb parameter is valid only when "
+			"backing_swap is also specified. Aborting.\n");
+		ret = -EINVAL;
+		goto free_devices;
 	}
 
 	return 0;
@@ -1431,8 +1481,38 @@ static void __exit ramzswap_exit(void)
 	pr_debug("Cleanup done!\n");
 }
 
+/*
+ * Module parameters
+ */
+
+/* Optional: default = 1 */
 module_param(num_devices, uint, 0);
 MODULE_PARM_DESC(num_devices, "Number of ramzswap devices");
+
+/*
+ * User specifies either <disksize_kb> or <backing_swap, memlimit_kb>
+ * parameters. You must specify these parameters if the first device
+ * has to be initialized on module load without using rzscontrol utility.
+ * This is useful for embedded system, where shipping an additional binary
+ * (rzscontrol) might not be desirable.
+ *
+ * These parameters are used to initialize just the first (/dev/ramzswap0)
+ * device. To initialize additional devices, use rzscontrol utility. If
+ * these parameters are not provided, then the first device is also
+ * left in unitialized state.
+ */
+
+/* Optional: default = 25% of RAM */
+module_param(disksize_kb, ulong, 0);
+MODULE_PARM_DESC(disksize_kb, "Disksize in KB");
+
+/* Optional: default = 15% of RAM */
+module_param(memlimit_kb, ulong, 0);
+MODULE_PARM_DESC(memlimit_kb, "Memlimit in KB");
+
+/* Optional: default = <NULL> */
+module_param_string(backing_swap, backing_swap, sizeof(backing_swap), 0);
+MODULE_PARM_DESC(backing_swap, "Backing swap name");
 
 module_init(ramzswap_init);
 module_exit(ramzswap_exit);
