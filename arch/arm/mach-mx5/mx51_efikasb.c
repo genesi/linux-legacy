@@ -354,10 +354,6 @@ static struct mxc_lcd_platform_data lvds_data = {
         .lvds_enable = mxc_lvds_enable,
 };
 
-static struct platform_device mxcbl_device = {
-	.name = "mxc_efikasb_bl",
-};
-
 static struct platform_device mxc_led_device = {
 	.name = "efikasb_leds",
 	.id = 1,
@@ -748,7 +744,6 @@ static void __init mxc_board_init(void)
 	mxc_register_device(&mxc_dvfs_per_device, &dvfs_per_data);
 	mxc_register_device(&mxc_iim_device, NULL);
 	mxc_register_device(&mxc_pwm1_device, NULL);
-	mxc_register_device(&mxc_pwm_backlight_device, &mxc_pwm_backlight_data);
 	mxc_register_device(&mxc_ssi1_device, NULL);
 	mxc_register_device(&mxc_ssi2_device, NULL);
 
@@ -756,7 +751,7 @@ static void __init mxc_board_init(void)
 	mxc_register_device(&mxc_alsa_spdif_device, &mxc_spdif_data);
 
 	mxc_init_fb();
-	mxc_register_device(&mxcbl_device, NULL);
+	mxc_register_device(&mxc_pwm_backlight_device, &mxc_pwm_backlight_data);
 	mxc_register_device(&mxc_led_device, NULL);
 	mx51_efikasb_init_mc13892();
 
