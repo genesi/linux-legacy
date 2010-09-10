@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.31.14
-# Thu Sep  9 16:14:08 2010
+# Fri Sep 10 11:05:25 2010
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1691,6 +1691,8 @@ CONFIG_RT2870=m
 # CONFIG_USB_SERIAL_QUATECH2 is not set
 # CONFIG_USB_CPC is not set
 # CONFIG_FB_UDL is not set
+CONFIG_RAMZSWAP=m
+CONFIG_RAMZSWAP_STATS=y
 
 #
 # MXC support drivers
