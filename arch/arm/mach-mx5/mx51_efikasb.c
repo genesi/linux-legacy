@@ -128,11 +128,6 @@ void mx51_efikasb_set_num_cpu_wp(int num)
 	return;
 }
 
-static struct mxc_w1_config mxc_w1_data = {
-	.search_rom_accelerator = 1,
-};
-
-
 static struct platform_pwm_backlight_data mxc_pwm_backlight_data = {
 	.pwm_id = 0,
 	.max_brightness = 255,
@@ -195,10 +190,6 @@ static struct platform_device imxi2c2_device = {
 
 static struct mxc_srtc_platform_data srtc_data = {
 	.srtc_sec_mode_addr = 0x83F98840,
-};
-
-static struct tve_platform_data tve_data = {
-	.dac_reg = "VVIDEO",
 };
 
 static struct mxc_dvfs_platform_data dvfs_core_data = {
