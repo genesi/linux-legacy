@@ -265,9 +265,15 @@ void mxcfb_videomode_to_modelist(const struct fb_info *info, const struct fb_vid
 				modedb[i].refresh,
 				modedb[i].pixclock );
 			continue;
-		}
-		else if ( (modedb[i].vmode & FB_VMODE_INTERLACED) ) {
+		} else if ( (modedb[i].vmode & FB_VMODE_INTERLACED) ) {
 			printk(KERN_INFO "%ux%u%s%u pclk=%u removed (interlaced)\n",
+				modedb[i].xres, modedb[i].yres,
+				(modedb[i].vmode & FB_VMODE_INTERLACED ) ? "i@" : "@",
+				modedb[i].refresh,
+				modedb[i].pixclock );
+			continue;
+		} else if ( (modedb[i].lower_margin < 2) ) {
+			printk(KERN_INFO "%ux%u%s%u pclk=%u removed (lower margin does not meet IPU restrictions)\n",
 				modedb[i].xres, modedb[i].yres,
 				(modedb[i].vmode & FB_VMODE_INTERLACED ) ? "i@" : "@",
 				modedb[i].refresh,

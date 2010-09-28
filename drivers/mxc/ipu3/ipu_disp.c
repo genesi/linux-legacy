@@ -1033,6 +1033,9 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 	if ((v_sync_width == 0) || (h_sync_width == 0))
 		return EINVAL;
 
+	// with patch to mx51_efikamx_display to remove modes with v_end_width < 2, this call
+	// should do precisely nothing on every mode, thus skirting around any weirdness
+	// whereby the lower margin is modified and then the panel doesn't handle it right
 	adapt_panel_to_ipu_restricitions(&pixel_clk, width, height,
 					 h_start_width, h_end_width,
 					 v_start_width, &v_end_width);
