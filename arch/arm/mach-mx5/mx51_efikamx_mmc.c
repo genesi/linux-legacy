@@ -186,6 +186,7 @@ static int mx51_efikamx_sdhc_wp(struct device *dev)
 
 static unsigned int mx51_efikamx_sdhc_cd(struct device *dev)
 {
+	// SDHC CD is active low, by the way, so default is "card inserted"
 	int rc = 0;
 
 	if (mx51_efikamx_revision() >= 2)
@@ -261,8 +262,8 @@ void __init mx51_efikamx_init_sdhc(void)
 		gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_SDHC2_WP));		/*ron: SDHC2 CD*/
 
 		/* include CD flag bit (insertion detection) in the resources */
-		mxcsdhc2_device.resource[2].start = IOMUX_TO_IRQ(EFIKAMX_SDHC2_WP);
-		mxcsdhc2_device.resource[2].end = IOMUX_TO_IRQ(EFIKAMX_SDHC2_WP);
+		mxcsdhc2_device.resource[2].start = IOMUX_TO_IRQ(EFIKAMX_SDHC2_CD);
+		mxcsdhc2_device.resource[2].end = IOMUX_TO_IRQ(EFIKAMX_SDHC2_CD);
 		DBG(("registering mxcsdhc2_device\n"));
 		mxc_register_device(&mxcsdhc2_device, &mx51_efikamx_sdhc_data);
 	}
