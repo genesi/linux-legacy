@@ -30,8 +30,8 @@
 
 #define EFIKAMX_SDHC1_CD MX51_PIN_GPIO1_0
 #define EFIKAMX_SDHC1_WP MX51_PIN_GPIO1_1
-#define EFIKAMX_SDHC2_CD MX51_PIN_GPIO1_7
-#define EFIKAMX_SDHC2_WP MX51_PIN_GPIO1_8
+#define EFIKAMX_SDHC2_CD MX51_PIN_GPIO1_8
+#define EFIKAMX_SDHC2_WP MX51_PIN_GPIO1_7
 
 
 static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_internal_sdhc1_iomux_pins[] = {
