@@ -528,6 +528,8 @@ void __init mx51_efikamx_init_display(void)
 
 	mxc_ipu_data.di_clk[0] = clk_get(NULL, "ipu_di0_clk");
 	mxc_ipu_data.di_clk[1] = clk_get(NULL, "ipu_di1_clk");
+	mxc_ipu_data.csi_clk[0] = clk_get(NULL, "csi_mclk1");
+	mxc_ipu_data.csi_clk[1] = clk_get(NULL, "csi_mclk2");
 
 	mxc_register_device(&mxc_ipu_device, &mxc_ipu_data);
 	mxc_register_device(&mxcvpu_device, &mxc_vpu_data);
