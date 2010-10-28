@@ -748,7 +748,7 @@ void ipu_uninit_channel(ipu_channel_t channel)
 	uint32_t ipu_conf;
 
 	if ((g_channel_init_mask & (1L << IPU_CHAN_ID(channel))) == 0) {
-		dev_err(g_ipu_dev, "Channel already uninitialized %d\n",
+		dev_info(g_ipu_dev, "Channel already uninitialized %d\n",
 			IPU_CHAN_ID(channel));
 		return;
 	}
@@ -1839,7 +1839,7 @@ int32_t ipu_disable_channel(ipu_channel_t channel, bool wait_for_stop)
 	uint32_t thrd_dma = NO_DMA;
 
 	if ((g_channel_enable_mask & (1L << IPU_CHAN_ID(channel))) == 0) {
-		dev_err(g_ipu_dev, "Channel already disabled %d\n",
+		dev_info(g_ipu_dev, "Channel already disabled %d\n",
 			IPU_CHAN_ID(channel));
 		return 0;
 	}
