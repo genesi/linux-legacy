@@ -555,7 +555,10 @@ static void pata_fsl_bmdma_setup(struct ata_queued_cmd *qc)
 			     ata_regs + FSL_ATA_ADMA_SYS_ADDR);
 	} else {
 		int nr_sg = 0;
-		struct scatterlist tmp[64], *tsg, *sg;
+		struct scatterlist *tmp, *tsg, *sg;
+
+		tmp = kzalloc(sizeof(struct scatterlist) * 64, GFP_KERNEL);
+
 		tsg = tmp;
 		for_each_sg(qc->sg, sg, qc->n_elem, si) {
 			memcpy(tsg, sg, sizeof(*sg));
@@ -566,6 +569,8 @@ static void pata_fsl_bmdma_setup(struct ata_queued_cmd *qc)
 		if (err)
 			printk(KERN_ERR "pata_fsl_bmdma_setup: error %d\n",
 			       err);
+
+		kfree(tmp);
 	}
 }
 
