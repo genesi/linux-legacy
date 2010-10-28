@@ -671,7 +671,7 @@ struct file *open_exec(const char *name)
 
 	fsnotify_open(file->f_path.dentry);
 
-	trace_open_exec(name);
+	trace_open_exec((char *)name);
 
 	err = deny_write_access(file);
 	if (err)
