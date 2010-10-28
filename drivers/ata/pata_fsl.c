@@ -659,7 +659,7 @@ static void pata_fsl_dma_init(struct ata_port *ap)
 		goto err_out;
 	}
 
-	dev_printk(KERN_ERR, ap->dev, "rchan=%d wchan=%d\n", priv->dma_rchan,
+	dev_printk(KERN_INFO, ap->dev, "rchan=%d wchan=%d\n", priv->dma_rchan,
 		   priv->dma_wchan);
 	return;
 
