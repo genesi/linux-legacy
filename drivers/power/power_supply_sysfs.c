@@ -65,16 +65,30 @@ static ssize_t power_supply_show_property(struct device *dev,
 		return ret;
 	}
 
-	if (off == POWER_SUPPLY_PROP_STATUS)
-		return sprintf(buf, "%s\n", status_text[value.intval]);
-	else if (off == POWER_SUPPLY_PROP_HEALTH)
-		return sprintf(buf, "%s\n", health_text[value.intval]);
-	else if (off == POWER_SUPPLY_PROP_TECHNOLOGY)
-		return sprintf(buf, "%s\n", technology_text[value.intval]);
-	else if (off >= POWER_SUPPLY_PROP_MODEL_NAME)
-		return sprintf(buf, "%s\n", value.strval);
-
-	return sprintf(buf, "%d\n", value.intval);
+	switch (off) {
+		case POWER_SUPPLY_PROP_STATUS:
+			if (value.intval >= ARRAY_SIZE(status_text)) {
+				BUG_ON(value.intval >= ARRAY_SIZE(status_text));
+				value.intval = 0;
+			}
+			return sprintf(buf, "%s\n", status_text[value.intval]);
+		case POWER_SUPPLY_PROP_HEALTH:
+			if (value.intval >= ARRAY_SIZE(health_text)) {
+				BUG_ON(value.intval >= ARRAY_SIZE(health_text));
+				value.intval = 0;
+			}
+			return sprintf(buf, "%s\n", health_text[value.intval]);
+		case POWER_SUPPLY_PROP_TECHNOLOGY:
+			if (value.intval >= ARRAY_SIZE(technology_text)) {
+				BUG_ON(value.intval >= ARRAY_SIZE(technology_text));
+				value.intval = 0;
+			}
+			return sprintf(buf, "%s\n", technology_text[value.intval]);
+		case POWER_SUPPLY_PROP_MODEL_NAME:
+			return sprintf(buf, "%s\n", value.strval);
+		default:
+			return sprintf(buf, "%d\n", value.intval);
+	}
 }
 
 /* Must be in the same order as POWER_SUPPLY_PROP_* */
