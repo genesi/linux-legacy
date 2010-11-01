@@ -209,6 +209,12 @@ void mxcfb_dump_modeline( struct fb_videomode *modedb, int num)
 
 		mode = &modedb[i];
 
+		BUG_ON(mode->pixclock == 0);
+		if (mode->pixclock == 0) {
+			printk(KERN_ERR "skipping mode entry %u due to bad pclk", i);
+			continue;
+		}
+
 		printk("   \"%dx%d%s%d\" %lu.%02lu ",
 			mode->xres, mode->yres, (mode->vmode & FB_VMODE_INTERLACED) ? "i@" : "@", mode->refresh,
 			(PICOS2KHZ(mode->pixclock) * 1000UL)/1000000,
@@ -332,6 +338,12 @@ void mxcfb_sanitize_modelist(const struct fb_info *info, const struct fb_videomo
 
 		list_for_each_safe(pos, n, head) {
 			modelist = list_entry(pos, struct fb_modelist, list);
+			BUG_ON(modelist->mode.pixclock == 0);
+			if (modelist->mode.pixclock == 0) {
+				printk(KERN_ERR "skipping mode %ux%u due to bad pclk",
+					modelist->mode.xres, modelist->mode.yres);
+				continue;
+			}
 			if (PICOS2KHZ(modelist->mode.pixclock) > 133000 ) {
 				printk(KERN_INFO "%ux%u%s%u pclk=%u removed (pixclk higher than %lu limit)\n",
 					modelist->mode.xres, modelist->mode.yres,
