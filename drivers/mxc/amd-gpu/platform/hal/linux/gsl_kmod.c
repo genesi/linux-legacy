@@ -815,7 +815,7 @@ static int gpu_probe(struct platform_device *pdev)
     if (gpu_2d_irq > 0)
     {
 	if (request_irq(gpu_2d_irq, z160_irq_handler, 0, "g12", NULL) < 0) {
-	    printk(KERN_ERR "2D Acceleration Enabled, OpenVG Disabled!\n");
+	    printk(KERN_ERR "Could not allocate IRQ for OpenVG!\n");
 	    gpu_2d_irq = 0;
 	}
     }
