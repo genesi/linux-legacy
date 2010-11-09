@@ -20,7 +20,6 @@
 #include <linux/ipu.h>
 #include <linux/fb.h>
 #include <linux/delay.h>
-#include <linux/uio_driver.h>
 #include <linux/mxc_scc2_driver.h>
 #include <linux/iram_alloc.h>
 #include <mach/common.h>
