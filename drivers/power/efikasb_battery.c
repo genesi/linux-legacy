@@ -72,6 +72,13 @@
 #define SBS_OPTION_MFG_FUNC2            0x3E
 #define SBS_OPTION_MFG_FUNC1            0x3F
 
+/* SBS Battery Mode Flags */
+#define SBS_CHARGE_CONTROLLER_ENABLED	(1 << 9)
+#define SBS_PRIMARY_BATTERY		(1 << 10)
+#define SBS_ALARM_MODE			(1 << 13)
+#define SBS_CHARGER_MODE		(1 << 14)
+#define SBS_CAPACITY_MODE		(1 << 15)
+
 /* SBS_BATTERY_STATUS Register Bit Mapping */
 #define SBS_STATUS_OVER_CHARGE_ALARM    0x8000
 #define SBS_STATUS_TERM_CHARGE_ALARM    0x4000
@@ -211,7 +218,8 @@ static enum power_supply_property efikasb_batt_props[] = {
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_MANUFACTURER,
 	POWER_SUPPLY_PROP_SERIAL_NUMBER,
-
+	POWER_SUPPLY_PROP_ENERGY_NOW,
+	POWER_SUPPLY_PROP_CHARGE_NOW,
 };
 
 static enum power_supply_property efikasb_ac_charger_props[] = {
@@ -353,7 +361,48 @@ static int efikasb_batt_get_technology(struct efikasb_batt_dev_info *di)
 	if (!strcasecmp("LiP", di->chemistry))
 		return POWER_SUPPLY_TECHNOLOGY_LIPO;
 	return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
+}
 
+static int efikasb_batt_get_energy_now(struct efikasb_batt_dev_info *di,
+				       u32 *value)
+{
+	int ret;
+	u32 battery_mode;
+
+	ret = efikasb_batt_read(di->client, SBS_BATTERY_MODE, &battery_mode);
+	if (ret < 0)
+		return ret;
+
+	efikasb_batt_write(di->client, SBS_BATTERY_MODE,
+			   battery_mode | SBS_CAPACITY_MODE);
+
+	ret = efikasb_batt_read(di->client, SBS_REMAIN_CAPABILITY, value);
+	if (ret == 0) {
+		*value *= 10000; /* 10 mWh -> uWh */
+	}
+
+	return ret;
+}
+
+static int efikasb_batt_get_charge_now(struct efikasb_batt_dev_info *di,
+				       u32 *value)
+{
+	int ret;
+	u32 battery_mode;
+
+	ret = efikasb_batt_read(di->client, SBS_BATTERY_MODE, &battery_mode);
+	if (ret < 0)
+		return ret;
+
+	efikasb_batt_write(di->client, SBS_BATTERY_MODE,
+			   battery_mode & SBS_CAPACITY_MODE);
+
+	ret = efikasb_batt_read(di->client, SBS_REMAIN_CAPABILITY, value);
+	if (ret == 0) {
+		*value *= 1000; /* mAh -> uAh */
+	}
+
+	return ret;
 }
 
 #define to_efikasb_batt_device_info(x) container_of((x), \
@@ -469,6 +518,18 @@ static int efikasb_batt_get_property(struct power_supply *psy,
 		if(ret < 0)
 			return ret;
 		val->strval = di->serial;
+		break;
+	case POWER_SUPPLY_PROP_ENERGY_NOW:
+		ret = efikasb_batt_get_energy_now(di, &value);
+		if (ret != 0)
+			return ret;
+		val->intval = value;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_NOW:
+		ret = efikasb_batt_get_charge_now(di, &value);
+		if (ret != 0)
+			return ret;
+		val->intval = value;
 		break;
 	default:
 		return -EINVAL;
