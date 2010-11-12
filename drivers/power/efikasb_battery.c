@@ -235,6 +235,18 @@ static int efikasb_batt_read(struct i2c_client *client, u8 reg, u32 *value)
 	return 0;
 }
 
+static int efikasb_batt_write(struct i2c_client *client, u8 reg, u32 value)
+{
+	int ret;
+	int retry = 5;
+
+	do {
+		ret = i2c_smbus_write_word_data(client, reg, value);
+	} while (ret < 0 && --retry > 0);
+
+	return ret;
+}
+
 /* Smart Battery Helper Function */
 static int efikasb_batt_get_status(struct efikasb_batt_dev_info *di, u32 *value)
 {
