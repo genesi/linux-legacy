@@ -219,7 +219,9 @@ static enum power_supply_property efikasb_batt_props[] = {
 	POWER_SUPPLY_PROP_MANUFACTURER,
 	POWER_SUPPLY_PROP_SERIAL_NUMBER,
 	POWER_SUPPLY_PROP_ENERGY_NOW,
+	POWER_SUPPLY_PROP_ENERGY_FULL,
 	POWER_SUPPLY_PROP_CHARGE_NOW,
+	POWER_SUPPLY_PROP_CHARGE_FULL,
 };
 
 static enum power_supply_property efikasb_ac_charger_props[] = {
@@ -396,6 +398,27 @@ static int efikasb_batt_get_energy_now(struct efikasb_batt_dev_info *di,
 	return ret;
 }
 
+static int efikasb_batt_get_energy_full(struct efikasb_batt_dev_info *di,
+					u32 *value)
+{
+	int ret;
+	u32 battery_mode;
+
+	ret = efikasb_batt_read(di->client, SBS_BATTERY_MODE, &battery_mode);
+	if (ret < 0)
+		return ret;
+
+	efikasb_batt_write(di->client, SBS_BATTERY_MODE,
+			   battery_mode | SBS_CAPACITY_MODE);
+
+	ret = efikasb_batt_read(di->client, SBS_FULL_CHARGE_CAPACITY, value);
+	if (ret == 0) {
+		*value *= 10000; /* 10 mWh -> uWh */
+	}
+
+	return ret;
+}
+
 static int efikasb_batt_get_charge_now(struct efikasb_batt_dev_info *di,
 				       u32 *value)
 {
@@ -410,6 +433,27 @@ static int efikasb_batt_get_charge_now(struct efikasb_batt_dev_info *di,
 			   battery_mode & SBS_CAPACITY_MODE);
 
 	ret = efikasb_batt_read(di->client, SBS_REMAIN_CAPABILITY, value);
+	if (ret == 0) {
+		*value *= 1000; /* mAh -> uAh */
+	}
+
+	return ret;
+}
+
+static int efikasb_batt_get_charge_full(struct efikasb_batt_dev_info *di,
+					u32 *value)
+{
+	int ret;
+	u32 battery_mode;
+
+	ret = efikasb_batt_read(di->client, SBS_BATTERY_MODE, &battery_mode);
+	if (ret < 0)
+		return ret;
+
+	efikasb_batt_write(di->client, SBS_BATTERY_MODE,
+			   battery_mode & SBS_CAPACITY_MODE);
+
+	ret = efikasb_batt_read(di->client, SBS_FULL_CHARGE_CAPACITY, value);
 	if (ret == 0) {
 		*value *= 1000; /* mAh -> uAh */
 	}
@@ -537,8 +581,20 @@ static int efikasb_batt_get_property(struct power_supply *psy,
 			return ret;
 		val->intval = value;
 		break;
+	case POWER_SUPPLY_PROP_ENERGY_FULL:
+		ret = efikasb_batt_get_energy_full(di, &value);
+		if (ret != 0)
+			return ret;
+		val->intval = value;
+		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW:
 		ret = efikasb_batt_get_charge_now(di, &value);
+		if (ret != 0)
+			return ret;
+		val->intval = value;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL:
+		ret = efikasb_batt_get_charge_full(di, &value);
 		if (ret != 0)
 			return ret;
 		val->intval = value;
