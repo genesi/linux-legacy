@@ -223,13 +223,13 @@ static int efikasb_batt_read(struct i2c_client *client, u8 reg, u32 *value)
 	int ret;
 	int retry = 5;
 
-retry:
-	ret = i2c_smbus_read_word_data(client, reg);
-	if(ret < 0) {           /* ron: retry i2c again to avoid conflict with PIC */
-		if(retry -- > 0)
-			goto retry;
+	/* ron: retry i2c again to avoid conflict with PIC */
+	do {
+		ret = i2c_smbus_read_word_data(client, reg);
+	} while (ret < 0 && --retry > 0);
+
+	if (ret < 0)
 		return ret;
-	}
 
 	*value = ret;
 	return 0;
