@@ -276,7 +276,6 @@ static void __init mxc_init_fb(void)
 }
 #endif
 
-static int __initdata enable_ddr2max = { 0 };
 
 static void mxc_power_on_lcd(int on)
 {
@@ -860,33 +859,3 @@ MACHINE_START(MX51_EFIKASB, "Genesi Efika MX (Smartbook)")
 	.init_machine = mxc_board_init,
 	.timer = &mxc_timer,
 MACHINE_END
-
-static int __init ddr2max_setup(char *__unused)
-{
-	enable_ddr2max = 1;
-	return 1;
-}
-
-__setup("ddr2max", ddr2max_setup);
-
-/*
- * Workaround to solve the black screen on warm reboot aging test
- * This requires to set DDR2 rate to 160MHz before booting kernel
- */
-static int __init ddr2_set_max_rate(void)
-{
-	struct clk *tclk;
-	unsigned long rate;
-
-	/*Change the DDR freq to 200MHz*/
-	if (enable_ddr2max) {
-		tclk = clk_get(NULL, "ddr_hf_clk");
-		rate = clk_round_rate(tclk, 200000000);
-		if (clk_get_rate(tclk) != rate)
-			clk_set_rate(tclk, rate);
-	}
-
-	return 0;
-}
-
-late_initcall(ddr2_set_max_rate);
