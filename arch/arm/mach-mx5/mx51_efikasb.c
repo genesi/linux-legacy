@@ -388,29 +388,22 @@ static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
 #endif
 
 #if defined(CONFIG_MTD) || defined(CONFIG_MTD_MODULE)
+
 static struct mtd_partition mxc_spi_flash_partitions[] = {
 	{
-		.name = "redboot",
-		.offset = 0,
-		.size = 0x00040000,
-		.mask_flags = MTD_CAP_ROM,
+	 .name = "u-boot",
+	 .offset = 0x0,
+	 .size = SZ_256K,
 	},
 	{
-		.name = "fis-dir",
-		.offset = MTDPART_OFS_APPEND,
-		.size = 0x0000F000,
-		.mask_flags = MTD_CAP_ROM,
+	  .name = "config",
+	  .offset = MTDPART_OFS_APPEND,
+	  .size = SZ_64K,
 	},
 	{
-		.name = "rb-config",
-		.offset = MTDPART_OFS_APPEND,
-		.size = 0x00001000,
-		.mask_flags = MTD_CAP_ROM,
-	},
-	{
-		.name = "kernel",
-		.offset = 0x00100000,
-		.size = MTDPART_SIZ_FULL,
+	  .name = "spare",
+	  .offset = MTDPART_OFS_APPEND,
+	  .size = MTDPART_SIZ_FULL,
 	},
 };
 

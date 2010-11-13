@@ -37,12 +37,17 @@ static struct mtd_partition mx51_efikamx_spi_nor_partitions[] = {
 	{
 	 .name = "u-boot",
 	 .offset = 0x0,
-	 .size = 0x00040000,	/* 256KB */
+	 .size = SZ_256K,
 	},
 	{
 	  .name = "config",
-	  .offset = 0x00040000,
-	  .size = 0x00010000,	/* 64KB */
+	  .offset = MTDPART_OFS_APPEND,
+	  .size = SZ_64K,
+	},
+	{
+	  .name = "spare",
+	  .offset = MTDPART_OFS_APPEND,
+	  .size = MTDPART_SIZ_FULL,
 	},
 };
 
