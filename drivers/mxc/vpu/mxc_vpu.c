@@ -33,6 +33,7 @@
 #include <linux/list.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/workqueue.h>
 
 #include <asm/uaccess.h>
 #include <asm/io.h>
@@ -45,6 +46,8 @@
 
 struct vpu_priv {
 	struct fasync_struct *async_queue;
+	struct work_struct work;
+	struct workqueue_struct *workqueue;
 };
 
 /* To track the allocated memory buffer */
@@ -61,11 +64,11 @@ struct iram_setting {
 static DEFINE_SPINLOCK(vpu_lock);
 static LIST_HEAD(head);
 
-static int vpu_major = 0;
+static int vpu_major;
 static int vpu_clk_usercount;
 static struct class *vpu_class;
 static struct vpu_priv vpu_data;
-static u8 open_count = 0;
+static u8 open_count;
 static struct clk *vpu_clk;
 static struct vpu_mem_desc bitwork_mem = { 0 };
 static struct vpu_mem_desc pic_para_mem = { 0 };
@@ -73,6 +76,7 @@ static struct vpu_mem_desc user_data_mem = { 0 };
 static struct vpu_mem_desc share_mem = { 0 };
 
 static void __iomem *vpu_base;
+static int vpu_irq;
 static u32 phy_vpu_base_addr;
 static struct mxc_vpu_platform_data *vpu_plat;
 
@@ -80,7 +84,7 @@ static struct mxc_vpu_platform_data *vpu_plat;
 static struct iram_setting iram;
 
 /* implement the blocking ioctl */
-static int codec_done = 0;
+static int codec_done;
 static wait_queue_head_t vpu_queue;
 
 static u32 workctrl_regsave[6];
@@ -189,6 +193,24 @@ static int vpu_free_buffers(void)
 	return 0;
 }
 
+static inline void vpu_worker_callback(struct work_struct *w)
+{
+	struct vpu_priv *dev = container_of(w, struct vpu_priv,
+				work);
+
+	if (dev->async_queue)
+		kill_fasync(&dev->async_queue, SIGIO, POLL_IN);
+
+	codec_done = 1;
+	wake_up_interruptible(&vpu_queue);
+
+	/*
+	 * Clock is gated on when dec/enc started, gate it off when
+	 * interrupt is received.
+	 */
+	clk_disable(vpu_clk);
+}
+
 /*!
  * @brief vpu interrupt handler
  */
@@ -199,17 +221,7 @@ static irqreturn_t vpu_irq_handler(int irq, void *dev_id)
 	READ_REG(BIT_INT_STATUS);
 	WRITE_REG(0x1, BIT_INT_CLEAR);
 
-	if (dev->async_queue)
-		kill_fasync(&dev->async_queue, SIGIO, POLL_IN);
-
-	/*
-	 * Clock is gated on when dec/enc started, gate it off when
-	 * interrupt is received.
-	 */
-	clk_disable(vpu_clk);
-
-	codec_done = 1;
-	wake_up_interruptible(&vpu_queue);
+	queue_work(dev->workqueue, &dev->work);
 
 	return IRQ_HANDLED;
 }
@@ -638,11 +650,15 @@ static int vpu_dev_probe(struct platform_device *pdev)
 		goto err_out_class;
 	}
 
-	err = request_irq(res->start, vpu_irq_handler, 0, "VPU_CODEC_IRQ",
+	vpu_irq = res->start;
+
+	err = request_irq(vpu_irq, vpu_irq_handler, 0, "VPU_CODEC_IRQ",
 			  (void *)(&vpu_data));
 	if (err)
 		goto err_out_class;
 
+	vpu_data.workqueue = create_workqueue("vpu_wq");
+	INIT_WORK(&vpu_data.work, vpu_worker_callback);
 	printk(KERN_INFO "VPU initialized\n");
 	goto out;
 
@@ -662,6 +678,11 @@ static int vpu_dev_probe(struct platform_device *pdev)
 
 static int vpu_dev_remove(struct platform_device *pdev)
 {
+	free_irq(vpu_irq, &vpu_data);
+	cancel_work_sync(&vpu_data.work);
+	flush_workqueue(vpu_data.workqueue);
+	destroy_workqueue(vpu_data.workqueue);
+
 	iounmap(vpu_base);
 
 	if (VPU_IRAM_SIZE)
@@ -832,7 +853,6 @@ static int __init vpu_init(void)
 
 static void __exit vpu_exit(void)
 {
-	free_irq(MXC_INT_VPU, (void *)(&vpu_data));
 	if (vpu_major > 0) {
 		device_destroy(vpu_class, MKDEV(vpu_major, 0));
 		class_destroy(vpu_class);
