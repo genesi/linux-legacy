@@ -156,6 +156,25 @@ static void qh_refresh(struct ehci_hcd *ehci, struct ehci_qh *qh)
 
 /*-------------------------------------------------------------------------*/
 
+static void qh_link_async(struct ehci_hcd *ehci, struct ehci_qh *qh);
+
+static void ehci_clear_tt_buffer_complete(struct usb_hcd *hcd,
+		struct usb_host_endpoint *ep)
+{
+	struct ehci_hcd		*ehci = hcd_to_ehci(hcd);
+	struct ehci_qh		*qh = ep->hcpriv;
+	unsigned long		flags;
+
+	spin_lock_irqsave(&ehci->lock, flags);
+	qh->clearing_tt = 0;
+	if (qh->qh_state == QH_STATE_IDLE && !list_empty(&qh->qtd_list)
+			&& HC_IS_RUNNING(hcd->state))
+		qh_link_async(ehci, qh);
+	spin_unlock_irqrestore(&ehci->lock, flags);
+}
+
+/*-------------------------------------------------------------------------*/
+
 static int qtd_copy_status(struct ehci_hcd *ehci,
 			   struct urb *urb, size_t length, u32 token)
 {
@@ -224,7 +243,8 @@ static int qtd_copy_status(struct ehci_hcd *ehci,
 			/* REVISIT ARC-derived cores don't clear the root
 			 * hub TT buffer in this way...
 			 */
-			usb_hub_tt_clear_buffer(urb->dev, urb->pipe);
+			// abi change by Neko
+			usb_hub_clear_tt_buffer(urb);
 		}
 	}
 
@@ -364,60 +384,27 @@ static unsigned qh_completions(struct ehci_hcd *ehci, struct ehci_qh *qh)
 				&& !(qtd->hw_alt_next & EHCI_LIST_END(ehci))) {
 				if (urb->use_iram && usb_pipein(urb->pipe)) {
 					if (urb->transfer_buffer == NULL) {
-						memcpy(phys_to_virt
-						       (urb->transfer_dma) +
-						       qtd->buffer_offset,
-						       ehci->
-						       iram_buffer_v
-						       [address_to_buffer
-							(ehci,
-							 usb_pipedevice(urb->
-									pipe))]
-						       + g_iram_size,
-						       min(g_iram_size,
-							   qtd->length));
+						memcpy((void *) (phys_to_virt(urb->transfer_dma) + qtd->buffer_offset),
+						       (void *) (ehci->iram_buffer_v[address_to_buffer(ehci, usb_pipedevice(urb->pipe))] + g_iram_size),
+						       min(g_iram_size, qtd->length));
 					} else {
-						memcpy(urb->transfer_buffer +
-						       qtd->buffer_offset,
-						       ehci->
-						       iram_buffer_v
-						       [address_to_buffer
-							(ehci,
-							 usb_pipedevice(urb->
-									pipe))]
-						       + g_iram_size,
-						       min(g_iram_size,
-							   qtd->length));
+						memcpy((void *) (urb->transfer_buffer + qtd->buffer_offset),
+						       (void *) (ehci->iram_buffer_v[address_to_buffer(ehci, usb_pipedevice(urb->pipe))] + g_iram_size),
+						       min(g_iram_size, qtd->length));
 					}
 				}
 				stopped = 1;
 				goto halt;
-			} else if (urb->use_iram && (!qtd->last_one)
-				   && usb_pipeout(urb->pipe)) {
-				ehci->
-				    iram_in_use[address_to_buffer
-						(ehci,
-						 usb_pipedevice(urb->pipe))] =
-				    1;
-				qtd2 =
-				    list_entry(tmp, struct ehci_qtd, qtd_list);
+			} else if (urb->use_iram && (!qtd->last_one) && usb_pipeout(urb->pipe)) {
+				ehci->iram_in_use[address_to_buffer(ehci, usb_pipedevice(urb->pipe))] = 1;
+				qtd2 = list_entry(tmp, struct ehci_qtd, qtd_list);
 				if (urb->transfer_buffer == NULL) {
-					memcpy(ehci->
-					       iram_buffer_v[address_to_buffer
-							     (ehci,
-							      usb_pipedevice
-							      (urb->pipe))],
-					       phys_to_virt(urb->transfer_dma) +
-					       qtd->buffer_offset + qtd->length,
+					memcpy((void *) (ehci->iram_buffer_v[address_to_buffer(ehci, usb_pipedevice(urb->pipe))]),
+					       (void *) (phys_to_virt(urb->transfer_dma) + qtd->buffer_offset + qtd->length),
 					       min(g_iram_size, qtd2->length));
 				} else {
-					memcpy(ehci->
-					       iram_buffer_v[address_to_buffer
-							     (ehci,
-							      usb_pipedevice
-							      (urb->pipe))],
-					       urb->transfer_buffer +
-					       qtd->buffer_offset + qtd->length,
+					memcpy((void *) (ehci->iram_buffer_v[address_to_buffer(ehci, usb_pipedevice(urb->pipe))]),
+					       (void *) (urb->transfer_buffer + qtd->buffer_offset + qtd->length),
 					       min(g_iram_size, qtd2->length));
 				}
 				temp_hw_qtd_next =
@@ -430,80 +417,33 @@ static unsigned qh_completions(struct ehci_hcd *ehci, struct ehci_qh *qh)
 				if (tmp != &qh->qtd_list) {
 					urb2 = qtd2->urb;
 					if (urb2 && urb2->use_iram == 1) {
-						ehci->
-						    iram_in_use
-						    [address_to_buffer
-						     (ehci,
-						      usb_pipedevice(urb->
-								     pipe))] =
-						    1;
-						if (urb2->transfer_buffer ==
-						    NULL) {
-							memcpy(ehci->
-							       iram_buffer_v
-							[address_to_buffer
-								(ehci,
-								 usb_pipedevice
-								 (urb->pipe))],
-							       phys_to_virt
-							       (urb2->
-								transfer_dma),
-							       min(g_iram_size,
-								   qtd2->
-								   length));
+						ehci->iram_in_use[address_to_buffer(ehci, usb_pipedevice(urb->pipe))] =	1;
+						if (urb2->transfer_buffer == NULL) {
+							memcpy((void *) (ehci->iram_buffer_v[address_to_buffer(ehci, usb_pipedevice(urb->pipe))]),
+								(void *) phys_to_virt(urb2->transfer_dma),
+							       min(g_iram_size, qtd2->length));
 						} else {
-							memcpy(ehci->
-							       iram_buffer_v
-							[address_to_buffer
-								(ehci,
-								 usb_pipedevice
-								 (urb->pipe))],
-							       urb2->
-							       transfer_buffer,
-							       min(g_iram_size,
-								   qtd2->
-								   length));
+							memcpy((void *) (ehci->iram_buffer_v[address_to_buffer(ehci, usb_pipedevice(urb->pipe))]),
+							       (void *) urb2->transfer_buffer,
+							       min(g_iram_size,qtd2->length));
 						}
 					} else {
-						ehci->
-						    iram_in_use
-						    [address_to_buffer
-						     (ehci,
-						      usb_pipedevice(urb->
-								     pipe))] =
-						    0;
+						ehci->iram_in_use[address_to_buffer(ehci, usb_pipedevice(urb->pipe))] = 0;
 					}
 				} else {
-					ehci->
-					    iram_in_use[address_to_buffer
-							(ehci,
-							 usb_pipedevice(urb->
-									pipe))]
-					    = 0;
+					ehci->iram_in_use[address_to_buffer(ehci, usb_pipedevice(urb->pipe))] = 0;
 				}
 				temp_hw_qtd_next =
 				    QTD_NEXT(ehci, qtd->hw_next) & 0xFFFFFFFE;
 			} else if (urb->use_iram && usb_pipein(urb->pipe)) {
 				if (urb->transfer_buffer == NULL) {
-					memcpy(phys_to_virt(urb->transfer_dma) +
-					       qtd->buffer_offset,
-					       ehci->
-					       iram_buffer_v[address_to_buffer
-							     (ehci,
-							      usb_pipedevice
-							      (urb->pipe))] +
-					       g_iram_size, min(g_iram_size,
-								qtd->length));
+					memcpy((void *) (phys_to_virt(urb->transfer_dma) + qtd->buffer_offset),
+					       (void *) (ehci->iram_buffer_v[address_to_buffer(ehci, usb_pipedevice(urb->pipe))] + g_iram_size),
+						min(g_iram_size, qtd->length));
 				} else {
-					memcpy(urb->transfer_buffer +
-					       qtd->buffer_offset,
-					       ehci->
-					       iram_buffer_v[address_to_buffer
-							     (ehci,
-							      usb_pipedevice
-							      (urb->pipe))] +
-					       g_iram_size, min(g_iram_size,
-								qtd->length));
+					memcpy((void *) (urb->transfer_buffer + qtd->buffer_offset),
+						(void *) (ehci->iram_buffer_v[address_to_buffer(ehci, usb_pipedevice(urb->pipe))] + g_iram_size),
+						min(g_iram_size, qtd->length));
 				}
 				temp_hw_qtd_next =
 				    QTD_NEXT(ehci, qtd->hw_next) & 0xFFFFFFFE;
@@ -595,8 +535,7 @@ halt:
 	 * it after fault cleanup, or recovering from silicon wrongly
 	 * overlaying the dummy qtd (which reduces DMA chatter).
 	 */
-	if ((stopped != 0) || (qh->hw_qtd_next == EHCI_LIST_END(ehci))
-	    && (temp_hw_qtd_next == 0)) {
+	if ((stopped != 0) || ((qh->hw_qtd_next == EHCI_LIST_END(ehci)) && (temp_hw_qtd_next == 0))) {
 		switch (state) {
 		case QH_STATE_IDLE:
 			qh_refresh(ehci, qh);
@@ -731,21 +670,13 @@ static struct list_head *qh_urb_transaction(struct ehci_hcd *ehci,
 			    iram_in_use[address_to_buffer
 					(ehci, usb_pipedevice(urb->pipe))] = 1;
 			if (urb->transfer_buffer == NULL) {
-				memcpy(ehci->
-				       iram_buffer_v[address_to_buffer
-						     (ehci,
-						      usb_pipedevice(urb->
-								     pipe))],
-				       phys_to_virt(urb->transfer_dma),
-				       min((int)g_iram_size, len));
+				memcpy((void *) (ehci->iram_buffer_v[address_to_buffer(ehci, usb_pipedevice(urb->pipe))]),
+					(void *) phys_to_virt(urb->transfer_dma),
+					min((int)g_iram_size, len));
 			} else {
-				memcpy(ehci->
-				       iram_buffer_v[address_to_buffer
-						     (ehci,
-						      usb_pipedevice(urb->
-								     pipe))],
-				       urb->transfer_buffer,
-				       min((int)g_iram_size, len));
+				memcpy((void *) (ehci->iram_buffer_v[address_to_buffer(ehci, usb_pipedevice(urb->pipe))]),
+					(void *) urb->transfer_buffer,
+					min((int)g_iram_size, len));
 			}
 		}
 		len -= this_qtd_len;
@@ -1117,7 +1048,7 @@ static struct ehci_qh *qh_append_tds(struct ehci_hcd *ehci,
 
 			list_del(&qtd->qtd_list);
 			list_add(&dummy->qtd_list, qtd_list);
-			__list_splice(qtd_list, qh->qtd_list.prev);
+			__list_splice(qtd_list, qh->qtd_list.prev, qh->qtd_list.next);
 
 			ehci_qtd_init(ehci, qtd, qtd->qtd_dma);
 			qh->dummy = qtd;

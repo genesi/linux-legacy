@@ -291,6 +291,7 @@ static void ehci_work(struct ehci_hcd *ehci);
 
 #include "ehci-hub.c"
 #ifdef CONFIG_USB_STATIC_IRAM
+#include "../core/hub.h" // iram driver needs it somehow
 #include "ehci-mem-iram.c"
 #include "ehci-q-iram.c"
 #else

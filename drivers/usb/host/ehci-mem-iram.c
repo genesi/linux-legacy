@@ -98,7 +98,7 @@ static int usb_pool_initialize(u32 memPool, u32 poolSize, u32 alignment)
 	return (0);
 }
 
-static void usb_pool_deinit()
+static void usb_pool_deinit(void)
 {
 	if (--g_usb_pool_count < 0)
 		g_usb_pool_count = 0;
@@ -305,6 +305,7 @@ static inline void ehci_qtd_free(struct ehci_hcd *ehci, struct ehci_qtd *qtd)
 static void qh_destroy(struct ehci_qh *qh)
 {
 	struct ehci_hcd *ehci = qh->ehci;
+	int i;
 
 	/* clean qtds first, and know this is not linked */
 	if (!list_empty(&qh->qtd_list) || qh->qh_next.ptr) {
@@ -313,7 +314,7 @@ static void qh_destroy(struct ehci_qh *qh)
 	}
 	if (qh->dummy)
 		ehci_qtd_free(ehci, qh->dummy);
-	int i;
+
 	for (i = 0; i < IRAM_NTD; i++) {
 		if (ehci->usb_address[i] == (qh->hw_info1 & 0x7F))
 			ehci->usb_address[i] = 0;
