@@ -40,7 +40,6 @@
 
 #include "mx51_efikamx.h"
 
-int sii9022_reinit(struct fb_var_screeninfo *var);
 int cs8556_reinit(struct fb_var_screeninfo *var);
 
 #define VIDEO_MODE_HDMI_DEF     4
@@ -85,7 +84,6 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_display_iomux_pins[] = {
 	 },
 };
 
-extern int sii9022_reinit(struct fb_var_screeninfo *var);
 int mxcfb_initialized = 0;
 
 void mx51_efikamx_display_reset(void)
@@ -472,11 +470,8 @@ void mxcfb_adjust(struct fb_var_screeninfo *var )
 	if( clock_auto )
 		mxcfb_di_clock_adjust( video_output, var->pixclock );
 
-	if ( (video_output == VIDEO_OUT_STATIC_HDMI)) {
-		sii9022_reinit( var );
-	}
 #if defined(CONFIG_FB_MXC_CS8556)
-	else if ( video_output == VIDEO_OUT_STATIC_DSUB ) { /* VGA */
+	if ( video_output == VIDEO_OUT_STATIC_DSUB ) { /* VGA */
 		cs8556_reinit( var );
 	}
 #endif
@@ -559,7 +554,6 @@ int mxc_init_fb(void)
 	printk("*** %s vmode=%s video-mode=%d clock_auto=%d\n", 
 		  __func__, vmode, video_mode, clock_auto);
 
-	if( video_output == VIDEO_OUT_STATIC_HDMI )
 	{
 		mxc_fb_devices[0].num_resources = ARRAY_SIZE(mxcfb_resources);
 		mxc_fb_devices[0].resource = mxcfb_resources;
@@ -567,7 +561,6 @@ int mxc_init_fb(void)
 		mxc_register_device(&mxc_fb_devices[0], &mxcfb_data[0]);	// HDMI
 	}
 #if defined(CONFIG_FB_MXC_CS8556)
-	else
 	{
 		mxc_fb_devices[1].num_resources = ARRAY_SIZE(mxcfb_resources);
 		mxc_fb_devices[1].resource = mxcfb_resources;
@@ -580,7 +573,7 @@ int mxc_init_fb(void)
 
 	return 0;
 }
-//device_initcall(mxcfb_init_fb);
+device_initcall(mxc_init_fb);
 
 void mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_mem)
 {

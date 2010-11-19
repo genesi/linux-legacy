@@ -1,935 +1,1019 @@
+/* vim: set noet ts=8 sts=8 sw=8 : */
 /*
- * Copyright 2009-2010 Pegatron Corporation. All Rights Reserved.
- */
-
-/*
- * The code contained herein is licensed under the GNU General Public
- * License. You may obtain a copy of the GNU General Public License
- * Version 2 or later at the following locations:
+ * Copyright © 2010 Saleem Abdulrasool <compnerd@compnerd.org>.
+ * All rights reserved.
  *
- * http://www.opensource.org/licenses/gpl-license.html
- * http://www.gnu.org/copyleft/gpl.html
- */
-
-/*!
- * @defgroup Framebuffer Framebuffer Driver for SDC and ADC.
- */
-
-/*!
- * @file mxcfb_sii9022.c
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  *
- * @brief MXC Frame buffer driver for SDC
+ * 1. Redistributions of source code must retain the above copyright notice,
+ *    this list of conditions and the following disclaimer.
  *
- * @ingroup Framebuffer
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ *
+ * 3. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+ * EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*!
- * Include files
- */
-#include <linux/module.h>
+#include <linux/fb.h>
+#include <linux/i2c.h>
+#include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/console.h>
-#include <linux/delay.h>
-#include <linux/errno.h>
-#include <linux/fb.h>
-#include <linux/init.h>
-#include <linux/platform_device.h>
-#include <linux/regulator/consumer.h>
-#include <linux/i2c.h>
-#include <linux/mxcfb.h>
-#include <linux/ipu.h>
-#include <linux/clk.h>
-#include "../edid.h"
-#include "../arch/arm/mach-mx5/mx51_efikamx.h"
 
-#define DPRINTK	printk
+/* logging helpers */
+#define DEBUG(fmt, ...)		printk(KERN_DEBUG "SII9022: " fmt, ## __VA_ARGS__)
+#define ERROR(fmt, ...)		printk(KERN_ERR   "SII9022: " fmt, ## __VA_ARGS__)
+#define WARNING(fmt, ...)	printk(KERN_WARN  "SII9022: " fmt, ## __VA_ARGS__)
+#define INFO(fmt, ...)		printk(KERN_INFO  "SII9022: " fmt, ## __VA_ARGS__)
 
-extern int video_output;
-extern int video_mode;
-extern char vmode[32];
-extern int sink_dvi;
-extern int sink_monitor;
-extern int video_max_res;
-extern u8 edid[256];
 
-extern void mxcfb_adjust( struct fb_var_screeninfo *var );
-extern void mxcfb_dump_modeline( struct fb_videomode *modedb, int num);
-extern void mxcfb_update_default_var(struct fb_var_screeninfo *var, 
-									struct fb_info *info, 
-									const struct fb_videomode *def_video_mode );
-extern int mxcfb_handle_edid2(struct i2c_adapter *adp, char *buffer, u16 len);
+/* TPI registers */
+#define SII9022_TPI_REG_VIDEO_MODE_DATA_BASE		(0x00)
+#define SII9022_TPI_REG_PIXEL_CLOCK_LSB			(0x00)
+#define SII9022_TPI_REG_PIXEL_CLOCK_MSB			(0x01)
+#define SII9022_TPI_REG_VFREQ_LSB			(0x02)
+#define SII9022_TPI_REG_VFREQ_MSB			(0x03)
+#define SII9022_TPI_REG_PIXELS_LSB			(0x04)
+#define SII9022_TPI_REG_PIXELS_MSB			(0x05)
+#define SII9022_TPI_REG_LINES_LSB			(0x06)
+#define SII9022_TPI_REG_LINES_MSB			(0x07)
+#define SII9022_TPI_REG_INPUT_BUS_PIXEL_REPETITION	(0x08)
+#define SII9022_TPI_REG_AVI_INPUT_FORMAT		(0x09)
+#define SII9022_TPI_REG_AVI_OUTPUT_FORMAT		(0x0a)
+#define SII9022_TPI_REG_YC_INPUT_MODE			(0x0b)
+#define SII9022_TPI_REG_AVI_INFO_FRAME_BASE		(0x0c)
+#define SII9022_TPI_REG_AVI_DBYTE0			(0x0c)
+#define SII9022_TPI_REG_AVI_DBYTE1			(0x0d)
+#define SII9022_TPI_REG_AVI_DBYTE2			(0x0e)
+#define SII9022_TPI_REG_AVI_DBYTE3			(0x0f)
+#define SII9022_TPI_REG_AVI_DBYTE4			(0x10)
+#define SII9022_TPI_REG_AVI_DBYTE5			(0x11)
+#define SII9022_TPI_REG_AVI_INFO_END_TOP_BAR_LSB	(0x12)
+#define SII9022_TPI_REG_AVI_INFO_END_TOP_BAR_MSB	(0x13)
+#define SII9022_TPI_REG_AVI_INFO_START_BOTTOM_BAR_LSB	(0x14)
+#define SII9022_TPI_REG_AVI_INFO_START_BOTTOM_BAR_MSB	(0x15)
+#define SII9022_TPI_REG_AVI_INFO_END_LEFT_BAR_LSB	(0x16)
+#define SII9022_TPI_REG_AVI_INFO_END_LEFT_BAR_MSB	(0x17)
+#define SII9022_TPI_REG_AVI_INFO_END_RIGHT_BAR_LSB	(0x18)
+#define SII9022_TPI_REG_AVI_INFO_END_RIGHT_BAR_MSB	(0x19)
+#define SII9022_TPI_REG_SYS_CTRL			(0x1a)
+#define SII9022_TPI_REG_DEVICE_ID			(0x1b)
+#define SII9022_TPI_REG_DEVICE_REVISION			(0x1c)
+#define SII9022_TPI_REG_TPI_REVISION			(0x1d)
+#define SII9022_TPI_REG_PWR_STATE			(0x1e)
+#define SII9022_TPI_REG_I2S_ENABLE_MAPPING		(0x1f)
+#define SII9022_TPI_REG_I2S_IINPUT_CONFIGURATAION	(0x20)
+#define SII9022_TPI_REG_I2S_STREAM_HEADER_SETTINGS_BASE	(0x21)
+#define SII9022_TPI_REG_I2S_CHANNEL_STATUS		(0x21)
+#define SII9022_TPI_REG_I2S_CATEGORY_CODE		(0x22)
+#define SII9022_TPI_REG_I2S_SOURCE_CHANNEL		(0x23)
+#define SII9022_TPI_REG_I2S_ACCURACY_SAMPLING_FREQUENCY	(0x24)
+#define SII9022_TPI_REG_I2S_ORIGINAL_FREQ_SAMPLE_LENGTH	(0x25)
+#define SII9022_TPI_REG_I2S_AUDIO_PACKET_LAYOUT_CTRL	(0x26)
+#define SII9022_TPI_REG_I2S_AUDIO_SAMPLING_HBR		(0x27)
+#define SII9022_TPI_REG_I2S_AUDIO_RESERVED		(0x28)
+#define SII9022_TPI_REG_HDCP_QUERY_DATA			(0x29)
+#define SII9022_TPI_REG_HDCP_CONTROL_DATA		(0x2a)
+#define SII9022_TPI_REG_HDCP_CONTROL_DATA		(0x2a)
+#define SII9022_TPI_REG_HDCP_BKSV_1			(0x2b)
+#define SII9022_TPI_REG_HDCP_BKSV_2			(0x2c)
+#define SII9022_TPI_REG_HDCP_BKSV_3			(0x2d)
+#define SII9022_TPI_REG_HDCP_BKSV_4			(0x2e)
+#define SII9022_TPI_REG_HDCP_BKSV_5			(0x2f)
+#define SII9022_TPI_REG_HDCP_REVISION			(0x30)
+#define SII9022_TPI_REG_HDCP_KSV_V_STAR_VALUE		(0x31)
+#define SII9022_TPI_REG_HDCP_V_STAR_VALUE_1		(0x32)
+#define SII9022_TPI_REG_HDCP_V_STAR_VALUE_2		(0x33)
+#define SII9022_TPI_REG_HDCP_V_STAR_VALUE_3		(0x34)
+#define SII9022_TPI_REG_HDCP_V_STAR_VALUE_4		(0x35)
+#define SII9022_TPI_REG_HDCP_AKSV_1			(0x36)
+#define SII9022_TPI_REG_HDCP_AKSV_2			(0x37)
+#define SII9022_TPI_REG_HDCP_AKSV_3			(0x38)
+#define SII9022_TPI_REG_HDCP_AKSV_4			(0x39)
+#define SII9022_TPI_REG_HDCP_AKSV_5			(0x3a)
 
-struct i2c_client *sii9022_client;
+#define SII9022_TPI_REG_IER				(0x3c)
+#define SII9022_TPI_REG_ISR				(0x3d)
 
-#define HDMI_CTL_VIDEO_ENABLE	0x01
-#define HDMI_CTL_AUDIO_ENABLE	0x02
-#define HDMI_CTL_AUDIO_MUTE		0x04
-#define HDMI_CTL_AUDIO_UMMUTE	0x08
-#define HDMI_CTL_DETECT_CHIP	0x10
-#define HDMI_CTL_DETECT_SINK	0x20
-#define HDMI_CTL_EDID_GET		0x40
+#define SII9022_TPI_REG_RQB				(0xc7)
 
-/* HDMI EDID Length */
-#define HDMI_EDID_MAX_LENGTH 256
-#define SI9022_REG_TPI_RQB 0xC7
-#define HDMI_SYS_CTRL_DATA_REG 0x1A
+/* Input Bus and Pixel Repetition */
+#define SII9022_PIXEL_REPETITION_DUAL			(1 << 0)
+#define SII9022_PIXEL_REPETITION_QUAD			(3 << 0)
+#define SII9022_INPUT_BUS_EDGE_SELECT_RISING		(1 << 4)
+#define SII9022_INPUT_BUS_SELECT_FULL_PIXEL_WIDTH	(1 << 5)
+#define SII9022_INPUT_BUS_TMDS_CLOCK_RATIO_1X		(1 << 6)
+#define SII9022_INPUT_BUS_TMDS_CLOCK_RATIO_2X		(2 << 6)
+#define SII9022_INPUT_BUS_TMDS_CLOCK_RATIO_4X		(3 << 6)
 
-/* HDMI Address */
-#define SI9022_I2CSLAVEADDRESS 0x39
-#define SI9022_EDIDI2CSLAVEADDRESS 0x50
+/* Input Format */
+#define SII9022_INPUT_COLOR_SPACE_RGB			(0 << 0)
+#define SII9022_INPUT_COLOR_SPACE_YUV_444		(1 << 0)
+#define SII9022_INPUT_COLOR_SPACE_YUV_422		(2 << 0)
+#define SII9022_INPUT_COLOR_SPACE_BLACK			(3 << 0)
+#define SII9022_INPUT_VIDEO_RANGE_EXPANSION_AUTO	(0 << 2)
+#define SII9022_INPUT_VIDEO_RANGE_EXPANSION_ON		(1 << 2)
+#define SII9022_INPUT_VIDEO_RANGE_EXPANSION_OFF		(2 << 2)
+#define SII9022_INPUT_COLOR_DEPTH_8BIT			(0 << 6)
+#define SII9022_INPUT_COLOR_DEPTH_10BIT			(2 << 6)
+#define SII9022_INPUT_COLOR_DEPTH_12BIT			(3 << 6)
+#define SII9022_INPUT_COLOR_DEPTH_16BIT			(1 << 6)
 
-/* HDMI_SYS_CTRL_DATA_REG */
-#define TPI_SYS_CTRL_DDC_BUS_REQUEST (1 << 2)
-#define TPI_SYS_CTRL_DDC_BUS_GRANTED (1 << 1)
+/* Output Format */
+#define SII9022_OUTPUT_FORMAT_HDMI_RGB			(0 << 0)
+#define SII9022_OUTPUT_FORMAT_HDMI_YUV_444		(1 << 0)
+#define SII9022_OUTPUT_FORMAT_HDMI_YUV_422		(2 << 0)
+#define SII9022_OUTPUT_FORMAT_DVI_RGB			(3 << 0)
+#define SII9022_OUTPUT_VIDEO_RANGE_COMPRESSION_AUTO	(0 << 2)
+#define SII9022_OUTPUT_VIDEO_RANGE_COMPRESSION_ON	(1 << 2)
+#define SII9022_OUTPUT_VIDEO_RANGE_COMPRESSION_OFF	(2 << 2)
+#define SII9022_OUTPUT_COLOR_STANDARD_BT601		(0 << 4)
+#define SII9022_OUTPUT_COLOR_STANDARD_BT709		(1 << 4)
+#define SII9022_OUTPUT_DITHERING			(1 << 5)
+#define SII9022_OUTPUT_COLOR_DEPTH_8BIT			(0 << 6)
+#define SII9022_OUTPUT_COLOR_DEPTH_10BIT		(2 << 6)
+#define SII9022_OUTPUT_COLOR_DEPTH_12BIT		(3 << 6)
+#define SII9022_OUTPUT_COLOR_DEPTH_16BIT		(1 << 6)
 
-#define TPI_SYS_CTRL_OUTPUT_MODE_DVI	(0 << 0)
-#define TPI_SYS_CTRL_OUTPUT_MODE_HDMI	(1 << 0)
+/* System Control */
+#define SII9022_SYS_CTRL_OUTPUT_MODE_SELECT_HDMI	(1 << 0)
+#define SII9022_SYS_CTRL_DDC_BUS_OWNER_HOST		(1 << 1)
+#define SII9022_SYS_CTRL_DDC_BUS_GRANTED		(1 << 1)
+#define SII9022_SYS_CTRL_DDC_BUS_REQUEST		(1 << 2)
+#define SII9022_SYS_CTRL_AV_MUTE_HDMI			(1 << 3)
+#define SII9022_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN		(1 << 4)
+#define SII9022_SYS_CTRL_DYNAMIC_LINK_INTEGRITY		(1 << 6)
 
-#define TPI_SYS_CTRL_POWER_DOWN		(1 << 4)
-#define TPI_SYS_CTRL_POWER_ACTIVE	(0 << 4)
+/* Device Power State Control Data */
+#define SII9022_POWER_STATE_D0				(0 << 0)
+#define SII9022_POWER_STATE_D1				(1 << 0)
+#define SII9022_POWER_STATE_D2				(2 << 0)
+#define SII9022_POWER_STATE_D3				(3 << 0)
+#define SII9022_WAKEUP_STATE_COLD			(1 << 2)
 
-/* Stream Header Data */
-#define HDMI_SH_PCM (0x1 << 4)
-#define HDMI_SH_TWO_CHANNELS (0x1 << 0)
-#define HDMI_SH_44KHz (0x2 << 2)
-#define HDMI_SH_48KHz (0x3 << 2)
-#define HDMI_SH_16BIT (0x1 << 0)
+/* I²S Enable and Mapping */
+#define SII9022_I2S_MAPPING_SELECT_SD_CHANNEL_0		(0 << 0)
+#define SII9022_I2S_MAPPING_SELECT_SD_CHANNEL_1		(1 << 0)
+#define SII9022_I2S_MAPPING_SELECT_SD_CHANNEL_2		(2 << 0)
+#define SII9022_I2S_MAPPING_SELECT_SD_CHANNEL_3		(3 << 0)
+#define SII9022_I2S_MAPPING_SWAP_CHANNELS		(1 << 3)
+#define SII9022_I2S_ENABLE_BASIC_AUDIO_DOWNSAMPLING	(1 << 4)
+#define SII9022_I2S_MAPPING_SELECT_FIFO_0		(0 << 5)
+#define SII9022_I2S_MAPPING_SELECT_FIFO_1		(1 << 5)
+#define SII9022_I2S_MAPPING_SELECT_FIFO_2		(2 << 5)
+#define SII9022_I2S_MAPPING_SELECT_FIFO_3		(3 << 5)
+#define SII9022_I2S_ENABLE_SELECTED_FIFO		(1 << 7)
 
-u8 hdmi_sh_value = (HDMI_SH_48KHz|HDMI_SH_16BIT);
+/* I²S Input Configuration */
+#define SII9022_I2S_WS_TO_SD_FIRST_BIT_SHIFT		(1 << 0)
+#define SII9022_I2S_SD_LSB_FIRST			(1 << 1)
+#define SII9022_I2S_SD_RIGHT_JUSTIFY_DATA		(1 << 2)
+#define SII9022_I2S_WS_POLARITY_HIGH			(1 << 3)
+#define SII9022_I2S_MCLK_MULTIPLIER_128			(0 << 4)
+#define SII9022_I2S_MCLK_MULTIPLIER_256			(1 << 4)
+#define SII9022_I2S_MCLK_MULTIPLIER_384			(2 << 4)
+#define SII9022_I2S_MCLK_MULTIPLIER_512			(3 << 4)
+#define SII9022_I2S_MCLK_MULTIPLIER_768			(4 << 4)
+#define SII9022_I2S_MCLK_MULTIPLIER_1024		(5 << 4)
+#define SII9022_I2S_MCLK_MULTIPLIER_1152		(6 << 4)
+#define SII9022_I2S_MCLK_MULTIPLIER_192			(7 << 4)
+#define SII9022_I2S_SCK_SAMPLE_RISING_EDGE		(1 << 7)
 
-#define HDMI_XRES                      1280
-#define HDMI_YRES                      720
-#define HDMI_PIXCLOCK_MAX              74250
+/* Interrupt Enable */
+#define SII9022_IER_HOT_PLUG_EVENT			(1 << 0)
+#define SII9022_IER_RECEIVER_SENSE_EVENT		(1 << 1)
+#define SII9022_IER_CTRL_BUS_EVENT			(1 << 2)
+#define SII9022_IER_CPI_EVENT				(1 << 3)
+#define SII9022_IER_AUDIO_EVENT				(1 << 4)
+#define SII9022_IER_SECURITY_STATUS_CHANGE		(1 << 5)
+#define SII9022_IER_HDCP_VALUE_READY			(1 << 6)
+#define SII9022_IER_HDCP_AUTHENTICATION_STATUS_CHANGE	(1 << 7)
 
-#define EDID_TIMING_DESCRIPTOR_SIZE            0x12
-#define EDID_DESCRIPTOR_BLOCK0_ADDRESS         0x36
-#define EDID_DESCRIPTOR_BLOCK1_ADDRESS         0x80
-#define EDID_SIZE_BLOCK0_TIMING_DESCRIPTOR     4   
-#define EDID_SIZE_BLOCK1_TIMING_DESCRIPTOR     4
+/* Interrupt Status */
+#define SII9022_ISR_HOT_PLUG_EVENT			(1 << 0)
+#define SII9022_ISR_RECEIVER_SENSE_EVENT		(1 << 1)
+#define SII9022_ISR_CTRL_BUS_EVENT			(1 << 2)
+#define SII9022_ISR_CPI_EVENT				(1 << 3)
+#define SII9022_ISR_AUDIO_EVENT				(1 << 4)
+#define SII9022_ISR_SECURITY_STATUS_CHANGED		(1 << 5)
+#define SII9022_ISR_HDCP_VALUE_READY			(1 << 6)
+#define SII9022_ISR_HDCP_AUTHENTICATION_STATUS_CHANGED	(1 << 7)
 
-int hdmi_video_init = 0;
+/* Request/Grant/Black Mode */
+#define SII9022_RQB_DDC_BUS_REQUEST			(1 << 0)
+#define SII9022_RQB_DDC_BUS_GRANTED			(1 << 1)
+#define SII9022_RQB_I2C_ACCESS_DDC_BUS			(1 << 2)
+#define SII9022_RQB_FORCE_VIDEO_BLANK			(1 << 5)
+#define SII9022_RQB_TPI_MODE_DISABLE			(1 << 7)
 
-EXPORT_SYMBOL(sii9022_client);
 
-int sii9022_hdmi_video_init(struct fb_var_screeninfo *var);
-int sii9022_hdmi_audio_init(void);
-int sii9022_reinit(struct fb_var_screeninfo *var);
-extern void mxcfb_videomode_to_modelist(const struct fb_info *info, const struct fb_videomode *modedb, int num,
-			      struct list_head *head);
-extern void mxcfb_sanitize_modelist(const struct fb_info *info, const struct fb_videomode *modedb, int num,
-			      struct list_head *head);
-static int sii9022_handle_edid(struct i2c_client *client, char *edid_buffer, u16 len );
+/* driver constants */
+#define SII9022_DEVICE_ID_902x				(0xb0)
+#define SII9022_BASE_TPI_REVISION			(0x29)
+#define SII9022_AVI_INFO_FRAME_VERSION			(0x02)
+#define SII9022_CTRL_INFO_FRAME_DRAIN_TIME		(0x80)
 
-static void lcd_poweron(struct fb_info *info);
-static void lcd_poweroff(void);
 
-//static void (*lcd_reset) (void);
-extern int enable_hdmi_spdif;
-extern int ce_mode;
-extern int video_mode;
-extern int clock_auto;
-extern int hdmi_audio;
-extern int video_output;
+/* EDID constants and Structures */
+#define EDID_I2C_DDC_DATA_ADDRESS			(0x50)
 
-static struct fb_videomode video_modes_ce_mode_4 = {
-     /* 720p60 TV output */
-     .name          = "720P60",
-     .refresh       = 60,
-     .xres          = 1280,
-     .yres          = 720,
-     .pixclock      = 13468,
-     .left_margin   = 220,
-     .right_margin  = 110,
-     .upper_margin  = 20,
-     .lower_margin  = 5,
-     .hsync_len     = 40,
-     .vsync_len     = 5,
-     .sync          = FB_SYNC_BROADCAST | FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT | FB_SYNC_EXT,
-     .vmode         = FB_VMODE_NONINTERLACED,
+#define EEDID_BASE_LENGTH				(0x100)
+
+#define EEDID_EXTENSION_FLAG				(0x7e)
+
+#define EEDID_EXTENSION_TAG				(0x80)
+#define EEDID_EXTENSION_DATA_OFFSET			(0x80)
+
+enum edid_extension {
+	EDID_EXTENSION_TIMING           = 0x00, // Timing Extension
+	EDID_EXTENSION_CEA              = 0x02, // Additional Timing Block Data (CEA EDID Timing Extension)
+	EDID_EXTENSION_VTB              = 0x10, // Video Timing Block Extension (VTB-EXT)
+	EDID_EXTENSION_EDID_2_0         = 0x20, // EDID 2.0 Extension
+	EDID_EXTENSION_DI               = 0x40, // Display Information Extension (DI-EXT)
+	EDID_EXTENSION_LS               = 0x50, // Localised String Extension (LS-EXT)
+	EDID_EXTENSION_MI               = 0x60, // Microdisplay Interface Extension (MI-EXT)
+	EDID_EXTENSION_DTCDB_1          = 0xa7, // Display Transfer Characteristics Data Block (DTCDB)
+	EDID_EXTENSION_DTCDB_2          = 0xaf,
+	EDID_EXTENSION_DTCDB_3          = 0xbf,
+	EDID_EXTENSION_BLOCK_MAP        = 0xf0, // Block Map
+	EDID_EXTENSION_DDDB             = 0xff, // Display Device Data Block (DDDB)
 };
 
-static struct fb_videomode video_modes_ce_mode_19 = {
-     /* 720p50 TV output */
-     .name          = "720P50",
-     .refresh       = 50,
-     .xres          = 1280,
-     .yres          = 720,
-     .pixclock      = 13468,
-     .left_margin   = 220,
-     .right_margin  = 440,
-     .upper_margin  = 20,
-     .lower_margin  = 5,
-     .hsync_len     = 40,
-     .vsync_len     = 5,
-	 .sync			= FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT | FB_SYNC_EXT,
-     .vmode         = FB_VMODE_NONINTERLACED,
+struct __packed cea_timing_block {
+	u8       extension_tag;
+	u8       revision_number;
+	u8       dtd_start_offset;
+	unsigned dtd_block_count       : 4;
+	unsigned yuv_422_supported     : 1;
+	unsigned yuv_444_supported     : 1;
+	unsigned basic_audio_supported : 1;
+	unsigned underscan_supported   : 1;
+	u8       dbc_start_offset;              // data block collection offset
 };
 
-/* non-standard 720p timing but work for full screen movie playback */
-static struct fb_videomode video_modes_1280x720_65 = {
-	.name		   = "1280x720@65",
-	.refresh	   = 60,
-	.xres 			= 1280,
-	.yres 			= 720,
-	.pixclock 		= 16260,
-	.left_margin 	= 32,
-	.right_margin 	= 48,
-	.upper_margin	= 7,
-	.lower_margin 	= 3,
-	.hsync_len 		= 32,
-	.vsync_len 		= 6,
-	.sync 			= FB_SYNC_OE_LOW_ACT,
-	.vmode		   = FB_VMODE_NONINTERLACED,
+
+/* HDMI Constants and Structures (CEA-861-D) */
+#define HDMI_PACKET_TYPE_INFO_FRAME			(0x80)
+#define HDMI_PACKET_CHECKSUM				(0x100)
+
+enum info_frame_type {
+	INFO_FRAME_TYPE_RESERVED,
+	INFO_FRAME_TYPE_VENDOR_SPECIFIC,
+	INFO_FRAME_TYPE_AUXILIARY_VIDEO,
+	INFO_FRAME_TYPE_SOURCE_PRODUCT_DESCRIPTION,
+	INFO_FRAME_TYPE_AUDIO,
+	INFO_FRAME_TYPE_MPEG,
 };
 
-//standard vesa 1024x768@60 pixel clock: 65.00Mhz
-static struct fb_videomode video_modes_1024x768_60 = {
-	.name		   = "1024x768@60-65Mhz",
-	.refresh	   = 60,
-	.xres		   = 1024,
-	.yres		   = 768,
-	.pixclock	   = 15384, //pico seconds of 65.0Mhz
-	.left_margin   = 160, 
-	.right_margin  = 24,
-	.upper_margin  = 29,   
-	.lower_margin  = 3,
-	.hsync_len	   = 136,
-	.vsync_len	   = 6,
-	.sync		   = FB_SYNC_EXT,
-	.vmode		   = FB_VMODE_NONINTERLACED,
-	.flag		   = FB_MODE_IS_VESA,
+struct __packed avi_info_frame {
+	u8       chksum;
+
+	unsigned scan_information            : 2;
+	unsigned bar_info                    : 2;
+	unsigned active_format_info_valid    : 1;
+	unsigned pixel_format                : 2;
+	unsigned dbyte1_reserved0            : 1;
+
+	unsigned active_format_description   : 4;
+	unsigned picture_aspect_ratio        : 2;
+	unsigned colorimetry                 : 2;
+
+	unsigned non_uniform_picture_scaling : 2;
+	unsigned quantization_range          : 2;
+	unsigned extended_colorimetry        : 3;
+	unsigned it_content_present          : 1;
+
+	unsigned video_format                : 7;
+	unsigned dbyte4_reserved0            : 1;
+
+	unsigned pixel_repetition_factor     : 4;       /* value - 1 */
+	unsigned dbyte5_reserved0            : 4;
+
+	u16      end_of_top_bar;
+	u16      start_of_bottom_bar;
+	u16      end_of_left_bar;
+	u16      start_of_right_bar;
 };
 
-static struct fb_videomode video_modes_1980x1080_60 = {
-	.name		   = "1980x1080@60-148Mhz",
-	.refresh	   = 60,
-	.xres		   = 1980,
-	.yres		   = 1080,
-	.pixclock	   = 6734,
-	.left_margin   = 148, 
-	.right_margin  = 88,
-	.upper_margin  = 36,   
-	.lower_margin  = 4,
-	.hsync_len	   = 44,
-	.vsync_len	   = 5,
-	.sync		   = FB_SYNC_EXT,
-	.vmode		   = FB_VMODE_NONINTERLACED,
+enum scan_information {
+	SCAN_INFORMATION_UNKNOWN,
+	SCAN_INFORMATION_OVERSCANNED,
+	SCAN_INFORMATION_UNDERSCANNED,
 };
 
-#undef dev_dbg
-#define dev_dbg(dev, format, arg...)		\
-	dev_printk(KERN_INFO , dev , format , ## arg)
+enum bar_info {
+	BAR_INFO_INVALID,
+	BAR_INFO_VERTICAL,
+	BAR_INFO_HORIZONTAL,
+	BAR_INFO_BOTH,
+};
 
-int edid_parse( u8 *edid, int *sink_monitor, int *sink_dvi )
+enum pixel_format {
+	PIXEL_FORMAT_RGB,       /* default */
+	PIXEL_FORMAT_YUV_422,
+	PIXEL_FORMAT_YUV_444,
+};
+
+enum active_format_description {
+	ACTIVE_FORMAT_DESCRIPTION_UNSCALED      = 0x08,
+	ACTIVE_FORMAT_DESCRIPTION_4_3_CENTERED  = 0x09,
+	ACTIVE_FORMAT_DESCRIPTION_16_9_CENTERED = 0x10,
+	ACTIVE_FORMAT_DESCRIPTION_14_9_CENTERED = 0x11,
+};
+
+enum picture_aspect_ratio {
+	PICTURE_ASPECT_RATIO_UNSCALED,
+	PICTURE_ASPECT_RATIO_4_3,
+	PICTURE_ASPECT_RATIO_16_9,
+};
+
+enum colorimetry {
+	COLORIMETRY_UNKNOWN,
+	COLORIMETRY_BT601,
+	COLORIMETRY_BT709,
+	COLORIMETRY_EXTENDED,
+};
+
+enum non_uniform_picture_scaling {
+	NON_UNIFORM_PICTURE_SCALING_NONE,
+	NON_UNIFORM_PICTURE_SCALING_HORIZONTAL,
+	NON_UNIFORM_PICTURE_SCALING_VERTICAL,
+	NON_UNIFORM_PICTURE_SCALING_BOTH,
+};
+
+enum quantization_range {
+	QUANTIZATION_RANGE_DEFAULT,
+	QUANTIZATION_RANGE_LIMITED,
+	QUANTIZATION_RANGE_FULL,
+};
+
+enum extended_colorimetry {
+	EXTENDED_COLORIMETRY_BT601,
+	EXTENDED_COLORIMETRY_BT709,
+};
+
+enum video_format {
+	VIDEO_FORMAT_UNKNOWN,
+};
+
+
+struct sii9022_tx {
+	struct i2c_client *client;
+	struct notifier_block fb;
+
+	/* sink information */
+	bool enable_audio;
+	enum {
+		CONNECTION_TYPE_DVI,
+		CONNECTION_TYPE_HDMI,
+	} connection_type;
+	enum {
+		PIXEL_MAPPING_EXACT,
+		PIXEL_MAPPING_UNDERSCANED,
+		PIXEL_MAPPING_OVERSCANNED,
+	} pixel_mapping;
+};
+
+
+static struct fb_videomode sii9022_default_video_mode = {
+	.name         = "1280x720@60 (720p CEA Mode 4)",
+	.refresh      = 60,
+	.xres         = 1280,
+	.yres         = 720,
+	.pixclock     = 13468,
+	.left_margin  = 220,
+	.right_margin = 110,
+	.upper_margin = 20,
+	.lower_margin = 5,
+	.hsync_len    = 40,
+	.vsync_len    = 5,
+	.sync         = FB_SYNC_BROADCAST     |
+	                FB_SYNC_HOR_HIGH_ACT  |
+	                FB_SYNC_VERT_HIGH_ACT |
+	                FB_SYNC_EXT,
+	.vmode        = FB_VMODE_NONINTERLACED,
+};
+
+
+static int sii9022_detect_revision(struct sii9022_tx *tx)
 {
-	if (edid[126] > 0 ) { 
+	u8 data;
+	char device[80];
+	size_t offset = 0;
+	int retries = 5;
 
-		if (edid[EDID_DESCRIPTOR_BLOCK1_ADDRESS] == 0x02) {
-			/* This block is CEA extension */
-			DPRINTK("----------------------------------------\n");
-			DPRINTK("	Revision number: %d\n", 
-						edid[EDID_DESCRIPTOR_BLOCK1_ADDRESS+1] );
-			DPRINTK("	DTV underscan: %s\n",
-						(edid[EDID_DESCRIPTOR_BLOCK1_ADDRESS+3] & 0x80 ) ?
-							"Supported" : "Not supported");
-			DPRINTK("	Basic audio: %s\n",
-						(edid[EDID_DESCRIPTOR_BLOCK1_ADDRESS+3] & 0x40 ) ?
-							"Supported" : "Not supported");
-			if ( (edid[EDID_DESCRIPTOR_BLOCK1_ADDRESS+3] & 0x40 ) ) {
-				*sink_monitor = 0;
-				*sink_dvi = 0;
-			}
-			else {
-				*sink_monitor = 1;
-				*sink_dvi = 1;
-			}
-		}
+	/* TODO convert retries to timeout */
 
-	}
-	else {
-		/* no CEA extension, it must be DVI */
-		*sink_monitor = 1;
-		*sink_dvi = 1;
-	}
+	do {
+		data = i2c_smbus_read_byte_data(tx->client,
+						SII9022_TPI_REG_DEVICE_ID);
+	} while (data != SII9022_DEVICE_ID_902x && --retries > 0);
 
-	printk(KERN_INFO "	Sink device: %s, %s\n", 
-					*sink_monitor ? "Monitor" : "TV",
-					*sink_dvi ? "DVI" : "HDMI" );
+	if (data != SII9022_DEVICE_ID_902x)
+		return -ENODEV;
+
+	offset += snprintf(device + offset, sizeof(device) - offset,
+			   "Device ID: %#02x", data);
+
+	data = i2c_smbus_read_byte_data(tx->client,
+					SII9022_TPI_REG_DEVICE_REVISION);
+	if (data)
+		offset += snprintf(device + offset, sizeof(device) - offset,
+				   " (rev %01u.%01u)",
+				   (data >> 4) & 15, data & 15);
+
+	data = i2c_smbus_read_byte_data(tx->client,
+					SII9022_TPI_REG_TPI_REVISION);
+	offset += snprintf(device + offset, sizeof(device) - offset,
+			   " (%s", data & (1 << 7) ? "Virtual" : "");
+	data &= ~(1 << 7);
+	data = data ? data : SII9022_BASE_TPI_REVISION;
+	offset += snprintf(device + offset, sizeof(device) - offset,
+			   "TPI revision %01u.%01u)",
+			   (data >> 4) & 15, data & 15);
+
+	data = i2c_smbus_read_byte_data(tx->client,
+					SII9022_TPI_REG_HDCP_REVISION);
+	if (data)
+		offset += snprintf(device + offset, sizeof(device) - offset,
+				   " (HDCP version %01u.%01u)",
+				   (data >> 4) & 15, data & 15);
+
+	device[offset] = '\0';
+	INFO("%s\n", device);
 
 	return 0;
 }
 
-static int sii9022_handle_edid(struct i2c_client *client, char *edid, u16 len )
+static int sii9022_initialise(struct sii9022_tx *tx)
 {
-	int err = 0;
-	u8 val = 0;
-	int retries = 0;
+	int ret;
 
-	len = (len < HDMI_EDID_MAX_LENGTH) ? len : HDMI_EDID_MAX_LENGTH;
-	memset(edid, 0, len);
-
-	/* Hardware reset to Tx subsystem */
-	i2c_smbus_write_byte_data(sii9022_client, SI9022_REG_TPI_RQB, 0x00);
-
-	val = i2c_smbus_read_byte_data(sii9022_client, HDMI_SYS_CTRL_DATA_REG);
-	val |= TPI_SYS_CTRL_DDC_BUS_REQUEST;
-
-	err = i2c_smbus_write_byte_data(sii9022_client, HDMI_SYS_CTRL_DATA_REG, val);
-	if (err < 0) {
-		dev_printk( KERN_INFO, &sii9022_client->dev, "write DDC Bus req err!\n");
-		return err;
+	/* step 1: reset and initialise */
+	ret = i2c_smbus_write_byte_data(tx->client, SII9022_TPI_REG_RQB, 0x00);
+	if (ret < 0) {
+		DEBUG("unable to initialise device to TPI mode\n");
+		return ret;
 	}
 
-	/* polling to grant ddc bus access */
-	val = 0;
+	/* step 2: detect revision */
+	if ((ret = sii9022_detect_revision(tx)) < 0) {
+		DEBUG("unable to detect device revision\n");
+		return ret;
+	}
+
+	/* step 3: power up transmitter */
+	ret = i2c_smbus_write_byte_data(tx->client,
+					SII9022_TPI_REG_PWR_STATE,
+					SII9022_POWER_STATE_D0);
+	if (ret < 0) {
+		DEBUG("unable to power up transmitter\n");
+		return ret;
+	}
+
+	/* step 4: configure input bus and pixel repetition */
+
+	/* step 5: select YC input mode */
+
+	/* step 6: configure sync methods */
+
+	/* step 7: configure explicit sync DE generation */
+
+	/* step 8: configure embedded sync extraction */
+
+	/* step 9: setup interrupt service */
+	ret = i2c_smbus_write_byte_data(tx->client,
+					SII9022_TPI_REG_IER,
+					SII9022_IER_HOT_PLUG_EVENT |
+					SII9022_IER_RECEIVER_SENSE_EVENT);
+	if (ret < 0) {
+		DEBUG("unable to setup interrupt request\n");
+		return ret;
+	}
+
+	return 0;
+}
+
+static int sii9022_read_edid(struct sii9022_tx *tx, u8 *edid, size_t size)
+{
+	u8 offset, ctrl;
+	int ret, retries = 5;
+
+	/* TODO convert retries to timeout */
+
+	struct i2c_msg request[] = {
+		{ .addr  = EDID_I2C_DDC_DATA_ADDRESS,
+		  .len   = sizeof(offset),
+		  .buf   = &offset, },
+		{ .addr  = EDID_I2C_DDC_DATA_ADDRESS,
+		  .flags = I2C_M_RD,
+		  .len   = size,
+		  .buf   = edid, },
+	};
+
+	/* step 1: (potentially) disable HDCP */
+
+	/* step 2: request the DDC bus */
+	ctrl = i2c_smbus_read_byte_data(tx->client, SII9022_TPI_REG_SYS_CTRL);
+
+	ret = i2c_smbus_write_byte_data(tx->client,
+					SII9022_TPI_REG_SYS_CTRL,
+					ctrl | SII9022_SYS_CTRL_DDC_BUS_REQUEST);
+	if (ret < 0) {
+		DEBUG("unable to request DDC bus\n");
+		return ret;
+	}
+
+	/* step 3: poll for bus grant */
 	do {
-		val = i2c_smbus_read_byte_data(sii9022_client, HDMI_SYS_CTRL_DATA_REG);
-		if (retries++ > 20) {
-			dev_printk( KERN_INFO, &sii9022_client->dev, "fail to poll ddc bus access!\n");
-			return err;
-		}
-	} while ((val & TPI_SYS_CTRL_DDC_BUS_GRANTED) == 0);
+		ctrl = i2c_smbus_read_byte_data(tx->client,
+						SII9022_TPI_REG_SYS_CTRL);
+	} while (! (ctrl & SII9022_SYS_CTRL_DDC_BUS_GRANTED) && --retries > 0);
 
-	/* grant ddc bus access */
-	val |= TPI_SYS_CTRL_DDC_BUS_REQUEST | TPI_SYS_CTRL_DDC_BUS_GRANTED;
-	err = i2c_smbus_write_byte_data(sii9022_client, HDMI_SYS_CTRL_DATA_REG, val);
-	if (err < 0) {
-		dev_printk( KERN_INFO, &sii9022_client->dev, "fail to grant ddc bus!\n");
-		return err;
+	/* step 4: take ownership of the DDC bus */
+	ret = i2c_smbus_write_byte_data(tx->client,
+					SII9022_TPI_REG_SYS_CTRL,
+					SII9022_SYS_CTRL_DDC_BUS_REQUEST |
+					SII9022_SYS_CTRL_DDC_BUS_OWNER_HOST);
+	if (ret < 0) {
+		DEBUG("unable to take ownership of the DDC bus\n");
+		return ret;
 	}
 
-	/* read EDID info */
-	client->addr = SI9022_EDIDI2CSLAVEADDRESS;	//edid addr=0x50,  i2c slave addr=0x39
-	err = mxcfb_handle_edid2( client->adapter, edid, len );
+	/* step 5: read edid */
+	offset = 0;
+	ret = i2c_transfer(tx->client->adapter, request, ARRAY_SIZE(request));
+	if (ret != ARRAY_SIZE(request))
+		DEBUG("unable to read EDID block\n");
 
+	/* step 6: relinquish ownership of the DDC bus */
+	retries = 5;
+
+	do {
+		i2c_smbus_write_byte_data(tx->client,
+					  SII9022_TPI_REG_SYS_CTRL,
+					  0x00);
+		ctrl = i2c_smbus_read_byte_data(tx->client,
+						SII9022_TPI_REG_SYS_CTRL);
+	} while ((ctrl & SII9022_SYS_CTRL_DDC_BUS_GRANTED) && --retries > 0);
+
+	/* step 7: (potentially) enable HDCP */
+
+	return 0;
+}
+
+static void sii9022_detect_sink(struct sii9022_tx *tx, u8 *edid, size_t size)
+{
 	/*
-	  * sil9022_blockread_reg() completely fail to read
-	  * i2c_smbus_read_i2c_block_data() only read 32 bytes!
-	  */
+	 * Sink detection is a fairly simple matter.  Assume that we are
+	 * connected to a DVI sink (video only, no audio support).  Check the
+	 * EDID for the presence of the CEA extension (which is guaranteed to be
+	 * the first extension blob, if present).  If it is present, and the CEA
+	 * timing block data reports support for audio, then the sink is HDMI.
+	 */
 
-	/* release ddc bus access */
-	client->addr = SI9022_I2CSLAVEADDRESS;
-	val &= ~(TPI_SYS_CTRL_DDC_BUS_REQUEST | TPI_SYS_CTRL_DDC_BUS_GRANTED);
-	i2c_smbus_write_byte_data(sii9022_client, HDMI_SYS_CTRL_DATA_REG, val);
+	struct cea_timing_block *ctb;
 
-	return err ;
+	tx->connection_type = CONNECTION_TYPE_DVI;
+	tx->pixel_mapping = PIXEL_MAPPING_EXACT;
+	tx->enable_audio = false;
 
-}
+	if (edid[EEDID_EXTENSION_FLAG]) {
+		switch (edid[EEDID_EXTENSION_TAG]) {
+		case EDID_EXTENSION_CEA:
+			ctb = (struct cea_timing_block *) &edid[EEDID_EXTENSION_DATA_OFFSET];
 
-static unsigned char audio_info[15] = {
-	0xC2,	//
-	0x84,	//frame type
-	0x01,	//version
-	0x0A,	//length
-	0x71,	//cksum
-	HDMI_SH_PCM | HDMI_SH_TWO_CHANNELS, 
-	HDMI_SH_48KHz | HDMI_SH_16BIT, 
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+			if (ctb->basic_audio_supported) {
+				tx->connection_type = CONNECTION_TYPE_HDMI;
+				tx->enable_audio = true;
+			}
 
-int sii9022_hdmi_audio_ctl(int mute)
-{
-	u8	dat;
+			if (ctb->underscan_supported)
+				tx->pixel_mapping = PIXEL_MAPPING_UNDERSCANED;
 
-	if( mute ) {
-	
-		//print(" i2s, mute = 0x90, spdif, mute = 0x50, \n");
-		if( enable_hdmi_spdif )
-		  i2c_smbus_write_byte_data(sii9022_client, 0x26 ,0x50);
-		else
-		  i2c_smbus_write_byte_data(sii9022_client, 0x26 ,0x90);
-		printk(KERN_INFO "hdmi audio mute\n");
-
-	}
-	else { /* unmute */
-
-		// I2S, unmute, PCM=0001 = 0x80,  SPDIF = 0x40
-		//i2c_smbus_write_byte_data(sii9022_client, 0x26, 0x80);
-		if( enable_hdmi_spdif )
-		  i2c_smbus_write_byte_data(sii9022_client, 0x26, 0x40);
-		else
-		  i2c_smbus_write_byte_data(sii9022_client, 0x26, 0x80);
-
-		i2c_smbus_write_i2c_block_data(sii9022_client, 0xBF, 15, audio_info );
-		
-		//print(" back door reG0x2F=2CH \n");
-		i2c_smbus_write_byte_data(sii9022_client, 0xBC, 0x02);
-		i2c_smbus_write_byte_data(sii9022_client, 0xBD, 0x2F);
-		dat = i2c_smbus_read_byte_data(sii9022_client, 0xBE);
-		dat &= 0xFD; /* layout 0 : 2 channel */
-		i2c_smbus_write_byte_data(sii9022_client, 0xBE, dat);
-
-		printk(KERN_INFO "hdmi audio unmute\n");
-	}
-
-	return 0;
-}
-
-int sii9022_hdmi_audio_init(void)
-{
-	u8	cksum = 0;
-	int i;
-
-	sii9022_hdmi_audio_ctl(1);
-
-	i2c_smbus_write_byte_data(sii9022_client, 0x25, 0x00);
-	// 24bit, 48kHz, 2 channel  = 0xD9
-	// 16bit, 48kHz, 2 channel  = 0x59
-	// 16bit, 44.1kHz, 2 channel =0x51
-	// refer to stream          = 0x00
-	// SPDIF only?
-	i2c_smbus_write_byte_data(sii9022_client, 0x27, 0x59);
-	i2c_smbus_write_byte_data(sii9022_client, 0x28, 0x00);
-
-	i2c_smbus_write_byte_data(sii9022_client, 0x1F, 0x80);
-
-	//print(" rising,256Fs,ws-low=left,left justify,msb 1st,1 bit shift \n");
-	i2c_smbus_write_byte_data(sii9022_client, 0x20, 0x90);
-
-	// PCM format
-	i2c_smbus_write_byte_data(sii9022_client, 0x21, 0x00);
-
-	// 48K = 0x02, 44.1K = 0x00
-	i2c_smbus_write_byte_data(sii9022_client, 0x24, 0x02); //0x22
-
-	// 16bit=0x02 , 24b = 1011 (default), pass basic audio only = 0x00
-	i2c_smbus_write_byte_data(sii9022_client, 0x25, 0x02); //0xd2
-
-	//audio_info[6] = hdmi_sh_value;
-	
-	for( i=1; i < 15; i++ )
-		cksum += audio_info[i];
-	audio_info[4] = 0x100 - cksum;
-
-	//print(" back door reG0x24=16 BIT \n");
-	i2c_smbus_write_byte_data(sii9022_client, 0xBC, 0x02);
-	i2c_smbus_write_byte_data(sii9022_client, 0xBD, 0x24);
-	i2c_smbus_write_byte_data(sii9022_client, 0xBE, 0x02);
-
-	sii9022_hdmi_audio_ctl(0);
-
-	return 0;
-}
-
-#define ASPECT_RATIO_NONE	0x08
-#define ASPECT_RATIO_4_3	0x18
-#define ASPECT_RATIO_16_9	0x28
-
-struct video_mode_map {
-	u16 xres;
-	u16 yres;
-	u8	video_code;
-	u8	refresh;
-	u8	aspect_ratio;
-};
-
-#define MAX_XRES	2048
-#define MAX_YRES	2048
-#define DIFF(a,b) (a>b ? a-b : b-a)
-
-static struct video_mode_map vmode_map[] = {
-	{ 1, 1, 0, 60, ASPECT_RATIO_NONE },
-	{ 640, 480, 1, 60, ASPECT_RATIO_4_3 },
-	{ 720, 480, 3, 50, ASPECT_RATIO_16_9 },
-	{ 720, 576, 17, 50, ASPECT_RATIO_4_3 },
-	{ 800, 600, 0, 60, ASPECT_RATIO_4_3 },
-	{ 1024, 768, 0, 60, ASPECT_RATIO_4_3 },
-	{ 1280, 720, 4, 60, ASPECT_RATIO_16_9 },
-	{ 1280, 720, 19, 50, ASPECT_RATIO_16_9 },
-	{ 1280, 768, 0, 60, ASPECT_RATIO_16_9 },
-	{ 1360, 768, 0, 60, ASPECT_RATIO_16_9 },
-	{ 1680, 1050, 0, 60, ASPECT_RATIO_16_9 },
-	{ 1920, 1080, 33, 25, ASPECT_RATIO_16_9 },
-	{ 1920, 1080, 34, 30, ASPECT_RATIO_16_9 },
-	{ MAX_XRES+1, MAX_YRES+1, 0, 0, ASPECT_RATIO_NONE},
-};
-
-int video_mode_map_get(__u32 x, __u32 y, u32 refresh)
-{
-	int i=0; 
-	
-	for( i=0; (vmode_map[i].xres < MAX_YRES); i++ ) {
-		if ( x > vmode_map[i].xres )
-			continue;
-		if ( i && (x <= vmode_map[i].xres) && (y <= vmode_map[i].yres ) ) { /* so that 1124x644 will be become 720p to avoid overscan issue */
-			if( DIFF(refresh, vmode_map[i].refresh) < 3 ) /* refresh rate diff < 3Hz */
-				return i;
-			else
-				continue;
+		default:
+			break;
 		}
-
-		if ( y > vmode_map[i].yres ) /* no similar found */
-			return 0;
 	}
-	return 0;
 }
 
-int sii9022_hdmi_video_init(struct fb_var_screeninfo *var)
+static inline unsigned long sii9022_ps_to_hz(const unsigned long ps)
 {
-	unsigned char avi_info[14] = { 0x00, 0x12, 0x28, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; 
-	char video_mode[8] = { 0x01, 0x1d, 0x88, 0x13, 0xbc, 0x07, 0xee, 0x02 };
-	
-	u32 htotal = 0, vtotal=0, refresh_rate;
-	u8	cksum = 0, dat = 0;
-	int i;
-	int vmap_idx = 0;
+	unsigned long long numerator = 1000000000000ull;
 
-	if ( var == NULL )
-		return -1;
-
-	// Turn off TMDS
-	dat = (sink_dvi ? TPI_SYS_CTRL_OUTPUT_MODE_DVI : TPI_SYS_CTRL_OUTPUT_MODE_HDMI);
-	dat |= TPI_SYS_CTRL_POWER_DOWN;
-	i2c_smbus_write_byte_data(sii9022_client, HDMI_SYS_CTRL_DATA_REG, dat);
-
-	msleep(128); /* wait at least 128ms */
-	
-	// back door reG0x81
-	//i2c_smbus_write_byte_data(sii9022_client, 0xBC, 0x01);
-	//i2c_smbus_write_byte_data(sii9022_client, 0xBD, 0x82);
-	//i2c_smbus_write_byte_data(sii9022_client, 0xBE, 0x35);
-
-	// Video Input Mode
-	i2c_smbus_write_byte_data(sii9022_client, 0x09, 0x00); 	// All 8 bit mode, Auto-selected by [1:0]; RGB
-
-	/* Video Output Mode
-	 * 0x0A[4], 0 : BT.601  1: BT.709 
-	  * 0x0A[3:2], 00: Auto-selected, 01: Full range, 10: limited range, 11: rsvd
-	  * 0x0A[1], 00: HDMI RGB, 01: HDMI-YCbCr 4:4:4, 10: HDMI-YCbCr 4:2:2, 11: DVI RGB
-	  */
-	dat = sink_dvi ? 0x03: 0x00;	
-	i2c_smbus_write_byte_data(sii9022_client, 0x0A, dat);	
-
-	i2c_smbus_write_byte_data(sii9022_client, 0x19, 0x00);
-	
-	//video mode parameter to reg 00-07 \n ");
-	htotal = (var->xres+var->left_margin+var->right_margin+var->hsync_len);
-	vtotal = (var->yres+var->upper_margin+var->lower_margin+var->vsync_len);
-	refresh_rate = 1000000/(htotal*vtotal/(PICOS2KHZ(var->pixclock)/10));
-
-	video_mode[0x00] = (PICOS2KHZ(var->pixclock)/10) & 0xFF ;
-	video_mode[0x01] = ((PICOS2KHZ(var->pixclock)/10) >> 8) & 0xFF ;
-	video_mode[0x02] = refresh_rate & 0xff;
-	video_mode[0x03] = (refresh_rate>>8) & 0xff; // v refresh rate
-	video_mode[0x04] = htotal & 0xff; 
-	video_mode[0x05] = (htotal>>8) & 0xff; //total pixel
-	video_mode[0x06] = vtotal & 0xff;
-	video_mode[0x07] = (vtotal>>8) & 0xff; //total line
-
-	i2c_smbus_write_i2c_block_data(sii9022_client, 0x00, 8, video_mode );
-
-	// burst write 720p60 AVI infoframe to Reg 0c-19 
-	vmap_idx = video_mode_map_get( var->xres, var->yres, refresh_rate/100 );
-	cksum = 0x82 + 0x02 + 0x0d;
-	avi_info[2] = vmode_map[vmap_idx].aspect_ratio; //16:9 , 4:3 
-	avi_info[4] = vmode_map[vmap_idx].video_code; //video code 720p@60: 4, 720p@50: 19  
-	for( i=0; i < 14; i++ )
-		cksum += avi_info[i];
-	avi_info[0] = 0x100 - cksum;
-
-	i2c_smbus_write_i2c_block_data(sii9022_client, 0x0C, 14, avi_info );
-
-	dev_printk( KERN_INFO, &sii9022_client->dev, "geometry %u %u %u %u %u\n", 
-		var->xres_virtual, var->yres_virtual, var->xres, var->yres, var->bits_per_pixel);
-	dev_printk( KERN_INFO, &sii9022_client->dev, "timings %u %u %u %u %u %u %u\n",
-		var->pixclock, var->left_margin, var->right_margin, 
-		var->upper_margin, var->lower_margin, var->hsync_len, var->vsync_len );
-	dev_printk( KERN_INFO, &sii9022_client->dev, "accel %u sync %u vmode=%u\n",
-		var->accel_flags, var->sync, var->vmode );
-	dev_printk( KERN_INFO, &sii9022_client->dev, "pclk %lu refresh %u total x %u y %u\n", 
-												((PICOS2KHZ(var->pixclock)/10)), 
-												refresh_rate,
-												htotal,vtotal );
-
-	dev_printk( KERN_INFO, &sii9022_client->dev, "vmap idx=%d vcode=%d\n",
-												vmap_idx, avi_info[4] );
-
-	return 0;
-}
-
-int sii9022_hdmi_ctl(int cmd, void *opt)
-{
-	int dat;
-	
-	// Set 9022 in hardware TPI mode on and jump out of D3 state
-	dat = 0x00;
-	i2c_smbus_write_byte_data(sii9022_client, SI9022_REG_TPI_RQB, 0x00);		// enable access to 9022 other regs
-	
-	// read device ID
-	do {
-		dat = i2c_smbus_read_byte_data(sii9022_client, 0x1B);
-		if (dat < 0) {
-			printk("SII9022 not found ! id=%02x\n", dat );
-			return -1;
-		}
-	} while( dat != 0xB0 );
-
-	if (cmd & HDMI_CTL_DETECT_CHIP)
+	if (ps == 0)
 		return 0;
 
-	if ( cmd & HDMI_CTL_DETECT_SINK ) {
-		
-		/* 0x3D[2], 0: not plug, 1=plugged */
-		dat = i2c_smbus_read_byte_data(sii9022_client, 0x3D);
+	/* freq = 1 / time; 10^12 ps = 1s; 10^12/ps = freq */
+	do_div(numerator, ps);
 
-		if ( dat & 0x07 )
-			return 0;
-
-		printk("SII9022 sink not found ! id=%02x\n", dat );
-
-		return -2;
-	}
-
-	if( cmd & HDMI_CTL_EDID_GET ) {
-		int err = 0;
-		
-		err = sii9022_handle_edid( sii9022_client, edid, sizeof(edid));
-		if ( err == 0 ) {
-			struct fb_monspecs *monspecs = (struct fb_monspecs *)opt;
-
-			if ( monspecs == NULL )
-				return 0;
-			
-			edid_parse( edid, &sink_monitor, &sink_dvi );
-			fb_edid_to_monspecs(edid, monspecs);
-
-			if ( monspecs->modedb_len ) {
-				//fb_videomode_to_modelist( monspecs.modedb, monspecs.modedb_len,
-				//					 &info->modelist);
-
-				printk("Monitor/TV supported modelines\n");
-				mxcfb_dump_modeline( monspecs->modedb, monspecs->modedb_len );
-			}
-			return 0;
-		}
-		return -3;
-	}
-
-	// Power up, wakeup to D0, otherwise sink will show 'no signal' 
-	i2c_smbus_write_byte_data(sii9022_client, 0x1E, 0x00);
-
-	if( cmd & HDMI_CTL_VIDEO_ENABLE ) {
-		sii9022_hdmi_video_init( (struct fb_var_screeninfo *)opt);
-	}
-
-	if( cmd & HDMI_CTL_AUDIO_ENABLE)
-		sii9022_hdmi_audio_init();
-
-	if( cmd & HDMI_CTL_AUDIO_MUTE)
-		sii9022_hdmi_audio_ctl(1);
-
-	if( cmd & HDMI_CTL_AUDIO_UMMUTE)
-		sii9022_hdmi_audio_ctl(0);
-
-	//TURN on TMDS 
-	dat = (sink_dvi ? TPI_SYS_CTRL_OUTPUT_MODE_DVI : TPI_SYS_CTRL_OUTPUT_MODE_HDMI);
-	dat |= TPI_SYS_CTRL_POWER_ACTIVE;
-	i2c_smbus_write_byte_data(sii9022_client, HDMI_SYS_CTRL_DATA_REG, dat );
-
-	// Power up, wakeup to D0 again to take effect of 0x1A[0] sink type!
-	i2c_smbus_write_byte_data(sii9022_client, 0x1E, 0x00);
-
-	return 0;
-	
+	return (unsigned long) numerator;
 }
 
-int sii9022_hdmi_ctl_parse( const char *procfs_buffer )
+static void sii9022_set_vmode_registers(struct sii9022_tx *tx,
+					struct fb_var_screeninfo *var)
 {
-	int status = 0;
-	struct fb_monspecs monspecs;
-	
-	if ( strncmp( procfs_buffer, "hdmi_audio_off", 14)==0 )
-		status = sii9022_hdmi_ctl(HDMI_CTL_AUDIO_MUTE, 0 ); //mute 
-	else if ( strncmp( procfs_buffer, "hdmi_audio_on", 13)==0 )
-		status = sii9022_hdmi_ctl(HDMI_CTL_AUDIO_UMMUTE, 0); //unmute 
-	else if ( strncmp( procfs_buffer, "hdmi_edid_get", 13)==0 ) {
-		status = sii9022_hdmi_ctl(HDMI_CTL_EDID_GET, (void *)&monspecs);
-		fb_destroy_modedb(monspecs.modedb);
-	}
+	enum basic_video_mode_fields {
+		PIXEL_CLOCK,
+		REFRESH_RATE,
+		X_RESOLUTION,
+		Y_RESOLUTION,
+		FIELDS,
+	};
 
-	return status;		
+	u16 vmode[FIELDS];
+	u16 pixclk, htotal, vtotal, refresh;
+	u8 format;
+	int ret;
+
+	BUILD_BUG_ON(sizeof(vmode) != 8);
+
+	pixclk = sii9022_ps_to_hz(var->pixclock);
+	htotal = var->xres + var->left_margin + var->hsync_len + var->right_margin;
+	vtotal = var->yres + var->upper_margin + var->vsync_len + var->lower_margin;
+	refresh = (htotal * vtotal) / pixclk;
+
+	/* basic video mode data */
+	vmode[PIXEL_CLOCK]  = pixclk / 10000;
+	vmode[REFRESH_RATE] = refresh;
+	vmode[X_RESOLUTION] = htotal;
+	vmode[Y_RESOLUTION] = vtotal;
+
+	ret = i2c_smbus_write_i2c_block_data(tx->client,
+					     SII9022_TPI_REG_VIDEO_MODE_DATA_BASE,
+					     sizeof(vmode),
+					     (u8 *) vmode);
+	if (ret < 0)
+		DEBUG("unable to write video mode data\n");
+
+	/* input format */
+	format = SII9022_INPUT_COLOR_SPACE_RGB            |
+		 SII9022_INPUT_VIDEO_RANGE_EXPANSION_AUTO |
+		 SII9022_INPUT_COLOR_DEPTH_8BIT;
+
+	ret = i2c_smbus_write_byte_data(tx->client,
+					SII9022_TPI_REG_AVI_INPUT_FORMAT,
+					format);
+	if (ret < 0)
+		DEBUG("unable to set input format\n");
+
+	/* output format */
+	format = SII9022_OUTPUT_VIDEO_RANGE_COMPRESSION_AUTO |
+		 SII9022_OUTPUT_COLOR_STANDARD_BT601         |
+		 SII9022_OUTPUT_COLOR_DEPTH_8BIT;
+
+	if (tx->connection_type == CONNECTION_TYPE_HDMI)
+		format |= SII9022_OUTPUT_FORMAT_HDMI_RGB;
+	else
+		format |= SII9022_OUTPUT_FORMAT_DVI_RGB;
+
+	ret = i2c_smbus_write_byte_data(tx->client,
+					SII9022_TPI_REG_AVI_OUTPUT_FORMAT,
+					format);
+	if (ret < 0)
+		DEBUG("unable to set output format\n");
 }
 
-int sii9022_reinit(struct fb_var_screeninfo *var)
+static void sii9022_checksum_hdmi_info_packet(const enum info_frame_type type,
+					      const u8 version,
+					      const u8 length,
+					      u8 * const packet)
 {
-	static u32 pclk = 0;
-	static u32 xres = 0, yres= 0;
+	u8 crc;
+	int i;
 
-	if ( hdmi_video_init == 0 ) {
-		printk(KERN_INFO "skip %s!\n", __func__ );
-		return -1;
-	}
-	
-	if ( var->xres < 640 || var->yres < 480 || (var->pixclock < 6000 || var->pixclock > 40000) ) {
-		printk(KERN_INFO "reinit %ux%u %u fail!\n", 
-			var->xres, var->yres, var->pixclock );
-		return -2;
-	}
+	crc = (HDMI_PACKET_TYPE_INFO_FRAME + type) + version + (length - 1);
+	for (i = 1; i < length; i++)
+		crc += packet[i];
 
-	if ( var->xres != xres || var->yres != yres || var->pixclock != pclk ) {
-
-		printk(KERN_INFO "%s %ux%u %u\n", __func__, var->xres, var->yres, var->pixclock );
-
-		xres = var->xres;
-		yres = var->yres;
-		pclk = var->pixclock;
-
-		sii9022_hdmi_ctl( HDMI_CTL_VIDEO_ENABLE|HDMI_CTL_AUDIO_ENABLE, var );
-	}
-	else {
-		printk(KERN_INFO "%s %ux%u %u same to previous one, skipping\n", __func__, var->xres, var->yres, var->pixclock );
-	}
-
-	return 0;
+	packet[0] = HDMI_PACKET_CHECKSUM - crc;
 }
 
-static void lcd_init_fb(struct fb_info *info)
+static void sii9022_set_avi_info_frame(struct sii9022_tx *tx,
+				       struct fb_var_screeninfo *var)
 {
-	int err = 0;
-	static struct fb_var_screeninfo var;
+	struct avi_info_frame packet;
+	int ret;
 
-	printk("*** sii9022 %s\n", __func__);
+	BUILD_BUG_ON(sizeof(packet) != 14);
 
-	memset(&var, 0, sizeof(var));
+	/* TODO improve AVI InfoFrame we send */
 
-	err = sii9022_handle_edid( sii9022_client, edid, sizeof(edid));
-
-	if ( err == 0 ) {
-		edid_parse( edid, &sink_monitor, &sink_dvi );
-		fb_edid_to_monspecs(edid, &info->monspecs);
-
-		if ( info->monspecs.modedb_len ) {
-			printk("Monitor/TV supported modelines\n");
-			mxcfb_dump_modeline( info->monspecs.modedb, info->monspecs.modedb_len );
-			mxcfb_videomode_to_modelist(info, info->monspecs.modedb, info->monspecs.modedb_len,
-							 &info->modelist);
-			//mxcfb_sanitize_modelist(info, info->monspecs.modedb, info->monspecs.modedb_len,
-			//				 &info->modelist);
-
-		}
+	switch (tx->pixel_mapping)
+	{
+	case PIXEL_MAPPING_UNDERSCANED:
+		packet.scan_information = SCAN_INFORMATION_UNDERSCANNED;
+		break;
+	case PIXEL_MAPPING_OVERSCANNED:
+		packet.scan_information = SCAN_INFORMATION_OVERSCANNED;
+		break;
+	default:
+		packet.scan_information = SCAN_INFORMATION_UNKNOWN;
+		break;
 	}
 
+	packet.active_format_info_valid = true;
+	packet.active_format_description = ACTIVE_FORMAT_DESCRIPTION_UNSCALED;
+
+	packet.picture_aspect_ratio = PICTURE_ASPECT_RATIO_UNSCALED;
+
+	packet.video_format = VIDEO_FORMAT_UNKNOWN;
+
+	sii9022_checksum_hdmi_info_packet(INFO_FRAME_TYPE_AUXILIARY_VIDEO,
+					  SII9022_AVI_INFO_FRAME_VERSION,
+					  sizeof(packet),
+					  (u8 *) &packet);
+
+	ret = i2c_smbus_write_i2c_block_data(tx->client,
+					     SII9022_TPI_REG_AVI_INFO_FRAME_BASE,
+					     sizeof(packet),
+					     (u8 *) &packet);
+	if (ret < 0)
+		DEBUG("unable to write avi info frame\n");
+}
+
+static int sii9022_set_resolution(struct sii9022_tx *tx,
+				  struct fb_var_screeninfo *var)
+{
+	u8 ctrl;
+	int ret;
+
+	INFO("Setting Resolution: %dx%d\n", var->xres, var->yres);
+
+	ctrl = i2c_smbus_read_byte_data(tx->client, SII9022_TPI_REG_SYS_CTRL);
+
+	/* setup the sink type */
+	if (tx->connection_type == CONNECTION_TYPE_DVI)
+		ctrl &= ~SII9022_SYS_CTRL_OUTPUT_MODE_SELECT_HDMI;
+	else
+		ctrl |= SII9022_SYS_CTRL_OUTPUT_MODE_SELECT_HDMI;
+
+	/* step 1: (potentially) disable HDCP */
+
+	/* step 2: (optionally) blank the display */
 	/*
-	  * if customized video_mode == xx use video_mode_xx
-	  * else if specfied video mode on booting parameter, find it timing from modelist
-	  * else find 720p timing from modelist.
-	  * modelist is generated from edid. if no edid, use modedb in modedb.c
-	  */
-	if( video_mode == 4 )
-		fb_videomode_to_var(&var, &video_modes_ce_mode_4);
+	 * Note that if we set the AV Mute, switching to DVI could result in a
+	 * permanently muted display until a hardware reset.  Thus only do this
+	 * if the sink is a HDMI connection
+	 */
+	if (tx->connection_type == CONNECTION_TYPE_HDMI)
+		ctrl |= SII9022_SYS_CTRL_AV_MUTE_HDMI;
+	/* optimisation: merge the write into the next one */
 
-	else if ( video_mode == 19 )
-		fb_videomode_to_var(&var, &video_modes_ce_mode_19);
+	/* step 3: prepare for resolution change */
+	ctrl |= SII9022_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN;
+	ret = i2c_smbus_write_byte_data(tx->client,
+					SII9022_TPI_REG_SYS_CTRL,
+					ctrl);
+	if (ret < 0)
+		DEBUG("unable to prepare for resolution change\n");
 
-	else if (video_mode == 2 )
-		fb_videomode_to_var(&var, &video_modes_1024x768_60);
+	msleep(SII9022_CTRL_INFO_FRAME_DRAIN_TIME);
 
-	else if ( video_mode == 3 )
-		fb_videomode_to_var(&var, &video_modes_1280x720_65);
+	/* step 4: change video resolution */
 
-	else {
-		struct fb_videomode *def_mode;
+	/* step 5: set the vmode registers */
+	sii9022_set_vmode_registers(tx, var);
 
-		if ( video_max_res )
-			def_mode = &video_modes_1980x1080_60;
- 		else
-			def_mode = &video_modes_ce_mode_4;
+	/* step 6: [HDMI] set AVI InfoFrame */
+	/* NOTE this is required as it flushes the vmode registers */
+	sii9022_set_avi_info_frame(tx, var);
 
-		mxcfb_update_default_var( &var, info, def_mode );
+	/* step 7: [HDMI] set new audio information */
+
+	/* step 8: enable display */
+	ctrl &= ~SII9022_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN;
+	/* optimisation: merge the write into the next one */
+
+	/* step 9: (optionally) un-blank the display */
+	ctrl &= ~SII9022_SYS_CTRL_AV_MUTE_HDMI;
+	ret = i2c_smbus_write_byte_data(tx->client,
+					SII9022_TPI_REG_SYS_CTRL,
+					ctrl);
+	if (ret < 0)
+		DEBUG("unable to enable the display\n");
+
+	/* step 10: (potentially) enable HDCP */
+
+	return ret;
+}
+
+static bool sii9022_sink_present(struct sii9022_tx *tx)
+{
+	u8 isr;
+
+	isr = i2c_smbus_read_byte_data(tx->client, SII9022_TPI_REG_ISR);
+
+	return (isr & (SII9022_ISR_HOT_PLUG_EVENT |
+		       SII9022_ISR_RECEIVER_SENSE_EVENT));
+}
+
+static void sii9022_dump_modelines(const struct fb_monspecs * const monspecs)
+{
+	u32 i;
+
+	INFO("%u Supported Modelines:\n", monspecs->modedb_len);
+	for (i = 0; i < monspecs->modedb_len; i++) {
+		const struct fb_videomode * const mode = &monspecs->modedb[i];
+		const bool interlaced = (mode->vmode & FB_VMODE_INTERLACED);
+		const bool double_scan = (mode->vmode & FB_VMODE_DOUBLE);
+		u32 pixel_clock = sii9022_ps_to_hz(mode->pixclock);
+
+		pixel_clock >>= (double_scan ? 1 : 0);
+
+		INFO("    \"%dx%d@%d%s\" %lu.%.2lu %u %u %u %u %u %u %u %u %chsync %cvsync\n",
+		     /* mode name */
+		     mode->xres, mode->yres,
+		     mode->refresh << (interlaced ? 1 : 0),
+		     interlaced ? "i" : (double_scan ? "d" : ""),
+
+		     /* dot clock frequency (MHz) */
+		     pixel_clock / 1000000ul,
+		     pixel_clock % 1000000ul,
+
+		     /* horizontal timings */
+		     mode->xres,
+		     mode->xres + mode->right_margin,
+		     mode->xres + mode->right_margin + mode->hsync_len,
+		     mode->xres + mode->right_margin + mode->hsync_len + mode->left_margin,
+
+		     /* vertical timings */
+		     mode->yres,
+		     mode->yres + mode->lower_margin,
+		     mode->yres + mode->lower_margin + mode->vsync_len,
+		     mode->yres + mode->lower_margin + mode->vsync_len + mode->upper_margin,
+
+		     /* sync direction */
+		     (mode->sync & FB_SYNC_HOR_HIGH_ACT) ? '+' : '-',
+		     (mode->sync & FB_SYNC_VERT_HIGH_ACT) ? '+' : '-');
 	}
+}
 
-	hdmi_video_init = 1;
-	mxcfb_adjust( &var );
+static int sii9022_init_fb(struct sii9022_tx *tx, struct fb_info *fb)
+{
+	u8 edid[EEDID_BASE_LENGTH];
+	const struct fb_videomode *mode = NULL;
+	struct fb_var_screeninfo var = {0};
+	int ret;
 
+	/* TODO use platform_data to prune modelist */
+
+	if ((ret = sii9022_read_edid(tx, edid, sizeof(edid))) < 0)
+		return ret;
+
+	sii9022_detect_sink(tx, edid, sizeof(edid));
+
+	fb_edid_to_monspecs(edid, &fb->monspecs);
+	sii9022_dump_modelines(&fb->monspecs);
+	/* TODO mxcfb_videomode_to_modelist did some additional work */
+	fb_videomode_to_modelist(fb->monspecs.modedb,
+				 fb->monspecs.modedb_len,
+				 &fb->modelist);
+
+	/* TODO mxcfb_update_default_var did some additional work */
+	mode = fb_find_nearest_mode(&sii9022_default_video_mode, &fb->modelist);
+	mode = mode ? mode : &sii9022_default_video_mode;
+
+	/* TODO mxcfb_adjust did some additional work */
+	fb_videomode_to_var(&var, mode);
+	if ((ret = sii9022_set_resolution(tx, &var)) < 0)
+		return ret;
+
+
+	/* activate the framebuffer */
 	var.activate = FB_ACTIVATE_ALL;
 
 	acquire_console_sem();
-	info->flags |= FBINFO_MISC_USEREVENT;
-	fb_set_var(info, &var);
-	info->flags &= ~FBINFO_MISC_USEREVENT;
+	fb->flags |= FBINFO_MISC_USEREVENT;
+	fb_set_var(fb, &var);
+	fb->flags &= ~FBINFO_MISC_USEREVENT;
 	release_console_sem();
 
-//	fb_destroy_modedb(info->monspecs.modedb);
-//	info->monspecs.modedb = NULL;
-
+	return 0;
 }
 
-static int lcd_fb_event(struct notifier_block *nb, unsigned long val, void *v)
+static int sii9022_fb_event_handler(struct notifier_block *nb,
+				    unsigned long val,
+				    void *v)
 {
 	struct fb_event *event = v;
-
-	printk("*** sii9022 %s\n", __func__);
-
-	if (strcmp(event->info->fix.id, "DISP3 BG")) {
-		return 0;
-	}
+	struct sii9022_tx *tx = container_of(nb, struct sii9022_tx, fb);
 
 	switch (val) {
 	case FB_EVENT_FB_REGISTERED:
-		lcd_init_fb(event->info);
-		lcd_poweron(event->info);
-		break;
-	case FB_EVENT_BLANK:
-		if (*((int *)event->data) == FB_BLANK_UNBLANK) {
-			lcd_poweron(event->info);
-		} else {
-			lcd_poweroff();
-		}
+		return sii9022_init_fb(tx, event->info);
+	case FB_EVENT_MODE_CHANGE:
+	{
+		struct fb_var_screeninfo var = {0};
+
+		fb_videomode_to_var(&var, event->info->mode);
+		return sii9022_set_resolution(tx, &var);
+	}
+	default:
+		DEBUG("unhandled fb event 0x%lx", val);
 		break;
 	}
+
 	return 0;
 }
 
-static struct notifier_block nb = {
-	.notifier_call = lcd_fb_event,
-};
-
-
-
-
-static int lcd_on;
-/*
- * Send Power On commands to L4F00242T03
- *
- */
-static void lcd_poweron(struct fb_info *info)
+static int __devinit sii9022_probe(struct i2c_client *client,
+				   const struct i2c_device_id *id)
 {
+	struct sii9022_tx *tx;
+	int i, ret;
 
-	if (lcd_on)
-		return;
+	tx = kmalloc(sizeof(*tx), GFP_KERNEL);
+	if (!tx)
+		return -ENOMEM;
 
-	dev_dbg(&sii9022_client->dev, "turning on LCD\n");
+	memset(tx, 0, sizeof(*tx));
+	tx->client = client;
 
-	lcd_on = 1;
-}
+	i2c_set_clientdata(client, tx);
 
-/*
- * Send Power Off commands to L4F00242T03
- *
- */
-static void lcd_poweroff(void)
-{
-	if (!lcd_on)
-		return;
+	/* initialise the device */
+	if ((ret = sii9022_initialise(tx)) < 0)
+		goto error;
 
-	dev_dbg(&sii9022_client->dev, "turning off LCD\n");
-
-	lcd_on = 0;
-}
-
-/*!
- * This function is called whenever the SPI slave device is detected.
- *
- * @param	spi	the SPI slave device
- *
- * @return 	Returns 0 on SUCCESS and error on FAILURE.
- */
-static int __devinit lcd_probe(struct device *dev)
-{
-	int i;
-//	struct mxc_lcd_platform_data *plat = dev->platform_data;
-
-	printk("*** sii9022 %s\n", __func__);
-
-#if 0 /* this never ever compiled - Neko */
-	if (plat) {
+	if (sii9022_sink_present(tx)) {
+		/* enable any existing framebuffers */
+		DEBUG("%d registered framebuffers\n", num_registered_fb);
+		for (i = 0; i < num_registered_fb; i++)
+			if ((ret = sii9022_init_fb(tx, registered_fb[i])) < 0)
+				goto error;
+	} else {
 		/*
-		io_reg = regulator_get(dev, plat->io_reg);
-		if (!IS_ERR(io_reg)) {
-			regulator_set_voltage(io_reg, 1800000);
-			regulator_enable(io_reg);
-		}
-		core_reg = regulator_get(dev, plat->core_reg);
-		if (!IS_ERR(core_reg)) {
-			regulator_set_voltage(core_reg, 1200000);
-			regulator_enable(core_reg);
-		}
-		*/
-		lcd_reset = plat->reset;
-		if (lcd_reset)
-			lcd_reset();
-	}
-#endif
+		 * A sink is not currently present.  However, the device has
+		 * been initialised.  This includes setting up the crucial IER.
+		 * As a result, we can power down the transmitter and be
+		 * signalled when the sink state changes.
+		 */
 
-	for (i = 0; i < num_registered_fb; i++) {
-		if (strcmp(registered_fb[i]->fix.id, "DISP3 BG") == 0) {
-			lcd_init_fb(registered_fb[i]);
-			fb_show_logo(registered_fb[i], 0);
-			lcd_poweron(registered_fb[i]);
-		}
+		/* TODO In theory, we should be able to switch to D3 since we
+		 * have RSEN and Hot Plug event bits set in the IER.  Because
+		 * there is no sink present, we need not access the registers
+		 * on the tx.  When the IRQ is triggered, we need will assert
+		 * the RESET# pin to return from D3.
+		 */
+
+		ret = i2c_smbus_write_byte_data(tx->client,
+						SII9022_TPI_REG_PWR_STATE,
+						SII9022_POWER_STATE_D2);
+		if (ret < 0)
+			DEBUG("unable to change to a low power-state\n");
 	}
 
-	fb_register_client(&nb);
+	/* register a notifier for future fb events */
+	tx->fb.notifier_call = sii9022_fb_event_handler;
+	fb_register_client(&tx->fb);
 
 	return 0;
-}
 
-static int __devinit sii9022_probe(struct i2c_client *client, const struct i2c_device_id *id)
-{
-	sii9022_client = client;
-
-	printk("*** %s\n", __func__);
-
-	/* if SII9022 not exist, switch to DSUB output ignoring user configured */
-	if ( sii9022_hdmi_ctl( HDMI_CTL_DETECT_CHIP, NULL ) != 0 ) {
-		video_output = VIDEO_OUT_STATIC_DSUB;
-		return -2;
-	}
-
-	/* if HDMI sink is detected and output == AUTO, set to HDMI output */
-	if ( sii9022_hdmi_ctl( HDMI_CTL_DETECT_SINK, NULL ) == 0 ) {
-		video_output = VIDEO_OUT_STATIC_HDMI;
-	}
-	/* if EDID retrieve OK but HDMI sink not detected, it imply that 
-	    D-SUB is connected */
-	else if ( sii9022_hdmi_ctl( HDMI_CTL_EDID_GET, NULL ) == 0 ) {
-		video_output = VIDEO_OUT_STATIC_DSUB;
-	}
-
-	if ( video_output == VIDEO_OUT_STATIC_DSUB  ) {
-		printk("configure video output to D-SUB, skip HDMI\n");
-		return -1;
-	}
-
-	/* set to HDMI output */
-	video_output = VIDEO_OUT_STATIC_HDMI;
-
-	mxc_init_fb();
-
-	return lcd_probe(&client->dev);
+error:
+	kfree(tx);
+	i2c_set_clientdata(client, NULL);
+	return ret;
 }
 
 static int __devexit sii9022_remove(struct i2c_client *client)
 {
-	fb_unregister_client(&nb);
-	lcd_poweroff();
+	struct sii9022_tx *tx;
+
+	tx = i2c_get_clientdata(client);
+	if (tx) {
+		fb_unregister_client(&tx->fb);
+		kfree(tx);
+		i2c_set_clientdata(client, NULL);
+	}
+
 	return 0;
 }
 
-static int sii9022_suspend(struct i2c_client *client, pm_message_t message)
-{
-	return 0;
-}
-
-static int sii9022_resume(struct i2c_client *client)
-{
-	return 0;
-}
-
-static const struct i2c_device_id sii9022_id[] = {
+static const struct i2c_device_id sii9022_device_table[] = {
 	{ "sii9022", 0 },
-	{},
+	{ },
 };
-MODULE_DEVICE_TABLE(i2c, sii9022_id);
 
 static struct i2c_driver sii9022_driver = {
-	.driver = {
-		   .name = "sii9022",
-		   },
-	.probe = sii9022_probe,
-	.remove = sii9022_remove,
-	.suspend = sii9022_suspend,
-	.resume = sii9022_resume,
-	.id_table = sii9022_id,
+	.driver   = { .name = "sii9022" },
+	.probe    = sii9022_probe,
+	.remove   = sii9022_remove,
+	.id_table = sii9022_device_table,
 };
 
 static int __init sii9022_init(void)
@@ -942,9 +1026,12 @@ static void __exit sii9022_exit(void)
 	i2c_del_driver(&sii9022_driver);
 }
 
+/* Module Information */
+MODULE_AUTHOR("Saleem Abdulrasool <compnerd@compnerd.org>");
+MODULE_LICENSE("BSD-3");
+MODULE_DESCRIPTION("SiI9022 TMDS Driver");
+MODULE_DEVICE_TABLE(i2c, sii9022_device_table);
+
 module_init(sii9022_init);
 module_exit(sii9022_exit);
 
-MODULE_AUTHOR("Pegatron Corporation");
-MODULE_DESCRIPTION("SI9022 DVI/HDMI driver");
-MODULE_LICENSE("PEGATRON-LICENSE");
