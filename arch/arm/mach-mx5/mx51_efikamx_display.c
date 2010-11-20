@@ -40,37 +40,11 @@
 
 #include "mx51_efikamx.h"
 
-int cs8556_reinit(struct fb_var_screeninfo *var);
-
 #define VIDEO_MODE_HDMI_DEF     4
-#define VIDEO_MODE_VGA_DEF      2
 
 #define MEGA              1000000
 
-int __initdata video_output = { VIDEO_OUT_STATIC_HDMI };
-int __initdata video_mode = { VIDEO_OUT_STATIC_HDMI };
-int __initdata hdmi_audio_auto_sw = { 0 };
-int __initdata hdmi_audio = { 1 };
-int __initdata enable_hdmi_spdif = { 0 };
-int __initdata clock_auto = { 1 };
-char __initdata vmode[32] = { 0 };
-int __initdata mxc_debug = { 1 };
-int __initdata extsync = { 1 };
-int __initdata sink_dvi = { 0 };                /* default is HDMI */
-int __initdata sink_monitor = { 0 };    /* default is TV */
-int __initdata video_max_res = { 0 };   /* use supported max resolution in edid modelist */
-
 u8 edid[256];
-
-EXPORT_SYMBOL(hdmi_audio_auto_sw);
-EXPORT_SYMBOL(hdmi_audio);
-EXPORT_SYMBOL(enable_hdmi_spdif);
-EXPORT_SYMBOL(clock_auto);
-EXPORT_SYMBOL(vmode);
-EXPORT_SYMBOL(mxc_debug);
-EXPORT_SYMBOL(extsync);
-EXPORT_SYMBOL(video_output);
-EXPORT_SYMBOL(video_mode);
 
 struct fb_videomode __initdata  preferred_mode;
 
@@ -108,15 +82,8 @@ static struct resource mxcfb_resources[] = {
 
 static struct mxc_fb_platform_data mxcfb_data[] = {
 	{
-		// THIS SEEMS TO REPRESENT THE *PHYSICAL* WIRED PIXEL FORMAT
-		// 8 lines per gun on HDMI
-		.interface_pix_fmt = IPU_PIX_FMT_RGB24,
+		.interface_pix_fmt = IPU_PIX_FMT_RGB24, /* physical pixel format (to transmitter */
 		.mode_str = "800x600-16@60", // safe default for HDMI
-	},
-	{
-		// 5/6/5 per gun on VGA
-		.interface_pix_fmt = IPU_PIX_FMT_RGB565,
-		.mode_str = "800x600-16@60", // safe default for VGA
 	},
 };
 
@@ -276,13 +243,6 @@ void mxcfb_videomode_to_modelist(const struct fb_info *info, const struct fb_vid
 				modedb[i].refresh,
 				modedb[i].pixclock );
 			continue;
-		} else if ( (modedb[i].lower_margin < 2) ) {
-			printk(KERN_INFO "%ux%u%s%u pclk=%u removed (lower margin does not meet IPU restrictions)\n",
-				modedb[i].xres, modedb[i].yres,
-				(modedb[i].vmode & FB_VMODE_INTERLACED ) ? "i@" : "@",
-				modedb[i].refresh,
-				modedb[i].pixclock );
-			continue;
 		}
 
 		list_for_each_safe(pos, n, head) {
@@ -369,16 +329,7 @@ int mxcfb_handle_edid2(struct i2c_adapter *adp, char *buffer, u16 len)
 
 	memset(&screeninfo, 0, sizeof(screeninfo));
 
-	if (cpu_is_mx51_rev(CHIP_REV_3_0) > 0) {
-		gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_CSI2_HSYNC), 1);
-		msleep(1);
-	}
-
 	err = mxcfb_read_edid2(adp, buffer, len, &screeninfo, &dvi);
-
-	if (cpu_is_mx51_rev(CHIP_REV_3_0) > 0)
-		gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_CSI2_HSYNC), 0);
-
 
 	if ( err )
 		printk("read_edid error!\n");
@@ -386,95 +337,59 @@ int mxcfb_handle_edid2(struct i2c_adapter *adp, char *buffer, u16 len)
 	return err;
 }
 
-void mxcfb_clock_update(const char *clk_name_parent, unsigned long parent_rate,
-					const char *clk_name_this, unsigned long divider)
+void mxcfb_adjust(struct fb_var_screeninfo *var )
 {
-	struct clk *clk, *di_clk;
-	int ret=0, ret1=0;
+	char *di = "ipu_di0_clk", *parent = "pll3";
+	struct clk *clk_di, *clk_parent;
+	int ret_di = 0, ret_parent = 0;
 
-	clk = clk_get(NULL, clk_name_parent);
-	di_clk = clk_get(NULL, clk_name_this);
-
-	clk_disable(clk);
-	clk_disable(di_clk);
-
-	printk("orig: parent=%s clk=%lu ", clk_name_parent, clk_get_rate(clk) );
-	printk("this=%s di_clk=%lu\n", clk_name_this, clk_get_rate(di_clk));
-	ret = clk_set_rate(clk, parent_rate);
-	ret1 = clk_set_rate(di_clk, parent_rate / divider);
-
-	printk("adjust: parent=%s clk=%lu ", clk_name_parent, clk_get_rate(clk));
-	printk("this=%s di_clk=%lu ret=%d ret=%d\n", clk_name_this, clk_get_rate(di_clk), ret, ret1);
-	clk_enable(clk);
-	clk_enable(di_clk);
-
-	clk_put(di_clk);
-	clk_put(clk);
-}
-
-int mxcfb_di_clock_adjust(int video_output, u32 pixel_clock)
-{
-	char *clk_di = "ipu_di0_clk";
 	u32 rate = 0;
 	static u32 pixel_clock_last = 0;
-	static int video_output_last = 0;
+	int pixel_clock = var->pixclock;
 
-	if( clock_auto == 0 )
-		return 0;
 
 	/* avoid uncessary clock change to reduce unknown impact chance */
-	if ( pixel_clock && (pixel_clock == pixel_clock_last) && video_output == video_output_last ) {
-		printk(KERN_INFO "pclk %u same to previous one, skipping!\n", pixel_clock );
-		return 0;
+	if ( pixel_clock && (pixel_clock == pixel_clock_last) ) {
+		printk(KERN_INFO "pclk %u unchanged, not adjusting display clocks\n", pixel_clock );
+		return;// 0;
 	}
-	if ( pixel_clock < 6000 || pixel_clock > 40000 ) { /* 25Mhz~148Mhz */
-		printk(KERN_INFO "pclk %u exceed limitation (6000~40000)!\n", pixel_clock );
-		return -1;
+	if ( (((u32)PICOS2KHZ(pixel_clock)) < 25000) || (((u32)PICOS2KHZ(pixel_clock)) > 133000) ) {
+		printk(KERN_INFO "pclk %u (%uMHz) exceeds clock limitation (25-133MHz)!\n", pixel_clock, ((u32)PICOS2KHZ(pixel_clock))/1000 );
+		return;// -1;
 	}
 	pixel_clock_last = pixel_clock;
-	video_output_last = video_output;
 
-	if( video_output == VIDEO_OUT_STATIC_HDMI ) {
-		clk_di = "ipu_di0_clk"; //hdmi
-	}
-#if defined(CONFIG_FB_MXC_CS8556)
-	else {
-		clk_di = "ipu_di1_clk";	//vga
-	}
-#endif
-
-#define MEGA 1000000
 	if ( pixel_clock == 0 ) {
-		printk(KERN_INFO "%s invalid pclk, reset rate to %u\n",
-			__func__, 260*MEGA );
-		rate = 260*MEGA;
-	}
-	else {
-		/* workaround for CVBS connector */
-		if (pixel_clock == 37000 ) /* NTSC 480i */
-			rate = (u32) ((((PICOS2KHZ(pixel_clock)))/1000)*1000000)*2;
-		else
-			rate =  (((u32)(PICOS2KHZ(pixel_clock) ))*1000 * 2);
+		rate = 26000000;
+		printk(KERN_INFO "%s invalid pclk, reset rate to %u\n", __func__, rate );
+	} else {
+		rate =  (((u32)(PICOS2KHZ(pixel_clock)))*1000);
 	}
 
 	printk("%s pixelclk=%u rate=%u\n", __func__, pixel_clock, rate );
 
-	mxcfb_clock_update("pll3", rate, clk_di, 2);
+	clk_parent = clk_get(NULL, parent);
+	clk_di = clk_get(NULL, di);
 
-	return 0;
+	clk_disable(clk_parent);
+	clk_disable(clk_di);
 
-}
+	printk(" current %s rate %lu\n", parent, clk_get_rate(clk_parent) );
+	printk(" current %s rate %lu\n", di, clk_get_rate(clk_di));
 
-void mxcfb_adjust(struct fb_var_screeninfo *var )
-{
-	if( clock_auto )
-		mxcfb_di_clock_adjust( video_output, var->pixclock );
+	ret_parent = clk_set_rate(clk_parent, rate * 2);
+	ret_di = clk_set_rate(clk_di, rate);
 
-#if defined(CONFIG_FB_MXC_CS8556)
-	if ( video_output == VIDEO_OUT_STATIC_DSUB ) { /* VGA */
-		cs8556_reinit( var );
-	}
-#endif
+	printk(" new %s rate %lu (return %d)\n", parent, clk_get_rate(clk_parent), ret_parent);
+	printk(" new %s rate %lu (return %d)\n", di, clk_get_rate(clk_di), ret_di);
+
+	clk_enable(clk_parent);
+	clk_enable(clk_di);
+
+	clk_put(clk_parent);
+	clk_put(clk_di);
+
+	return;// 0;
 }
 
 void mxcfb_update_default_var(struct fb_var_screeninfo *var,
@@ -484,16 +399,10 @@ void mxcfb_update_default_var(struct fb_var_screeninfo *var,
 	struct fb_monspecs *specs = &info->monspecs;
 	const struct fb_videomode *mode = NULL;
 	struct fb_var_screeninfo var_tmp;
-	int modeidx = 0;
 
-	printk(KERN_INFO "%s mode_opt=%s vmode=%s\n", __func__ , fb_mode_option, vmode );
+	printk(KERN_INFO "%s fb_mode_option = \"%s\"\n", __func__ , fb_mode_option );
 
-	/* user specified vmode,  ex: support reduce blanking, such as 1280x768MR-16@60 */
-	if ( vmode[0] ) {
-		/* use edid support modedb or modedb in modedb.c */
-		modeidx = fb_find_mode(var, info, vmode, specs->modedb, specs->modedb_len, def_mode, MXCFB_DEFAULT_BPP);
-	}
-	else if ( specs->modedb ) {
+	if ( specs->modedb ) {
 
 		fb_videomode_to_var( &var_tmp, def_mode);
 		mode = fb_find_nearest_mode( def_mode, &info->modelist );
@@ -507,8 +416,7 @@ void mxcfb_update_default_var(struct fb_var_screeninfo *var,
 		}
 	}
 
-	if ( modeidx == 0 && mode == NULL ) { /* no best monitor support mode timing found, use def_video_mode timing ! */
-
+	if ( mode == NULL ) { /* no best monitor support mode timing found, use def_video_mode timing ! */
 		fb_videomode_to_var(var, def_mode);
 	}
 }
@@ -551,22 +459,10 @@ int mxc_init_fb(void)
 
 	mxcfb_initialized = 1;
 
-	printk("*** %s vmode=%s video-mode=%d clock_auto=%d\n", 
-		  __func__, vmode, video_mode, clock_auto);
-
-	{
-		mxc_fb_devices[0].num_resources = ARRAY_SIZE(mxcfb_resources);
-		mxc_fb_devices[0].resource = mxcfb_resources;
-		printk(KERN_INFO "registering framebuffer for HDMI\n");
-		mxc_register_device(&mxc_fb_devices[0], &mxcfb_data[0]);	// HDMI
-	}
-#if defined(CONFIG_FB_MXC_CS8556)
-	{
-		mxc_fb_devices[1].num_resources = ARRAY_SIZE(mxcfb_resources);
-		mxc_fb_devices[1].resource = mxcfb_resources;
-		mxc_register_device(&mxc_fb_devices[1], &mxcfb_data[1]);	// VGA
-	}
-#endif
+	mxc_fb_devices[0].num_resources = ARRAY_SIZE(mxcfb_resources);
+	mxc_fb_devices[0].resource = mxcfb_resources;
+	printk(KERN_INFO "registering framebuffer for HDMI\n");
+	mxc_register_device(&mxc_fb_devices[0], &mxcfb_data[0]);	// HDMI
 
 	printk(KERN_INFO "registering framebuffer for VPU overlay\n");
 	mxc_register_device(&mxc_fb_devices[2], NULL);		// Overlay for VPU
@@ -591,90 +487,3 @@ void mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_mem)
 			mxcfb_resources[0].end = 0;
 		}
 }
-
-
-
-static int __init vga_setup(char *__unused)
-{
-	video_output = VIDEO_OUT_STATIC_DSUB;
-	return 1;
-}
-
-static int __init hdmi_setup(char *__unused)
-{
-	video_output = VIDEO_OUT_STATIC_HDMI;
-	return 1;
-}
-
-static int __init hdmi_spdif_setup(char *__unused)
-{
-	enable_hdmi_spdif = 1;
-	return 1;
-}
-
-static int __init hdmi_audio_auto_sw_setup(char *options)
-{
-	if (!options || !*options)
-		return 1;
-
-	hdmi_audio_auto_sw = simple_strtol(options, NULL, 10);
-
-	printk("hdmi audio auto switch=%d\n", hdmi_audio_auto_sw);
-
-	return 1;
-}
-
-static int __init video_mode_setup(char *options)
-{
-	if (!options || !*options)
-		return 1;
-
-	video_mode = simple_strtol(options, NULL, 10);
-
-	printk("video mode=%d\n", video_mode);
-
-	return 1;
-}
-
-static int __init clock_setup(char *options)
-{
-	if (!options || !*options)
-		return 1;
-
-	clock_auto = simple_strtol(options, NULL, 10);
-	printk("clock_auto=%d\n", clock_auto);
-
-	return 1;
-}
-
-static int __init vmode_setup(char *options)
-{
-	if (!options || !*options)
-		return 1;
-
-	memset( vmode, 0, sizeof(vmode));
-	strncpy( vmode, options, sizeof(vmode)-1 );
-	printk("vmode=%s\n", vmode );
-
-	return 1;
-}
-
-static int __init video_max_res_setup(char *options)
-{
-	if (!options || !*options)
-		return 1;
-
-	video_max_res = simple_strtol(options, NULL, 10);
-	printk("video_max_res=%d\n", video_max_res);
-
-	return 1;
-}
-
-__setup("vga", vga_setup);
-__setup("hdmi", hdmi_setup);
-__setup("spdif", hdmi_spdif_setup);
-__setup("hdmi_audio_auto_sw=", hdmi_audio_auto_sw_setup);
-__setup("video_mode=", video_mode_setup);
-__setup("clock_auto=", clock_setup);
-__setup("vmode=", vmode_setup);
-__setup("video_max_res=", video_max_res_setup);

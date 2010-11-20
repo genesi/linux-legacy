@@ -49,23 +49,7 @@
 #include <mach/hardware.h>
 
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
-
-#include <../arch/arm/mach-mx5/mx51_efikamx.h>
-
-#ifndef dev_dbg
-#define dev_dbg(dev, format, arg...)            \
-        dev_printk(KERN_INFO , dev , format , ## arg)
-#endif
-
-extern int mxc_debug;
-extern int clock_auto;
-extern int extsync;
 extern void mxcfb_adjust(struct fb_var_screeninfo *var );
-
-#elif defined(CONFIG_MACH_MX51_EFIKASB)
-// when platforms merge this horrific thing goes away
-#include <../arch/arm/mach-mx5/mx51_efikasb.h>
-
 #endif
 
 
@@ -172,18 +156,9 @@ static int mxcfb_set_fix(struct fb_info *info)
 
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
 	if (machine_is_mx51_efikamx()) {
-		if( clock_auto && extsync ) {
-			if ( var->pixclock < PIXCLK_LIMIT ) {
-				printk(KERN_INFO "exceed pixel clock limit %ld, auto adjust to 720p\n", PIXCLK_LIMIT );
-				if (MXCFB_DEFAULT_BPP == 32)
-					fb_find_mode( var, info, "1280x720-32@60", NULL, 0, NULL, 32 );
-				else
-					fb_find_mode( var, info, "1280x720-16@60", NULL, 0, NULL, 16 );
-
-				/* BUG: this should be the same bit depth as the current mode,
-					or if it resyncs a 1280x720p mode it won't reclock */
-				/* BUG: sprintf would be better than this */
-			}
+		if ( var->pixclock < ((u32)(KHZ2PICOS(133000))) ) {
+			printk(KERN_INFO "exceed pixel clock limit %u, auto adjust to 720p\n", ((u32)KHZ2PICOS(133000)) );
+			fb_find_mode( var, info, "1280x720-32@60", NULL, 0, NULL, 16 );
 			var->sync |= FB_SYNC_EXT;	/* x window need it otherwise refresh rate will become bigger than user specified */
 		}
 		/* skip mxc_sdc_fb.2 (overlay) configure */
@@ -619,7 +594,7 @@ static int mxcfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	if ((var->bits_per_pixel != 32) && (var->bits_per_pixel != 24) &&
 	    (var->bits_per_pixel != 16) && (var->bits_per_pixel != 12) &&
 	    (var->bits_per_pixel != 8))
-		var->bits_per_pixel = MXCFB_DEFAULT_BPP;
+		var->bits_per_pixel = 16;
 
 	switch (var->bits_per_pixel) {
 	case 8:
@@ -1704,7 +1679,7 @@ static int mxcfb_probe(struct platform_device *pdev)
 	fbi->var.yres = 320;
 
 	if (!mxcfbi->default_bpp)
-		mxcfbi->default_bpp = MXCFB_DEFAULT_BPP;
+		mxcfbi->default_bpp = 16;
 
 	if (plat_data && !mxcfbi->ipu_di_pix_fmt)
 		mxcfbi->ipu_di_pix_fmt = plat_data->interface_pix_fmt;

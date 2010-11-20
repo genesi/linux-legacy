@@ -1026,7 +1026,6 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 	uint32_t h_total, v_total;
 	int map;
 	int ipu_freq_scaling_enabled = 0;
-	struct clk *di_parent;
 
 	dev_dbg(g_ipu_dev, "panel size = %d x %d\n", width, height);
 
@@ -1060,7 +1059,7 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 		 * meet such case, ext clk rate should be set specially.
 		 */
 		if (clk_get_usecount(g_pixel_clk[disp]) == 0) {
-			di_parent = clk_get_parent(g_di_clk[disp]);
+			struct clk *di_parent = clk_get_parent(g_di_clk[disp]);
 			if (strcmp(di_parent->name, "tve_clk") != 0 &&
 			    strcmp(di_parent->name, "ldb_di0_clk") != 0 &&
 			    strcmp(di_parent->name, "ldb_di1_clk") != 0)  {
