@@ -955,13 +955,14 @@ void _ipu_dp_set_csc_coefficients(ipu_channel_t channel, int32_t param[][3])
  * This function is called to adapt synchronous LCD panel to IPU restriction.
  *
  */
-void adapt_panel_to_ipu_restricitions(uint32_t *pixel_clk,
+void adapt_panel_to_ipu_restrictions(uint32_t *pixel_clk,
 				      uint16_t width, uint16_t height,
 				      uint16_t h_start_width,
 				      uint16_t h_end_width,
 				      uint16_t v_start_width,
 				      uint16_t *v_end_width)
 {
+#if 0
 	if (*v_end_width < 2) {
 		uint16_t total_width = width + h_start_width + h_end_width;
 		uint16_t total_height_old = height + v_start_width + (*v_end_width);
@@ -971,6 +972,7 @@ void adapt_panel_to_ipu_restricitions(uint32_t *pixel_clk,
 			(total_width * total_height_old);
 		dev_err(g_ipu_dev, "WARNING: adapt panel end blank lines\n");
 	}
+#endif
 }
 
 /*!
@@ -1032,12 +1034,11 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 	if ((v_sync_width == 0) || (h_sync_width == 0))
 		return EINVAL;
 
-	// with patch to mx51_efikamx_display to remove modes with v_end_width < 2, this call
-	// should do precisely nothing on every mode, thus skirting around any weirdness
-	// whereby the lower margin is modified and then the panel doesn't handle it right
-	adapt_panel_to_ipu_restricitions(&pixel_clk, width, height,
+#if 0
+	adapt_panel_to_ipu_restrictions(&pixel_clk, width, height,
 					 h_start_width, h_end_width,
 					 v_start_width, &v_end_width);
+#endif
 	h_total = width + h_sync_width + h_start_width + h_end_width;
 	v_total = height + v_sync_width + v_start_width + v_end_width;
 
