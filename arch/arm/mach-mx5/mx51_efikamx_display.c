@@ -425,21 +425,13 @@ void __init mx51_efikamx_init_display(void)
 {
 	CONFIG_IOMUX(mx51_efikamx_display_iomux_pins);
 
-	/* Deassert VGA reset to free i2c bus */
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_EIM_A19), "vga_reset");
-	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_EIM_A19), 1);
-
-	/* LCD related gpio */
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_DI1_D1_CS), "lcd_gpio");
-	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_DI1_D1_CS), 0);
-
-	/* DVI Reset - Assert for i2c disabled mode */
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIN), "dvi_reset");
+	/* HDMI Reset - Assert for i2c disabled mode */
+	gpio_request(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIN), "hdmi:reset");
 	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIN), 0);
 
-	/* DVI Power-down */
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIO), "dvi_power");
-	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIO), 1);
+	/* HDMI Interrupt pin (plug detect etc.)  */
+	gpio_request(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIO), "hdmi:irq");
+	gpio_direction_input(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIO));
 
 	mxc_ipu_data.di_clk[0] = clk_get(NULL, "ipu_di0_clk");
 	mxc_ipu_data.di_clk[1] = clk_get(NULL, "ipu_di1_clk");
