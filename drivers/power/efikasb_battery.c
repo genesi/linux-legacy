@@ -176,21 +176,21 @@ struct efikasb_batt_dev_info {
 	char serial[32];
 	char chemistry[32];
 
-	int batt_in_irq;
-	int batt_low_irq;
-	int ac_in_irq;
+        int batt_in_irq;
+        int batt_low_irq;
+        int ac_in_irq;
 
-	int batt_in;
-	int ac_in;
-	int batt_low;
-	u32 capacity;
+        int batt_in;
+        int ac_in;
+        int batt_low;
+        u32 capacity;
 
 	int (*get_batt_in_status) (void);
-	int (*get_batt_low_status) (void);
+        int (*get_batt_low_status) (void);
 	int (*get_ac_in_status) (void);
-	void (*set_batt_low_led) (int);
+        void (*set_batt_low_led) (int);
 
-	struct timer_list batt_low_timer;
+        struct timer_list batt_low_timer;
 };
 
 static struct efikasb_batt_dev_info *batt = NULL;
@@ -198,7 +198,7 @@ static struct efikasb_batt_dev_info *batt = NULL;
 static enum power_supply_property efikasb_batt_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_PRESENT,
-	/* 	POWER_SUPPLY_PROP_HEALTH, */
+/* 	POWER_SUPPLY_PROP_HEALTH, */
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
@@ -208,8 +208,8 @@ static enum power_supply_property efikasb_batt_props[] = {
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW,
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,
-	POWER_SUPPLY_PROP_MODEL_NAME,
-	POWER_SUPPLY_PROP_MANUFACTURER,
+ 	POWER_SUPPLY_PROP_MODEL_NAME,
+ 	POWER_SUPPLY_PROP_MANUFACTURER,
 	POWER_SUPPLY_PROP_SERIAL_NUMBER,
 
 };
@@ -221,15 +221,15 @@ static enum power_supply_property efikasb_ac_charger_props[] = {
 static int efikasb_batt_read(struct i2c_client *client, u8 reg, u32 *value)
 {
 	int ret;
-	int retry = 5;
+        int retry = 5;
 
-retry:
+ retry:
 	ret = i2c_smbus_read_word_data(client, reg);
 	if(ret < 0) {           /* ron: retry i2c again to avoid conflict with PIC */
-		if(retry -- > 0)
-			goto retry;
-		return ret;
-	}
+                if(retry -- > 0)
+                        goto retry;
+                return ret;
+        }
 
 	*value = ret;
 	return 0;
@@ -304,8 +304,8 @@ static int efikasb_batt_get_mfg_name(struct efikasb_batt_dev_info *di)
 	if(ret < 0)
 		return ret;
 
-	if(mfg[0] > sizeof(di->mfg_name))
-		return -EINVAL;
+        if(mfg[0] > sizeof(di->mfg_name))
+                return -EINVAL;
 
 	strncpy(di->mfg_name, &mfg[1], mfg[0]);
 	return 0;
@@ -320,8 +320,8 @@ static int efikasb_batt_get_model_name(struct efikasb_batt_dev_info *di)
 	if(ret < 0)
 		return ret;
 
-	if(model[0] > sizeof(di->model_name))
-		return -EINVAL;
+        if(model[0] > sizeof(di->model_name))
+                return -EINVAL;
 
 	strncpy(di->model_name, &model[1], model[0]);
 	return 0;
@@ -336,11 +336,11 @@ static int efikasb_batt_get_technology(struct efikasb_batt_dev_info *di)
 	if(ret < 0)
 		return ret;
 
-	if(chem[0] > sizeof(di->chemistry))
-		return -EINVAL;
+        if(chem[0] > sizeof(di->chemistry))
+                return -EINVAL;
 
 	strncpy(di->chemistry, &chem[1], chem[0]);
-	/* 	printk("Technology: %s\n", di->chemistry); */
+/* 	printk("Technology: %s\n", di->chemistry); */
 
 	if (!strcasecmp("NiCd", di->chemistry))
 		return POWER_SUPPLY_TECHNOLOGY_NiCd;
@@ -357,37 +357,38 @@ static int efikasb_batt_get_technology(struct efikasb_batt_dev_info *di)
 }
 
 #define to_efikasb_batt_device_info(x) container_of((x), \
-		struct efikasb_batt_dev_info, bat);
+				struct efikasb_batt_dev_info, bat);
 
 static int efikasb_batt_get_property(struct power_supply *psy,
-				     enum power_supply_property psp,
-				     union power_supply_propval *val)
+				    enum power_supply_property psp,
+				    union power_supply_propval *val)
 {
 	struct efikasb_batt_dev_info *di = batt;
 	u32 value;
 	int ret;
-	int batt_in, ac_in;
+        int batt_in, ac_in;
 
-	batt_in = di->get_batt_in_status();
+        batt_in = di->get_batt_in_status();
 
 	if (!batt_in) {
-		val->intval = 0;
+                val->intval = 0;
 		return -ENODEV;
-	}
+        }
 
-	ac_in = di->get_ac_in_status();
+        ac_in = di->get_ac_in_status();
 
 	switch(psp) {
-	case POWER_SUPPLY_PROP_PRESENT:
-		val->intval = di->get_batt_in_status();
-		break;
+        case POWER_SUPPLY_PROP_PRESENT:
+                val->intval = di->get_batt_in_status();
+                break;
 	case POWER_SUPPLY_PROP_STATUS:
-		if (ac_in) {
+                if (ac_in) {
 			ret = efikasb_batt_get_status(di, &value);
 			if (ret != 0) {
 				val->intval = POWER_SUPPLY_STATUS_UNKNOWN;
 				return 0;
 			}
+
 			if (value & SBS_STATUS_FULLY_CHARGED)
 				val->intval = POWER_SUPPLY_STATUS_FULL;
 			else
@@ -395,81 +396,95 @@ static int efikasb_batt_get_property(struct power_supply *psy,
 		} else {
 			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
 		}
+
 		break;
+
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = efikasb_batt_get_technology(di);
 		break;
+
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW: /* mV */
 		ret = efikasb_batt_get_voltage(di, &value);
 		if(ret != 0) {
-			val->intval = 0;
+                        val->intval = 0;
 			break;
-		}
+                }
+
 		val->intval = value;
 		break;
+
 	case POWER_SUPPLY_PROP_CURRENT_NOW: /* mA */
 		ret = efikasb_batt_get_current(di, &value);
 		if(ret != 0) {
-			val->intval = 0;
+                        val->intval = 0;
 			return ret;
-		}
+                }
+
 		val->intval = value;
 		break;
+
 	case POWER_SUPPLY_PROP_CURRENT_AVG: /* mA in 1 minute rolling avg */
 		ret = efikasb_batt_get_average_current(di, &value);
 		if(ret != 0)
 			return ret;
 		val->intval = value;
 		break;
+
 	case POWER_SUPPLY_PROP_CAPACITY: /* % percent */
 		ret = efikasb_batt_get_capacity(di, &value);
 		if(ret != 0)
 			return ret;
 		val->intval = value;
-		di->capacity = value; /* ron: cache the battery capacity */
+                di->capacity = value; /* ron: cache the battery capacity */
 		break;
+
 	case POWER_SUPPLY_PROP_TEMP: /* K degree */
 		ret = efikasb_batt_get_temperature(di, &value);
 		if(ret != 0)
 			return ret;
 		val->intval = value;
 		break;
+
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW: /* minutes */
 		ret = efikasb_batt_run_time_to_empty(di, &value);
 		if(ret != 0)
 			return ret;
 		val->intval = value;
 		break;
+
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG: /* minutes */
 		ret = efikasb_batt_avg_time_to_empty(di, &value);
 		if(ret != 0)
 			return ret;
 		val->intval = value;
 		break;
+
 	case POWER_SUPPLY_PROP_TIME_TO_FULL_AVG: /* minutes */
 		ret = efikasb_batt_avg_time_to_full(di, &value);
 		if(ret != 0)
 			return ret;
 		val->intval = value;
 		break;
-	case POWER_SUPPLY_PROP_MODEL_NAME:
+
+ 	case POWER_SUPPLY_PROP_MODEL_NAME:
 		ret = efikasb_batt_get_model_name(di);
 		if(ret < 0)
 			return ret;
 		val->strval = di->model_name;
 		break;
-	case POWER_SUPPLY_PROP_MANUFACTURER:
+
+ 	case POWER_SUPPLY_PROP_MANUFACTURER:
 		ret = efikasb_batt_get_mfg_name(di);
 		if(ret < 0)
 			return ret;
 		val->strval = di->mfg_name;
 		break;
-	case POWER_SUPPLY_PROP_SERIAL_NUMBER:
+ 	case POWER_SUPPLY_PROP_SERIAL_NUMBER:
 		ret = efikasb_batt_get_serial_no(di);
 		if(ret < 0)
 			return ret;
 		val->strval = di->serial;
-		break;
+ 		break;
 	default:
 		return -EINVAL;
 	}
@@ -478,8 +493,8 @@ static int efikasb_batt_get_property(struct power_supply *psy,
 }
 
 static int efikasb_ac_charger_get_property(struct power_supply *psy,
-					   enum power_supply_property psp,
-					   union power_supply_propval *val)
+				    enum power_supply_property psp,
+				    union power_supply_propval *val)
 {
 	struct efikasb_batt_dev_info *di = batt;
 
@@ -488,7 +503,7 @@ static int efikasb_ac_charger_get_property(struct power_supply *psy,
 		val->intval = di->get_ac_in_status();
 		break;
 	default:
-		return -EINVAL;
+                return -EINVAL;
 		break;
 	}
 
@@ -516,136 +531,136 @@ static struct power_supply efikasb_ac_charger = {
 
 static void update_status_worker(struct work_struct *work)
 {
-	power_supply_changed(batt->ac_charger);
-	power_supply_changed(batt->bat);
+        power_supply_changed(batt->ac_charger);
+        power_supply_changed(batt->bat);
 }
 
 
 static irqreturn_t efikasb_ac_detect_handler(int irq, void *data)
 {
-	struct efikasb_batt_dev_info *di = data;
+        struct efikasb_batt_dev_info *di = data;
 
 	di->ac_in = di->get_ac_in_status();
 	printk("efikasb_ac_charger: AC %s\n",
-			di->ac_in ? "Inserted" : "Removed");
+	       di->ac_in ? "Inserted" : "Removed");
 
-	schedule_delayed_work(&update_status_work, msecs_to_jiffies(1500));
+        schedule_delayed_work(&update_status_work, msecs_to_jiffies(1500));
 
 	if (di->ac_in) {
-		if(di->set_batt_low_led)
-			di->set_batt_low_led(0);
+                if(di->set_batt_low_led)
+                        di->set_batt_low_led(0);
 		set_irq_type(irq, IRQ_TYPE_EDGE_RISING);
-		mod_timer(&di->batt_low_timer, jiffies + 10);
+                mod_timer(&di->batt_low_timer, jiffies + 10);
 	} else {
-		mod_timer(&di->batt_low_timer, jiffies + 10);
+                mod_timer(&di->batt_low_timer, jiffies + 10);
 		set_irq_type(irq, IRQ_TYPE_EDGE_FALLING);
-	}
+        }
 
 	return IRQ_HANDLED;
 }
 
 static irqreturn_t efikasb_batt_detect_handler(int irq, void *data)
 {
-	struct efikasb_batt_dev_info *di = data;
+        struct efikasb_batt_dev_info *di = data;
 
 	di->batt_in = di->get_batt_in_status();
 	printk("efikasb_battery: Battery %s\n",
-			di->batt_in ? "Inserted" : "Removed");
+	       di->batt_in ? "Inserted" : "Removed");
 
-	schedule_delayed_work(&update_status_work, msecs_to_jiffies(1500));
+        schedule_delayed_work(&update_status_work, msecs_to_jiffies(1500));
 
 	if (di->batt_in) {
-		mod_timer(&di->batt_low_timer, jiffies + 10);
+                mod_timer(&di->batt_low_timer, jiffies + 10);
 		set_irq_type(irq, IRQ_TYPE_EDGE_RISING);
 	} else {
-		if(di->set_batt_low_led)
-			di->set_batt_low_led(0);
+                if(di->set_batt_low_led)
+                        di->set_batt_low_led(0);
 		set_irq_type(irq, IRQ_TYPE_EDGE_FALLING);
-	}
+        }
 
 	return IRQ_HANDLED;
 }
 
 static void power_off_worker(struct work_struct *work)
 {
-	if(!batt->ac_in && batt->batt_low && batt->capacity == 0) {
-		sys_sync();
-		kernel_power_off();
-	}
+        if(!batt->ac_in && batt->batt_low && batt->capacity == 0) {
+                sys_sync();
+                kernel_power_off();
+        }
 }
 
 static irqreturn_t efikasb_batt_low_handler(int irq, void *data)
 {
-	struct efikasb_batt_dev_info *di = data;
+        struct efikasb_batt_dev_info *di = data;
 
-	di->batt_low = batt->get_batt_low_status();
-	printk("efikasb_batter: Battery %s\n",
-			di->batt_low ? "Low" : "Normal");
+        di->batt_low = batt->get_batt_low_status();
+        printk("efikasb_batter: Battery %s\n",
+               di->batt_low ? "Low" : "Normal");
 
-	if (di->batt_low) {
-		set_irq_type(irq, IRQ_TYPE_LEVEL_HIGH);
-	} else {
-		set_irq_type(irq, IRQ_TYPE_LEVEL_LOW);
-	}
+        if (di->batt_low) {
+                set_irq_type(irq, IRQ_TYPE_LEVEL_HIGH);
+        } else {
+                set_irq_type(irq, IRQ_TYPE_LEVEL_LOW);
+        }
 
-	return IRQ_HANDLED;
+        return IRQ_HANDLED;
 }
 
 static void batt_capacity_worker(struct work_struct *work)
 {
-	int ret;
-	u32 capacity;
+        int ret;
+        u32 capacity;
 
-	if(batt->batt_in) {
-		ret = efikasb_batt_get_capacity(batt, &capacity);
-		if(ret == 0)
-			batt->capacity = capacity;
+        if(batt->batt_in) {
+                ret = efikasb_batt_get_capacity(batt, &capacity);
+                if(ret == 0)
+                        batt->capacity = capacity;
 
-		if(!batt->ac_in && batt->capacity == 0) {
-			sys_sync();
-			kernel_power_off();
-		}
-	}
+                if(!batt->ac_in && batt->capacity == 0) {
+                        sys_sync();
+                        kernel_power_off();
+                }
+        }
 
 }
 
 static void batt_low_fn(unsigned long data)
 {
-	struct efikasb_batt_dev_info *di = (struct efikasb_batt_dev_info *)data;
+        struct efikasb_batt_dev_info *di = (struct efikasb_batt_dev_info *)data;
 
-	if(!di->batt_in)
-		return;
+        if(!di->batt_in)
+                return;
 
-	if(!di->ac_in && di->batt_in) { /* battery is discharging */
-		schedule_work(&batt_capacity_work);
-		if(di->set_batt_low_led) {
-			if(di->capacity <= 10)
-				di->set_batt_low_led(1);
-			else
-				di->set_batt_low_led(0);
+        if(!di->ac_in && di->batt_in) { /* battery is discharging */
+                schedule_work(&batt_capacity_work);
+                if(di->set_batt_low_led) {
+                        if(di->capacity <= 10)
+                                di->set_batt_low_led(1);
+                        else
+                                di->set_batt_low_led(0);
 
-			if(di->capacity <= 11 && di->capacity > 9) {
-				mod_timer(&di->batt_low_timer, jiffies + 4 * HZ);
-			}
+                        if(di->capacity <= 11 && di->capacity > 9) {
+                                mod_timer(&di->batt_low_timer, jiffies + 4 * HZ);
+                        }
 
-			if(di->capacity <= 9 || di->capacity > 11)  {
-				mod_timer(&di->batt_low_timer, jiffies + 60 * HZ);
-			}
-		} else {
-			mod_timer(&di->batt_low_timer, jiffies + 60 * HZ);
-		}
-	} else if(di->batt_in) { /* battery is charging */
-		mod_timer(&di->batt_low_timer, jiffies + 60 * HZ);
-	}
+                        if(di->capacity <= 9 || di->capacity > 11)  {
+                                mod_timer(&di->batt_low_timer, jiffies + 60 * HZ);
+                        }
+                } else {
+                        mod_timer(&di->batt_low_timer, jiffies + 60 * HZ);
+                }
+        } else if(di->batt_in) { /* battery is charging */
+                mod_timer(&di->batt_low_timer, jiffies + 60 * HZ);
+        }
 
-	/* battery is not charging and capacity is critical low, power off immediately */
-	if(!di->ac_in && di->batt_in && di->capacity == 0)
-		schedule_delayed_work(&power_off_work, msecs_to_jiffies(1000));
+        /* battery is not charging and capacity is critical low, power off immediately */
+        if(!di->ac_in && di->batt_in && di->capacity == 0)
+                schedule_delayed_work(&power_off_work, msecs_to_jiffies(1000));
 
 }
 
 static int efikasb_batt_i2c_probe(struct i2c_client *client,
-		const struct i2c_device_id *id)
+			     const struct i2c_device_id *id)
 {
 	struct efikasb_batt_dev_info *di;
 	struct mxc_battery_platform_data *platform_data;
@@ -669,66 +684,66 @@ static int efikasb_batt_i2c_probe(struct i2c_client *client,
 	di->ac_charger = &efikasb_ac_charger;
 
 	di->get_batt_in_status = platform_data->get_batt_in_status;
-	di->get_batt_low_status = platform_data->get_batt_low_status;
+        di->get_batt_low_status = platform_data->get_batt_low_status;
 	di->get_ac_in_status = platform_data->get_ac_in_status;
-	di->set_batt_low_led = platform_data->set_batt_low_led;
+        di->set_batt_low_led = platform_data->set_batt_low_led;
 
-	if(di->get_batt_in_status)
-		di->batt_in = di->get_batt_in_status();
-	if(di->get_ac_in_status)
-		di->ac_in = di->get_ac_in_status();
-	if(di->get_batt_low_status)
-		di->batt_low = di->get_batt_low_status();
+        if(di->get_batt_in_status)
+                di->batt_in = di->get_batt_in_status();
+        if(di->get_ac_in_status)
+                di->ac_in = di->get_ac_in_status();
+        if(di->get_batt_low_status)
+                di->batt_low = di->get_batt_low_status();
 
-	di->batt_in_irq = platform_data->batt_in_irq;
-	di->batt_low_irq = platform_data->batt_low_irq;
-	di->ac_in_irq = platform_data->ac_in_irq;
+        di->batt_in_irq = platform_data->batt_in_irq;
+        di->batt_low_irq = platform_data->batt_low_irq;
+        di->ac_in_irq = platform_data->ac_in_irq;
 
 #ifndef CONFIG_EFIKASB_EXPERIMENTAL_OS
-	if(di->batt_in) {
-		retval = request_irq(di->batt_in_irq,
-				efikasb_batt_detect_handler, \
-				IRQ_TYPE_EDGE_RISING,
-				"efikasb_battery", di);
-	} else {
-		retval = request_irq(di->batt_in_irq,
-				efikasb_batt_detect_handler,
-				IRQ_TYPE_EDGE_FALLING,
-				"efikasb_battery", di);
-	}
-	if(retval)
-		goto batt_irq_failed;
+        if(di->batt_in) {
+                retval = request_irq(di->batt_in_irq,
+                                     efikasb_batt_detect_handler, \
+                                     IRQ_TYPE_EDGE_RISING,
+                                     "efikasb_battery", di);
+        } else {
+                retval = request_irq(di->batt_in_irq,
+                                     efikasb_batt_detect_handler,
+                                     IRQ_TYPE_EDGE_FALLING,
+                                     "efikasb_battery", di);
+        }
+        if(retval)
+                goto batt_irq_failed;
 
-	if(di->ac_in) {
-		retval = request_irq(di->ac_in_irq,
-				efikasb_ac_detect_handler,
-				IRQ_TYPE_EDGE_RISING,
-				"efikasb_ac_charger", di);
-	} else {
-		retval = request_irq(di->ac_in_irq,
-				efikasb_ac_detect_handler,
-				IRQ_TYPE_EDGE_FALLING,
-				"efikasb_ac_charger", di);
-	}
-	if(retval)
-		goto ac_irq_failed;
+        if(di->ac_in) {
+                retval = request_irq(di->ac_in_irq,
+                                     efikasb_ac_detect_handler,
+                                     IRQ_TYPE_EDGE_RISING,
+                                     "efikasb_ac_charger", di);
+        } else {
+                retval = request_irq(di->ac_in_irq,
+                                     efikasb_ac_detect_handler,
+                                     IRQ_TYPE_EDGE_FALLING,
+                                     "efikasb_ac_charger", di);
+        }
+        if(retval)
+                goto ac_irq_failed;
 
-	if(di->batt_low) {
-		retval = request_irq(di->batt_low_irq,
-				efikasb_batt_low_handler,
-				IRQ_TYPE_LEVEL_HIGH, "efikasb_batt_low", di);
-	} else {
-		retval = request_irq(di->batt_low_irq,
-				efikasb_batt_low_handler,
-				IRQ_TYPE_LEVEL_LOW, "efikasb_batt_low", di);
-	}
-	if(retval)
-		goto batt_low_irq_failed;
+        if(di->batt_low) {
+                retval = request_irq(di->batt_low_irq,
+                                  efikasb_batt_low_handler,
+                                  IRQ_TYPE_LEVEL_HIGH, "efikasb_batt_low", di);
+        } else {
+                retval = request_irq(di->batt_low_irq,
+                                  efikasb_batt_low_handler,
+                                  IRQ_TYPE_LEVEL_LOW, "efikasb_batt_low", di);
+        }
+        if(retval)
+                goto batt_low_irq_failed;
 
-	/* ron: the battery low pin is triggered at 10% battery capacity,
-	   battery critical low won't generate wake up event,
-	   the battery power may be exhauseted */
-	/* enable_irq_wake(di->batt_low_irq); */
+        /* ron: the battery low pin is triggered at 10% battery capacity,
+           battery critical low won't generate wake up event,
+           the battery power may be exhauseted */
+        /* enable_irq_wake(di->batt_low_irq); */
 #endif
 
 	retval = power_supply_register(&client->dev, &efikasb_batt);
@@ -743,44 +758,44 @@ static int efikasb_batt_i2c_probe(struct i2c_client *client,
 		goto ac_charger_failed;
 	}
 	if(di->batt_in) {
-		efikasb_batt_get_mfg_name(di);
-		efikasb_batt_get_model_name(di);
-		efikasb_batt_get_capacity(di, &di->capacity);
-	}
+                efikasb_batt_get_mfg_name(di);
+                efikasb_batt_get_model_name(di);
+                efikasb_batt_get_capacity(di, &di->capacity);
+        }
 
 
 	printk("Probe Efika MX Smartbook Battery: %s %s %s: %d%%, AC %s\n",
-			di->mfg_name, di->model_name,
-			di->batt_in ? "Inserted" : "Removed", di->capacity,
-			di->ac_in ? "Inserted" : "Removed");
+	       di->mfg_name, di->model_name,
+	       di->batt_in ? "Inserted" : "Removed", di->capacity,
+	       di->ac_in ? "Inserted" : "Removed");
 
 	dump_sbs_reg(client);
 
-	init_timer(&di->batt_low_timer);
-	di->batt_low_timer.data = (unsigned long)di;
-	di->batt_low_timer.function = batt_low_fn;
-	di->batt_low_timer.expires = jiffies + 10;
-	if(!di->ac_in && di->batt_in)
-		add_timer(&di->batt_low_timer);
+        init_timer(&di->batt_low_timer);
+        di->batt_low_timer.data = (unsigned long)di;
+        di->batt_low_timer.function = batt_low_fn;
+        di->batt_low_timer.expires = jiffies + 10;
+        if(!di->ac_in && di->batt_in)
+                add_timer(&di->batt_low_timer);
 
-	/* ron: if battery critical low, shutdown immediately */
-	if(!di->ac_in && di->batt_low && di->capacity == 0) {
-		printk("Battery critical low, shutdown now....\n");
-		schedule_delayed_work(&power_off_work, msecs_to_jiffies(1000));
-	}
+        /* ron: if battery critical low, shutdown immediately */
+        if(!di->ac_in && di->batt_low && di->capacity == 0) {
+                printk("Battery critical low, shutdown now....\n");
+                schedule_delayed_work(&power_off_work, msecs_to_jiffies(1000));
+        }
 
 	return 0;
 
-ac_charger_failed:
+ ac_charger_failed:
 	power_supply_unregister(&efikasb_batt);
-batt_failed:
-	free_irq(di->batt_low_irq, NULL);
-batt_low_irq_failed:
-	free_irq(di->ac_in_irq, NULL);
-ac_irq_failed:
-	free_irq(di->batt_in_irq, NULL);
-batt_irq_failed:
-	i2c_set_clientdata(client, NULL);
+ batt_failed:
+        free_irq(di->batt_low_irq, NULL);
+ batt_low_irq_failed:
+        free_irq(di->ac_in_irq, NULL);
+ ac_irq_failed:
+        free_irq(di->batt_in_irq, NULL);
+ batt_irq_failed:
+        i2c_set_clientdata(client, NULL);
 	kfree(di);
 	return retval;
 }
@@ -790,9 +805,9 @@ static int efikasb_batt_i2c_remove(struct i2c_client *client)
 	struct efikasb_batt_dev_info *di = i2c_get_clientdata(client);
 
 	power_supply_unregister(&efikasb_batt);
-	power_supply_unregister(&efikasb_ac_charger);
-	free_irq(di->batt_in_irq, NULL);
-	free_irq(di->ac_in_irq, NULL);
+        power_supply_unregister(&efikasb_ac_charger);
+        free_irq(di->batt_in_irq, NULL);
+        free_irq(di->ac_in_irq, NULL);
 	kfree(di);
 	batt = NULL;
 
@@ -836,4 +851,5 @@ module_exit(efikasb_batt_exit);
 MODULE_AUTHOR("Ron Lee <ron1_lee@pegatroncorp.com>");
 MODULE_DESCRIPTION("Efika MX Smart Battery Driver");
 MODULE_LICENSE("GPL");
+
 
