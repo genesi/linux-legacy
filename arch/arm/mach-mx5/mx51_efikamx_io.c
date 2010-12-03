@@ -114,9 +114,9 @@ void __init mx51_efikamx_io_init(void)
 
 	mx51_efikamx_init_soc();
 
-	mx51_efikamx_init_spi();
 	mx51_efikamx_init_pmic();
 	mx51_efikamx_init_nor();
+	mx51_efikamx_init_spi();
 
 	mx51_efikamx_init_i2c();     /* i2c devices like sii9022 need IPU already there */
 
