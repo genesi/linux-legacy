@@ -60,16 +60,22 @@ static struct flash_platform_data mx51_efikamx_spi_flash_data = {
 
 static struct spi_board_info mx51_efikamx_spi_board_info[] __initdata = {
 	{
-	 .modalias = "sst25vf",
+	 .modalias = "m25p80",
 	 .max_speed_hz = 25000000, /* max spi clock (SCK) speed in HZ */
-	 .bus_num = 1,
 	 .chip_select = 1,
 	 .platform_data = &mx51_efikamx_spi_flash_data,
+#if defined(CONFIG_SPI_GPIO)
+	 .bus_num = 0,
+	 .controller_data = (void *) IOMUX_TO_GPIO(MX51_PIN_CSPI1_SS1),
+#elif defined(CONFIG_SPI_IMX)
+	 .bus_num = 0,
+#elif defined(CONFIG_SPI_MXC)
+	 .bus_num = 1,
+#endif
 	},
 };
 
 void mx51_efikamx_init_nor(void)
 {
-	(void)spi_register_board_info(mx51_efikamx_spi_board_info, 
-								ARRAY_SIZE(mx51_efikamx_spi_board_info));
+	(void)spi_register_board_info(mx51_efikamx_spi_board_info, ARRAY_SIZE(mx51_efikamx_spi_board_info));
 }

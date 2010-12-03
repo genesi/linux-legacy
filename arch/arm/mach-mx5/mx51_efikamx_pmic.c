@@ -413,13 +413,24 @@ static struct mc13892_platform_data mc13892_plat = {
 	.init = mc13892_regulator_init,
 };
 
-static struct spi_board_info __initdata mc13892_spi_device = {
+static struct spi_board_info __initdata mc13892_spi_device[] = {
+	{
 	.modalias = "pmic_spi",
 	.irq = IOMUX_TO_IRQ(MX51_PIN_GPIO1_6),
 	.max_speed_hz = 6000000,	/* max spi SCK clock speed in HZ */
-	.bus_num = 1,
-	.chip_select = 0,
 	.platform_data = &mc13892_plat,
+	.chip_select = 0,
+#if defined(CONFIG_SPI_GPIO)
+	.bus_num = 0,
+	.mode = SPI_CS_HIGH,
+	.controller_data = (void *) IOMUX_TO_GPIO(MX51_PIN_CSPI1_SS0),
+#elif defined(CONFIG_SPI_IMX)
+	.bus_num = 0,
+	.mode = SPI_CS_HIGH,
+#elif defined(CONFIG_SPI_MXC)
+	.bus_num = 1,
+#endif
+	},
 };
 
 
@@ -440,7 +451,7 @@ int __init mx51_efikamx_init_pmic(void)
 	gpio_request(IOMUX_TO_GPIO(MX51_PIN_GPIO1_6), "pmic_intr");
 	gpio_direction_input(IOMUX_TO_GPIO(MX51_PIN_GPIO1_6));
 
-	return spi_register_board_info(&mc13892_spi_device, 1);
+	return spi_register_board_info(mc13892_spi_device, ARRAY_SIZE(mc13892_spi_device));
 }
 
 int mx51_efikamx_reboot(void)
@@ -472,7 +483,7 @@ void mx51_efikamx_power_off(void)
 		(PWGT1SPIEN|PWGT2SPIEN));
 
 	mxc_request_iomux(MX51_PIN_CSI2_VSYNC, IOMUX_CONFIG_GPIO);
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_CSI2_VSYNC), "reset_thingy");
+	gpio_request(IOMUX_TO_GPIO(MX51_PIN_CSI2_VSYNC), "poweroff");
 	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_CSI2_VSYNC), 1);
 
 }
