@@ -431,30 +431,34 @@ static struct mxc_spi_unique_def spi_ver_0_0 = {
 extern void gpio_spi_active(int cspi_mod);
 extern void gpio_spi_inactive(int cspi_mod);
 
-#define MXC_SPI_BUF_RX(type)	\
-void mxc_spi_buf_rx_##type(struct mxc_spi *master_drv_data, u32 val)\
-{\
-	type *rx = master_drv_data->transfer.rx_buf;\
-	*rx++ = (type)val;\
-	master_drv_data->transfer.rx_buf = rx;\
+#define MXC_SPI_BUF_RX(type)						\
+void mxc_spi_buf_rx_##type(struct mxc_spi *master_drv_data, u32 val)	\
+{									\
+	type *rx = master_drv_data->transfer.rx_buf;			\
+	if (rx) {							\
+		*rx++ = (type)val;					\
+		master_drv_data->transfer.rx_buf = rx;			\
+	}								\
 }
 
-#define MXC_SPI_BUF_TX(type)    \
-u32 mxc_spi_buf_tx_##type(struct mxc_spi *master_drv_data)\
-{\
-	u32 val;\
-	const type *tx = master_drv_data->transfer.tx_buf;\
-	val = *tx++;\
-	master_drv_data->transfer.tx_buf = tx;\
-	return val;\
+#define MXC_SPI_BUF_TX(type)    				\
+u32 mxc_spi_buf_tx_##type(struct mxc_spi *master_drv_data)	\
+{								\
+	u32 val = 0;						\
+	const type *tx = master_drv_data->transfer.tx_buf;	\
+	if (tx) {						\
+		val = *tx++;					\
+		master_drv_data->transfer.tx_buf = tx;		\
+	}							\
+	return val;						\
 }
 
 MXC_SPI_BUF_RX(u8)
-    MXC_SPI_BUF_TX(u8)
-    MXC_SPI_BUF_RX(u16)
-    MXC_SPI_BUF_TX(u16)
-    MXC_SPI_BUF_RX(u32)
-    MXC_SPI_BUF_TX(u32)
+MXC_SPI_BUF_TX(u8)
+MXC_SPI_BUF_RX(u16)
+MXC_SPI_BUF_TX(u16)
+MXC_SPI_BUF_RX(u32)
+MXC_SPI_BUF_TX(u32)
 
 /*!
  * This function enables CSPI interrupt(s)
