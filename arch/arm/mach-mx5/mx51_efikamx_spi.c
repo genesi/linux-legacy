@@ -95,9 +95,9 @@ void mx51_efikamx_spi_chipselect_inactive(int cspi_mode, int status, int chipsel
 	}
 }
 
-#elif
+#else
 
-}/* ecspi chipselect pin for pmic and nor flash */
+/* ecspi chipselect pin for pmic and nor flash */
 void mx51_efikamx_spi_chipselect_active(int cspi_mode, int status,
 					    int chipselect)
 {
