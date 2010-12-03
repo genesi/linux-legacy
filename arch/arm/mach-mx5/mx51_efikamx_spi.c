@@ -66,6 +66,8 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_spi_iomux_pins[] = {
 
 #if defined(CONFIG_SPI_MXC)
 
+#if defined (PURE_GPIO_CHIPSELECTS)
+
 /* mxc_spi chipselect pin twiddlers for pmic and nor flash */
 void mx51_efikamx_spi_chipselect_active(int cspi_mode, int status, int chipselect)
 {
@@ -92,6 +94,64 @@ void mx51_efikamx_spi_chipselect_inactive(int cspi_mode, int status, int chipsel
 		gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_CSPI1_SS1), 1); // NOR# disable
 	}
 }
+
+#elif
+
+}/* ecspi chipselect pin for pmic and nor flash */
+void mx51_efikamx_spi_chipselect_active(int cspi_mode, int status,
+					    int chipselect)
+{
+	switch (cspi_mode) {
+	case 1:
+		switch (chipselect) {
+		case 0x1:
+			mxc_request_iomux(MX51_PIN_CSPI1_SS0, IOMUX_CONFIG_ALT0);
+			mxc_iomux_set_pad(MX51_PIN_CSPI1_SS0, SPI_PAD_CONFIG);
+			mxc_request_iomux(MX51_PIN_CSPI1_SS1, IOMUX_CONFIG_GPIO);
+			gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_CSPI1_SS1), !(status & 0x02));
+			break;
+		case 0x2:
+			mxc_request_iomux(MX51_PIN_CSPI1_SS1, IOMUX_CONFIG_ALT0);
+			mxc_iomux_set_pad(MX51_PIN_CSPI1_SS1, SPI_PAD_CONFIG);
+			mxc_request_iomux(MX51_PIN_CSPI1_SS0, IOMUX_CONFIG_GPIO);
+			gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_CSPI1_SS0), !(status & 0x01));
+			break;
+		default:
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+void mx51_efikamx_spi_chipselect_inactive(int cspi_mode, int status,
+					      int chipselect)
+{
+	switch (cspi_mode) {
+	case 1:
+		switch (chipselect) {
+		case 0x1:
+			mxc_free_iomux(MX51_PIN_CSPI1_SS0, IOMUX_CONFIG_ALT0);
+			mxc_free_iomux(MX51_PIN_CSPI1_SS1, IOMUX_CONFIG_GPIO);
+			mxc_request_iomux(MX51_PIN_CSPI1_SS0, IOMUX_CONFIG_GPIO);
+			mxc_free_iomux(MX51_PIN_CSPI1_SS0, IOMUX_CONFIG_GPIO);
+			break;
+		case 0x2:
+			mxc_free_iomux(MX51_PIN_CSPI1_SS0, IOMUX_CONFIG_GPIO);
+			mxc_free_iomux(MX51_PIN_CSPI1_SS1, IOMUX_CONFIG_ALT0);
+			break;
+		default:
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+
+}
+
+#endif
 
 struct mxc_spi_master mx51_efikamx_spi_data = {
 	.maxchipselect = 4,
