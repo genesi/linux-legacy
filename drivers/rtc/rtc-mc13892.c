@@ -254,3 +254,4 @@ module_exit(mxc_rtc_exit);
 MODULE_AUTHOR("Freescale Semiconductor, Inc.");
 MODULE_DESCRIPTION("MC13892 Realtime Clock Driver (RTC)");
 MODULE_LICENSE("GPL");
+MODULE_ALIAS("spi:rtc-mc13892");
