@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.31.14.12
-# Thu Dec  2 12:08:53 2010
+# Fri Dec  3 00:29:28 2010
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1352,6 +1352,9 @@ CONFIG_SPI_MASTER=y
 #
 CONFIG_SPI_BITBANG=y
 # CONFIG_SPI_GPIO is not set
+CONFIG_SPI_IMX_VER_0_7=y
+CONFIG_SPI_IMX_VER_2_3=y
+# CONFIG_SPI_IMX is not set
 CONFIG_SPI_MXC=y
 # CONFIG_SPI_MXC_TEST_LOOPBACK is not set
 CONFIG_SPI_MXC_SELECT1=y
