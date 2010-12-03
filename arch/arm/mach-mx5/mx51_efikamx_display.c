@@ -337,61 +337,6 @@ int mxcfb_handle_edid2(struct i2c_adapter *adp, char *buffer, u16 len)
 	return err;
 }
 
-void mxcfb_adjust(struct fb_var_screeninfo *var )
-{
-	char *di = "ipu_di0_clk", *parent = "pll3";
-	struct clk *clk_di, *clk_parent;
-	int ret_di = 0, ret_parent = 0;
-
-	u32 rate = 0;
-	static u32 pixel_clock_last = 0;
-	int pixel_clock = var->pixclock;
-
-
-	/* avoid uncessary clock change to reduce unknown impact chance */
-	if ( pixel_clock && (pixel_clock == pixel_clock_last) ) {
-		printk(KERN_INFO "pclk %u unchanged, not adjusting display clocks\n", pixel_clock );
-		return;// 0;
-	}
-	if ( (((u32)PICOS2KHZ(pixel_clock)) < 25000) || (((u32)PICOS2KHZ(pixel_clock)) > 133000) ) {
-		printk(KERN_INFO "pclk %u (%uMHz) exceeds clock limitation (25-133MHz)!\n", pixel_clock, ((u32)PICOS2KHZ(pixel_clock))/1000 );
-		return;// -1;
-	}
-	pixel_clock_last = pixel_clock;
-
-	if ( pixel_clock == 0 ) {
-		rate = 26000000;
-		printk(KERN_INFO "%s invalid pclk, reset rate to %u\n", __func__, rate );
-	} else {
-		rate =  (((u32)(PICOS2KHZ(pixel_clock)))*1000);
-	}
-
-	printk("%s pixelclk=%u rate=%u\n", __func__, pixel_clock, rate );
-
-	clk_parent = clk_get(NULL, parent);
-	clk_di = clk_get(NULL, di);
-
-	clk_disable(clk_parent);
-	clk_disable(clk_di);
-
-	printk(" current %s rate %lu\n", parent, clk_get_rate(clk_parent) );
-	printk(" current %s rate %lu\n", di, clk_get_rate(clk_di));
-
-	ret_parent = clk_set_rate(clk_parent, rate * 2);
-	ret_di = clk_set_rate(clk_di, rate);
-
-	printk(" new %s rate %lu (return %d)\n", parent, clk_get_rate(clk_parent), ret_parent);
-	printk(" new %s rate %lu (return %d)\n", di, clk_get_rate(clk_di), ret_di);
-
-	clk_enable(clk_parent);
-	clk_enable(clk_di);
-
-	clk_put(clk_parent);
-	clk_put(clk_di);
-
-	return;// 0;
-}
-
 void mxcfb_update_default_var(struct fb_var_screeninfo *var,
 				struct fb_info *info,
 				const struct fb_videomode *def_mode )
@@ -434,9 +379,7 @@ void __init mx51_efikamx_init_display(void)
 	gpio_direction_input(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIO));
 
 	mxc_ipu_data.di_clk[0] = clk_get(NULL, "ipu_di0_clk");
-	mxc_ipu_data.di_clk[1] = clk_get(NULL, "ipu_di1_clk");
 	mxc_ipu_data.csi_clk[0] = clk_get(NULL, "csi_mclk1");
-	mxc_ipu_data.csi_clk[1] = clk_get(NULL, "csi_mclk2");
 
 	mxc_register_device(&mxc_ipu_device, &mxc_ipu_data);
 	mxc_register_device(&mxcvpu_device, &mxc_vpu_data);

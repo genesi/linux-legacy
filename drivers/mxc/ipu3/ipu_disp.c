@@ -26,6 +26,7 @@
 #include <linux/ipu.h>
 #include <linux/clk.h>
 #include <asm/atomic.h>
+#include <asm/mach-types.h>
 #include <mach/mxc_dvfs.h>
 #include <mach/clock.h>
 #include "ipu_prv.h"
@@ -1034,11 +1035,12 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 	if ((v_sync_width == 0) || (h_sync_width == 0))
 		return EINVAL;
 
-#if 0
-	adapt_panel_to_ipu_restrictions(&pixel_clk, width, height,
-					 h_start_width, h_end_width,
-					 v_start_width, &v_end_width);
-#endif
+	if (!machine_is_mx51_efikamx() && !machine_is_mx51_efikasb()) {
+		adapt_panel_to_ipu_restrictions(&pixel_clk, width, height,
+						 h_start_width, h_end_width,
+						 v_start_width, &v_end_width);
+	}
+
 	h_total = width + h_sync_width + h_start_width + h_end_width;
 	v_total = height + v_sync_width + v_start_width + v_end_width;
 
@@ -1046,13 +1048,6 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 	dev_dbg(g_ipu_dev, "pixel clk = %d\n", pixel_clk);
 
 	if (sig.ext_clk) {
-
-#if defined(CONFIG_MACH_MX51_EFIKAMX)
-		/* workaround for monitor become blank when width > 1024 (such as 1280x720)
-		 * possible due to g_di_clk[disp] > ipu clk 133MHz
-		 * TOFIX: make this compile in but board_is_efikamx it..
-		 */
-#else
 		/*
 		 * Set the  PLL to be an even multiple of the pixel clock.
 		 * Not round div for tvout and ldb.
@@ -1071,9 +1066,8 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 				clk_set_rate(g_di_clk[disp], pixel_clk);
 			}
 		}
-#endif
-
 		clk_set_parent(g_pixel_clk[disp], g_di_clk[disp]);
+
 	} else {
 		if (clk_get_usecount(g_pixel_clk[disp]) != 0)
 			clk_set_parent(g_pixel_clk[disp], g_ipu_clk);
