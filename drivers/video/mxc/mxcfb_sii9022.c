@@ -906,6 +906,56 @@ static int sii9022_init_fb(struct sii9022_tx *tx, struct fb_info *fb)
 	return 0;
 }
 
+static int sii9022_blank(struct sii9022_tx *tx, struct fb_var_screeninfo *var)
+{
+	u8 ctrl;
+	int ret;
+
+	/* cheap blanking: Video Black Mode */
+	ret = i2c_smbus_write_byte_data(tx->client, SII9022_TPI_REG_RQB, 0x20);
+
+#if 0
+	ctrl = i2c_smbus_read_byte_data(tx->client, SII9022_TPI_REG_SYS_CTRL);
+
+	if (tx->connection_type == CONNECTION_TYPE_HDMI)
+		ctrl |= SII9022_SYS_CTRL_AV_MUTE_HDMI;
+
+	/* step 3: prepare for resolution change */
+	ctrl |= SII9022_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN;
+	ret = i2c_smbus_write_byte_data(tx->client,
+					SII9022_TPI_REG_SYS_CTRL,
+					ctrl);
+	if (ret < 0)
+		DEBUG("unable to prepare blank\n");
+
+	msleep(SII9022_CTRL_INFO_FRAME_DRAIN_TIME);
+#endif
+	return ret;
+}
+
+static int sii9022_unblank(struct sii9022_tx *tx, struct fb_var_screeninfo *var)
+{
+	u8 ctrl;
+	int ret;
+
+	/* cheap blanking: Video Black Mode */
+	ret = i2c_smbus_write_byte_data(tx->client, SII9022_TPI_REG_RQB, 0x00);
+
+#if 0
+	sii9022_set_vmode_registers(tx, var);
+	sii9022_set_avi_info_frame(tx, var);
+	ctrl &= ~SII9022_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN;
+	ctrl &= ~SII9022_SYS_CTRL_AV_MUTE_HDMI;
+	ret = i2c_smbus_write_byte_data(tx->client,
+					SII9022_TPI_REG_SYS_CTRL,
+					ctrl);
+	if (ret < 0)
+		DEBUG("unable to enable the display\n");
+#endif
+	return ret;
+}
+
+
 static int sii9022_fb_event_handler(struct notifier_block *nb,
 				    unsigned long val,
 				    void *v)
@@ -923,6 +973,18 @@ static int sii9022_fb_event_handler(struct notifier_block *nb,
 		fb_videomode_to_var(&var, event->info->mode);
 		return sii9022_set_resolution(tx, &var);
 	}
+	break;
+	case FB_EVENT_BLANK:
+	{
+		struct fb_var_screeninfo var = {0};
+		fb_videomode_to_var(&var, event->info->mode);
+
+		if (*((int *)event->data) == FB_BLANK_UNBLANK)
+			return sii9022_unblank(tx, &var);
+		else
+			return sii9022_blank(tx, &var);
+	}
+	break;
 	default:
 		DEBUG("unhandled fb event 0x%lx", val);
 		break;
