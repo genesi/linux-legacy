@@ -58,7 +58,7 @@ static struct flash_platform_data mx51_efikamx_spi_flash_data = {
 	.type		= "sst25vf032b", 	/* jedec id: 0xbf254a */
 };
 
-static struct spi_board_info mx51_efikamx_spi_board_info[] __initdata = {
+static struct spi_board_info mx51_efikamx_nor[] __initdata = {
 	{
 	 .modalias = "m25p80",
 	 .max_speed_hz = 25000000, /* max spi clock (SCK) speed in HZ */
@@ -70,12 +70,13 @@ static struct spi_board_info mx51_efikamx_spi_board_info[] __initdata = {
 #elif defined(CONFIG_SPI_IMX)
 	 .bus_num = 0,
 #elif defined(CONFIG_SPI_MXC)
+	 .mode = SPI_MODE_0,
 	 .bus_num = 1,
 #endif
 	},
 };
 
-void mx51_efikamx_init_nor(void)
+__init void mx51_efikamx_init_nor(void)
 {
-	(void)spi_register_board_info(mx51_efikamx_spi_board_info, ARRAY_SIZE(mx51_efikamx_spi_board_info));
+	(void)spi_register_board_info(mx51_efikamx_nor, ARRAY_SIZE(mx51_efikamx_nor));
 }
