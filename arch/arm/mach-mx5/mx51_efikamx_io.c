@@ -82,7 +82,7 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_wdog1_iomux_pins[] = {
 	 },
 };
 
-void mx51_efikamx_init_wdog(void)
+__init void mx51_efikamx_init_wdog(void)
 {
 	/* Watchdog */
 
