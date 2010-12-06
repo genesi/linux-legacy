@@ -66,6 +66,7 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_spi_iomux_pins[] = {
 
 #if defined(CONFIG_SPI_MXC)
 
+#define PURE_GPIO_CHIPSELECTS 1
 #if defined (PURE_GPIO_CHIPSELECTS)
 
 /* mxc_spi chipselect pin twiddlers for pmic and nor flash */
@@ -176,7 +177,7 @@ static struct resource spi_imx_resources[] = {
 };
 
 static struct platform_device spi_imx_device = {
-	.name = "spi_imx",
+	.name = "imx51-ecspi",
 	.id = 0,
 	.num_resources = ARRAY_SIZE(spi_imx_resources),
 	.resource = spi_imx_resources,
