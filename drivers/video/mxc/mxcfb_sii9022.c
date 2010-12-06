@@ -965,12 +965,20 @@ static int sii9022_fb_event_handler(struct notifier_block *nb,
 
 	switch (val) {
 	case FB_EVENT_FB_REGISTERED:
+	{
+		/*
+		 * sleep just a little while to let the IPU settle
+		 * before we force it to change again to an EDID mode
+		 */
+		msleep(10);
 		return sii9022_init_fb(tx, event->info);
+	}
 	case FB_EVENT_MODE_CHANGE:
 	{
 		struct fb_var_screeninfo var = {0};
 
 		fb_videomode_to_var(&var, event->info->mode);
+		msleep(10);
 		return sii9022_set_resolution(tx, &var);
 	}
 	break;
