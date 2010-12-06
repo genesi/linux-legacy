@@ -858,7 +858,7 @@ static int __devinit spi_imx_probe(struct platform_device *pdev)
 		goto out_iounmap;
 	}
 
-	spi_imx->clk = clk_get(&pdev->dev, NULL);
+	spi_imx->clk = clk_get(&pdev->dev, "cspi_clk");
 	if (IS_ERR(spi_imx->clk)) {
 		dev_err(&pdev->dev, "unable to get clock\n");
 		ret = PTR_ERR(spi_imx->clk);
