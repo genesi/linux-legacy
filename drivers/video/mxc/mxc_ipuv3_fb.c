@@ -48,12 +48,6 @@
 #include <asm/uaccess.h>
 #include <mach/hardware.h>
 
-#if defined(CONFIG_MACH_MX51_EFIKAMX)
-extern void mxcfb_adjust(struct fb_var_screeninfo *var );
-#endif
-
-
-
 /*
  * Driver name
  */
@@ -154,18 +148,9 @@ static int mxcfb_set_fix(struct fb_info *info)
 	fix->xpanstep = 1;
 	fix->ypanstep = 1;
 
-#if defined(CONFIG_MACH_MX51_EFIKAMX)
 	if (machine_is_mx51_efikamx()) {
-		if ( var->pixclock < ((u32)(KHZ2PICOS(133000))) ) {
-			printk(KERN_INFO "exceed pixel clock limit %u, auto adjust to 720p\n", ((u32)KHZ2PICOS(133000)) );
-			fb_find_mode( var, info, "1280x720-32@60", NULL, 0, NULL, 16 );
-			var->sync |= FB_SYNC_EXT;	/* x window need it otherwise refresh rate will become bigger than user specified */
-		}
-		/* skip mxc_sdc_fb.2 (overlay) configure */
-		if ( ((struct mxcfb_info *)info->par)->ipu_ch != MEM_FG_SYNC)
-			mxcfb_adjust( var );
+		var->sync |= FB_SYNC_EXT;	/* x window need it otherwise refresh rate will become bigger than user specified */
 	}
-#endif
 
 	return 0;
 }
