@@ -373,7 +373,7 @@ enum video_format {
 
 struct sii9022_tx {
 	struct i2c_client *client;
-	struct notifier_block fb;
+	struct notifier_block nb;
 
 	/* sink information */
 	bool enable_audio;
@@ -961,7 +961,7 @@ static int sii9022_fb_event_handler(struct notifier_block *nb,
 				    void *v)
 {
 	struct fb_event *event = v;
-	struct sii9022_tx *tx = container_of(nb, struct sii9022_tx, fb);
+	struct sii9022_tx *tx = container_of(nb, struct sii9022_tx, nb);
 
 	switch (val) {
 	case FB_EVENT_FB_REGISTERED:
@@ -1049,8 +1049,8 @@ static int __devinit sii9022_probe(struct i2c_client *client,
 	}
 
 	/* register a notifier for future fb events */
-	tx->fb.notifier_call = sii9022_fb_event_handler;
-	fb_register_client(&tx->fb);
+	tx->nb.notifier_call = sii9022_fb_event_handler;
+	fb_register_client(&tx->nb);
 
 	return 0;
 
@@ -1066,7 +1066,7 @@ static int __devexit sii9022_remove(struct i2c_client *client)
 
 	tx = i2c_get_clientdata(client);
 	if (tx) {
-		fb_unregister_client(&tx->fb);
+		fb_unregister_client(&tx->nb);
 		kfree(tx);
 		i2c_set_clientdata(client, NULL);
 	}
