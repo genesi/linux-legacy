@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.31.14.13
-# Tue Dec  7 06:30:27 2010
+# Tue Dec  7 07:13:01 2010
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -2436,6 +2436,9 @@ CONFIG_MISC_FILESYSTEMS=y
 # CONFIG_ADFS_FS is not set
 # CONFIG_AFFS_FS is not set
 CONFIG_ECRYPT_FS=m
+CONFIG_UNION_FS=m
+CONFIG_UNION_FS_XATTR=y
+# CONFIG_UNION_FS_DEBUG is not set
 # CONFIG_HFS_FS is not set
 # CONFIG_HFSPLUS_FS is not set
 # CONFIG_BEFS_FS is not set
