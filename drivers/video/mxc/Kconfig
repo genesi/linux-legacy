@@ -42,6 +42,10 @@ config FB_MXC_SII9022
 	depends on FB_MXC_SYNC_PANEL && MACH_MX51_EFIKAMX
 	tristate "SII9022A HDMI Interface Chip"
 
+config FB_MXC_SIIHDMI
+	depends on FB_MXC_SYNC_PANEL && MACH_MX51_EFIKAMX
+	tristate "SII9xxx HDMI Interface Chips"
+
 config FB_MXC_MTL017
         depends on FB_MXC_SYNC_PANEL && MACH_MX51_EFIKASB
         tristate "Myson MTL017 LVDS Controller"
