@@ -165,41 +165,6 @@ int mxcfb_read_edid2(struct i2c_adapter *adp, char *edid, u16 len, struct fb_var
 	return 0;
 }
 
-void mxcfb_dump_modeline( struct fb_videomode *modedb, int num)
-{
-	int i;
-	struct fb_videomode *mode;
-
-	for (i = 0; i < num; i++) {
-
-		mode = &modedb[i];
-
-		BUG_ON(mode->pixclock == 0);
-		if (mode->pixclock == 0) {
-			printk(KERN_ERR "skipping mode entry %u due to bad pclk", i);
-			continue;
-		}
-
-		printk("   \"%dx%d%s%d\" %lu.%02lu ",
-			mode->xres, mode->yres, (mode->vmode & FB_VMODE_INTERLACED) ? "i@" : "@", mode->refresh,
-			(PICOS2KHZ(mode->pixclock) * 1000UL)/1000000,
-			(PICOS2KHZ(mode->pixclock) ) % 1000);
-		printk("%d %d %d %d ",
-			mode->xres,
-			mode->xres + mode->right_margin,
-			mode->xres + mode->right_margin + mode->hsync_len,
-			mode->xres + mode->right_margin + mode->hsync_len + mode->left_margin );
-		printk("%d %d %d %d ",
-			mode->yres,
-			mode->yres + mode->lower_margin,
-			mode->yres + mode->lower_margin + mode->vsync_len,
-			mode->yres + mode->lower_margin + mode->vsync_len + mode->upper_margin );
-		printk("%shsync %svsync\n", (mode->sync & FB_SYNC_HOR_HIGH_ACT) ? "+" : "-",
-			   (mode->sync & FB_SYNC_VERT_HIGH_ACT) ? "+" : "-" );
-
-	}
-}
-
 static int mxcfb_dump_mode( const char *func_char, const struct fb_videomode *mode)
 {
 	if ( mode == NULL )
