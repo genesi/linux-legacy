@@ -32,25 +32,21 @@
 #ifndef LINUX_CEA861_H
 #define LINUX_CEA861_H
 
-/* all the bitfields in here are in little endian packing order. If you're on
- * a big-endian chip you'd better add those versions of the structures to make
- * it work.
- */
-#if defined(__LITTLE_ENDIAN_BITFIELD)
-
 /* Header file for EIA CEA 861-E structures and definitions */
+
+#if defined(__LITTLE_ENDIAN_BITFIELD)
 
 /* EDID timing extension block */
 struct __packed cea_timing_block {
-	u8	extension_tag;
-	u8	revision_number;
-	u8	dtd_start_offset;
-	unsigned dtd_block_count	: 4;
+	u8       extension_tag;
+	u8       revision_number;
+	u8       dtd_start_offset;
+	unsigned dtd_block_count       : 4;
 	unsigned yuv_422_supported     : 1;
 	unsigned yuv_444_supported     : 1;
 	unsigned basic_audio_supported : 1;
 	unsigned underscan_supported   : 1;
-	u8	dbc_start_offset;		// data block collection offset
+	u8       dbc_start_offset;               // data block collection offset
 };
 
 struct __packed cea_dbc_header {
@@ -192,7 +188,7 @@ enum bar_info {
 };
 
 enum pixel_format {
-	PIXEL_FORMAT_RGB,	/* default */
+	PIXEL_FORMAT_RGB,       /* default */
 	PIXEL_FORMAT_YUV_422,
 	PIXEL_FORMAT_YUV_444,
 };
@@ -242,27 +238,27 @@ enum video_format {
 struct __packed avi_info_frame {
 	struct info_frame_header header;
 
-	unsigned scan_information	     : 2;
-	unsigned bar_info		      : 2;
+	unsigned scan_information            : 2;
+	unsigned bar_info                    : 2;
 	unsigned active_format_info_valid    : 1;
-	unsigned pixel_format		  : 2;
-	unsigned dbyte1_reserved0	     : 1;
+	unsigned pixel_format                : 2;
+	unsigned dbyte1_reserved0            : 1;
 
 	unsigned active_format_description   : 4;
-	unsigned picture_aspect_ratio	 : 2;
-	unsigned colorimetry		   : 2;
+	unsigned picture_aspect_ratio        : 2;
+	unsigned colorimetry                 : 2;
 
 	unsigned non_uniform_picture_scaling : 2;
 	unsigned rgb_quantization_range      : 2;
-	unsigned extended_colorimetry	 : 3;
-	unsigned it_content_present	   : 1;
+	unsigned extended_colorimetry        : 3;
+	unsigned it_content_present          : 1;
 
-	unsigned video_format		  : 7;
-	unsigned dbyte4_reserved0	     : 1;
+	unsigned video_format                : 7;
+	unsigned dbyte4_reserved0            : 1;
 
-	unsigned pixel_repetition_factor     : 4;	/* value - 1 */
-	unsigned content_type		    : 2;
-	unsigned ycc_quantizaton_range	: 2;
+	unsigned pixel_repetition_factor     : 4;       /* value - 1 */
+	unsigned content_type                : 2;
+	unsigned ycc_quantizaton_range       : 2;
 
 	u16      end_of_top_bar;
 	u16      start_of_bottom_bar;
@@ -293,15 +289,14 @@ enum spd_source_information {
 struct __packed spd_info_frame {
 	struct info_frame_header header;
 
-	u8	vendor[8];
-	u8	description[16];
-	u8	source_device_info;
+	u8     vendor[8];
+	u8     description[16];
+	u8     source_device_info;
 };
 
 
-
 /* Audio InfoFrame */
-#define CEA861_AUDIO_INFO_FRAME_VERSION		(0x01)
+#define CEA861_AUDIO_INFO_FRAME_VERSION			(0x01)
 
 enum audio_coding_type {
 	CODING_TYPE_REFER_STREAM_HEADER,
@@ -348,12 +343,10 @@ enum audio_coding_extended_type {
 	CODING_TYPE_MPEG_SURROUND,
 };
 
-/*
-	we need something to define speaker allocation bits
-*/
+/* TODO define speaker allocation bits */
 
-#define CHANNEL_COUNT_REFER_STREAM_HEADER	0;
-#define CHANNEL_ALLOCATION_STEREO 		0;
+#define CHANNEL_COUNT_REFER_STREAM_HEADER		(0x00)
+#define CHANNEL_ALLOCATION_STEREO			(0x00)
 
 enum audio_downmix {
 	DOWNMIX_PERMITTED,
@@ -371,29 +364,29 @@ struct __packed audio_info_frame {
 	struct info_frame_header header;
 
 	/* length 10 */
-	unsigned future1		: 1;
-	unsigned channel_count		: 3;
-	unsigned coding_type		: 4;
+	unsigned future1          : 1;
+	unsigned channel_count    : 3;
+	unsigned coding_type      : 4;
 
-	unsigned sample_size		: 2;
-	unsigned sample_frequency	: 3;
-	unsigned future2		: 3;
+	unsigned sample_size      : 2;
+	unsigned sample_frequency : 3;
+	unsigned future2          : 3;
 
-	unsigned extension		: 5;
-	unsigned future3		: 3;
+	unsigned extension        : 5;
+	unsigned future3          : 3;
 
-	u8	 channel_allocation;
+	u8       channel_allocation;
 
-	unsigned lfe_level		: 2;
-	unsigned future5		: 1;
-	unsigned level_shift		: 4; /* 0-15dB */
-	unsigned downmix_inhibit	: 1;
+	unsigned lfe_level        : 2;
+	unsigned future5          : 1;
+	unsigned level_shift      : 4; /* 0-15dB */
+	unsigned downmix_inhibit  : 1;
 
-	u8	 future6_10[5];
+	u8       future6_10[5];
 };
 
 #else /* == !__LITTLE_ENDIAN_BITFIELD */
-#warning structures defined and packed for little-endian byte order.
+#warning "structures defined and packed for little-endian byte order"
 #endif
 
 #endif /* LINUX_CEA861_H */

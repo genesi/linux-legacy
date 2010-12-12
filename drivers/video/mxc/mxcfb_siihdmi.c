@@ -76,6 +76,14 @@ enum edid_extension {
 	EDID_EXTENSION_BLOCK_MAP        = 0xf0, // Block Map
 	EDID_EXTENSION_DDDB             = 0xff, // Display Device Data Block (DDDB)
 };
+/*
+ * Interesting note:
+ * CEA spec describes several 1080p "low" field rates at 24, 25 and 30 fields
+ * per second (mode 32, 33, 34).  They all run at a 74.250MHz pixel clock just
+ * like 720p@60. A decent HDMI TV should be able to display these as it
+ * corresponds to "film mode". The question is, how do we detect these? They do
+ * not seem to be in any EDID data we've ever seen...
+ */
 
 static struct fb_videomode siihdmi_default_video_mode = {
 	.name         = "1280x720@60", // 720p CEA Mode 4
@@ -96,13 +104,6 @@ static struct fb_videomode siihdmi_default_video_mode = {
 	.vmode        = FB_VMODE_NONINTERLACED,
 };
 
-/* 
- * Interesting note:
- * CEA spec describes several 1080p "low" field rates at 24, 25 and 30 fields per second (mode 32, 33, 34).
- * They all run at a 74.250MHz pixel clock just like 720p@60. A decent HDMI TV should be able to display
- * these as it corresponds to "film mode". The question is, how do we detect these? They do not seem to be
- * in any EDID data we've ever seen...
- */
 
 static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 {
@@ -933,6 +934,7 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	}
 #endif
 	msleep(100); // let things settle, for some reason this improves compatibility
+
 	/* initialise the device */
 	if ((ret = siihdmi_initialise(tx)) < 0)
 		goto error;
