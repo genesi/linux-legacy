@@ -44,6 +44,7 @@
 #include <mach/hardware.h>
 
 /* logging helpers */
+#define CONTINUE(fmt, ...)	printk(KERN_CONT  fmt, ## __VA_ARGS__)
 #define DEBUG(fmt, ...)		printk(KERN_DEBUG "SIIHDMI: " fmt, ## __VA_ARGS__)
 #define ERROR(fmt, ...)		printk(KERN_ERR   "SIIHDMI: " fmt, ## __VA_ARGS__)
 #define WARNING(fmt, ...)	printk(KERN_WARN  "SIIHDMI: " fmt, ## __VA_ARGS__)
@@ -82,8 +83,6 @@ static struct fb_videomode siihdmi_default_video_mode = {
 static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 {
 	u8 data;
-	char device[80];
-	size_t offset = 0;
 	unsigned long timeout = msecs_to_jiffies(50), start, finish;
 
 	start = jiffies;
@@ -99,35 +98,27 @@ static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 	if (data != SIIHDMI_DEVICE_ID_902x)
 		return -ENODEV;
 
-	offset += snprintf(device + offset, sizeof(device) - offset,
-			   "Device ID: %#02x", data);
+	INFO("Device ID: %#02x", data);
 
 	data = i2c_smbus_read_byte_data(tx->client,
 					SIIHDMI_TPI_REG_DEVICE_REVISION);
 	if (data)
-		offset += snprintf(device + offset, sizeof(device) - offset,
-				   " (rev %01u.%01u)",
-				   (data >> 4) & 15, data & 15);
+		CONTINUE(" (rev %01u.%01u)", (data >> 4) & 15, data & 15);
 
 	data = i2c_smbus_read_byte_data(tx->client,
 					SIIHDMI_TPI_REG_TPI_REVISION);
-	offset += snprintf(device + offset, sizeof(device) - offset,
-			   " (%s", data & (1 << 7) ? "Virtual" : "");
+	CONTINUE(" (%s", data & (1 << 7) ? "Virtual " : "");
 	data &= ~(1 << 7);
 	data = data ? data : SIIHDMI_BASE_TPI_REVISION;
-	offset += snprintf(device + offset, sizeof(device) - offset,
-			   "TPI revision %01u.%01u)",
-			   (data >> 4) & 15, data & 15);
+	CONTINUE("TPI revision %01u.%01u)", (data >> 4) & 15, data & 15);
 
 	data = i2c_smbus_read_byte_data(tx->client,
 					SIIHDMI_TPI_REG_HDCP_REVISION);
 	if (data)
-		offset += snprintf(device + offset, sizeof(device) - offset,
-				   " (HDCP version %01u.%01u)",
-				   (data >> 4) & 15, data & 15);
+		CONTINUE(" (HDCP version %01u.%01u)",
+			 (data >> 4) & 15, data & 15);
 
-	device[offset] = '\0';
-	INFO("%s\n", device);
+	CONTINUE("\n");
 
 	return 0;
 }
