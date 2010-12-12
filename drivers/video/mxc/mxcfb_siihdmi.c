@@ -37,8 +37,9 @@
 #include <linux/workqueue.h>
 #include <linux/interrupt.h>
 
-#include <linux/i2c/sii_hdmi.h>
+#include <linux/edid.h>
 #include <linux/cea861.h>
+#include <linux/i2c/sii_hdmi.h>
 
 #include <mach/hardware.h>
 
@@ -49,33 +50,6 @@
 #define INFO(fmt, ...)		printk(KERN_INFO  "SIIHDMI: " fmt, ## __VA_ARGS__)
 
 
-/* EDID constants and Structures */
-#define EDID_I2C_DDC_DATA_ADDRESS			(0x50)
-
-#define EEDID_BASE_LENGTH				(0x100)
-
-#define EEDID_EXTENSION_FLAG				(0x7e)
-
-#define EEDID_EXTENSION_TAG				(0x80)
-#define EEDID_EXTENSION_DATA_OFFSET			(0x80)
-
-#define EEDID_CEA_VENDOR_SPECIFIC_TAG			(0x65)
-#define EEDID_CEA_VENDOR_SPECIFIC_OFFSET		(0x94)
-
-enum edid_extension {
-	EDID_EXTENSION_TIMING           = 0x00, // Timing Extension
-	EDID_EXTENSION_CEA              = 0x02, // Additional Timing Block Data (CEA EDID Timing Extension)
-	EDID_EXTENSION_VTB              = 0x10, // Video Timing Block Extension (VTB-EXT)
-	EDID_EXTENSION_EDID_2_0         = 0x20, // EDID 2.0 Extension
-	EDID_EXTENSION_DI               = 0x40, // Display Information Extension (DI-EXT)
-	EDID_EXTENSION_LS               = 0x50, // Localised String Extension (LS-EXT)
-	EDID_EXTENSION_MI               = 0x60, // Microdisplay Interface Extension (MI-EXT)
-	EDID_EXTENSION_DTCDB_1          = 0xa7, // Display Transfer Characteristics Data Block (DTCDB)
-	EDID_EXTENSION_DTCDB_2          = 0xaf,
-	EDID_EXTENSION_DTCDB_3          = 0xbf,
-	EDID_EXTENSION_BLOCK_MAP        = 0xf0, // Block Map
-	EDID_EXTENSION_DDDB             = 0xff, // Display Device Data Block (DDDB)
-};
 /*
  * Interesting note:
  * CEA spec describes several 1080p "low" field rates at 24, 25 and 30 fields
