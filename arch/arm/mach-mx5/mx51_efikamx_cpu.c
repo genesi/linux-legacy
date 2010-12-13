@@ -152,8 +152,8 @@ static struct mxc_dvfsper_data dvfs_per_data = {
 	.div3_offset = 0,
 	.div3_mask = 0x7,
 	.div3_div = 2,
-	.lp_high = 1200000,
-	.lp_low = 1200000,
+	.lp_high = 1250000,
+	.lp_low = 1250000,
 };
 
 /* external because the main init struct wants it */
