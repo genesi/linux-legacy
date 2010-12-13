@@ -33,6 +33,8 @@
 /* ****************************************************************************
  * Include File Section
  *****************************************************************************/
+#include <linux/preempt.h>
+#include <linux/hardirq.h>
 #include "epm.h"
 #include "iapiLow.h"
 
@@ -123,7 +125,13 @@ iapi_ChangeCallbackISR (channelDescriptor * cd_p,
 void
 iapi_lowSynchChannel (unsigned char channel)
 {
-  while (!((1UL << channel) & iapi_SDMAIntr)) ;
+  if (preempt_count() || in_interrupt()) {
+	while (!((1UL << channel) & iapi_SDMAIntr))
+		;
+  } else {
+	GOTO_SLEEP(channel);
+  }
+
   iapi_SDMAIntr &= ~(1UL << channel);
 }
 
