@@ -333,12 +333,15 @@ struct mxc_lcd_platform_data {
 	char *io_reg;
 	char *core_reg;
 	char *analog_reg;
-  // micken: backlight etc for efikasb
+
+	/* Efika MX Additions */
         void (*power_on_lcd) (int);
         void (*power_on_lvds) (int);
         void (*turn_on_backlight) (int);
         void (*lvds_enable) (int);
 	void (*reset) (void);
+
+	int hotplug_irq;
 };
 
 

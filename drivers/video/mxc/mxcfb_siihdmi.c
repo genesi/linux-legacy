@@ -34,9 +34,13 @@
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/console.h>
+#include <linux/workqueue.h>
+#include <linux/interrupt.h>
 
 #include <linux/i2c/sii_hdmi.h>
 #include <linux/cea861.h>
+
+#include <mach/hardware.h>
 
 /* logging helpers */
 #define DEBUG(fmt, ...)		printk(KERN_DEBUG "SIIHDMI: " fmt, ## __VA_ARGS__)
@@ -45,7 +49,8 @@
 #define INFO(fmt, ...)		printk(KERN_INFO  "SIIHDMI: " fmt, ## __VA_ARGS__)
 
 
-
+static void siihdmi_hotplug_event(struct work_struct *work);
+static DECLARE_DELAYED_WORK(hotplug_work, siihdmi_hotplug_event);
 
 
 /* EDID constants and Structures */
@@ -705,7 +710,6 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *fb)
 	if ((ret = siihdmi_set_resolution(tx, &var)) < 0)
 		return ret;
 
-
 	/* activate the framebuffer */
 	var.activate = FB_ACTIVATE_ALL;
 
@@ -796,9 +800,23 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 	return 0;
 }
 
+
+static irqreturn_t siihdmi_irq_handler(int irq, void *dev_id)
+{
+	DEBUG("hotplug event irq handled, scheduling hotplug work\n");
+	schedule_delayed_work(&hotplug_work, msecs_to_jiffies(50));
+	return IRQ_HANDLED;
+}
+
+static void siihdmi_hotplug_event(struct work_struct *work)
+{
+	DEBUG("hotplug event work called\n");
+}
+
 static int __devinit siihdmi_probe(struct i2c_client *client,
 				   const struct i2c_device_id *id)
 {
+	struct mxc_lcd_platform_data *plat = client->dev.platform_data;
 	struct siihdmi_tx *tx;
 	int i, ret;
 
@@ -810,6 +828,14 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	tx->client = client;
 
 	i2c_set_clientdata(client, tx);
+
+	tx->irq = plat->hotplug_irq;
+
+	ret = request_irq(tx->irq, siihdmi_irq_handler, 0, "siihdmi", 0);
+	if (ret)
+	{
+		DEBUG("could not register display hotplug irq\n");
+	}
 
 	/* initialise the device */
 	if ((ret = siihdmi_initialise(tx)) < 0)

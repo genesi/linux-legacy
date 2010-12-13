@@ -294,6 +294,7 @@ struct siihdmi_tx {
 		PIXEL_MAPPING_OVERSCANNED,
 	} pixel_mapping;
 	bool tmds_state;
+	int irq;
 };
 
 
