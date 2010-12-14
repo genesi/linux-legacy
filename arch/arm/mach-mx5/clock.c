@@ -2655,8 +2655,8 @@ static void _clk_ssi_ext1_recalc(struct clk *clk)
 		reg = __raw_readl(MXC_CCM_CS1CDR);
 		prediv = ((reg & MXC_CCM_CS1CDR_SSI_EXT1_CLK_PRED_MASK) >>
 			  MXC_CCM_CS1CDR_SSI_EXT1_CLK_PRED_OFFSET) + 1;
-		if (prediv == 1)
-			BUG();
+//		if (prediv == 1)
+//			BUG();
 		podf = ((reg & MXC_CCM_CS1CDR_SSI_EXT1_CLK_PODF_MASK) >>
 			MXC_CCM_CS1CDR_SSI_EXT1_CLK_PODF_OFFSET) + 1;
 		clk->rate = clk->parent->rate / (prediv * podf);
@@ -4660,21 +4660,20 @@ int __init mx51_clocks_init(unsigned long ckil, unsigned long osc, unsigned long
 	clk_set_parent(&arm_axi_clk, &axi_a_clk);
 	clk_set_parent(&ipu_clk[0], &axi_b_clk);
 
-#if defined(CONFIG_MACH_MX51_EFIKAMX)
-	/* set uart clock source */
-	clk_set_parent(&uart_main_clk, &pll2_sw_clk);
+#if 0
+	if (machine_is_mx51_efikamx())
+	{
+		/* after change reference parent clock from pll3 to pll2
+		* (in order to let pll2 adjustable for various screen resolution),
+		* need to adjust original children clock to approximate original clock rate.
+		*/
 
-	/* after change reference parent clock from pll3 to pll2 
-	* (in order to let pll2 adjustable for various screen resolution),
-	* need to adjust original children clock to approximate original clock rate.
-	*/
-
-	clk_set_parent(&csi0_clk, &pll2_sw_clk);
-	clk_set_parent(&csi1_clk, &pll2_sw_clk);
-	clk_set_rate(&csi0_clk, clk_get_rate(&pll2_sw_clk)/12);
-	clk_set_rate(&csi1_clk, clk_get_rate(&pll2_sw_clk)/12);
-
-#else
+		clk_set_parent(&csi0_clk, &pll2_sw_clk);
+		clk_set_parent(&csi1_clk, &pll2_sw_clk);
+		clk_set_rate(&csi0_clk, clk_get_rate(&pll2_sw_clk)/12);
+		clk_set_rate(&csi1_clk, clk_get_rate(&pll2_sw_clk)/12);
+	}
+#endif
 
 	if (uart_at_24) {
 		/* Move UART to run from lp_apm */
@@ -4689,20 +4688,16 @@ int __init mx51_clocks_init(unsigned long ckil, unsigned long osc, unsigned long
 		__raw_writel(reg, MXC_CCM_CSCDR1);
 	} else {
 		/* Move UART to run from PLL1 */
-		clk_set_parent(&uart_main_clk, &pll1_sw_clk);
+		clk_set_parent(&uart_main_clk, &pll2_sw_clk);
 
-		/* Set the UART dividers to divide,
-		 * so the UART_CLK is 66.5MHz.
-		 */
+		/* Set the UART dividers to divide, so the UART_CLK is 66.5MHz. */
 		reg = __raw_readl(MXC_CCM_CSCDR1);
 		reg &= ~MXC_CCM_CSCDR1_UART_CLK_PODF_MASK;
 		reg &= ~MXC_CCM_CSCDR1_UART_CLK_PRED_MASK;
-		reg |= (5 << MXC_CCM_CSCDR1_UART_CLK_PRED_OFFSET) |
+		reg |= (4 << MXC_CCM_CSCDR1_UART_CLK_PRED_OFFSET) |
 		    (1 << MXC_CCM_CSCDR1_UART_CLK_PODF_OFFSET);
 		__raw_writel(reg, MXC_CCM_CSCDR1);
 	}
-
-#endif
 
 	propagate_rate(&osc_clk);
 	propagate_rate(&pll1_sw_clk);

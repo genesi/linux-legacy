@@ -36,6 +36,10 @@ struct sgtl5000_priv {
 	int capture_channels;
 	int playback_active;
 	int capture_active;
+	int clock_on;		/* clock enable status */
+	int need_clk_for_access; /* need clock on because doing access */
+	int need_clk_for_bias;   /* need clock on due to bias level */
+	int (*clock_enable) (int enable);
 	struct regulator *reg_vddio;
 	struct regulator *reg_vdda;
 	struct regulator *reg_vddd;
@@ -52,6 +56,29 @@ static int sgtl5000_set_bias_level(struct snd_soc_codec *codec,
 #define SGTL5000_MAX_CACHED_REG SGTL5000_CHIP_SHORT_CTRL
 static u16 sgtl5000_regs[(SGTL5000_MAX_CACHED_REG >> 1) + 1];
 
+/*
+ * Schedule clock to be turned off or turn clock on.
+ */
+static void sgtl5000_clock_gating(struct snd_soc_codec *codec, int enable)
+{
+	struct sgtl5000_priv *sgtl5000 = codec->private_data;
+
+	if (sgtl5000->clock_enable == NULL)
+		return;
+
+	if (enable == 0) {
+		if (!sgtl5000->need_clk_for_access &&
+		    !sgtl5000->need_clk_for_bias)
+			schedule_delayed_work(&codec->delayed_work,
+					      msecs_to_jiffies(300));
+	} else {
+		if (!sgtl5000->clock_on) {
+			sgtl5000->clock_enable(1);
+			sgtl5000->clock_on = 1;
+		}
+	}
+}
+
 static unsigned int sgtl5000_read_reg_cache(struct snd_soc_codec *codec,
 					    unsigned int reg)
 {
@@ -66,6 +93,7 @@ static unsigned int sgtl5000_read_reg_cache(struct snd_soc_codec *codec,
 static unsigned int sgtl5000_hw_read(struct snd_soc_codec *codec,
 				     unsigned int reg)
 {
+	struct sgtl5000_priv *sgtl5000 = codec->private_data;
 	struct i2c_client *client = codec->control_data;
 	int i2c_ret;
 	u16 value;
@@ -77,9 +105,13 @@ static unsigned int sgtl5000_hw_read(struct snd_soc_codec *codec,
 		{addr, flags | I2C_M_RD, 2, buf1},
 	};
 
+	sgtl5000->need_clk_for_access = 1;
+	sgtl5000_clock_gating(codec, 1);
 	buf0[0] = (reg & 0xff00) >> 8;
 	buf0[1] = reg & 0xff;
 	i2c_ret = i2c_transfer(client->adapter, msg, 2);
+	sgtl5000->need_clk_for_access = 0;
+	sgtl5000_clock_gating(codec, 0);
 	if (i2c_ret < 0) {
 		pr_err("%s: read reg error : Reg 0x%02x\n", __func__, reg);
 		return 0;
@@ -114,6 +146,7 @@ static inline void sgtl5000_write_reg_cache(struct snd_soc_codec *codec,
 static int sgtl5000_write(struct snd_soc_codec *codec, unsigned int reg,
 			  unsigned int value)
 {
+	struct sgtl5000_priv *sgtl5000 = codec->private_data;
 	struct i2c_client *client = codec->control_data;
 	u16 addr = client->addr;
 	u16 flags = client->flags;
@@ -121,6 +154,8 @@ static int sgtl5000_write(struct snd_soc_codec *codec, unsigned int reg,
 	int i2c_ret;
 	struct i2c_msg msg = { addr, flags, 4, buf };
 
+	sgtl5000->need_clk_for_access = 1;
+	sgtl5000_clock_gating(codec, 1);
 	sgtl5000_write_reg_cache(codec, reg, value);
 	pr_debug("w r:%02x,v:%04x\n", reg, value);
 	buf[0] = (reg & 0xff00) >> 8;
@@ -129,6 +164,8 @@ static int sgtl5000_write(struct snd_soc_codec *codec, unsigned int reg,
 	buf[3] = value & 0xff;
 
 	i2c_ret = i2c_transfer(client->adapter, &msg, 1);
+	sgtl5000->need_clk_for_access = 0;
+	sgtl5000_clock_gating(codec, 0);
 	if (i2c_ret < 0) {
 		pr_err("%s: write reg error : Reg 0x%02x = 0x%04x\n",
 		       __func__, reg, value);
@@ -498,13 +535,23 @@ static int sgtl5000_pcm_startup(struct snd_pcm_substream *substream,
 	if (sgtl5000->master_substream) {
 		master_runtime = sgtl5000->master_substream->runtime;
 
-		pr_debug("Constraining to %d bits\n",
-			 master_runtime->sample_bits);
+		if (master_runtime->rate != 0) {
+			pr_debug("Constraining to %dHz\n",
+				 master_runtime->rate);
+			snd_pcm_hw_constraint_minmax(substream->runtime,
+						     SNDRV_PCM_HW_PARAM_RATE,
+						     master_runtime->rate,
+						     master_runtime->rate);
+		}
 
-		snd_pcm_hw_constraint_minmax(substream->runtime,
-					     SNDRV_PCM_HW_PARAM_SAMPLE_BITS,
-					     master_runtime->sample_bits,
-					     master_runtime->sample_bits);
+		if (master_runtime->sample_bits != 0) {
+			pr_debug("Constraining to %d bits\n",
+				 master_runtime->sample_bits);
+			snd_pcm_hw_constraint_minmax(substream->runtime,
+						     SNDRV_PCM_HW_PARAM_SAMPLE_BITS,
+						     master_runtime->sample_bits,
+						     master_runtime->sample_bits);
+		}
 
 		sgtl5000->slave_substream = substream;
 	} else
@@ -632,6 +679,8 @@ static int sgtl5000_pcm_hw_params(struct snd_pcm_substream *substream,
 	}
 	/* SGTL5000 rev1 has a IC bug to prevent switching to MCLK from PLL. */
 	if (!sgtl5000->master) {
+		sys_fs = sgtl5000->lrclk;
+		clk_ctl = SGTL5000_RATE_MODE_DIV_1 << SGTL5000_RATE_MODE_SHIFT;
 		if (sys_fs * 256 == sgtl5000->sysclk)
 			clk_ctl |= SGTL5000_MCLK_FREQ_256FS << \
 				SGTL5000_MCLK_FREQ_SHIFT;
@@ -739,6 +788,7 @@ static void sgtl5000_mic_bias(struct snd_soc_codec *codec, int enable)
 static int sgtl5000_set_bias_level(struct snd_soc_codec *codec,
 				   enum snd_soc_bias_level level)
 {
+	struct sgtl5000_priv *sgtl5000 = codec->private_data;
 	u16 reg, ana_pwr;
 	int delay = 0;
 	pr_debug("dapm level %d\n", level);
@@ -757,6 +807,10 @@ static int sgtl5000_set_bias_level(struct snd_soc_codec *codec,
 		break;
 
 	case SND_SOC_BIAS_PREPARE:	/* partial On */
+		/* Keep clock on while in PREPARE or BIAS_ON state */
+		sgtl5000->need_clk_for_bias = 1;
+		sgtl5000_clock_gating(codec, 1);
+
 		if (codec->bias_level == SND_SOC_BIAS_PREPARE)
 			break;
 
@@ -778,6 +832,9 @@ static int sgtl5000_set_bias_level(struct snd_soc_codec *codec,
 		reg = sgtl5000_read(codec, SGTL5000_CHIP_DIG_POWER);
 		reg |= SGTL5000_DAC_EN;
 		sgtl5000_write(codec, SGTL5000_CHIP_DIG_POWER, reg);
+
+		sgtl5000->need_clk_for_bias = 0;
+		sgtl5000_clock_gating(codec, 0);
 
 		break;
 
@@ -811,6 +868,9 @@ static int sgtl5000_set_bias_level(struct snd_soc_codec *codec,
 		break;
 
 	case SND_SOC_BIAS_OFF:	/* Off, without power */
+		sgtl5000->need_clk_for_bias = 1;
+		sgtl5000_clock_gating(codec, 1);
+
 		/* must power down hp/line out after vag & dac to
 		   avoid pops. */
 		reg = sgtl5000_read(codec, SGTL5000_CHIP_ANA_POWER);
@@ -833,6 +893,10 @@ static int sgtl5000_set_bias_level(struct snd_soc_codec *codec,
 		/* save ANA POWER register value for resume */
 		sgtl5000_write_reg_cache(codec, SGTL5000_CHIP_ANA_POWER,
 					 ana_pwr);
+
+		sgtl5000->need_clk_for_bias = 0;
+		sgtl5000_clock_gating(codec, 0);
+
 		break;
 	}
 	codec->bias_level = level;
@@ -879,9 +943,25 @@ struct snd_soc_dai sgtl5000_dai = {
 		    .formats = SGTL5000_FORMATS,
 		    },
 	.ops = &sgtl5000_ops,
-	.symmetric_rates = 1,
 };
 EXPORT_SYMBOL_GPL(sgtl5000_dai);
+
+/*
+ * Delayed work that turns off the audio clock after a delay.
+ */
+static void sgtl5000_work(struct work_struct *work)
+{
+	struct snd_soc_codec *codec =
+		container_of(work, struct snd_soc_codec, delayed_work.work);
+	struct sgtl5000_priv *sgtl5000 = codec->private_data;
+
+	if (!sgtl5000->need_clk_for_access &&
+	    !sgtl5000->need_clk_for_bias &&
+	    sgtl5000->clock_on) {
+		sgtl5000->clock_enable(0);
+		sgtl5000->clock_on = 0;
+	}
+}
 
 static int sgtl5000_suspend(struct platform_device *pdev, pm_message_t state)
 {
@@ -932,11 +1012,18 @@ static int sgtl5000_probe(struct platform_device *pdev)
 	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
 	struct snd_soc_codec *codec = sgtl5000_codec;
 	struct sgtl5000_priv *sgtl5000 = codec->private_data;
+	struct sgtl5000_setup_data *setup = socdev->codec_data;
 	u16 reg, ana_pwr, lreg_ctrl, ref_ctrl, lo_ctrl, short_ctrl, sss;
 	int vag;
 	int ret = 0;
 
 	socdev->card->codec = sgtl5000_codec;
+
+	if ((setup != NULL) && (setup->clock_enable != NULL)) {
+		sgtl5000->clock_enable = setup->clock_enable;
+		sgtl5000->need_clk_for_bias = 1;
+		INIT_DELAYED_WORK(&codec->delayed_work, sgtl5000_work);
+	}
 
 	/* register pcms */
 	ret = snd_soc_new_pcms(socdev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1);
@@ -1081,6 +1168,25 @@ static int sgtl5000_probe(struct platform_device *pdev)
 	return 0;
 }
 
+/*
+ * This function forces any delayed work to be queued and run.
+ */
+static int run_delayed_work(struct delayed_work *dwork)
+{
+	int ret;
+
+	/* cancel any work waiting to be queued. */
+	ret = cancel_delayed_work(dwork);
+
+	/* if there was any work waiting then we run it now and
+	 * wait for it's completion */
+	if (ret) {
+		schedule_delayed_work(dwork, 0);
+		flush_scheduled_work();
+	}
+	return ret;
+}
+
 /* power down chip */
 static int sgtl5000_remove(struct platform_device *pdev)
 {
@@ -1089,6 +1195,7 @@ static int sgtl5000_remove(struct platform_device *pdev)
 
 	if (codec->control_data)
 		sgtl5000_set_bias_level(codec, SND_SOC_BIAS_OFF);
+	run_delayed_work(&codec->delayed_work);
 	snd_soc_free_pcms(socdev);
 	snd_soc_dapm_free(socdev);
 

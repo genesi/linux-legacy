@@ -570,6 +570,7 @@ static int __devinit imx_3stack_sgtl5000_probe(struct platform_device *pdev)
 	struct mxc_audio_platform_data *plat = pdev->dev.platform_data;
 	struct imx_3stack_priv *priv = &card_priv;
 	struct snd_soc_dai *sgtl5000_cpu_dai;
+	struct sgtl5000_setup_data *setup;
 	int ret = 0;
 
 	priv->pdev = pdev;
@@ -614,6 +615,14 @@ static int __devinit imx_3stack_sgtl5000_probe(struct platform_device *pdev)
 		pr_err("%s: request irq failed\n", __func__);
 		goto err_card_reg;
 	}
+
+	setup = kzalloc(sizeof(struct sgtl5000_setup_data), GFP_KERNEL);
+	if (!setup) {
+		pr_err("%s: kzalloc sgtl5000_setup_data failed\n", __func__);
+		goto err_card_reg;
+	}
+	setup->clock_enable = plat->clock_enable;
+	imx_3stack_snd_devdata.codec_data = setup;
 
 	sgtl5000_jack_func = 1;
 	sgtl5000_spk_func = 1;
