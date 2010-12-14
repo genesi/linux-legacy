@@ -29,6 +29,7 @@
 #include <linux/ipu.h>
 #include <linux/clk.h>
 #include <mach/clock.h>
+#include <mach/hardware.h>
 #include <mach/mxc_dvfs.h>
 
 #include "ipu_prv.h"
@@ -146,20 +147,19 @@ static void _ipu_pixel_clk_recalc(struct clk *clk)
 	if (div == 0)
 		clk->rate = 0;
 	else
-		clk->rate = (clk->parent->rate * 16) / div;
+		clk->rate = (clk_get_rate(clk->parent) * 16) / div;
 }
 
 static unsigned long _ipu_pixel_clk_round_rate(struct clk *clk, unsigned long rate)
 {
 	u32 div, div1;
-	u32 tmp;
+	u32 parent_rate = clk_get_rate(clk->parent) * 16;
 	/*
 	 * Calculate divider
 	 * Fractional part is 4 bits,
 	 * so simply multiply by 2^4 to get fractional part.
 	 */
-	tmp = (clk->parent->rate * 16);
-	div = tmp / rate;
+	div = parent_rate / rate;
 
 	if (div < 0x10)            /* Min DI disp clock divider is 1 */
 		div = 0x10;
@@ -167,17 +167,17 @@ static unsigned long _ipu_pixel_clk_round_rate(struct clk *clk, unsigned long ra
 		div &= 0xFF8;
 	else {
 		div1 = div & 0xFE0;
-		if ((tmp/div1 - tmp/div) < rate / 4)
+		if ((parent_rate / div1 - parent_rate / div) < rate / 4)
 			div = div1;
 		else
 			div &= 0xFF8;
 	}
-	return (clk->parent->rate * 16) / div;
+	return parent_rate / div;
 }
 
 static int _ipu_pixel_clk_set_rate(struct clk *clk, unsigned long rate)
 {
-	u32 div = (clk->parent->rate * 16) / rate;
+	u32 div = (clk_get_rate(clk->parent) * 16) / rate;
 
 	__raw_writel(div, DI_BS_CLKGEN0(clk->id));
 
@@ -335,9 +335,7 @@ static int ipu_probe(struct platform_device *pdev)
 	dev_dbg(g_ipu_dev, "IPU Display Region 1 Mem = %p\n", ipu_disp_base[1]);
 
 	g_pixel_clk[0] = &pixel_clk[0];
-	clk_register(g_pixel_clk[0]);
 	g_pixel_clk[1] = &pixel_clk[1];
-	clk_register(g_pixel_clk[1]);
 
 	/* Enable IPU and CSI clocks */
 	/* Get IPU clock freq */
@@ -358,7 +356,8 @@ static int ipu_probe(struct platform_device *pdev)
 	g_csi_clk[1] = plat_data->csi_clk[1];
 
 	__raw_writel(0x807FFFFF, IPU_MEM_RST);
-	while (__raw_readl(IPU_MEM_RST) & 0x80000000) ;
+	while (__raw_readl(IPU_MEM_RST) & 0x80000000)
+		;
 
 	_ipu_init_dc_mappings();
 
@@ -1038,6 +1037,52 @@ int32_t ipu_init_channel_buffer(ipu_channel_t channel, ipu_buffer_t type,
 		_ipu_ch_param_set_burst_size(dma_chan, 8);
 		_ipu_ch_param_set_block_mode(dma_chan);
 	} else if (_ipu_is_dmfc_chan(dma_chan)) {
+		u32 dmfc_dp_chan, dmfc_wr_chan;
+		/*
+		 * non-interleaving format need enlarge burst size
+		 * to work-around black flash issue.
+		 */
+		if (((dma_chan == 23) || (dma_chan == 27) || (dma_chan == 28))
+			&& ((pixel_fmt == IPU_PIX_FMT_YUV420P) ||
+			(pixel_fmt == IPU_PIX_FMT_YUV420P2) ||
+			(pixel_fmt == IPU_PIX_FMT_YVU422P) ||
+			(pixel_fmt == IPU_PIX_FMT_YUV422P) ||
+			(pixel_fmt == IPU_PIX_FMT_NV12))) {
+			if (dma_chan == 23) {
+				dmfc_dp_chan = __raw_readl(DMFC_DP_CHAN);
+				dmfc_dp_chan &= ~(0xc0);
+				dmfc_dp_chan |= 0x40;
+				__raw_writel(dmfc_dp_chan, DMFC_DP_CHAN);
+			} else if (dma_chan == 27) {
+				dmfc_dp_chan = __raw_readl(DMFC_DP_CHAN);
+				dmfc_dp_chan &= ~(0xc000);
+				dmfc_dp_chan |= 0x4000;
+				__raw_writel(dmfc_dp_chan, DMFC_DP_CHAN);
+			} else if (dma_chan == 28) {
+				dmfc_wr_chan = __raw_readl(DMFC_WR_CHAN);
+				dmfc_wr_chan &= ~(0xc0);
+				dmfc_wr_chan |= 0x40;
+				__raw_writel(dmfc_wr_chan, DMFC_WR_CHAN);
+			}
+			_ipu_ch_param_set_burst_size(dma_chan, 64);
+		} else {
+			if (dma_chan == 23) {
+				dmfc_dp_chan = __raw_readl(DMFC_DP_CHAN);
+				dmfc_dp_chan &= ~(0xc0);
+				dmfc_dp_chan |= 0x80;
+				__raw_writel(dmfc_dp_chan, DMFC_DP_CHAN);
+			} else if (dma_chan == 27) {
+				dmfc_dp_chan = __raw_readl(DMFC_DP_CHAN);
+				dmfc_dp_chan &= ~(0xc000);
+				dmfc_dp_chan |= 0x8000;
+				__raw_writel(dmfc_dp_chan, DMFC_DP_CHAN);
+			} else {
+				dmfc_wr_chan = __raw_readl(DMFC_WR_CHAN);
+				dmfc_wr_chan &= ~(0xc0);
+				dmfc_wr_chan |= 0x80;
+				__raw_writel(dmfc_wr_chan, DMFC_WR_CHAN);
+			}
+		}
 		spin_lock_irqsave(&ipu_lock, lock_flags);
 		_ipu_dmfc_set_wait4eot(dma_chan, width);
 		spin_unlock_irqrestore(&ipu_lock, lock_flags);
@@ -1261,9 +1306,9 @@ int32_t ipu_select_multi_vdi_buffer(uint32_t bufNum)
 EXPORT_SYMBOL(ipu_select_multi_vdi_buffer);
 
 #define NA	-1
-static int proc_dest_sel[] =
-  { 0, 1, 1, 3, 5, 5, 4, 7, 8, 9, 10, 11, 12, 14, 15, 16,
-    0, 1, 1, 5, 5, 5, 5, 5, 7, 8, 9, 10, 11, 12, 14, 31 };
+static int proc_dest_sel[] = {
+	0, 1, 1, 3, 5, 5, 4, 7, 8, 9, 10, 11, 12, 14, 15, 16,
+	0, 1, 1, 5, 5, 5, 5, 5, 7, 8, 9, 10, 11, 12, 14, 31 };
 static int proc_src_sel[] = { 0, 6, 7, 6, 7, 8, 5, NA, NA, NA,
   NA, NA, NA, NA, NA,  1,  2,  3,  4,  7,  8, NA, 8, NA };
 static int disp_src_sel[] = { 0, 6, 7, 8, 3, 4, 5, NA, NA, NA,
@@ -1863,6 +1908,9 @@ int32_t ipu_disable_channel(ipu_channel_t channel, bool wait_for_stop)
 
 	if ((channel == MEM_BG_SYNC) || (channel == MEM_FG_SYNC) ||
 	    (channel == MEM_DC_SYNC)) {
+		if (channel == MEM_FG_SYNC)
+			ipu_disp_set_window_pos(channel, 0, 0);
+
 		_ipu_dp_dc_disable(channel, false);
 
 		/*
@@ -1878,8 +1926,10 @@ int32_t ipu_disable_channel(ipu_channel_t channel, bool wait_for_stop)
 					IPUIRQ_2_MASK(IPU_IRQ_BG_SYNC_EOF)) == 0) {
 				msleep(10);
 				timeout -= 10;
-				if (timeout <= 0)
+				if (timeout <= 0) {
+					dev_err(g_ipu_dev, "warning: wait for bg sync eof timeout\n");
 					break;
+				}
 			}
 		}
 	} else if (wait_for_stop) {

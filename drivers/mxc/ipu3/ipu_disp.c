@@ -148,37 +148,6 @@ static int __init dmfc_setup(char *options)
 }
 __setup("dmfc=", dmfc_setup);
 
-static bool _ipu_update_dmfc_used_size(int dma_chan, int width, int dmfc_size)
-{
-	u32 fifo_size_5f = 1;
-	u32 dmfc_dp_chan = __raw_readl(DMFC_DP_CHAN);
-
-	if ((width > 352) && (dmfc_size == (256 * 4)))
-		fifo_size_5f = 1;
-	else if (width > 176)
-		fifo_size_5f = 2;
-	else if (width > 88)
-		fifo_size_5f = 3;
-	else if (width > 44)
-		fifo_size_5f = 4;
-	else if (width > 22)
-		fifo_size_5f = 5;
-	else if (width > 11)
-		fifo_size_5f = 6;
-	else if (width > 6)
-		fifo_size_5f = 7;
-	else
-		return false;
-
-	if (dma_chan == 27) {
-		dmfc_dp_chan &= ~DMFC_FIFO_SIZE_5F;
-		dmfc_dp_chan |= fifo_size_5f << 11;
-		__raw_writel(dmfc_dp_chan, DMFC_DP_CHAN);
-	}
-
-	return true;
-}
-
 void _ipu_dmfc_set_wait4eot(int dma_chan, int width)
 {
 	u32 dmfc_gen1 = __raw_readl(DMFC_GENERAL1);
@@ -201,7 +170,7 @@ void _ipu_dmfc_set_wait4eot(int dma_chan, int width)
 		else
 			dmfc_gen1 &= ~(1UL << 22);
 	} else if (dma_chan == 27) { /*5F*/
-		if (!_ipu_update_dmfc_used_size(dma_chan, width, dmfc_size_27))
+		if (dmfc_size_27/width > 2)
 			dmfc_gen1 |= 1UL << 21;
 		else
 			dmfc_gen1 &= ~(1UL << 21);
@@ -1048,6 +1017,7 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 	uint32_t h_total, v_total;
 	int map;
 	int ipu_freq_scaling_enabled = 0;
+	struct clk *di_parent;
 
 	dev_dbg(g_ipu_dev, "panel size = %d x %d\n", width, height);
 
@@ -1066,31 +1036,40 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 	/* Init clocking */
 	dev_dbg(g_ipu_dev, "pixel clk = %d\n", pixel_clk);
 
-	if (sig.ext_clk) {
-		/*
-		 * Set the  PLL to be an even multiple of the pixel clock.
-		 * Not round div for tvout and ldb.
-		 * Did not consider both DI come from the same ext clk, if
-		 * meet such case, ext clk rate should be set specially.
-		 */
-		if (clk_get_usecount(g_pixel_clk[disp]) == 0) {
-			struct clk *di_parent = clk_get_parent(g_di_clk[disp]);
-			if (strcmp(di_parent->name, "tve_clk") != 0 &&
-			    strcmp(di_parent->name, "ldb_di0_clk") != 0 &&
-			    strcmp(di_parent->name, "ldb_di1_clk") != 0)  {
-				rounded_pixel_clk = pixel_clk * 2;
-				while (rounded_pixel_clk < 150000000)
-					rounded_pixel_clk += pixel_clk * 2;
-				clk_set_rate(di_parent, rounded_pixel_clk);
-				clk_set_rate(g_di_clk[disp], pixel_clk);
-			}
-		}
-		clk_set_parent(g_pixel_clk[disp], g_di_clk[disp]);
+	/*clear DI*/
+	__raw_writel((1 << 21), DI_GENERAL(disp));
 
+	di_parent = clk_get_parent(g_di_clk[disp]);
+	if (clk_get(NULL, "tve_clk") == di_parent ||
+	    clk_get(NULL, "ldb_di0_clk") == di_parent ||
+	    clk_get(NULL, "ldb_di1_clk") == di_parent)  {
+		/* if di clk parent is tve/ldb, then keep it;*/
+		dev_dbg(g_ipu_dev, "use special clk parent\n");
+		clk_set_parent(g_pixel_clk[disp], g_di_clk[disp]);
 	} else {
-		if (clk_get_usecount(g_pixel_clk[disp]) != 0)
-			clk_set_parent(g_pixel_clk[disp], g_ipu_clk);
+		/* try ipu clk first */
+		dev_dbg(g_ipu_dev, "try ipu internal clk\n");
+		clk_set_parent(g_pixel_clk[disp], g_ipu_clk);
+		rounded_pixel_clk = clk_round_rate(g_pixel_clk[disp], pixel_clk);
+		/*
+		 * we will only use 1/2 fraction for pu clk,
+		 * so if the clk rate is not fit, try ext clk.
+		 */
+		if (!sig.int_clk &&
+			((rounded_pixel_clk >= pixel_clk + pixel_clk/16) ||
+			(rounded_pixel_clk <= pixel_clk - pixel_clk/16))) {
+			dev_dbg(g_ipu_dev, "try ipu ext di clk\n");
+			rounded_pixel_clk = pixel_clk * 2;
+			while (rounded_pixel_clk < 150000000)
+				rounded_pixel_clk += pixel_clk * 2;
+			clk_set_rate(di_parent, rounded_pixel_clk);
+			rounded_pixel_clk =
+				clk_round_rate(g_di_clk[disp], pixel_clk);
+			clk_set_rate(g_di_clk[disp], rounded_pixel_clk);
+			clk_set_parent(g_pixel_clk[disp], g_di_clk[disp]);
+		}
 	}
+
 	rounded_pixel_clk = clk_round_rate(g_pixel_clk[disp], pixel_clk);
 	clk_set_rate(g_pixel_clk[disp], rounded_pixel_clk);
 	msleep(5);
@@ -1469,6 +1448,9 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 		(pixel_fmt == IPU_PIX_FMT_VYUY))
 			di_gen |= 0x00020000;
 
+	if (!sig.clk_pol)
+		di_gen |= DI_GEN_POLARITY_DISP_CLK;
+
 	__raw_writel(di_gen, DI_GENERAL(disp));
 
 	if (!ipu_freq_scaling_enabled)
@@ -1806,6 +1788,39 @@ int32_t ipu_disp_set_window_pos(ipu_channel_t channel, int16_t x_pos,
 	return 0;
 }
 EXPORT_SYMBOL(ipu_disp_set_window_pos);
+
+int32_t ipu_disp_get_window_pos(ipu_channel_t channel, int16_t *x_pos,
+                               int16_t *y_pos)
+{
+	u32 reg;
+	unsigned long lock_flags;
+	uint32_t flow = 0;
+
+	if (channel == MEM_FG_SYNC)
+		flow = DP_SYNC;
+	else if (channel == MEM_FG_ASYNC0)
+		flow = DP_ASYNC0;
+	else if (channel == MEM_FG_ASYNC1)
+		flow = DP_ASYNC1;
+	else
+		return -EINVAL;
+
+	if (!g_ipu_clk_enabled)
+		clk_enable(g_ipu_clk);
+	spin_lock_irqsave(&ipu_lock, lock_flags);
+
+	reg = __raw_readl(DP_FG_POS(flow));
+
+	*x_pos = (reg >> 16) & 0x7FF;
+	*y_pos = reg & 0x7FF;
+
+	spin_unlock_irqrestore(&ipu_lock, lock_flags);
+	if (!g_ipu_clk_enabled)
+		clk_disable(g_ipu_clk);
+
+	return 0;
+}
+EXPORT_SYMBOL(ipu_disp_get_window_pos);
 
 void ipu_disp_direct_write(ipu_channel_t channel, u32 value, u32 offset)
 {

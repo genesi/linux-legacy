@@ -64,7 +64,7 @@ struct mxcfb_info {
 	ipu_channel_t ipu_ch;
 	int ipu_di;
 	u32 ipu_di_pix_fmt;
-	bool ipu_ext_clk;
+	bool ipu_int_clk;
 	bool overlay;
 	bool alpha_chan_en;
 	dma_addr_t alpha_phy_addr0;
@@ -147,10 +147,6 @@ static int mxcfb_set_fix(struct fb_info *info)
 	fix->visual = FB_VISUAL_TRUECOLOR;
 	fix->xpanstep = 1;
 	fix->ypanstep = 1;
-
-	if (machine_is_mx51_efikamx()) {
-		var->sync |= FB_SYNC_EXT;	/* x window need it otherwise refresh rate will become bigger than user specified */
-	}
 
 	return 0;
 }
@@ -370,8 +366,8 @@ static int mxcfb_set_par(struct fb_info *fbi)
 		}
 		if (fbi->var.vmode & FB_VMODE_ODD_FLD_FIRST) /* PAL */
 			sig_cfg.odd_field_first = true;
-		if ((fbi->var.sync & FB_SYNC_EXT) || mxc_fbi->ipu_ext_clk)
-			sig_cfg.ext_clk = true;
+		if (mxc_fbi->ipu_int_clk)
+			sig_cfg.int_clk = true;
 		if (fbi->var.sync & FB_SYNC_HOR_HIGH_ACT)
 			sig_cfg.Hsync_pol = true;
 		if (fbi->var.sync & FB_SYNC_VERT_HIGH_ACT)
@@ -1813,8 +1809,8 @@ static int mxcfb_option_setup(struct fb_info *info, char *options)
 			mxcfbi->ipu_di_pix_fmt = IPU_PIX_FMT_VYUY;
 			continue;
 		}
-		if (!strncmp(opt, "ext_clk", 7)) {
-			mxcfbi->ipu_ext_clk = true;
+		if (!strncmp(opt, "int_clk", 7)) {
+			mxcfbi->ipu_int_clk = true;
 			continue;
 		}
 		if (!strncmp(opt, "bpp=", 4))
