@@ -66,6 +66,12 @@ static int mx51_efikamx_audio_amp_enable(int enable)
 	return 0;
 }
 
+static int mx51_efikamx_audio_clock_enable(int enable)
+{
+	gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_CSPI1_RDY), enable ? 0 : 1);
+	return 0;
+}
+
 static int mx51_efikamx_headphone_det_status(void)
 {
 	return gpio_get_value(IOMUX_TO_GPIO(EFIKAMX_HP_DETECT));
@@ -78,6 +84,7 @@ static struct mxc_audio_platform_data mx51_efikamx_audio_data = {
 	.hp_irq = IOMUX_TO_IRQ(EFIKAMX_HP_DETECT),
 	.hp_status = mx51_efikamx_headphone_det_status,
 	.amp_enable = mx51_efikamx_audio_amp_enable,
+	.clock_enable = mx51_efikamx_audio_clock_enable,
 	.sysclk = 12288000,
 };
 
