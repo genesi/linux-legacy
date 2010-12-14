@@ -29,8 +29,9 @@
 
 #include "mx51_efikamx.h"
 
-#define EFIKAMX_AMP_ENABLE MX51_PIN_EIM_A23
-#define EFIKAMX_HP_DETECT  MX51_PIN_DISPB2_SER_RS
+#define EFIKAMX_AMP_ENABLE		MX51_PIN_EIM_A23
+#define EFIKAMX_AUDIO_CLOCK_ENABLE	MX51_PIN_GPIO1_9
+#define EFIKAMX_HP_DETECT		MX51_PIN_DISPB2_SER_RS
 
 
 static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_audio_iomux_pins[] = {
@@ -58,6 +59,8 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_audio_iomux_pins[] = {
 	  PAD_CTL_100K_PU | PAD_CTL_HYS_NONE | PAD_CTL_DDR_INPUT_CMOS |
 	  PAD_CTL_DRV_VOT_LOW),
 	 },
+	{ EFIKAMX_AUDIO_CLOCK_ENABLE, IOMUX_CONFIG_GPIO, }, /* ALT4? */
+	{ EFIKAMX_AMP_ENABLE, IOMUX_CONFIG_GPIO, PAD_CTL_100K_PU, },
 };
 
 static int mx51_efikamx_audio_amp_enable(int enable)
@@ -68,7 +71,7 @@ static int mx51_efikamx_audio_amp_enable(int enable)
 
 static int mx51_efikamx_audio_clock_enable(int enable)
 {
-	gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_CSPI1_RDY), enable ? 0 : 1);
+	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_AUDIO_CLOCK_ENABLE), enable ? 0 : 1);
 	return 0;
 }
 
@@ -110,21 +113,9 @@ void mx51_efikamx_init_audio(void)
 
 	CONFIG_IOMUX(mx51_efikamx_audio_iomux_pins);
 
-	/* TODO: move these two to the  IOMUX stuff above */
-	/* hphone_det_b */
-	mxc_request_iomux(EFIKAMX_HP_DETECT, IOMUX_CONFIG_ALT4);
-	mxc_iomux_set_pad(EFIKAMX_HP_DETECT, PAD_CTL_100K_PU);
-	gpio_request(IOMUX_TO_GPIO(EFIKAMX_HP_DETECT), "hphone_det_b");
+	/* turn the SGTL5000 off to start */
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_AUDIO_CLOCK_ENABLE), 1);
 	gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_HP_DETECT));
-
-	/* audio_clk_en_b */
-	mxc_request_iomux(MX51_PIN_CSPI1_RDY, IOMUX_CONFIG_ALT3);
-	mxc_iomux_set_pad(MX51_PIN_CSPI1_RDY, PAD_CTL_DRV_HIGH |
-			  PAD_CTL_HYS_NONE | PAD_CTL_PUE_KEEPER |
-			  PAD_CTL_100K_PU | PAD_CTL_ODE_OPENDRAIN_NONE |
-			  PAD_CTL_PKE_ENABLE | PAD_CTL_SRE_FAST);
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_CSPI1_RDY), "audio_clk_en_b");
-	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_CSPI1_RDY), 0);
 
 	mxc_register_device(&mxc_ssi1_device, NULL);
 	mxc_register_device(&mxc_ssi2_device, NULL);
@@ -135,7 +126,6 @@ void mx51_efikamx_init_audio(void)
 	clk_enable(ssi_ext1);
 	mx51_efikamx_audio_data.sysclk = rate;
 
-	gpio_request(IOMUX_TO_GPIO(EFIKAMX_AMP_ENABLE), "audio_amp_enable");
 	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_AMP_ENABLE), 0);
 
 	mxc_register_device(&mx51_efikamx_audio_device, &mx51_efikamx_audio_data);
