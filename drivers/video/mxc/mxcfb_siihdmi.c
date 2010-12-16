@@ -943,6 +943,9 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	return 0;
 
 error:
+	if (tx->irq)
+		free_irq(tx->irq, NULL);
+
 	kfree(tx);
 	i2c_set_clientdata(client, NULL);
 	return ret;
@@ -954,6 +957,9 @@ static int __devexit siihdmi_remove(struct i2c_client *client)
 
 	tx = i2c_get_clientdata(client);
 	if (tx) {
+		if (tx->irq)
+			free_irq(tx->irq, NULL);
+
 		fb_unregister_client(&tx->nb);
 		kfree(tx);
 		i2c_set_clientdata(client, NULL);
