@@ -349,6 +349,7 @@ void __init mx51_efikamx_init_display(void)
 	mxc_register_device(&mxc_ipu_device, &mxc_ipu_data);
 	mxc_register_device(&mxcvpu_device, &mxc_vpu_data);
 	mxc_register_device(&gpu_device, NULL);
+	mxc_register_device(&mxc_v4l2out_device, NULL);
 }
 
 /* name is not my choice but.... */

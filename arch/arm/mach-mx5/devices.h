@@ -66,6 +66,7 @@ extern struct platform_device mxc_usbdr_host_device;
 extern struct platform_device mxc_usbh1_device;
 extern struct platform_device mxc_usbh2_device;
 extern struct platform_device mxc_mlb_device;
+extern struct platform_device mxc_v4l2out_device;
 extern struct platform_device mxc_nandv2_mtd_device;
 extern struct platform_device mxc_pxp_device;
 extern struct platform_device mxc_pxp_client_device;
