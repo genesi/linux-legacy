@@ -36,7 +36,6 @@
 
 #include "mxc_v4l2_output.h"
 
-vout_data *g_vout;
 #define INTERLACED_CONTENT(vout) (((cpu_is_mx51_rev(CHIP_REV_2_0) >= 1) || \
 				   cpu_is_mx53()) &&			\
 				  (((vout)->field_fmt == V4L2_FIELD_INTERLACED_TB) || \
@@ -214,6 +213,7 @@ static bool format_is_yuv(u32 pixelformat)
 	case V4L2_PIX_FMT_YUYV:
 	case V4L2_PIX_FMT_YUV422P:
 	case V4L2_PIX_FMT_YVU420:
+	case V4L2_PIX_FMT_YUV444:
 	case V4L2_PIX_FMT_NV12:
 		return true;
 		break;
@@ -245,6 +245,7 @@ static int select_display_buffer(vout_data *vout, int next_buf)
 {
 	int ret = 0;
 
+	vout->disp_buf_num = next_buf;
 	if (ipu_get_cur_buffer_idx(vout->display_ch, IPU_INPUT_BUFFER)
 			!= next_buf)
 		ret = ipu_select_buffer(vout->display_ch, IPU_INPUT_BUFFER,
@@ -287,12 +288,11 @@ static int finish_previous_frame(vout_data *vout)
 	struct fb_info *fbi =
 		registered_fb[vout->output_fb_num[vout->cur_disp_output]];
 	mm_segment_t old_fs;
-	int ret = 0;
+	int ret = 0, try = 0;
 
-	/* make sure buf[next_done_ipu_buf] showed */
+	/* make sure buf[vout->disp_buf_num] in showing */
 	while (ipu_check_buffer_busy(vout->display_ch,
-			IPU_INPUT_BUFFER, vout->next_done_ipu_buf)) {
-		/* wait for display frame finish */
+			IPU_INPUT_BUFFER, vout->disp_buf_num)) {
 		if (fbi->fbops->fb_ioctl) {
 			old_fs = get_fs();
 			set_fs(KERNEL_DS);
@@ -300,12 +300,17 @@ static int finish_previous_frame(vout_data *vout)
 					(unsigned int)NULL);
 			set_fs(old_fs);
 
-			if (ret < 0) {
-				/* ic_bypass need clear display buffer ready for next update*/
+			if ((ret < 0) || (try == 1)) {
+				/*
+				 * ic_bypass need clear display buffer ready for next update.
+				 * when fb doing blank and unblank, it has chance to go into
+				 * dead loop: fb unblank just after buffer 1 ready selected.
+				 */
 				ipu_clear_buffer_ready(vout->display_ch, IPU_INPUT_BUFFER,
-						vout->next_done_ipu_buf);
+						vout->disp_buf_num);
 			}
 		}
+		try++;
 	}
 
 	return ret;
@@ -318,9 +323,9 @@ static int show_current_frame(vout_data *vout)
 	mm_segment_t old_fs;
 	int ret = 0;
 
-	/* make sure buf[next_rdy_ipu_buf] begin to show */
+	/* make sure buf[vout->disp_buf_num] begin to show */
 	if (ipu_get_cur_buffer_idx(vout->display_ch, IPU_INPUT_BUFFER)
-		!= vout->next_rdy_ipu_buf) {
+		!= vout->disp_buf_num) {
 		/* wait for display frame finish */
 		if (fbi->fbops->fb_ioctl) {
 			old_fs = get_fs();
@@ -334,10 +339,10 @@ static int show_current_frame(vout_data *vout)
 	return ret;
 }
 
-static void timer_work_func(struct work_struct *work)
+static void icbypass_work_func(struct work_struct *work)
 {
 	vout_data *vout =
-		container_of(work, vout_data, timer_work);
+		container_of(work, vout_data, icbypass_work);
 	int index, ret;
 	int last_buf;
 	unsigned long lock_flags = 0;
@@ -346,34 +351,30 @@ static void timer_work_func(struct work_struct *work)
 
 	spin_lock_irqsave(&g_lock, lock_flags);
 
-	if (g_buf_output_cnt == 0) {
-		ipu_select_buffer(vout->display_ch, IPU_INPUT_BUFFER, 1);
-	} else {
-		index = dequeue_buf(&vout->ready_q);
-		if (index == -1) {	/* no buffers ready, should never occur */
-			dev_err(&vout->video_dev->dev,
-					"mxc_v4l2out: timer - no queued buffers ready\n");
-			goto exit;
-		}
-		g_buf_dq_cnt++;
-		vout->frame_count++;
-
-		vout->ipu_buf[vout->next_rdy_ipu_buf] = index;
-		ret = ipu_update_channel_buffer(vout->display_ch, IPU_INPUT_BUFFER,
-				vout->next_rdy_ipu_buf,
-				vout->v4l2_bufs[index].m.offset);
-		ret += select_display_buffer(vout, vout->next_rdy_ipu_buf);
-		if (ret < 0) {
-			dev_err(&vout->video_dev->dev,
-					"unable to update buffer %d address rc=%d\n",
-					vout->next_rdy_ipu_buf, ret);
-			goto exit;
-		}
-		spin_unlock_irqrestore(&g_lock, lock_flags);
-		show_current_frame(vout);
-		spin_lock_irqsave(&g_lock, lock_flags);
-		vout->next_rdy_ipu_buf = !vout->next_rdy_ipu_buf;
+	index = dequeue_buf(&vout->ready_q);
+	if (index == -1) {	/* no buffers ready, should never occur */
+		dev_err(&vout->video_dev->dev,
+				"mxc_v4l2out: timer - no queued buffers ready\n");
+		goto exit;
 	}
+	g_buf_dq_cnt++;
+	vout->frame_count++;
+
+	vout->ipu_buf[vout->next_rdy_ipu_buf] = index;
+	ret = ipu_update_channel_buffer(vout->display_ch, IPU_INPUT_BUFFER,
+			vout->next_rdy_ipu_buf,
+			vout->v4l2_bufs[index].m.offset);
+	ret += select_display_buffer(vout, vout->next_rdy_ipu_buf);
+	if (ret < 0) {
+		dev_err(&vout->video_dev->dev,
+				"unable to update buffer %d address rc=%d\n",
+				vout->next_rdy_ipu_buf, ret);
+		goto exit;
+	}
+	spin_unlock_irqrestore(&g_lock, lock_flags);
+	show_current_frame(vout);
+	spin_lock_irqsave(&g_lock, lock_flags);
+	vout->next_rdy_ipu_buf = !vout->next_rdy_ipu_buf;
 
 	last_buf = vout->ipu_buf[vout->next_done_ipu_buf];
 	if (last_buf != -1) {
@@ -403,11 +404,57 @@ exit:
 	spin_unlock_irqrestore(&g_lock, lock_flags);
 }
 
+static int get_cur_fb_blank(vout_data *vout)
+{
+	struct fb_info *fbi =
+		registered_fb[vout->output_fb_num[vout->cur_disp_output]];
+	mm_segment_t old_fs;
+	int ret = 0;
+
+	/* Check BG blank first, if BG is blank, FG should be blank too */
+	if (vout->display_ch == MEM_FG_SYNC) {
+		int i, bg_found = 0;
+		for (i = 0; i < num_registered_fb; i++) {
+			struct fb_info *bg_fbi;
+			char *idstr = registered_fb[i]->fix.id;
+			if (strncmp(idstr, "DISP3 BG", 8) == 0) {
+				bg_found = 1;
+				bg_fbi = registered_fb[i];
+				if (bg_fbi->fbops->fb_ioctl) {
+					old_fs = get_fs();
+					set_fs(KERNEL_DS);
+					ret = bg_fbi->fbops->fb_ioctl(bg_fbi,
+							MXCFB_GET_FB_BLANK,
+							(unsigned int)(&vout->fb_blank));
+					set_fs(old_fs);
+				}
+			}
+			if (bg_found) {
+				if (vout->fb_blank == FB_BLANK_UNBLANK)
+					break;
+				else
+					return ret;
+			}
+		}
+	}
+
+	if (fbi->fbops->fb_ioctl) {
+		old_fs = get_fs();
+		set_fs(KERNEL_DS);
+		ret = fbi->fbops->fb_ioctl(fbi, MXCFB_GET_FB_BLANK,
+						(unsigned int)(&vout->fb_blank));
+		set_fs(old_fs);
+	}
+
+	return ret;
+}
+
 static void mxc_v4l2out_timer_handler(unsigned long arg)
 {
 	int index, ret;
 	unsigned long lock_flags = 0;
 	vout_data *vout = (vout_data *) arg;
+	static int old_fb_blank = FB_BLANK_UNBLANK;
 
 	spin_lock_irqsave(&g_lock, lock_flags);
 
@@ -436,12 +483,33 @@ static void mxc_v4l2out_timer_handler(unsigned long arg)
 
 	/* Handle ic bypass mode in work queue */
 	if (vout->ic_bypass) {
-		if (queue_work(vout->v4l_wq, &vout->timer_work) == 0) {
-			dev_err(&vout->video_dev->dev, "work was in queue already!\n ");
+		if (queue_work(vout->v4l_wq, &vout->icbypass_work) == 0) {
+			dev_err(&vout->video_dev->dev,
+				"ic bypass work was in queue already!\n ");
 			vout->state = STATE_STREAM_PAUSED;
 		}
 		goto exit0;
 	}
+
+	get_cur_fb_blank(vout);
+	if (vout->fb_blank == FB_BLANK_UNBLANK) {
+		/* if first come back from fb blank, recover correct stack */
+		if (old_fb_blank != FB_BLANK_UNBLANK) {
+			if (vout->next_disp_ipu_buf == 1)
+				ipu_select_buffer(vout->display_ch, IPU_INPUT_BUFFER, 0);
+			else
+				ipu_select_buffer(vout->display_ch, IPU_INPUT_BUFFER, 1);
+		}
+		if (ipu_get_cur_buffer_idx(vout->display_ch, IPU_INPUT_BUFFER)
+				== vout->next_disp_ipu_buf) {
+			dev_dbg(&vout->video_dev->dev, "IPU disp busy\n");
+			index = peek_next_buf(&vout->ready_q);
+			setup_next_buf_timer(vout, index);
+			old_fb_blank = vout->fb_blank;
+			goto exit0;
+		}
+	}
+	old_fb_blank = vout->fb_blank;
 
 	/* Dequeue buffer and pass to IPU */
 	index = dequeue_buf(&vout->ready_q);
@@ -523,9 +591,12 @@ static void mxc_v4l2out_timer_handler(unsigned long arg)
 		goto exit0;
 	}
 
-	/* Non IC split action */
+	/* Split mode use buf 0 only, no need to switch buf */
 	if (!vout->pp_split)
 		vout->next_rdy_ipu_buf = !vout->next_rdy_ipu_buf;
+
+	/* Always assume display in double buffers */
+	vout->next_disp_ipu_buf = !vout->next_disp_ipu_buf;
 
 	/* Setup timer for next buffer */
 	index = peek_next_buf(&vout->ready_q);
@@ -628,13 +699,6 @@ static irqreturn_t mxc_v4l2out_work_irq_handler(int irq, void *dev_id)
 				if (ret < 0)
 					dev_err(&vout->video_dev->dev,
 					"unable to set IPU buffer ready\n");
-					vout->next_rdy_ipu_buf = !vout->next_rdy_ipu_buf;
-
-			} else {/* last stripe is done, run display refresh */
-				select_display_buffer(vout, disp_buf_num);
-				vout->ipu_buf[vout->next_done_ipu_buf] = -1;
-				vout->next_done_ipu_buf = !vout->next_done_ipu_buf;
-				vout->next_rdy_ipu_buf = !vout->next_rdy_ipu_buf;
 			}
 
 			/* offset for next buffer's EBA */
@@ -676,11 +740,8 @@ static irqreturn_t mxc_v4l2out_work_irq_handler(int irq, void *dev_id)
 
 			/* next stripe_buffer index 0..7 */
 			vout->pp_split_buf_num = (vout->pp_split_buf_num + vout->pp_split) & 0x7;
-
-
 		} else {
-			/* show to display */
-			select_display_buffer(vout, vout->next_done_ipu_buf);
+			disp_buf_num = vout->next_done_ipu_buf;
 			ret += ipu_select_buffer(vout->display_input_ch, IPU_OUTPUT_BUFFER,
 					vout->next_done_ipu_buf);
 		}
@@ -688,6 +749,8 @@ static irqreturn_t mxc_v4l2out_work_irq_handler(int irq, void *dev_id)
 		/* release buffer. For split mode: if second stripe is done */
 		release_buffer = vout->pp_split ? (!(vout->pp_split_buf_num & 0x3)) : 1;
 		if (release_buffer) {
+			if (vout->fb_blank == FB_BLANK_UNBLANK)
+				select_display_buffer(vout, disp_buf_num);
 			g_buf_output_cnt++;
 			vout->v4l2_bufs[last_buf].flags = V4L2_BUF_FLAG_DONE;
 			queue_buf(&vout->done_q, last_buf);
@@ -697,16 +760,19 @@ static irqreturn_t mxc_v4l2out_work_irq_handler(int irq, void *dev_id)
 				vout->ipu_buf_p[vout->next_done_ipu_buf] = -1;
 				vout->ipu_buf_n[vout->next_done_ipu_buf] = -1;
 			}
-			vout->next_done_ipu_buf = !vout->next_done_ipu_buf;
+			/* split mode use buf 0 only, no need switch buf */
+			if (!vout->pp_split)
+				vout->next_done_ipu_buf = !vout->next_done_ipu_buf;
 		}
 	} /* end of last_buf != -1 */
 
+	index = peek_next_buf(&vout->ready_q);
 	if (vout->state == STATE_STREAM_STOPPING) {
 		if ((vout->ipu_buf[0] == -1) && (vout->ipu_buf[1] == -1)) {
 			vout->state = STATE_STREAM_OFF;
 		}
 	} else if ((vout->state == STATE_STREAM_PAUSED)
-		   && ((index = peek_next_buf(&vout->ready_q)) != -1)) {
+		   && (index != -1)) {
 		/* Setup timer for next buffer, when stream has been paused */
 		pr_debug("next index %d\n", index);
 		setup_next_buf_timer(vout, index);
@@ -721,7 +787,7 @@ static irqreturn_t mxc_v4l2out_work_irq_handler(int irq, void *dev_id)
 /*!
  *  Initialize VDI channels
  *
- * @param vout      structure vout_data *
+ * @param voutstructure vout_data *
  *
  * @return status  0 Success
  */
@@ -931,6 +997,9 @@ static int init_PP(ipu_channel_params_t *params, vout_data *vout,
 	u32 eba_offset;
 	u16 x_pos;
 	u16 y_pos;
+	dma_addr_t phy_addr0;
+	dma_addr_t phy_addr1;
+
 	eba_offset = 0;
 	x_pos = 0;
 	y_pos = 0;
@@ -1020,6 +1089,12 @@ static int init_PP(ipu_channel_params_t *params, vout_data *vout,
 		return -EINVAL;
 	}
 
+	/* always enable double buffer */
+	phy_addr0 = vout->v4l2_bufs[vout->ipu_buf[0]].m.offset;
+	if (vout->ipu_buf[1] == -1)
+		phy_addr1 = phy_addr0;
+	else
+		phy_addr1 = vout->v4l2_bufs[vout->ipu_buf[1]].m.offset;
 	if (ipu_init_channel_buffer(vout->post_proc_ch,
 				    IPU_INPUT_BUFFER,
 				    params->mem_pp_mem.in_pixel_fmt,
@@ -1029,8 +1104,8 @@ static int init_PP(ipu_channel_params_t *params, vout_data *vout,
 				    bytes_per_pixel(params->mem_pp_mem.
 					    in_pixel_fmt),
 				    IPU_ROTATE_NONE,
-				    vout->v4l2_bufs[vout->ipu_buf[0]].m.offset,
-				    vout->v4l2_bufs[vout->ipu_buf[1]].m.offset,
+				    phy_addr0,
+				    phy_addr1,
 				    vout->offset.u_offset,
 				    vout->offset.v_offset) != 0) {
 		dev_err(dev, "Error initializing PP input buffer\n");
@@ -1155,7 +1230,7 @@ static int init_PP(ipu_channel_params_t *params, vout_data *vout,
  *
  * @return status  0 Success
  */
-static int mxc_v4l2out_streamon(vout_data * vout)
+static int mxc_v4l2out_streamon(vout_data *vout)
 {
 	struct device *dev = &vout->video_dev->dev;
 	ipu_channel_params_t params;
@@ -1195,8 +1270,9 @@ static int mxc_v4l2out_streamon(vout_data * vout)
 	g_irq_cnt = g_buf_output_cnt = g_buf_q_cnt = g_buf_dq_cnt = 0;
 	out_width = vout->crop_current.width;
 	out_height = vout->crop_current.height;
+	vout->disp_buf_num = 0;
 	vout->next_done_ipu_buf = 0;
-	vout->next_rdy_ipu_buf = 1;
+	vout->next_rdy_ipu_buf = vout->next_disp_ipu_buf = 1;
 	vout->pp_split = 0;
 	ipu_ic_out_max_height_size = 1024;
 #ifdef CONFIG_MXC_IPU_V1
@@ -1211,12 +1287,12 @@ static int mxc_v4l2out_streamon(vout_data * vout)
 		(out_height > ipu_ic_out_max_height_size))
 		vout->pp_split = 4;
 	if (!INTERLACED_CONTENT(vout)) {
-		vout->next_done_ipu_buf = vout->next_rdy_ipu_buf = 0;
 		vout->ipu_buf[0] = dequeue_buf(&vout->ready_q);
 		/* split IC by two stripes, the by pass is impossible*/
 		if ((out_width != vout->v2f.fmt.pix.width ||
 			out_height != vout->v2f.fmt.pix.height) &&
 			vout->pp_split) {
+			vout->next_done_ipu_buf = vout->next_rdy_ipu_buf = 0;
 			vout->ipu_buf[1] = vout->ipu_buf[0];
 			vout->frame_count = 1;
 			if ((out_width > ipu_ic_out_max_width_size) &&
@@ -1227,8 +1303,8 @@ static int mxc_v4l2out_streamon(vout_data * vout)
 			else
 				vout->pp_split = 3; /*2 vertical stripes*/
 		} else {
-			vout->ipu_buf[1] = dequeue_buf(&vout->ready_q);
-			vout->frame_count = 2;
+			vout->ipu_buf[1] = -1;
+			vout->frame_count = 1;
 		}
 	} else if (!LOAD_3FIELDS(vout)) {
 		vout->ipu_buf[0] = dequeue_buf(&vout->ready_q);
@@ -1254,8 +1330,21 @@ static int mxc_v4l2out_streamon(vout_data * vout)
 	vout->yres = fbvar.yres;
 
 	if (vout->cur_disp_output == 3 || vout->cur_disp_output == 5) {
+		unsigned int fb_fmt = vout->v2f.fmt.pix.pixelformat;
+
+		/* DC channel can not use CSC */
+		if (vout->cur_disp_output == 5) {
+			if (fbi->fbops->fb_ioctl) {
+				old_fs = get_fs();
+				set_fs(KERNEL_DS);
+				fbi->fbops->fb_ioctl(fbi, MXCFB_GET_DIFMT,
+						(unsigned long)&fb_fmt);
+				set_fs(old_fs);
+			}
+		}
+
 		fbvar.bits_per_pixel = 16;
-		if (format_is_yuv(vout->v2f.fmt.pix.pixelformat))
+		if (format_is_yuv(fb_fmt))
 			fbvar.nonstd = IPU_PIX_FMT_UYVY;
 		else
 			fbvar.nonstd = 0;
@@ -1288,6 +1377,12 @@ static int mxc_v4l2out_streamon(vout_data * vout)
 	if (format_is_yuv(vout->v2f.fmt.pix.pixelformat) !=
 	    format_is_yuv(bpp_to_fmt(fbi)))
 		vout->ic_bypass = 0;
+#else
+	/* DC channel needs IC to do CSC */
+	if ((format_is_yuv(vout->v2f.fmt.pix.pixelformat) !=
+		format_is_yuv(bpp_to_fmt(fbi))) &&
+			(vout->cur_disp_output == 5))
+		vout->ic_bypass = 0;
 #endif
 
 	if (fbi->fbops->fb_ioctl) {
@@ -1306,27 +1401,31 @@ static int mxc_v4l2out_streamon(vout_data * vout)
 	vout->display_ch = ipu_ch;
 
 	if (vout->ic_bypass) {
-		pr_debug("Bypassing IC\n");
+		dev_info(dev, "Bypassing IC\n");
 		vout->pp_split = 0;
 		switch (vout->v2f.fmt.pix.pixelformat) {
-			case V4L2_PIX_FMT_YUV420:
-			case V4L2_PIX_FMT_YVU420:
-			case V4L2_PIX_FMT_NV12:
-				fbvar.bits_per_pixel = 12;
-				break;
-			case V4L2_PIX_FMT_YUV422P:
-				fbvar.bits_per_pixel = 16;
-				break;
-			default:
-				fbvar.bits_per_pixel = 8*
-					bytes_per_pixel(vout->v2f.fmt.pix.pixelformat);
+		case V4L2_PIX_FMT_YUV420:
+		case V4L2_PIX_FMT_YVU420:
+		case V4L2_PIX_FMT_NV12:
+		fbvar.bits_per_pixel = 12;
+			break;
+		case V4L2_PIX_FMT_YUV422P:
+			fbvar.bits_per_pixel = 16;
+			break;
+		default:
+			fbvar.bits_per_pixel = 8*
+			bytes_per_pixel(vout->v2f.fmt.pix.pixelformat);
 		}
 		fbvar.nonstd = vout->v2f.fmt.pix.pixelformat;
 	}
 
 	/* Init display channel through fb API */
 	fbvar.activate |= FB_ACTIVATE_FORCE;
+	acquire_console_sem();
+	fbi->flags |= FBINFO_MISC_USEREVENT;
 	fb_set_var(fbi, &fbvar);
+	fbi->flags &= ~FBINFO_MISC_USEREVENT;
+	release_console_sem();
 
 	if (fbi->fbops->fb_ioctl && vout->display_ch == MEM_FG_SYNC) {
 		fb_pos.x = vout->crop_current.left;
@@ -1453,6 +1552,7 @@ static int mxc_v4l2out_streamon(vout_data * vout)
 		acquire_console_sem();
 		fb_blank(fbi, FB_BLANK_UNBLANK);
 		release_console_sem();
+		vout->fb_blank = FB_BLANK_UNBLANK;
 	} else {
 		ipu_enable_channel(vout->display_ch);
 	}
@@ -1464,12 +1564,8 @@ static int mxc_v4l2out_streamon(vout_data * vout)
 			ipu_enable_channel(MEM_VDI_PRP_VF_MEM_P);
 			ipu_enable_channel(MEM_VDI_PRP_VF_MEM_N);
 			ipu_select_multi_vdi_buffer(0);
-		} else if (INTERLACED_CONTENT(vout)) {
-			ipu_select_buffer(vout->post_proc_ch, IPU_INPUT_BUFFER, 0);
 		} else {
 			ipu_select_buffer(vout->post_proc_ch, IPU_INPUT_BUFFER, 0);
-			if (!vout->pp_split)
-				ipu_select_buffer(vout->post_proc_ch, IPU_INPUT_BUFFER, 1);
 		}
 		ipu_select_buffer(vout->post_proc_ch, IPU_OUTPUT_BUFFER, 0);
 		ipu_select_buffer(vout->post_proc_ch, IPU_OUTPUT_BUFFER, 1);
@@ -1480,9 +1576,6 @@ static int mxc_v4l2out_streamon(vout_data * vout)
 		ipu_update_channel_buffer(vout->display_ch,
 				IPU_INPUT_BUFFER,
 				0, vout->v4l2_bufs[vout->ipu_buf[0]].m.offset);
-		ipu_update_channel_buffer(vout->display_ch,
-				IPU_INPUT_BUFFER,
-				1, vout->v4l2_bufs[vout->ipu_buf[1]].m.offset);
 		if (vout->offset.u_offset || vout->offset.v_offset)
 			/* only update u/v offset */
 			ipu_update_channel_offset(vout->display_ch,
@@ -1496,7 +1589,7 @@ static int mxc_v4l2out_streamon(vout_data * vout)
 					0,
 					0);
 		ipu_select_buffer(vout->display_ch, IPU_INPUT_BUFFER, 0);
-		queue_work(vout->v4l_wq, &vout->timer_work);
+		queue_work(vout->v4l_wq, &vout->icbypass_work);
 	}
 
 	vout->start_jiffies = jiffies;
@@ -1534,50 +1627,7 @@ static int mxc_v4l2out_streamoff(vout_data * vout)
 		ipu_free_irq(vout->work_irq, vout);
 
 	if (vout->ic_bypass)
-		cancel_work_sync(&vout->timer_work);
-
-	/* fill black color for fb, we assume fb has double buffer*/
-	if (format_is_yuv(vout->v2f.fmt.pix.pixelformat)) {
-		int i;
-
-		if ((vout->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_UYVY) ||
-			(vout->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) ||
-			(!vout->ic_bypass)) {
-			short * tmp = (short *) fbi->screen_base;
-			short color;
-			if (vout->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV)
-				color = 0x8000;
-			else
-				color = 0x80;
-			for (i = 0; i < (fbi->fix.line_length * fbi->var.yres_virtual)/2;
-					i++, tmp++)
-				*tmp = color;
-		} else if ((vout->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_YUV420) ||
-				(vout->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_YVU420) ||
-				(vout->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_NV12)) {
-			char * base = (char *)fbi->screen_base;
-			int j, screen_size = fbi->var.xres * fbi->var.yres;
-
-			for (j = 0; j < 2; j++) {
-				memset(base, 0, screen_size);
-				base += screen_size;
-				for (i = 0; i < screen_size/2; i++, base++)
-					*base = 0x80;
-			}
-		} else if (vout->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_YUV422P) {
-			char * base = (char *)fbi->screen_base;
-			int j, screen_size = fbi->var.xres * fbi->var.yres;
-
-			for (j = 0; j < 2; j++) {
-				memset(base, 0, screen_size);
-				base += screen_size;
-				for (i = 0; i < screen_size; i++, base++)
-					*base = 0x80;
-			}
-		}
-	} else
-		memset(fbi->screen_base, 0x0,
-				fbi->fix.line_length * fbi->var.yres_virtual);
+		cancel_work_sync(&vout->icbypass_work);
 
 	spin_lock_irqsave(&g_lock, lockflag);
 
@@ -1606,7 +1656,11 @@ static int mxc_v4l2out_streamoff(vout_data * vout)
 
 	if (vout->ic_bypass) {
 		fbi->var.activate |= FB_ACTIVATE_FORCE;
+		acquire_console_sem();
+		fbi->flags |= FBINFO_MISC_USEREVENT;
 		fb_set_var(fbi, &fbi->var);
+		fbi->flags &= ~FBINFO_MISC_USEREVENT;
+		release_console_sem();
 
 		if (vout->display_ch == MEM_FG_SYNC) {
 			acquire_console_sem();
@@ -1632,7 +1686,11 @@ static int mxc_v4l2out_streamoff(vout_data * vout)
 		ipu_disable_channel(MEM_PP_MEM, true);
 
 		fbi->var.activate |= FB_ACTIVATE_FORCE;
+		acquire_console_sem();
+		fbi->flags |= FBINFO_MISC_USEREVENT;
 		fb_set_var(fbi, &fbi->var);
+		fbi->flags &= ~FBINFO_MISC_USEREVENT;
+		release_console_sem();
 
 		if (vout->display_ch == MEM_FG_SYNC) {
 			acquire_console_sem();
@@ -1667,7 +1725,11 @@ static int mxc_v4l2out_streamoff(vout_data * vout)
 		}
 
 		fbi->var.activate |= FB_ACTIVATE_FORCE;
+		acquire_console_sem();
+		fbi->flags |= FBINFO_MISC_USEREVENT;
 		fb_set_var(fbi, &fbi->var);
+		fbi->flags &= ~FBINFO_MISC_USEREVENT;
+		release_console_sem();
 
 		if (vout->display_ch == MEM_FG_SYNC) {
 			acquire_console_sem();
@@ -1719,6 +1781,7 @@ static inline int valid_mode(u32 palette)
 		(palette == V4L2_PIX_FMT_UYVY) ||
 		(palette == V4L2_PIX_FMT_YUYV) ||
 		(palette == V4L2_PIX_FMT_YUV422P) ||
+		(palette == V4L2_PIX_FMT_YUV444) ||
 		(palette == V4L2_PIX_FMT_YUV420));
 }
 
@@ -1787,14 +1850,13 @@ static int mxc_v4l2out_s_fmt(vout_data * vout, struct v4l2_format *f)
 			"V4L2_FIELD_ALTERNATE field format not supported yet!\n");
 		break;
 	case V4L2_FIELD_INTERLACED_TB:
+	case V4L2_FIELD_INTERLACED_BT:
 		if (cpu_is_mx51() || cpu_is_mx53())
 			break;
 		dev_err(&vout->video_dev->dev,
 			"De-interlacing not supported in this device!\n");
 		vout->field_fmt = V4L2_FIELD_NONE;
-	case V4L2_FIELD_INTERLACED_BT:
-		dev_err(&vout->video_dev->dev,
-			"V4L2_FIELD_INTERLACED_BT field format not supported yet!\n");
+		break;
 	default:
 		vout->field_fmt = V4L2_FIELD_NONE;
 		break;
@@ -1938,7 +2000,7 @@ static int mxc_v4l2out_open(struct file *file)
 			goto oops;
 		}
 
-		INIT_WORK(&vout->timer_work, timer_work_func);
+		INIT_WORK(&vout->icbypass_work, icbypass_work_func);
 	}
 
 	file->private_data = dev;
@@ -2546,7 +2608,7 @@ static int mxc_v4l2out_probe(struct platform_device *pdev)
 	/*
 	 * Allocate sufficient memory for the fb structure
 	 */
-	g_vout = vout = kmalloc(sizeof(vout_data), GFP_KERNEL);
+	vout = kmalloc(sizeof(vout_data), GFP_KERNEL);
 
 	if (!vout)
 		return 0;
@@ -2613,10 +2675,7 @@ static int mxc_v4l2out_remove(struct platform_device *pdev)
 	vout_data *vout = platform_get_drvdata(pdev);
 
 	if (vout->video_dev) {
-		if (-1 != vout->video_dev->minor)
-			video_unregister_device(vout->video_dev);
-		else
-			video_device_release(vout->video_dev);
+		video_unregister_device(vout->video_dev);
 		vout->video_dev = NULL;
 	}
 
@@ -2632,14 +2691,14 @@ static int mxc_v4l2out_remove(struct platform_device *pdev)
  */
 static struct platform_driver mxc_v4l2out_driver = {
 	.driver = {
-		   .name = "MXC Video Output",
+		   .name = "mxc_v4l2_output",
 		   },
 	.probe = mxc_v4l2out_probe,
 	.remove = mxc_v4l2out_remove,
 };
 
 static struct platform_device mxc_v4l2out_device = {
-	.name = "MXC Video Output",
+	.name = "mxc_v4l2_output",
 	.id = 0,
 };
 
@@ -2649,13 +2708,7 @@ static struct platform_device mxc_v4l2out_device = {
  */
 static int mxc_v4l2out_init(void)
 {
-	u8 err = 0;
-
-	err = platform_driver_register(&mxc_v4l2out_driver);
-	if (err == 0) {
-		platform_device_register(&mxc_v4l2out_device);
-	}
-	return err;
+	return platform_driver_register(&mxc_v4l2out_driver);
 }
 
 /*!
@@ -2664,12 +2717,7 @@ static int mxc_v4l2out_init(void)
  */
 static void mxc_v4l2out_clean(void)
 {
-	video_unregister_device(g_vout->video_dev);
-
 	platform_driver_unregister(&mxc_v4l2out_driver);
-	platform_device_unregister(&mxc_v4l2out_device);
-	kfree(g_vout);
-	g_vout = NULL;
 }
 
 module_init(mxc_v4l2out_init);

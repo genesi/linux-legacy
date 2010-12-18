@@ -78,6 +78,12 @@ struct mxcfb_rect {
 
 #define TEMP_USE_AMBIENT			0x1000
 
+#define EPDC_FLAG_ENABLE_INVERSION		0x01
+#define EPDC_FLAG_FORCE_MONOCHROME		0x02
+#define EPDC_FLAG_USE_ALT_BUFFER		0x100
+
+#define FB_POWERDOWN_DISABLE			-1
+
 struct mxcfb_alt_buffer_data {
 	__u32 phys_addr;
 	__u32 width;	/* width of entire buffer */
@@ -91,7 +97,7 @@ struct mxcfb_update_data {
 	__u32 update_mode;
 	__u32 update_marker;
 	int temp;
-	int use_alt_buffer;
+	uint flags;
 	struct mxcfb_alt_buffer_data alt_buffer_data;
 };
 
@@ -118,6 +124,8 @@ struct mxcfb_waveform_modes {
 #define MXCFB_SET_GAMMA	       _IOW('F', 0x28, struct mxcfb_gamma)
 #define MXCFB_GET_FB_IPU_DI 	_IOR('F', 0x29, u_int32_t)
 #define MXCFB_GET_DIFMT	       _IOR('F', 0x2A, u_int32_t)
+#define MXCFB_GET_FB_BLANK	_IOR('F', 0x2B, u_int32_t)
+#define MXCFB_SET_DIFMT	       _IOW('F', 0x2C, u_int32_t)
 
 /* IOCTLs for E-ink panel updates */
 #define MXCFB_SET_WAVEFORM_MODES	_IOW('F', 0x2B, struct mxcfb_waveform_modes)
@@ -125,6 +133,8 @@ struct mxcfb_waveform_modes {
 #define MXCFB_SET_AUTO_UPDATE_MODE	_IOW('F', 0x2D, __u32)
 #define MXCFB_SEND_UPDATE			_IOW('F', 0x2E, struct mxcfb_update_data)
 #define MXCFB_WAIT_FOR_UPDATE_COMPLETE	_IOW('F', 0x2F, __u32)
+#define MXCFB_SET_PWRDOWN_DELAY		_IOW('F', 0x30, int32_t)
+#define MXCFB_GET_PWRDOWN_DELAY		_IOR('F', 0x31, int32_t)
 
 #ifdef __KERNEL__
 
@@ -140,5 +150,6 @@ enum {
 int mxcfb_set_refresh_mode(struct fb_info *fbi, int mode,
 			   struct mxcfb_rect *update_region);
 
+int mxc_elcdif_frame_addr_setup(dma_addr_t phys);
 #endif				/* __KERNEL__ */
 #endif

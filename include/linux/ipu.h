@@ -304,8 +304,9 @@ typedef enum {
 typedef union {
 	struct {
 		uint32_t csi;
-		bool mipi_en;
 		uint32_t mipi_id;
+		bool mipi_en;
+		bool interlaced;
 	} csi_mem;
 	struct {
 		uint32_t in_width;
@@ -956,6 +957,8 @@ int32_t ipu_init_sync_panel(int disp,
 
 int32_t ipu_disp_set_window_pos(ipu_channel_t channel, int16_t x_pos,
 				int16_t y_pos);
+int32_t ipu_disp_get_window_pos(ipu_channel_t channel, int16_t *x_pos,
+				int16_t *y_pos);
 int32_t ipu_disp_set_global_alpha(ipu_channel_t channel, bool enable,
 				  uint8_t alpha);
 int32_t ipu_disp_set_color_key(ipu_channel_t channel, bool enable,
