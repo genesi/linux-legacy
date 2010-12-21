@@ -52,12 +52,6 @@ EXPORT_SYMBOL_GPL(hid_debug);
 #endif
 
 
-
-//inherited V28 ,2010.03.10 Byron                                                                                                                                                                                               
-#ifdef CONFIG_MACH_MX51_EFIKASB
-extern void mxc_reset_idle_timer(void);
-#endif
-
 /*
  * Register a new report for a device.
  */

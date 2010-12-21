@@ -1147,14 +1147,13 @@ static int hid_probe(struct usb_interface *intf, const struct usb_device_id *id)
 
 #ifdef CONFIG_MACH_MX51_EFIKASB
         /* ron: skip the Logitech G15 GamePanel LCD */
-	// inherited Ron's code , Byron 2010.03.10                                                                                                                                                                      
+	// inherited Ron's code , Byron 2010.03.10
         if(hid->vendor == USB_VENDOR_ID_LOGITECH &&
            hid->product == USB_DEVICE_ID_LOGITECH_G15_GAMEPANEL) {
 	  ret = -ENODEV;
 	  goto err;
         }
 #endif
-
 
 	hid->name[0] = 0;
 	if (intf->cur_altsetting->desc.bInterfaceProtocol ==
