@@ -2697,11 +2697,6 @@ static struct platform_driver mxc_v4l2out_driver = {
 	.remove = mxc_v4l2out_remove,
 };
 
-static struct platform_device mxc_v4l2out_device = {
-	.name = "mxc_v4l2_output",
-	.id = 0,
-};
-
 /*!
  * mxc v4l2 init function
  *
