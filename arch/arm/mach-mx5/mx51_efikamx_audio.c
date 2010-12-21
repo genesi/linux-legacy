@@ -114,6 +114,7 @@ void mx51_efikamx_init_audio(void)
 	CONFIG_IOMUX(mx51_efikamx_audio_iomux_pins);
 
 	/* turn the SGTL5000 off to start */
+	gpio_request(IOMUX_TO_GPIO(EFIKAMX_AUDIO_CLOCK_ENABLE), "audio:clock");
 	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_AUDIO_CLOCK_ENABLE), 1);
 	gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_HP_DETECT));
 
