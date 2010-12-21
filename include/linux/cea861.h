@@ -53,6 +53,105 @@ struct __packed cea_timing_block {
 	u8	dbc_start_offset;		// data block collection offset
 };
 
+struct __packed cea_dbc_header {
+	unsigned length			: 5;
+	unsigned block_type_tag		: 3;
+};
+
+#define CEA_DATA_BLOCK_TAG_AUDIO	(0x1)
+
+enum cea_dbc_audio_format {
+	CEA_AUDIO_FORMAT_RESERVED0,
+	CEA_AUDIO_FORMAT_LPCM,
+	CEA_AUDIO_FORMAT_AC3,
+	CEA_AUDIO_FORMAT_MPEG1,
+	CEA_AUDIO_FORMAT_MP3,
+	CEA_AUDIO_FORMAT_MPEG2,
+	CEA_AUDIO_FORMAT_AAC,
+	CEA_AUDIO_FORMAT_DTS,
+	CEA_AUDIO_FORMAT_ATRAC,
+	CEA_AUDIO_FORMAT_SACD_1BIT,
+	CEA_AUDIO_FORMAT_DOLBYDIGITALPLUS,
+	CEA_AUDIO_FORMAT_DTSHD,
+	CEA_AUDIO_FORMAT_MLP_DOLBYTRUEHD,
+	CEA_AUDIO_FORMAT_DST_AUDIO,
+	CEA_AUDIO_FORMAT_WMA_PRO,
+	CEA_AUDIO_FORMAT_RESERVED15,
+};
+
+struct __packed cea_dbc_audio {
+	unsigned channels		: 3;
+	unsigned audio_format		: 4;
+	unsigned audio_reserved		: 1;
+
+	unsigned freq_32kHz		: 1;
+	unsigned freq_44kHz		: 1;
+	unsigned freq_48kHz		: 1;
+	unsigned freq_88kHz		: 1;
+	unsigned freq_96kHz		: 1;
+	unsigned freq_176kHz		: 1;
+	unsigned freq_192kHz		: 1;
+	unsigned freq_reserved		: 1;
+
+	union {
+		struct {
+			unsigned bits_16		: 1;
+			unsigned bits_20		: 1;
+			unsigned bits_24		: 1;
+			unsigned bits_reserved		: 5;
+		} lpcm_bits;
+		u8 rate_div_8kbps;
+	} bitrate;
+};
+
+#define CEA_DATA_BLOCK_TAG_VIDEO	(0x2)
+
+struct __packed cea_dbc_video {
+	unsigned cea_mode_index		: 7;
+	unsigned native			: 1;
+};
+
+#define CEA_DATA_BLOCK_TAG_VENDOR	(0x3)
+
+struct __packed cea_dbc_vendor {
+	u8 ieee_identifier[3]; // 0x03 0x0C 0x00  == HDMI Licensing, LLC.
+	u8 cec_address[2];
+
+	unsigned dvi_dual_link		: 1;
+	unsigned reserved		: 2;
+	unsigned dc_y444		: 1;
+	unsigned dc_30bit		: 1;
+	unsigned dc_36bit		: 1;
+	unsigned dc_48bit		: 1;
+	unsigned supports_ai		: 1;
+
+	u8 max_tmds_freqency; // divided by 5Mhz
+
+	unsigned latency_reserved	: 6;
+	unsigned latency_fields_il	: 1;
+	unsigned latency_fields		: 1;
+
+	u8 video_latency;
+	u8 audio_latency;
+	u8 video_latency_il;
+	u8 audio_latency_il;
+};
+
+#define CEA_DATA_BLOCK_TAG_SPEAKER	(0x4)
+
+struct __packed cea_dbc_speaker {
+
+	unsigned front_lr_present	: 1; /* 2 channels */
+	unsigned lfe_present		: 1; /* X.1 channels */
+	unsigned front_center_present	: 1; /* standard center speaker */
+	unsigned rear_lr_present	: 1; /* surround */
+	unsigned rear_center_present	: 1; /* for 6.1 */
+	unsigned fcenter_lr_present	: 1; /* for 7.1 */
+	unsigned rcenter_lr_present	: 1; /* for 7.1 */
+	unsigned speaker_reserved	: 1;
+
+	u8 reserved[2];
+};
 
 /* HDMI Constants and Structures */
 #define HDMI_PACKET_TYPE_INFO_FRAME			(0x80)
