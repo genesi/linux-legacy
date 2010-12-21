@@ -32,10 +32,6 @@ extern void mxc_power_on_wlan(int on);
 extern void efikasb_power_on_wwan(int val);
 extern void efikasb_power_on_bt(int val);
 
-extern int register_idle_notifier(struct notifier_block *);
-extern int unregister_idle_notifier(struct notifier_block *);
-extern void mxc_reset_idle_timer(void);
-
 extern int lid_wake_enable;
 extern int mxc_get_lid_sw_status(void);
 
@@ -136,28 +132,6 @@ static int pm_notifier_call(struct notifier_block *nb, unsigned long event, void
 
 static struct notifier_block pm_nb = {
         .notifier_call = pm_notifier_call,
-};
-
-
-#define EVENT_IDLE      1
-static int idle_notifier_call(struct notifier_block *nb, unsigned long event, void *v)
-{
-        int value = (int) v;
-
-        switch(event) {
-        case EVENT_IDLE:
-                input_event(efikasb_inputdev, EV_PWR, KEY_SUSPEND, value);
-                input_sync(efikasb_inputdev);
-                return NOTIFY_OK;
-
-        }
-        
-        return NOTIFY_DONE;
-
-}
-
-static struct notifier_block idle_nb = {
-        .notifier_call = idle_notifier_call,
 };
 
 
@@ -462,7 +436,6 @@ static int __init mxc_init_efikasb_inputdev(void)
         mxc_init_wireless_sw();
 
         register_pm_notifier(&pm_nb);
-        register_idle_notifier(&idle_nb);
 
 	return ret;
 }

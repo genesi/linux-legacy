@@ -19,7 +19,6 @@
 
 int lid_wake_enable = 0;
 extern int mxc_get_lid_sw_status(void);
-extern void mxc_reset_idle_timer(void);
 
 static struct input_dev *efikasb_lid_inputdev;
 
@@ -31,7 +30,6 @@ static irqreturn_t lid_sw_int(int irq, void *dev_id)
 {
 	int lid_close;
 
-        mxc_reset_idle_timer();
 	lid_close = mxc_get_lid_sw_status();
 	if(lid_close) {
 		pr_info("Lid Switch Close\n");
