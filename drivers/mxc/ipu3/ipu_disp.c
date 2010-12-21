@@ -1040,9 +1040,12 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 	__raw_writel((1 << 21), DI_GENERAL(disp));
 
 	di_parent = clk_get_parent(g_di_clk[disp]);
-	if (clk_get(NULL, "tve_clk") == di_parent ||
-	    clk_get(NULL, "ldb_di0_clk") == di_parent ||
-	    clk_get(NULL, "ldb_di1_clk") == di_parent)  {
+	if (clk_get(NULL, "tve_clk") == di_parent
+#if defined(CONFIG_FB_MXC_LDB)
+		|| clk_get(NULL, "ldb_di0_clk") == di_parent
+		|| clk_get(NULL, "ldb_di1_clk") == di_parent
+#endif
+		)  {
 		/* if di clk parent is tve/ldb, then keep it;*/
 		dev_dbg(g_ipu_dev, "use special clk parent\n");
 		clk_set_parent(g_pixel_clk[disp], g_di_clk[disp]);
