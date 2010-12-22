@@ -900,8 +900,12 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 		/* enable any existing framebuffers */
 		DEBUG("%d registered framebuffers\n", num_registered_fb);
 		for (i = 0; i < num_registered_fb; i++)
-			if ((ret = siihdmi_init_fb(tx, registered_fb[i])) < 0)
-				goto error;
+		{
+			/* hack: only init the background framebuffer */
+			if (!strncmp("DISP3 BG", registered_fb[i]->fix.id, 8))
+				if ((ret = siihdmi_init_fb(tx, registered_fb[i])) < 0)
+					goto error;
+		}
 	} else {
 		/*
 		 * A sink is not currently present.  However, the device has
