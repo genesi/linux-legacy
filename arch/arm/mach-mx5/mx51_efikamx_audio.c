@@ -61,6 +61,7 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_audio_iomux_pins[] = {
 	 },
 	{ EFIKAMX_AUDIO_CLOCK_ENABLE, IOMUX_CONFIG_GPIO, }, /* ALT4? */
 	{ EFIKAMX_AMP_ENABLE, IOMUX_CONFIG_GPIO, PAD_CTL_100K_PU, },
+	{ EFIKAMX_HP_DETECT, IOMUX_CONFIG_GPIO, PAD_CTL_100K_PU, },
 };
 
 static int mx51_efikamx_audio_amp_enable(int enable)
@@ -114,7 +115,6 @@ void mx51_efikamx_init_audio(void)
 	CONFIG_IOMUX(mx51_efikamx_audio_iomux_pins);
 
 	/* turn the SGTL5000 off to start */
-	gpio_request(IOMUX_TO_GPIO(EFIKAMX_AUDIO_CLOCK_ENABLE), "audio:clock");
 	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_AUDIO_CLOCK_ENABLE), 1);
 	gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_HP_DETECT));
 
