@@ -241,6 +241,9 @@ void mx51_efikamx_init_spi(void)
 #if defined(CONFIG_SPI_MXC)
 	mxc_register_device(&mxcspi1_device,
 #elif defined(CONFIG_SPI_IMX)
+	gpio_free(IOMUX_TO_GPIO(MX51_PIN_CSPI1_SS0));
+	gpio_free(IOMUX_TO_GPIO(MX51_PIN_CSPI1_SS1));
+
 	mxc_register_device(&spi_imx_device,
 #elif defined(CONFIG_SPI_GPIO)
 	/* mxc_request_iomux also requests gpio for us so free them before
