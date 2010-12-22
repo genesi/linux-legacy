@@ -83,14 +83,9 @@ static struct fsl_ata_platform_data mx51_efikamx_ata_data = {
 	.io_reg = NULL,
 };
 #elif defined(CONFIG_PATA_PLATFORM) || defined(CONFIG_PATA_PLATFORM_MODULE)
-/*
- * pata_fsl includes the whole lot in it's register set but pata_platform
- * requires the last register to be it's own whole resouce. Dumb but we will
- * accomodate it..
- */
 static struct resource pata_platform_resources[] = {
 	{
-		.start = ATA_BASE_ADDR,
+		.start = ATA_BASE_ADDR + 0x000000A0,
 		.end = ATA_BASE_ADDR + 0x000000C0,
 		.flags = IORESOURCE_MEM,
 	},
