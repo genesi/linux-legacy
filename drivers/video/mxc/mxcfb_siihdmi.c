@@ -761,6 +761,7 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *fb)
 
 	/* TODO mxcfb_adjust did some additional work */
 	fb_videomode_to_var(&var, mode);
+	msleep(10); // pause to let IPU settle
 	if ((ret = siihdmi_set_resolution(tx, &var)) < 0)
 		return ret;
 
