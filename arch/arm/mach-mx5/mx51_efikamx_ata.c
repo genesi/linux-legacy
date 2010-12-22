@@ -63,31 +63,12 @@ struct mxc_iomux_pin_cfg __initdata mx51_efikamx_ata_iomux_pins[] = {
 	{ MX51_PIN_NANDF_D15, IOMUX_CONFIG_ALT1, ATA_PAD_CONFIG, },
 };
 
-/* where the hell do these come from? */
-extern void gpio_ata_active(void);
-extern void gpio_ata_inactive(void);
-
-static int mx51_efikamx_ata_active(struct platform_device *pdev)
-{
-	/* Configure the pins */
-	gpio_ata_active();
-	return 0;
-}
-
-static void mx51_efikamx_ata_inactive(void)
-{
-	/* Free the pins */
-	gpio_ata_inactive();
-}
-
 static struct fsl_ata_platform_data mx51_efikamx_ata_data = {
 	.udma_mask = ATA_UDMA3,
 	.mwdma_mask = ATA_MWDMA2,
 	.pio_mask = ATA_PIO4,
 	.fifo_alarm = MXC_IDE_DMA_WATERMARK / 2,
 	.max_sg = MXC_IDE_DMA_BD_NR,
-	.init = mx51_efikamx_ata_active,
-	.exit = mx51_efikamx_ata_inactive,
 	.core_reg = NULL,
 	.io_reg = NULL,
 };
