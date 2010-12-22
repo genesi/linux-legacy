@@ -28,6 +28,14 @@
 
 #include "mx51_efikamx.h"
 
+#if defined(CONFIG_PATA_PLATFORM_MODULE) || defined(CONFIG_PATA_PLATFORM)
+#include <linux/ata_platform.h>
+#if defined(CONFIG_PATA_FSL_MODULE) || defined(CONFIG_PATA_FSL)
+#warning please select PATA_FSL or PATA_PLATFORM but not both...
+#endif
+#endif
+
+
 #define ATA_PAD_CONFIG (PAD_CTL_DRV_HIGH | PAD_CTL_DRV_VOT_HIGH)
 
 struct mxc_iomux_pin_cfg __initdata mx51_efikamx_ata_iomux_pins[] = {
@@ -63,6 +71,8 @@ struct mxc_iomux_pin_cfg __initdata mx51_efikamx_ata_iomux_pins[] = {
 	{ MX51_PIN_NANDF_D15, IOMUX_CONFIG_ALT1, ATA_PAD_CONFIG, },
 };
 
+
+#if defined(CONFIG_PATA_FSL) || defined(CONFIG_PATA_FSL_MODULE)
 static struct fsl_ata_platform_data mx51_efikamx_ata_data = {
 	.udma_mask = ATA_UDMA3,
 	.mwdma_mask = ATA_MWDMA2,
@@ -72,7 +82,41 @@ static struct fsl_ata_platform_data mx51_efikamx_ata_data = {
 	.core_reg = NULL,
 	.io_reg = NULL,
 };
+#elif defined(CONFIG_PATA_PLATFORM) || defined(CONFIG_PATA_PLATFORM_MODULE)
+/*
+ * pata_fsl includes the whole lot in it's register set but pata_platform
+ * requires the last register to be it's own whole resouce. Dumb but we will
+ * accomodate it..
+ */
+static struct resource pata_platform_resources[] = {
+	{
+		.start = ATA_BASE_ADDR,
+		.end = ATA_BASE_ADDR + 0x000000C0,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = ATA_BASE_ADDR + 0x000000D8,
+		.end = ATA_BASE_ADDR + 0x000000DC,
+		.flags = IORESOURCE_MEM,
+	},
+	{
+		.start = MXC_INT_ATA,
+		.end = MXC_INT_ATA,
+		.flags = IORESOURCE_IRQ,
+	},
+};
 
+static struct platform_device pata_platform_device = {
+	.name = "pata_platform",
+	.id = 0,
+        .num_resources = ARRAY_SIZE(pata_platform_resources),
+        .resource = pata_platform_resources,
+};
+
+static struct pata_platform_info mx51_efikamx_ata_data = {
+	.ioport_shift = 2,
+};
+#endif
 
 
 void __init mx51_efikamx_init_pata(void)
@@ -80,5 +124,10 @@ void __init mx51_efikamx_init_pata(void)
 	DBG(("IOMUX for ATA (%d pins)\n", ARRAY_SIZE(mx51_efikamx_ata_iomux_pins)));
 	CONFIG_IOMUX(mx51_efikamx_ata_iomux_pins);
 
-	mxc_register_device(&pata_fsl_device, &mx51_efikamx_ata_data);
+#if defined(CONFIG_PATA_FSL) || defined(CONFIG_PATA_FSL_MODULE)
+	mxc_register_device(&pata_fsl_device,
+#elif defined(CONFIG_PATA_PLATFORM) || defined(CONFIG_PATA_PLATFORM_MODULE)
+	mxc_register_device(&pata_platform_device,
+#endif
+						&mx51_efikamx_ata_data);
 }
