@@ -346,9 +346,9 @@ static void pata_adma_bulk_unmap(struct ata_queued_cmd *qc)
 	for (i = 0; i < adma_info.sg_ents; i++) {
 		if (bdp->work_buf != bdp->sg_buf) {
 			if (qc->dma_dir == DMA_FROM_DEVICE) {
+				dma_unmap_single(qc->ap->dev, bdp->dma_address,
+					 bdp->dma_address, DMA_FROM_DEVICE);
 				memcpy(bdp->sg_buf, bdp->work_buf, bdp->length);
-				dma_cache_maint(bdp->sg_buf, bdp->length,
-						DMA_FROM_DEVICE);
 			}
 			dma_free_coherent(qc->ap->dev, bdp->length,
 					  bdp->work_buf, bdp->dma_address);
@@ -443,19 +443,15 @@ static irqreturn_t pata_fsl_adma_intr(int irq, void *dev_instance)
 
 	for (i = 0; i < host->n_ports; i++) {
 		struct ata_port *ap;
+		struct ata_queued_cmd *qc;
 
 		ap = host->ports[i];
-		if (ap && !(ap->flags & ATA_FLAG_DISABLED)) {
-			struct ata_queued_cmd *qc;
-
-			qc = ata_qc_from_tag(ap, ap->link.active_tag);
-			raw_local_irq_restore(flags);
-			pata_adma_bulk_unmap(qc);
-			raw_local_irq_save(flags);
-			if (qc && (!(qc->tf.flags & ATA_TFLAG_POLLING)) &&
-			    (qc->flags & ATA_QCFLAG_ACTIVE))
-				handled |= ata_sff_host_intr(ap, qc);
-		}
+		qc = ata_qc_from_tag(ap, ap->link.active_tag);
+		raw_local_irq_restore(flags);
+		pata_adma_bulk_unmap(qc);
+		raw_local_irq_save(flags);
+		if (qc && !(qc->tf.flags & ATA_TFLAG_POLLING))
+			handled |= ata_sff_host_intr(ap, qc);
 	}
 
 	spin_unlock_irqrestore(&host->lock, flags);
