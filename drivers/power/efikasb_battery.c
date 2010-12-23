@@ -583,23 +583,23 @@ static int efikasb_batt_get_property(struct power_supply *psy,
 			return ret;
 		val->intval = value;
 		break;
-	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW: /* minutes */
-		ret = efikasb_batt_run_time_to_empty(di, &value);
+	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_NOW:
+		ret = efikasb_batt_run_time_to_empty(di, &value);/* minutes */
 		if(ret != 0)
 			return ret;
-		val->intval = value;
+		val->intval = value * 60;
 		break;
-	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG: /* minutes */
-		ret = efikasb_batt_avg_time_to_empty(di, &value);
+	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG:
+		ret = efikasb_batt_avg_time_to_empty(di, &value); /* minutes */
 		if(ret != 0)
 			return ret;
-		val->intval = value;
+		val->intval = value * 60;
 		break;
-	case POWER_SUPPLY_PROP_TIME_TO_FULL_AVG: /* minutes */
-		ret = efikasb_batt_avg_time_to_full(di, &value);
+	case POWER_SUPPLY_PROP_TIME_TO_FULL_AVG:
+		ret = efikasb_batt_avg_time_to_full(di, &value); /* minutes */
 		if(ret != 0)
 			return ret;
-		val->intval = value;
+		val->intval = value * 60;
 		break;
 	case POWER_SUPPLY_PROP_MODEL_NAME:
 		ret = efikasb_batt_get_model_name(di);
