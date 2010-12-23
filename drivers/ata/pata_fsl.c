@@ -891,8 +891,12 @@ static int __devinit pata_fsl_probe(struct platform_device *pdev)
 		return ret;
 
 	clk_disable(priv->clk);
-	regulator_disable(core_reg);
-	regulator_disable(io_reg);
+
+	if (core_reg)
+		regulator_disable(core_reg);
+
+	if (io_reg)
+		regulator_disable(io_reg);
       err2:
 	if (plat->adma_flag && priv->adma_des_tp)
 		dma_free_coherent(&(pdev->dev),
