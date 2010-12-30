@@ -120,9 +120,22 @@ void __init mx51_efikamx_init_pata(void)
 	CONFIG_IOMUX(mx51_efikamx_ata_iomux_pins);
 
 #if defined(CONFIG_PATA_FSL) || defined(CONFIG_PATA_FSL_MODULE)
-	mxc_register_device(&pata_fsl_device,
+	mxc_register_device(&pata_fsl_device, &mx51_efikamx_ata_data);
 #elif defined(CONFIG_PATA_PLATFORM) || defined(CONFIG_PATA_PLATFORM_MODULE)
-	mxc_register_device(&pata_platform_device,
+	{
+		void __iomem *ata_regs;
+		ata_regs = ioremap_nocache(MX51_ATA_BASE_ADDR, 0x100);
+		if (ata_regs) {
+			/* control - disable fifo reset, disable ata reset, iordy handshake */
+			__raw_writel(0xc1, ata_regs + 0x24);
+			/* enable the interrupt */
+			__raw_writel(0x08, ata_regs + 0x2c);
+			iounmap(ata_regs);
+
+			mxc_register_device(&pata_platform_device, &mx51_efikamx_ata_data);
+		} else {
+			DBG(("failed to map ata registers!\n"));
+		}
+	}
 #endif
-						&mx51_efikamx_ata_data);
 }
