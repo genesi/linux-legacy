@@ -42,17 +42,16 @@ config MACH_MX51_BABBAGE
 	  configurations for the board and its peripherals.
 
 config MACH_MX51_EFIKAMX
-	bool "Support Genesi Efika MX platforms"
+	bool "Support Genesi Efika MX Smarttop"
 	select ARCH_MX51 
 	help
-	  Include support for Genesi Efika MX platforms. 
+	  Include support for Genesi Efika MX Smarttop. 
 
 config MACH_MX51_EFIKASB
         bool "Support Genesi Efika MX Smartbook"
         select ARCH_MX51
         help
-          Include support for Genesi Efika MX Smartbook. This includes specific
-          configurations for the board and its peripherals.
+          Include support for Genesi Efika MX Smartbook.
 
 config MACH_MX53_EVK
 	bool "Support MX53 EVK platform"
