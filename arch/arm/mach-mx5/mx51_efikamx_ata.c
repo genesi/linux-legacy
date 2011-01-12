@@ -79,6 +79,8 @@ static struct fsl_ata_platform_data mx51_efikamx_ata_data = {
 	.pio_mask = ATA_PIO4,
 	.fifo_alarm = MXC_IDE_DMA_WATERMARK / 2,
 	.max_sg = MXC_IDE_DMA_BD_NR,
+	.init = NULL,
+	.exit = NULL,
 	.core_reg = NULL,
 	.io_reg = NULL,
 };
