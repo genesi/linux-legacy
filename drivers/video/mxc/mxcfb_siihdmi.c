@@ -210,7 +210,8 @@ static int siihdmi_initialise(struct siihdmi_tx *tx)
 static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 {
 	u8 offset, ctrl;
-	int ret, retries = 5;
+	int ret;
+	unsigned long timeout = msecs_to_jiffies(50), start;
 
 	/* TODO convert retries to timeout */
 
@@ -238,10 +239,12 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 	}
 
 	/* step 3: poll for bus grant */
+	start = jiffies;
 	do {
 		ctrl = i2c_smbus_read_byte_data(tx->client,
 						SIIHDMI_TPI_REG_SYS_CTRL);
-	} while (! (ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) && --retries > 0);
+	} while (! (ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
+		 ! time_after(jiffies, start+timeout) );
 
 	/* step 4: take ownership of the DDC bus */
 	ret = i2c_smbus_write_byte_data(tx->client,
@@ -260,15 +263,15 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 		DEBUG("unable to read EDID block\n");
 
 	/* step 6: relinquish ownership of the DDC bus */
-	retries = 5;
-
+	start = jiffies;
 	do {
 		i2c_smbus_write_byte_data(tx->client,
 					  SIIHDMI_TPI_REG_SYS_CTRL,
 					  0x00);
 		ctrl = i2c_smbus_read_byte_data(tx->client,
 						SIIHDMI_TPI_REG_SYS_CTRL);
-	} while ((ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) && --retries > 0);
+	} while ((ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
+		 ! time_after(jiffies, start+timeout) );
 
 	/* step 7: (potentially) enable HDCP */
 
@@ -886,11 +889,11 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 
 	tx->irq = plat->hotplug_irq;
 
-	ret = request_irq(tx->irq, siihdmi_irq_handler, 0, "siihdmi", 0);
-	if (ret)
-	{
-		DEBUG("could not register display hotplug irq\n");
-	}
+//	ret = request_irq(tx->irq, siihdmi_irq_handler, 0, "siihdmi", 0);
+//	if (ret)
+//	{
+//		DEBUG("could not register display hotplug irq\n");
+//	}
 
 	/* initialise the device */
 	if ((ret = siihdmi_initialise(tx)) < 0)
