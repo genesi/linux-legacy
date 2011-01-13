@@ -262,7 +262,7 @@ ENTRY(vfp_put_double)
 #ifdef CONFIG_VFPv3
 	@ d16 - d31 registers
 	.irp	dr,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
-	mcrr	p11, 3, r1, r2, c\dr	@ fmdrr	r1, r2, d\dr
+	mcrr	p11, 3, r0, r1, c\dr	@ fmdrr	r1, r2, d\dr
 	mov	pc, lr
 	.endr
 #endif
