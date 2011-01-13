@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2010 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright 2008-2011 Freescale Semiconductor, Inc. All Rights Reserved.
  */
 
 /*
@@ -75,6 +75,9 @@
 #define MXC_DVFSCNTR_LTBRSR_MASK             0x00000018
 #define MXC_DVFSCNTR_LTBRSR_OFFSET           3
 #define MXC_DVFSCNTR_DVFEN                   0x00000001
+
+#define CCM_CDCR_SW_DVFS_EN			0x20
+#define CCM_CDCR_ARM_FREQ_SHIFT_DIVIDER		0x4
 
 extern int dvfs_core_is_active;
 extern void setup_pll(void);
@@ -164,6 +167,7 @@ static int set_cpu_freq(int wp)
 	int gp_volt = 0;
 	u32 reg;
 	u32 reg1;
+	u32 en_sw_dvfs = 0;
 	unsigned long flags;
 
 	if (cpu_wp_tbl[wp].pll_rate != cpu_wp_tbl[old_wp].pll_rate) {
@@ -237,8 +241,15 @@ static int set_cpu_freq(int wp)
 		/* Change arm_podf only */
 		/* set ARM_FREQ_SHIFT_DIVIDER */
 		reg = __raw_readl(dvfs_data->ccm_cdcr_reg_addr);
-		reg &= 0xFFFFFFFB;
-		reg |= 1 << 2;
+
+		/* Check if software_dvfs_en bit set */
+		if ((reg & CCM_CDCR_SW_DVFS_EN) != 0)
+			en_sw_dvfs = CCM_CDCR_SW_DVFS_EN;
+		else
+			en_sw_dvfs = 0x0;
+
+		reg &= ~(CCM_CDCR_SW_DVFS_EN | CCM_CDCR_ARM_FREQ_SHIFT_DIVIDER);
+		reg |= CCM_CDCR_ARM_FREQ_SHIFT_DIVIDER;
 		__raw_writel(reg, dvfs_data->ccm_cdcr_reg_addr);
 
 		/* Get ARM_PODF */
@@ -269,7 +280,6 @@ static int set_cpu_freq(int wp)
 		/* Set ARM_PODF */
 		reg &= 0xFFFFFFF8;
 		reg |= arm_podf;
-		spin_lock_irqsave(&mxc_dvfs_core_lock, flags);
 
 		reg1 = __raw_readl(dvfs_data->ccm_cdhipr_reg_addr);
 		if ((reg1 & 0x00010000) == 0)
@@ -279,6 +289,12 @@ static int set_cpu_freq(int wp)
 			return 0;
 		}
 
+		/* START the GPC main control FSM */
+		reg = __raw_readl(dvfs_data->gpc_cntr_reg_addr);
+		reg |= MXC_GPCCNTR_FUPD;
+		/* ADU=1, select ARM domain */
+		reg |= MXC_GPCCNTR_ADU;
+		__raw_writel(reg, dvfs_data->gpc_cntr_reg_addr);
 		/* set VINC */
 		reg = __raw_readl(dvfs_data->gpc_vcr_reg_addr);
 		reg &=
@@ -290,13 +306,8 @@ static int set_cpu_freq(int wp)
 		__raw_writel(reg, dvfs_data->gpc_vcr_reg_addr);
 
 		reg = __raw_readl(dvfs_data->gpc_cntr_reg_addr);
-		reg &= (~(MXC_GPCCNTR_ADU | MXC_GPCCNTR_FUPD | MXC_GPCCNTR_STRT));
-		__raw_writel(reg, dvfs_data->gpc_cntr_reg_addr);
-		reg = __raw_readl(dvfs_data->gpc_cntr_reg_addr);
-		reg |= MXC_GPCCNTR_ADU | MXC_GPCCNTR_FUPD;
-		__raw_writel(reg, dvfs_data->gpc_cntr_reg_addr);
-		reg = __raw_readl(dvfs_data->gpc_cntr_reg_addr);
-		reg |= MXC_GPCCNTR_STRT;
+		reg &= (~(MXC_GPCCNTR_ADU | MXC_GPCCNTR_FUPD));
+		reg |= MXC_GPCCNTR_ADU | MXC_GPCCNTR_FUPD | MXC_GPCCNTR_STRT;
 		__raw_writel(reg, dvfs_data->gpc_cntr_reg_addr);
 
 		/* Wait for arm podf Enable */
@@ -305,8 +316,6 @@ static int set_cpu_freq(int wp)
 			printk(KERN_DEBUG "Waiting arm_podf enabled!\n");
 			udelay(10);
 		}
-
-		spin_unlock_irqrestore(&mxc_dvfs_core_lock, flags);
 
 		if (vinc == 0) {
 			ret = regulator_set_voltage(core_regulator,
@@ -319,9 +328,11 @@ static int set_cpu_freq(int wp)
 			udelay(dvfs_data->delay_time);
 		}
 
-		propagate_rate(pll1_sw_clk);
-		/* Clear the ARM_FREQ_SHIFT_DIVIDER */
+		/* Clear the ARM_FREQ_SHIFT_DIVIDER and */
+		/* set software_dvfs_en bit back to original setting*/
 		reg = __raw_readl(dvfs_data->ccm_cdcr_reg_addr);
+		reg &= ~(CCM_CDCR_SW_DVFS_EN | CCM_CDCR_ARM_FREQ_SHIFT_DIVIDER);
+		reg |= en_sw_dvfs;
 		reg &= 0xFFFFFFFB;
 		__raw_writel(reg, dvfs_data->ccm_cdcr_reg_addr);
 	}
