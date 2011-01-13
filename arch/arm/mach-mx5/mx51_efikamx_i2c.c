@@ -21,6 +21,7 @@
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <mach/gpio.h>
+#include <mach/irqs.h>
 
 #include "devices.h"
 #include "mx51_pins.h"
