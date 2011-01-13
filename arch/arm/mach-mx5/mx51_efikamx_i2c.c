@@ -65,7 +65,7 @@ static struct mxc_lcd_platform_data mx51_efikamx_sii9022_data = {
 	.core_reg = "VGEN1",
 	.io_reg = "VGEN3",
 	.reset = mx51_efikamx_display_reset,
-	.hotplug_irq = IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIO),
+	.hotplug_irq = IOMUX_TO_IRQ(MX51_PIN_DISPB2_SER_DIO),
 };
 
 static struct i2c_board_info mx51_efikamx_i2c_board_info[] __initdata = {
