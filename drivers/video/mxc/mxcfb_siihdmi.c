@@ -858,13 +858,13 @@ static irqreturn_t siihdmi_irq_handler(int irq, void *dev_id)
 	struct siihdmi_tx *tx = ((struct siihdmi_tx *) dev_id);
 
 	DEBUG("hotplug event irq handled, scheduling hotplug work\n");
-	schedule_delayed_work(tx->hotplug, msecs_to_jiffies(50));
+	schedule_delayed_work(&tx->hotplug, msecs_to_jiffies(50));
 	return IRQ_HANDLED;
 }
 
 static void siihdmi_hotplug_event(struct work_struct *work)
 {
-	struct siihdmi_tx *tx = container_of(work, struct siihdmi_tx, hotplug);
+	struct siihdmi_tx *tx = container_of(work, struct siihdmi_tx, hotplug.work);
 	u8 data;
 
 	DEBUG("hotplug event work called\n");
@@ -906,20 +906,18 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	struct siihdmi_tx *tx;
 	int i, ret;
 
-	tx = kmalloc(sizeof(*tx), GFP_KERNEL);
+	tx = kzalloc(sizeof(struct siihdmi_tx), GFP_KERNEL);
 	if (!tx)
 		return -ENOMEM;
 
-	memset(tx, 0, sizeof(*tx));
 	tx->client = client;
 
 	i2c_set_clientdata(client, tx);
 
 	tx->irq = plat->hotplug_irq;
-	PREPARE_DELAYED_WORK(tx->hotplug, siihdmi_hotplug_event);
+	PREPARE_DELAYED_WORK(&tx->hotplug, siihdmi_hotplug_event);
 	ret = request_irq(tx->irq, siihdmi_irq_handler, IRQF_TRIGGER_RISING, "hdmi_hotplug", (void *) tx);
-	if (ret)
-	{
+	if (ret) {
 		DEBUG("could not register display hotplug irq\n");
 	}
 
