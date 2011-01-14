@@ -281,6 +281,7 @@ struct siihdmi_audio_info_frame {
 struct siihdmi_tx {
 	struct i2c_client *client;
 	struct notifier_block nb;
+	struct delayed_work *hotplug;
 
 	/* sink information */
 	bool enable_audio;

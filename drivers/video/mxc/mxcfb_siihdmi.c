@@ -49,10 +49,6 @@
 #define INFO(fmt, ...)		printk(KERN_INFO  "SIIHDMI: " fmt, ## __VA_ARGS__)
 
 
-static void siihdmi_hotplug_event(struct work_struct *work);
-static DECLARE_DELAYED_WORK(hotplug_work, siihdmi_hotplug_event);
-
-
 /* EDID constants and Structures */
 #define EDID_I2C_DDC_DATA_ADDRESS			(0x50)
 
@@ -113,14 +109,14 @@ static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 	u8 data;
 	char device[80];
 	size_t offset = 0;
-	int retries = 5;
+	unsigned long timeout = msecs_to_jiffies(50), start;
 
-	/* TODO convert retries to timeout */
-
+	start = jiffies;
 	do {
 		data = i2c_smbus_read_byte_data(tx->client,
 						SIIHDMI_TPI_REG_DEVICE_ID);
-	} while (data != SIIHDMI_DEVICE_ID_902x && --retries > 0);
+	} while (data != SIIHDMI_DEVICE_ID_902x &&
+		 !time_after(jiffies, start+timeout) );
 
 	if (data != SIIHDMI_DEVICE_ID_902x)
 		return -ENODEV;
@@ -212,8 +208,6 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 	u8 offset, ctrl;
 	int ret;
 	unsigned long timeout = msecs_to_jiffies(50), start;
-
-	/* TODO convert retries to timeout */
 
 	struct i2c_msg request[] = {
 		{ .addr  = EDID_I2C_DDC_DATA_ADDRESS,
@@ -820,7 +814,7 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 		 * sleep just a little while to let the IPU settle
 		 * before we force it to change again to an EDID mode
 		 */
-		msleep(10);
+		msleep(100);
 		return siihdmi_init_fb(tx, event->info);
 	}
 	case FB_EVENT_MODE_CHANGE:
@@ -828,7 +822,7 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 		struct fb_var_screeninfo var = {0};
 
 		fb_videomode_to_var(&var, event->info->mode);
-		msleep(10);
+		msleep(100);
 		return siihdmi_set_resolution(tx, &var);
 	}
 	break;
@@ -861,14 +855,48 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 
 static irqreturn_t siihdmi_irq_handler(int irq, void *dev_id)
 {
+	struct siihdmi_tx *tx = ((struct siihdmi_tx *) dev_id);
+
 	DEBUG("hotplug event irq handled, scheduling hotplug work\n");
-	schedule_delayed_work(&hotplug_work, msecs_to_jiffies(50));
+	schedule_delayed_work(tx->hotplug, msecs_to_jiffies(50));
 	return IRQ_HANDLED;
 }
 
 static void siihdmi_hotplug_event(struct work_struct *work)
 {
+	struct siihdmi_tx *tx = container_of(work, struct siihdmi_tx, hotplug);
+	u8 data;
+
 	DEBUG("hotplug event work called\n");
+
+	data = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_ISR);
+
+	if (data & SIIHDMI_IER_HOT_PLUG_EVENT)
+		DEBUG("interrupt hot plug event\n");
+
+	if (data & SIIHDMI_IER_RECEIVER_SENSE_EVENT)
+		DEBUG("interrupt receiver sense event or CTRL bus error\n");
+
+	if (data & SIIHDMI_IER_CTRL_BUS_EVENT)
+		DEBUG("interrupt CTRL bus event pending or hotplug state high\n");
+
+	if (data & SIIHDMI_IER_CPI_EVENT)
+		DEBUG("interrupt CPI event or RxSense state high\n");
+
+	if (data & SIIHDMI_IER_AUDIO_EVENT)
+		DEBUG("interrupt audio event\n");
+
+	if (data & SIIHDMI_IER_SECURITY_STATUS_CHANGE)
+		DEBUG("interrupt security status change\n");
+
+	if (data & SIIHDMI_IER_HDCP_VALUE_READY)
+		DEBUG("interrupt HDCP value ready\n");
+
+	if (data & SIIHDMI_IER_HDCP_AUTHENTICATION_STATUS_CHANGE)
+		DEBUG("interrupt HDCP authentication status change\n");
+
+	// write 1 to every fired event, to clear it
+	i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_ISR, data);
 }
 
 static int __devinit siihdmi_probe(struct i2c_client *client,
@@ -888,13 +916,14 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, tx);
 
 	tx->irq = plat->hotplug_irq;
+	PREPARE_DELAYED_WORK(tx->hotplug, siihdmi_hotplug_event);
+	ret = request_irq(tx->irq, siihdmi_irq_handler, IRQF_TRIGGER_RISING, "hdmi_hotplug", (void *) tx);
+	if (ret)
+	{
+		DEBUG("could not register display hotplug irq\n");
+	}
 
-//	ret = request_irq(tx->irq, siihdmi_irq_handler, 0, "siihdmi", 0);
-//	if (ret)
-//	{
-//		DEBUG("could not register display hotplug irq\n");
-//	}
-
+	msleep(100); // let things settle, for some reason this improves compatibility
 	/* initialise the device */
 	if ((ret = siihdmi_initialise(tx)) < 0)
 		goto error;
