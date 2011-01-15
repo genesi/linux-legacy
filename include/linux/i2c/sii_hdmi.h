@@ -45,7 +45,6 @@
 #define SIIHDMI_TPI_REG_AVI_INPUT_FORMAT		(0x09)
 #define SIIHDMI_TPI_REG_AVI_OUTPUT_FORMAT		(0x0a)
 #define SIIHDMI_TPI_REG_YC_INPUT_MODE			(0x0b)
-#define SIIHDMI_TPI_REG_AVI_INFO_FRAME_BASE		(0x0c)
 #define SIIHDMI_TPI_REG_AVI_DBYTE0			(0x0c)
 #define SIIHDMI_TPI_REG_AVI_DBYTE1			(0x0d)
 #define SIIHDMI_TPI_REG_AVI_DBYTE2			(0x0e)
@@ -107,6 +106,9 @@
 #define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DATA0		(0xc4)
 
 #define SIIHDMI_TPI_REG_RQB				(0xc7)
+
+#define SIIHDMI_TPI_REG_AVI_INFO_FRAME_BASE		(SIIHDMI_TPI_REG_AVI_DBYTE0)
+#define SIIHDMI_TPI_REG_AVI_INFO_FRAME_LENGTH		(SIIHDMI_TPI_REG_AVI_INFO_END_RIGHT_BAR_MSB - SIIHDMI_TPI_REG_AVI_DBYTE0 + 1)
 
 /* Input Bus and Pixel Repetition */
 #define SIIHDMI_PIXEL_REPETITION_DUAL			(1 << 0)
@@ -257,25 +259,26 @@ struct __packed info_frame_buffer_header {
 };
 #endif
 
-/* AVI InfoFrame is special so we skip type, version and length when we send it to the
- * chip to fill the registers. This is the offset inside the standard infoframe struct
- * that we send (encompassing type, version and length). The sent data starts at checksum
- * which is "byte 3".
+/*
+ * AVI InfoFrame is special so we skip type, version and length when we send it
+ * to the chip to fill the registers. This is the offset inside the standard
+ * infoframe struct that we send (encompassing type, version and length). The
+ * sent data starts at checksum which is "byte 3".
  */
+
 #define SIIHDMI_AVI_INFO_FRAME_OFFSET 3
 
 #define SIIHDMI_INFO_FRAME_BUFFER_LENGTH 31
 struct siihdmi_spd_info_frame {
 	struct info_frame_buffer_header config;
 	struct spd_info_frame spd;
-	u8	padding[7];
+	u8     padding;
 };
 
 #define SIIHDMI_AUDIO_INFO_FRAME_BUFFER_LENGTH 14
 struct siihdmi_audio_info_frame {
 	struct info_frame_buffer_header config;
 	struct audio_info_frame audio;
-	u8     padding[4];
 };
 
 struct siihdmi_tx {

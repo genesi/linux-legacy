@@ -410,162 +410,128 @@ static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
 		DEBUG("unable to set output format\n");
 }
 
-static void siihdmi_checksum_info_frame(u8 * const info_frame)
-{
-	u8 crc;
-	int i;
-	struct info_frame_header *header = (struct info_frame_header *) info_frame;
-
-	u8 type = header->infoframe_type;
-	u8 version = header->infoframe_version;
-	u8 length = header->infoframe_length;
-
-	crc = (HDMI_PACKET_TYPE_INFO_FRAME + type) + version + (length - 1);
-	for (i = 1; i < length; i++)
-		crc += info_frame[i];
-
-	header->chksum = HDMI_PACKET_CHECKSUM - crc;
-}
-
 static int siihdmi_set_avi_info_frame(struct siihdmi_tx *tx,
 				       struct fb_var_screeninfo *var)
 {
 	int ret;
-	struct avi_info_frame *avi = kzalloc(sizeof(struct avi_info_frame), GFP_KERNEL);
-	struct info_frame_header *header = (struct info_frame_header *) &avi->header;
+	struct avi_info_frame avi = {
+		.header = {
+			.type    = INFO_FRAME_TYPE_AUXILIARY_VIDEO_INFO,
+			.version = CEA861_AVI_INFO_FRAME_VERSION,
+			.length  = sizeof(avi) - sizeof(avi.header),
+		},
 
-	//BUILD_BUG_ON(sizeof(struct avi_info_frame) != 14);
+		.active_format_info_valid  = true,
+		.active_format_description = ACTIVE_FORMAT_DESCRIPTION_UNSCALED,
 
-	if (!avi)
-		return -ENOMEM;
+		.picture_aspect_ratio      = PICTURE_ASPECT_RATIO_UNSCALED,
 
-	/* TODO improve AVI InfoFrame we send */
-
-	header->infoframe_type = INFO_FRAME_TYPE_AUXILIARY_VIDEO_INFO;
-	header->infoframe_version = CEA861_AVI_INFO_FRAME_VERSION;
-	header->infoframe_length = 12;
+		.video_format              = VIDEO_FORMAT_UNKNOWN,
+	};
 
 	switch (tx->pixel_mapping) {
 	case PIXEL_MAPPING_UNDERSCANNED:
-		avi->scan_information = SCAN_INFORMATION_UNDERSCANNED;
+		avi.scan_information = SCAN_INFORMATION_UNDERSCANNED;
 		break;
 	case PIXEL_MAPPING_OVERSCANNED:
-		avi->scan_information = SCAN_INFORMATION_OVERSCANNED;
+		avi.scan_information = SCAN_INFORMATION_OVERSCANNED;
 		break;
 	default:
-		avi->scan_information = SCAN_INFORMATION_UNKNOWN;
+		avi.scan_information = SCAN_INFORMATION_UNKNOWN;
 		break;
 	}
 
-	avi->active_format_info_valid = true;
-	avi->active_format_description = ACTIVE_FORMAT_DESCRIPTION_UNSCALED;
+	cea861_checksum_info_frame((u8 *) &avi);
 
-	avi->picture_aspect_ratio = PICTURE_ASPECT_RATIO_UNSCALED;
-
-	avi->video_format = VIDEO_FORMAT_UNKNOWN;
-
-	siihdmi_checksum_info_frame((u8 *) avi);
-
+	BUILD_BUG_ON(sizeof(avi) - SIIHDMI_AVI_INFO_FRAME_OFFSET != SIIHDMI_TPI_REG_AVI_INFO_FRAME_LENGTH);
 	ret = i2c_smbus_write_i2c_block_data(tx->client,
 					     SIIHDMI_TPI_REG_AVI_INFO_FRAME_BASE,
-					     sizeof(struct avi_info_frame),
-					     ((u8 *) avi) + SIIHDMI_AVI_INFO_FRAME_OFFSET);
+					     sizeof(avi) - SIIHDMI_AVI_INFO_FRAME_OFFSET,
+					     ((u8 *) &avi) + SIIHDMI_AVI_INFO_FRAME_OFFSET);
 	if (ret < 0)
-		DEBUG("unable to write avi info frame id\n");
-
-	kfree(avi);
+		DEBUG("unable to write avi info frame\n");
 
 	return ret;
 }
 
 static int siihdmi_set_spd_info_frame(struct siihdmi_tx *tx,
-				       struct fb_var_screeninfo *var)
+				      struct fb_var_screeninfo *var)
 {
 	int ret;
-	struct siihdmi_spd_info_frame *packet = kzalloc(sizeof(struct siihdmi_spd_info_frame), GFP_KERNEL);
-	struct spd_info_frame *spd = (struct spd_info_frame *) &packet->spd;
-	struct info_frame_header *header = (struct info_frame_header *) &spd->header;
+	struct siihdmi_spd_info_frame packet = {
+		.spd = {
+			.header = {
+				.type    = INFO_FRAME_TYPE_SOURCE_PRODUCT_DESCRIPTION,
+				.version = CEA861_SPD_INFO_FRAME_VERSION,
+				.length  = sizeof(packet.spd) - sizeof(packet.spd.header),
+			},
 
-	//BUILD_BUG_ON(sizeof(struct siihdmi_spd_info_frame) != SIIHDMI_INFO_FRAME_BUFFER_LENGTH);
+			/* TODO this should be in platform data */
+			.vendor      = "Genesi",
+			.description = "Efika MX",
 
-	/* this should be in platform data */
-	#define SPD_VENDOR "Genesi"
-	#define SPD_DEVICE "Efika MX"
+			.source_device_info = SPD_SOURCE_PC_GENERAL,
+		},
 
-	if (!packet)
-		return -ENOMEM;
+		.config = {
+			.buffer_type = INFO_FRAME_BUFFER_SPD,
+			.repeat      = false,
+			.enable      = true,
+		},
+	};
 
-	header->infoframe_type = INFO_FRAME_TYPE_SOURCE_PRODUCT_DESCRIPTION;
-	header->infoframe_version = CEA861_SPD_INFO_FRAME_VERSION;
-	header->infoframe_length = 25;
+	cea861_checksum_info_frame((u8 *) &packet.spd);
 
-	packet->config.buffer_type = INFO_FRAME_BUFFER_SPD;
-	packet->config.enable = 1;
-	packet->config.repeat = 0;
-
-	/* yuuuck */
-	memcpy(&spd->vendor[0], SPD_VENDOR, 6);
-	memcpy(&spd->description[0], SPD_DEVICE, 8);
-	spd->source_device_info = SPD_SOURCE_PC_GENERAL;
-
-	siihdmi_checksum_info_frame((u8 *) spd);
-
+	BUILD_BUG_ON(sizeof(packet) != SIIHDMI_INFO_FRAME_BUFFER_LENGTH);
 	ret = i2c_smbus_write_i2c_block_data(tx->client,
 					     SIIHDMI_TPI_REG_MISC_INFO_FRAME_BASE,
 					     sizeof(packet),
 					     (u8 *) &packet);
 	if (ret < 0)
-		DEBUG("unable to write spd info frame id\n");
-
-	kfree(packet);
+		DEBUG("unable to write spd info frame\n");
 
 	return ret;
 }
 
 static int siihdmi_set_audio_info_frame(struct siihdmi_tx *tx,
-				       struct fb_var_screeninfo *var)
+				        struct fb_var_screeninfo *var)
 {
 	int ret;
+	struct siihdmi_audio_info_frame packet = {
+		.audio = {
+			.header = {
+				.type    = INFO_FRAME_TYPE_AUDIO,
+				.version = CEA861_AUDIO_INFO_FRAME_VERSION,
+				.length  = sizeof(packet.audio) - sizeof(packet.audio.header),
+			},
 
-	struct siihdmi_audio_info_frame *packet = kzalloc(sizeof(struct siihdmi_audio_info_frame), GFP_KERNEL);
-	struct audio_info_frame *audio = (struct audio_info_frame *) &packet->audio;
-	struct info_frame_header *header = (struct info_frame_header *) &audio->header;
+			.channel_count         = CHANNEL_COUNT_REFER_STREAM_HEADER,
+			.channel_allocation    = CHANNEL_ALLOCATION_STEREO,
 
-	//BUILD_BUG_ON(sizeof(siihdmi_audio_info_frame) != SIIHDMI_AUDIO_INFO_FRAME_BUFFER_LENGTH);
+			.format_code_extension = CODING_TYPE_REFER_STREAM_HEADER,
 
-	if (!packet)
-		return -ENOMEM;
+			/* required to Refer to Stream Header by CEA861-D */
+			.coding_type           = CODING_TYPE_REFER_STREAM_HEADER,
 
-	if (tx->enable_audio)
-	{
-		packet->config.buffer_type = INFO_FRAME_BUFFER_AUDIO;
-		packet->config.enable = 1;
-		packet->config.repeat = 0;
+			.sample_size           = SAMPLE_SIZE_REFER_STREAM_HEADER,
+			.sample_frequency      = FREQUENCY_REFER_STREAM_HEADER,
+		},
 
-		header->infoframe_type = INFO_FRAME_TYPE_AUDIO;
-		header->infoframe_version = CEA861_AUDIO_INFO_FRAME_VERSION;
-		header->infoframe_length = 10;
+		.config = {
+			.buffer_type = INFO_FRAME_BUFFER_AUDIO,
+			.repeat      = false,
+			.enable      = tx->enable_audio,
+		},
+	};
 
-		/* lovely autodetecty defaults! */
-		audio->coding_type = CODING_TYPE_REFER_STREAM_HEADER;
-		audio->channel_count = CHANNEL_COUNT_REFER_STREAM_HEADER; /* (channels - 1) */
-		audio->sample_frequency = FREQUENCY_REFER_STREAM_HEADER;
-		audio->sample_size =  SAMPLE_SIZE_REFER_STREAM_HEADER;
-		audio->channel_allocation = CHANNEL_ALLOCATION_STEREO; /* complex :( */
-		audio->extension = CODING_TYPE_REFER_STREAM_HEADER; /* actually 0 = disabled */
-
-		siihdmi_checksum_info_frame((u8 *) audio);
-
-		ret = i2c_smbus_write_i2c_block_data(tx->client,
-						     SIIHDMI_TPI_REG_MISC_INFO_FRAME_BASE,
-						     sizeof(packet),
-						     (u8 *) &packet);
-	}
-
+	BUILD_BUG_ON(sizeof(packet) != SIIHDMI_AUDIO_INFO_FRAME_BUFFER_LENGTH);
+	ret = i2c_smbus_write_i2c_block_data(tx->client,
+					     SIIHDMI_TPI_REG_MISC_INFO_FRAME_BASE,
+					     sizeof(packet),
+					     (u8 *) &packet);
 	if (ret < 0)
-		DEBUG("unable to write audio info frame id\n");
+		DEBUG("unable to write audio info frame\n");
 
-	kfree(packet);
 	return ret;
 }
 

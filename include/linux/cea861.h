@@ -165,9 +165,9 @@ enum info_frame_type {
 
 /* Common InfoFrame header information */
 struct __packed info_frame_header {
-	u8 infoframe_type;
-	u8 infoframe_version;
-	u8 infoframe_length;
+	u8 type;
+	u8 version;
+	u8 length;
 	u8 chksum;
 };
 
@@ -361,33 +361,57 @@ enum audio_lfe_level {
 };
 
 struct __packed audio_info_frame {
-	struct info_frame_header header;
+	struct {
+		u8 type;
+		u8 version;
+		u8 length;
+	} header;
 
-	/* length 10 */
-	unsigned future1          : 1;
-	unsigned channel_count    : 3;
-	unsigned coding_type      : 4;
+	unsigned channel_count          : 3;
+	unsigned future13               : 1;
+	unsigned coding_type            : 4;
 
-	unsigned sample_size      : 2;
-	unsigned sample_frequency : 3;
-	unsigned future2          : 3;
+	unsigned sample_size            : 2;
+	unsigned sample_frequency       : 3;
+	unsigned future25               : 1;
+	unsigned future26               : 1;
+	unsigned future27               : 1;
 
-	unsigned extension        : 5;
-	unsigned future3          : 3;
+	unsigned format_code_extension  : 5;
+	unsigned future35               : 1;
+	unsigned future36               : 1;
+	unsigned future37               : 1;
 
 	u8       channel_allocation;
 
-	unsigned lfe_level        : 2;
-	unsigned future5          : 1;
-	unsigned level_shift      : 4; /* 0-15dB */
-	unsigned downmix_inhibit  : 1;
+	unsigned lfe_playback_level     : 2;
+	unsigned future52               : 1;
+	unsigned level_shift            : 4; /* 0-15dB */
+	unsigned down_mix_inhibit       : 1;
 
-	u8       future6_10[5];
+	u8       future_byte_6_10[5];
 };
 
 #else /* == !__LITTLE_ENDIAN_BITFIELD */
 #warning "structures defined and packed for little-endian byte order"
 #endif
+
+static inline void cea861_checksum_info_frame(u8 * const info_frame)
+{
+	struct info_frame_header * const header =
+		(struct info_frame_header *) info_frame;
+
+	int i;
+	u8 crc;
+
+	crc = (HDMI_PACKET_TYPE_INFO_FRAME + header->type) +
+		header->version + (header->length - 1);
+
+	for (i = 1; i < header->length; i++)
+		crc += info_frame[i];
+
+	header->chksum = HDMI_PACKET_CHECKSUM - crc;
+}
 
 #endif /* LINUX_CEA861_H */
 
