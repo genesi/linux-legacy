@@ -51,6 +51,12 @@
 #define INFO(fmt, ...)		printk(KERN_INFO  "SIIHDMI: " fmt, ## __VA_ARGS__)
 
 
+/* module parameters */
+static unsigned int bus_timeout = 50;
+module_param(bus_timeout, uint, 0644);
+MODULE_PARM_DESC(bus_timeout, "bus timeout in milliseconds");
+
+
 /*
  * Interesting note:
  * CEA spec describes several 1080p "low" field rates at 24, 25 and 30 fields
@@ -83,17 +89,18 @@ static struct fb_videomode siihdmi_default_video_mode = {
 static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 {
 	u8 data;
-	unsigned long timeout = msecs_to_jiffies(50), start, finish;
+	unsigned long start, finish;
 
 	start = jiffies;
 	do {
 		data = i2c_smbus_read_byte_data(tx->client,
 						SIIHDMI_TPI_REG_DEVICE_ID);
 	} while (data != SIIHDMI_DEVICE_ID_902x &&
-		 !time_after(jiffies, start+timeout) );
+		 !time_after(jiffies, start + bus_timeout));
 	finish = jiffies;
 
-	INFO("detect_revision: took %u ms to read device id\n", jiffies_to_msecs(finish-start));
+	DEBUG("took %u ms to read device id\n",
+	      jiffies_to_msecs(finish - start));
 
 	if (data != SIIHDMI_DEVICE_ID_902x)
 		return -ENODEV;
@@ -176,7 +183,7 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 {
 	u8 offset, ctrl;
 	int ret;
-	unsigned long timeout = msecs_to_jiffies(50), start, finish;
+	unsigned long start, finish;
 
 	struct i2c_msg request[] = {
 		{ .addr  = EDID_I2C_DDC_DATA_ADDRESS,
@@ -206,11 +213,12 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 	do {
 		ctrl = i2c_smbus_read_byte_data(tx->client,
 						SIIHDMI_TPI_REG_SYS_CTRL);
-	} while (! (ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
-		 ! time_after(jiffies, start+timeout) );
+	} while ((~ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
+		 !time_after(jiffies, start + bus_timeout));
 	finish = jiffies;
 
-	INFO("read_edid: took %u ms to poll for bus grant\n", jiffies_to_msecs(finish-start));
+	DEBUG("took %u ms to request DDC bus\n",
+	      jiffies_to_msecs(finish - start));
 
 	/* step 4: take ownership of the DDC bus */
 	ret = i2c_smbus_write_byte_data(tx->client,
@@ -237,10 +245,11 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 		ctrl = i2c_smbus_read_byte_data(tx->client,
 						SIIHDMI_TPI_REG_SYS_CTRL);
 	} while ((ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
-		 ! time_after(jiffies, start+timeout) );
+		 !time_after(jiffies, start + bus_timeout));
 	finish = jiffies;
 
-	INFO("read_edid: took %u ms to relinquish bus grant\n", jiffies_to_msecs(finish-start));
+	DEBUG("took %u ms to relinquish DDC bus\n",
+	      jiffies_to_msecs(finish - start));
 
 	/* step 7: (potentially) enable HDCP */
 
