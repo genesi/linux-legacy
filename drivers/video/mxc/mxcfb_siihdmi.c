@@ -852,7 +852,7 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 	return 0;
 }
 
-
+#ifdef CONFIG_SIIHDMI_HOTPLUG
 static irqreturn_t siihdmi_irq_handler(int irq, void *dev_id)
 {
 	struct siihdmi_tx *tx = ((struct siihdmi_tx *) dev_id);
@@ -898,6 +898,7 @@ static void siihdmi_hotplug_event(struct work_struct *work)
 	// write 1 to every fired event, to clear it
 	i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_ISR, data);
 }
+#endif
 
 static int __devinit siihdmi_probe(struct i2c_client *client,
 				   const struct i2c_device_id *id)
@@ -914,13 +915,14 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, tx);
 
+#ifdef CONFIG_SIIHDMI_HOTPLUG
 	tx->irq = plat->hotplug_irq;
 	PREPARE_DELAYED_WORK(&tx->hotplug, siihdmi_hotplug_event);
 	ret = request_irq(tx->irq, siihdmi_irq_handler, IRQF_TRIGGER_RISING, "hdmi_hotplug", (void *) tx);
 	if (ret) {
 		DEBUG("could not register display hotplug irq\n");
 	}
-
+#endif
 	msleep(100); // let things settle, for some reason this improves compatibility
 	/* initialise the device */
 	if ((ret = siihdmi_initialise(tx)) < 0)
