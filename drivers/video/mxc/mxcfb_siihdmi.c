@@ -878,7 +878,9 @@ static void siihdmi_hotplug_event(struct work_struct *work)
 static int __devinit siihdmi_probe(struct i2c_client *client,
 				   const struct i2c_device_id *id)
 {
+#ifdef CONFIG_SIIHDMI_HOTPLUG
 	struct mxc_lcd_platform_data *plat = client->dev.platform_data;
+#endif
 	struct siihdmi_tx *tx;
 	int i, ret;
 
