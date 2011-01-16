@@ -545,23 +545,11 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 
 	/* step 6: [HDMI] set AVI InfoFrame */
 	/* NOTE this is required as it flushes the vmode registers */
-	if (tx->connection_type == CONNECTION_TYPE_HDMI)
-	{
-		siihdmi_set_avi_info_frame(tx, var);
+	siihdmi_set_avi_info_frame(tx, var);
 
-		/* step 7: [HDMI] set new audio information */
-		siihdmi_set_audio_info_frame(tx, var);
-		siihdmi_set_spd_info_frame(tx, var);
-	}
-	else if (tx->connection_type == CONNECTION_TYPE_DVI) // save time and effort
-	{
-		u8 enable_dvi = 0;
-		ret = i2c_smbus_write_byte_data(tx->client,
-					SIIHDMI_TPI_REG_AVI_INFO_END_RIGHT_BAR_MSB,
-					enable_dvi);
-		if (ret < 0)
-			DEBUG("unable to enable DVI\n");
-	}
+	/* step 7: [HDMI] set new audio information */
+	siihdmi_set_audio_info_frame(tx, var);
+	siihdmi_set_spd_info_frame(tx, var);
 
 	/* step 8: enable display */
 	ctrl &= ~SIIHDMI_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN;
