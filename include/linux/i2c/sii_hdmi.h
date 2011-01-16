@@ -29,6 +29,9 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef LINUX_SIIHDMI_H
+#define LINUX_SIIHDMI_H
+
 #include <linux/cea861.h>
 
 /* TPI registers */
@@ -98,17 +101,45 @@
 #define SIIHDMI_TPI_REG_IER				(0x3c)
 #define SIIHDMI_TPI_REG_ISR				(0x3d)
 
-#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_BASE		(0xbf)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_SELECT		(0xbf)
 #define SIIHDMI_TPI_REG_MISC_INFO_FRAME_TYPE		(0xc0)
 #define SIIHDMI_TPI_REG_MISC_INFO_FRAME_VERSION		(0xc1)
-#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_LENGTH		(0xc2)
-#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_CHECKSUM	(0xc3)
-#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DATA0		(0xc4)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_LEN		(0xc2)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE0		(0xc3)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE1		(0xc4)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE2		(0xc5)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE3		(0xc6)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE4		(0xc7)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE5		(0xc8)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE6		(0xc9)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE7		(0xca)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE8		(0xcb)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE9		(0xcc)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE10		(0xcd)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE11		(0xce)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE12		(0xcf)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE13		(0xd0)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE14		(0xd1)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE15		(0xd2)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE16		(0xd3)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE17		(0xd4)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE18		(0xd5)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE19		(0xd6)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE20		(0xd7)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE21		(0xd8)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE22		(0xd9)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE23		(0xda)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE24		(0xdb)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE25		(0xdc)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE26		(0xdd)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE27		(0xde)
 
 #define SIIHDMI_TPI_REG_RQB				(0xc7)
 
-#define SIIHDMI_TPI_REG_AVI_INFO_FRAME_BASE		(SIIHDMI_TPI_REG_AVI_DBYTE0)
-#define SIIHDMI_TPI_REG_AVI_INFO_FRAME_LENGTH		(SIIHDMI_TPI_REG_AVI_INFO_END_RIGHT_BAR_MSB - SIIHDMI_TPI_REG_AVI_DBYTE0 + 1)
+/* driver constants */
+#define SIIHDMI_DEVICE_ID_902x				(0xb0)
+#define SIIHDMI_BASE_TPI_REVISION			(0x29)
+#define SIIHDMI_CTRL_INFO_FRAME_DRAIN_TIME		(0x80)
 
 /* Input Bus and Pixel Repetition */
 #define SIIHDMI_PIXEL_REPETITION_DUAL			(1 << 0)
@@ -137,10 +168,6 @@
 #define SIIHDMI_OUTPUT_FORMAT_HDMI_YUV_444		(1 << 0)
 #define SIIHDMI_OUTPUT_FORMAT_HDMI_YUV_422		(2 << 0)
 #define SIIHDMI_OUTPUT_FORMAT_DVI_RGB			(3 << 0)
-#define SIIHDMI_OUTPUT_VIDEO_RANGE_CO/* driver constants */
-#define SIIHDMI_DEVICE_ID_902x				(0xb0)
-#define SIIHDMI_BASE_TPI_REVISION			(0x29)
-#define SIIHDMI_CTRL_INFO_FRAME_DRAIN_TIME		(0x80)
 #define SIIHDMI_OUTPUT_VIDEO_RANGE_COMPRESSION_AUTO	(0 << 2)
 #define SIIHDMI_OUTPUT_VIDEO_RANGE_COMPRESSION_ON	(1 << 2)
 #define SIIHDMI_OUTPUT_VIDEO_RANGE_COMPRESSION_OFF	(2 << 2)
@@ -223,62 +250,65 @@
 #define SIIHDMI_RQB_FORCE_VIDEO_BLANK			(1 << 5)
 #define SIIHDMI_RQB_TPI_MODE_DISABLE			(1 << 7)
 
-/* driver constants */
-#define SIIHDMI_DEVICE_ID_902x				(0xb0)
-#define SIIHDMI_BASE_TPI_REVISION			(0x29)
-#define SIIHDMI_CTRL_INFO_FRAME_DRAIN_TIME		(0x80)
-
-/* SII HDMI chips have two ways to send HDMI InfoFrames - AVI is sent via a dedicated
- * block of registers while the rest are sent using a common set with a small configruation
- * header. However, the buffer types do not exactly correspond to the ones in the CEA spec
- * so they need to be redefined here for the buffer header
+/*
+ * SII HDMI chips have two ways to send HDMI InfoFrames:
+ *   a) AVI InfoFrame is sent via a dedicated TPI register block
+ *   b) Other InfoFrames are sent via a misc TPI register block with a header to
+ *      identifty the InfoFrame data
  */
-enum sii_info_frame_type {
-	INFO_FRAME_BUFFER_NONE,
-	INFO_FRAME_BUFFER_SPD,
-	INFO_FRAME_BUFFER_AUDIO,
-	INFO_FRAME_BUFFER_MPEG_GBD_VSIF,
-	INFO_FRAME_BUFFER_GENERIC1,
-	INFO_FRAME_BUFFER_GENERIC2,
-	INFO_FRAME_BUFFER_DEDICATED_GBD, /* SII9136, SII9334 only, for 3D support */
-};
 
-#if defined(__LITTLE_ENDIAN_BITFIELD)
-struct __packed info_frame_buffer_header {
-	unsigned buffer_type		: 3;
-	unsigned buffer_rsvd		: 3;
-	unsigned repeat			: 1;
-	unsigned enable			: 1;
-};
-#else
-struct __packed info_frame_buffer_header {
-	unsigned enable			: 1;
-	unsigned repeat			: 1;
-	unsigned buffer_rsvd		: 3;
-	unsigned buffer_type		: 3;
-};
-#endif
+/* InfoFrame blocks */
+#define SIIHDMI_TPI_REG_AVI_INFO_FRAME_BASE		(SIIHDMI_TPI_REG_AVI_DBYTE0)
+#define SIIHDMI_TPI_REG_AVI_INFO_FRAME_LENGTH		(SIIHDMI_TPI_REG_AVI_INFO_END_RIGHT_BAR_MSB - SIIHDMI_TPI_REG_AVI_DBYTE0 + 1)
+
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_BASE		(SIIHDMI_TPI_REG_MISC_INFO_FRAME_SELECT)
+#define SIIHDMI_TPI_REG_MISC_INFO_FRAME_LENGTH		(SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE27 - SIIHDMI_TPI_REG_MISC_INFO_FRAME_SELECT + 1)
+
+#define SIIHDMI_TPI_REG_AUDIO_INFO_FRAME_BASE		(SIIHDMI_TPI_REG_MISC_INFO_FRAME_SELECT)
+#define SIIHDMI_TPI_REG_AUDIO_INFO_FRAME_LENGTH		(SIIHDMI_TPI_REG_MISC_INFO_FRAME_DBYTE10 - SIIHDMI_TPI_REG_MISC_INFO_FRAME_SELECT + 1)
 
 /*
- * AVI InfoFrame is special so we skip type, version and length when we send it
- * to the chip to fill the registers. This is the offset inside the standard
- * infoframe struct that we send (encompassing type, version and length). The
- * sent data starts at checksum which is "byte 3".
+ * AVI InfoFrame is handled specially.  The type, version, and length fields (1
+ * byte each) are skipped in transmission.  We must offset into the standard
+ * structure to skip these fields.
  */
+#define SIIHDMI_AVI_INFO_FRAME_OFFSET			(0x03)
 
-#define SIIHDMI_AVI_INFO_FRAME_OFFSET 3
 
-#define SIIHDMI_INFO_FRAME_BUFFER_LENGTH 31
-struct siihdmi_spd_info_frame {
-	struct info_frame_buffer_header config;
-	struct spd_info_frame spd;
-	u8     padding;
+enum sii_info_frame_type {
+	INFO_FRAME_BUFFER_NONE,
+	INFO_FRAME_BUFFER_SPD_ACP,
+	INFO_FRAME_BUFFER_AUDIO,
+	INFO_FRAME_BUFFER_MPEG_GBD,
+	INFO_FRAME_BUFFER_GENERIC1_ISRC1,
+	INFO_FRAME_BUFFER_GENERIC2_ISRC2,
 };
 
-#define SIIHDMI_AUDIO_INFO_FRAME_BUFFER_LENGTH 14
+struct __packed info_frame_buffer_header {
+#if defined(__LITTLE_ENDIAN_BITFIELD)
+	unsigned info_frame     : 3;
+	unsigned                : 1;
+	unsigned                : 2;
+	unsigned repeat         : 1;
+	unsigned enable         : 1;
+#else
+	unsigned enable         : 1;
+	unsigned repeat         : 1;
+	unsigned                : 2;
+	unsigned                : 1;
+	unsigned info_frame     : 3;
+#endif
+};
+
+struct siihdmi_spd_info_frame {
+	struct info_frame_buffer_header header;
+	struct spd_info_frame           info_frame;
+	u8                              padding[2];
+};
+
 struct siihdmi_audio_info_frame {
-	struct info_frame_buffer_header config;
-	struct audio_info_frame audio;
+	struct info_frame_buffer_header header;
+	struct audio_info_frame         info_frame;
 };
 
 struct siihdmi_tx {
@@ -302,10 +332,5 @@ struct siihdmi_tx {
 	} pixel_mapping;
 };
 
+#endif
 
-
-
-// audio infoframe padding
-//	u8	padding[4]; /* SII9022 needs 14 bytes to send */
-// spd infoframe padding
-//	u8	padding[7]; 	/* SII9022 needs 31 bytes to trigger sending */

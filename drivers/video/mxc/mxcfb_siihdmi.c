@@ -373,8 +373,7 @@ static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
 		DEBUG("unable to set output format\n");
 }
 
-static int siihdmi_set_avi_info_frame(struct siihdmi_tx *tx,
-				       struct fb_var_screeninfo *var)
+static int siihdmi_set_avi_info_frame(struct siihdmi_tx *tx)
 {
 	int ret;
 	struct avi_info_frame avi = {
@@ -417,16 +416,21 @@ static int siihdmi_set_avi_info_frame(struct siihdmi_tx *tx,
 	return ret;
 }
 
-static int siihdmi_set_spd_info_frame(struct siihdmi_tx *tx,
-				      struct fb_var_screeninfo *var)
+static int siihdmi_set_spd_info_frame(struct siihdmi_tx *tx)
 {
 	int ret;
 	struct siihdmi_spd_info_frame packet = {
-		.spd = {
+		.header = {
+			.info_frame = INFO_FRAME_BUFFER_SPD_ACP,
+			.repeat     = false,
+			.enable     = true,
+		},
+
+		.info_frame = {
 			.header = {
 				.type    = INFO_FRAME_TYPE_SOURCE_PRODUCT_DESCRIPTION,
 				.version = CEA861_SPD_INFO_FRAME_VERSION,
-				.length  = sizeof(packet.spd) - sizeof(packet.spd.header),
+				.length  = sizeof(packet.info_frame) - sizeof(packet.info_frame.header),
 			},
 
 			/* TODO this should be in platform data */
@@ -435,37 +439,36 @@ static int siihdmi_set_spd_info_frame(struct siihdmi_tx *tx,
 
 			.source_device_info = SPD_SOURCE_PC_GENERAL,
 		},
-
-		.config = {
-			.buffer_type = INFO_FRAME_BUFFER_SPD,
-			.repeat      = false,
-			.enable      = true,
-		},
 	};
 
-	cea861_checksum_hdmi_info_frame((u8 *) &packet.spd);
+	cea861_checksum_hdmi_info_frame((u8 *) &packet.info_frame);
 
-	BUILD_BUG_ON(sizeof(packet) != SIIHDMI_INFO_FRAME_BUFFER_LENGTH);
+	BUILD_BUG_ON(sizeof(packet) != SIIHDMI_TPI_REG_MISC_INFO_FRAME_LENGTH);
 	ret = i2c_smbus_write_i2c_block_data(tx->client,
 					     SIIHDMI_TPI_REG_MISC_INFO_FRAME_BASE,
 					     sizeof(packet),
 					     (u8 *) &packet);
 	if (ret < 0)
-		DEBUG("unable to write spd info frame\n");
+		DEBUG("unable to write SPD info frame\n");
 
 	return ret;
 }
 
-static int siihdmi_set_audio_info_frame(struct siihdmi_tx *tx,
-				        struct fb_var_screeninfo *var)
+static int siihdmi_set_audio_info_frame(struct siihdmi_tx *tx)
 {
 	int ret;
 	struct siihdmi_audio_info_frame packet = {
-		.audio = {
+		.header = {
+			.info_frame = INFO_FRAME_BUFFER_AUDIO,
+			.repeat     = false,
+			.enable     = tx->enable_audio,
+		},
+
+		.info_frame = {
 			.header = {
 				.type    = INFO_FRAME_TYPE_AUDIO,
 				.version = CEA861_AUDIO_INFO_FRAME_VERSION,
-				.length  = sizeof(packet.audio) - sizeof(packet.audio.header),
+				.length  = sizeof(packet.info_frame) - sizeof(packet.info_frame.header),
 			},
 
 			.channel_count         = CHANNEL_COUNT_REFER_STREAM_HEADER,
@@ -479,15 +482,11 @@ static int siihdmi_set_audio_info_frame(struct siihdmi_tx *tx,
 			.sample_size           = SAMPLE_SIZE_REFER_STREAM_HEADER,
 			.sample_frequency      = FREQUENCY_REFER_STREAM_HEADER,
 		},
-
-		.config = {
-			.buffer_type = INFO_FRAME_BUFFER_AUDIO,
-			.repeat      = false,
-			.enable      = tx->enable_audio,
-		},
 	};
 
-	BUILD_BUG_ON(sizeof(packet) != SIIHDMI_AUDIO_INFO_FRAME_BUFFER_LENGTH);
+	cea861_checksum_hdmi_info_frame((u8 *) &packet.info_frame);
+
+	BUILD_BUG_ON(sizeof(packet) != SIIHDMI_TPI_REG_AUDIO_INFO_FRAME_LENGTH);
 	ret = i2c_smbus_write_i2c_block_data(tx->client,
 					     SIIHDMI_TPI_REG_MISC_INFO_FRAME_BASE,
 					     sizeof(packet),
@@ -545,15 +544,14 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 
 	/* step 6: [HDMI] set AVI InfoFrame */
 	/* NOTE this is required as it flushes the vmode registers */
-	siihdmi_set_avi_info_frame(tx, var);
+	siihdmi_set_avi_info_frame(tx);
 
 	/* step 7: [HDMI] set new audio information */
-	siihdmi_set_audio_info_frame(tx, var);
-	siihdmi_set_spd_info_frame(tx, var);
+	siihdmi_set_audio_info_frame(tx);
+	siihdmi_set_spd_info_frame(tx);
 
 	/* step 8: enable display */
 	ctrl &= ~SIIHDMI_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN;
-
 	/* optimisation: merge the write into the next one */
 
 	/* step 9: (optionally) un-blank the display */

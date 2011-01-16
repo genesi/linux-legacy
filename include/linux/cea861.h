@@ -306,11 +306,7 @@ enum audio_lfe_level {
 };
 
 struct __packed audio_info_frame {
-	struct {
-		u8 type;
-		u8 version;
-		u8 length;
-	} header;
+	struct info_frame_header header;
 
 	unsigned channel_count          : 3;
 	unsigned future13               : 1;
