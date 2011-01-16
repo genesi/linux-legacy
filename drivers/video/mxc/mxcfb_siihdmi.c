@@ -256,25 +256,52 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 	return 0;
 }
 
+static void siihdmi_parse_cea_extension(struct siihdmi_tx *tx,
+					struct cea_timing_block *ctb)
+{
+	tx->enable_audio = ctb->basic_audio_supported;
+
+	if (ctb->underscan_supported)
+		tx->pixel_mapping = PIXEL_MAPPING_UNDERSCANNED;
+
+	if (ctb->dtd_start_offset == CTB_DTD_INVALID)
+		return;
+
 #if 0
-static void siihdmi_parse_audio(struct siihdmi_tx *tx, struct cea_dbc_audio *audio)
-{
-}
+	/* okay DTD data is off in the wild reaches so the next blocks
+	 * will be audio, video, vendor and speaker configuration
+	 */
+	u8 length, offset = 0x5;
+	struct cea_dbc_header *dbc_header = (struct cea_dbc_header *) &ctb->dbc_start_offset;
 
-static void siihdmi_parse_video(struct siihdmi_tx *tx, struct cea_dbc_video *video)
-{
-}
-
-static void siihdmi_parse_speaker(struct siihdmi_tx *tx, struct cea_dbc_speaker *speaker)
-{
-}
-
-static void siihdmi_parse_vendor(struct siihdmi_tx *tx, struct cea_dbc_vendor *vendor)
-{
-}
+	while (offset <= 127) {
+		switch(dbc_header->block_type_tag) {
+		case CEA_DATA_BLOCK_TAG_AUDIO:
+			length = dbc_header->length;
+			siihdmi_parse_audio(tx, (struct cea_dbc_audio *) &edid[EEDID_EXTENSION_DATA_OFFSET + offset]);
+			offset += length;
+			break;
+		case CEA_DATA_BLOCK_TAG_VIDEO:
+			length = dbc_header->length;
+			siihdmi_parse_video(tx, (struct cea_dbc_video *) &edid[EEDID_EXTENSION_DATA_OFFSET + offset]);
+			offset += length;
+			break;
+		case CEA_DATA_BLOCK_TAG_SPEAKER:
+			length = dbc_header->length;
+			siihdmi_parse_speaker(tx, (struct cea_dbc_speaker *) &edid[EEDID_EXTENSION_DATA_OFFSET + offset]);
+			offset += length;
+			break;
+		case CEA_DATA_BLOCK_TAG_VENDOR:
+			length = dbc_header->length;
+			siihdmi_parse_vendor(tx, (struct cea_dbc_vendor *) &edid[EEDID_EXTENSION_DATA_OFFSET + offset]);
+			offset += length;
+			break;
+		}
+	}
 #endif
+}
 
-static void siihdmi_detect_sink(struct siihdmi_tx *tx, u8 *edid, size_t size)
+static void siihdmi_detect_sink(struct siihdmi_tx *tx)
 {
 	/*
 	 * Sink detection is a fairly simple matter.  Assume that we are
@@ -284,61 +311,28 @@ static void siihdmi_detect_sink(struct siihdmi_tx *tx, u8 *edid, size_t size)
 	 * timing block data reports support for audio, then the sink is HDMI.
 	 */
 
-	struct cea_timing_block *ctb;
+	u8 edid[EDID_BLOCK_SIZE << 1];
+	const struct edid_block0 * const block0 = (struct edid_block0 *) edid;
+	const struct edid_extension * const block1 =
+		(struct edid_extension *) edid + EDID_BLOCK_SIZE;
 
 	tx->connection_type = CONNECTION_TYPE_DVI;
 	tx->pixel_mapping = PIXEL_MAPPING_EXACT;
 	tx->enable_audio = false;
 
-	if (edid[EEDID_EXTENSION_FLAG]) {
-		switch (edid[EEDID_EXTENSION_TAG]) {
-		case EDID_EXTENSION_CEA:
-			ctb = (struct cea_timing_block *) &edid[EEDID_EXTENSION_DATA_OFFSET];
+	if (siihdmi_read_edid(tx, edid, sizeof(edid)) < 0)
+		return;
 
-			if (ctb->basic_audio_supported) {
-				tx->connection_type = CONNECTION_TYPE_HDMI; // EEEEE. this should be in the vendor block below
-				tx->enable_audio = true;
-			}
+	if (!block0->extensions)
+		return;
 
-			if (ctb->underscan_supported)
-				tx->pixel_mapping = PIXEL_MAPPING_UNDERSCANNED;
-#if 0
-			if (ctb->dtd_start_offset != 0x4) {
-				/* okay DTD data is off in the wild reaches so the next blocks
-				 * will be audio, video, vendor and speaker configuration
-				 */
-				u8 length, offset = 0x5;
-				struct cea_dbc_header *dbc_header = (struct cea_dbc_header *) &ctb->dbc_start_offset;
-
-				while (offset <= 127) {
-					switch(dbc_header->block_type_tag) {
-					case CEA_DATA_BLOCK_TAG_AUDIO:
-						length = dbc_header->length;
-						siihdmi_parse_audio(tx, (struct cea_dbc_audio *) &edid[EEDID_EXTENSION_DATA_OFFSET + offset]);
-						offset += length;
-						break;
-					case CEA_DATA_BLOCK_TAG_VIDEO:
-						length = dbc_header->length;
-						siihdmi_parse_video(tx, (struct cea_dbc_video *) &edid[EEDID_EXTENSION_DATA_OFFSET + offset]);
-						offset += length;
-						break;
-					case CEA_DATA_BLOCK_TAG_SPEAKER:
-						length = dbc_header->length;
-						siihdmi_parse_speaker(tx, (struct cea_dbc_speaker *) &edid[EEDID_EXTENSION_DATA_OFFSET + offset]);
-						offset += length;
-						break;
-					case CEA_DATA_BLOCK_TAG_VENDOR:
-						length = dbc_header->length;
-						siihdmi_parse_vendor(tx, (struct cea_dbc_vendor *) &edid[EEDID_EXTENSION_DATA_OFFSET + offset]);
-						offset += length;
-						break;
-					}
-				}
-			}
-#endif
-		default:
-			break;
-		}
+	switch (block1->tag) {
+	case EDID_EXTENSION_CEA:
+		siihdmi_parse_cea_extension(tx,
+					    (struct cea_timing_block *) block1);
+		break;
+	default:
+		break;
 	}
 }
 
@@ -683,19 +677,18 @@ static void siihdmi_dump_modelines(const struct fb_monspecs * const monspecs)
 
 static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *fb)
 {
-	u8 edid[EEDID_BASE_LENGTH];
+	const struct edid_block0 edid;
 	const struct fb_videomode *mode = NULL;
 	struct fb_var_screeninfo var = {0};
 	int ret;
 
-	/* TODO use platform_data to prune modelist */
+	siihdmi_detect_sink(tx);
 
-	if ((ret = siihdmi_read_edid(tx, edid, sizeof(edid))) < 0)
+	/* TODO use platform_data to prune modelist */
+	if ((ret = siihdmi_read_edid(tx, (u8 *) &edid, sizeof(edid))) < 0)
 		return ret;
 
-	siihdmi_detect_sink(tx, edid, sizeof(edid));
-
-	fb_edid_to_monspecs(edid, &fb->monspecs);
+	fb_edid_to_monspecs((u8 *) &edid, &fb->monspecs);
 	siihdmi_dump_modelines(&fb->monspecs);
 	/* TODO mxcfb_videomode_to_modelist did some additional work */
 	fb_videomode_to_modelist(fb->monspecs.modedb,
