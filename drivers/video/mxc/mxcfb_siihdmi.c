@@ -534,7 +534,7 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	if (ret < 0)
 		DEBUG("unable to prepare for resolution change\n");
 
-	tx->tmds_state = 0;
+	tx->tmds_enabled = false;
 
 	msleep(SIIHDMI_CTRL_INFO_FRAME_DRAIN_TIME);
 
@@ -561,13 +561,12 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	ret = i2c_smbus_write_byte_data(tx->client,
 					SIIHDMI_TPI_REG_SYS_CTRL,
 					ctrl);
-	tx->tmds_state = 1;
-
 	if (ret < 0)
 		DEBUG("unable to enable the display\n");
 
-
 	/* step 10: (potentially) enable HDCP */
+
+	tx->tmds_enabled = true;
 
 	return ret;
 }
@@ -682,7 +681,7 @@ static int siihdmi_unblank(struct siihdmi_tx *tx, struct fb_var_screeninfo *var)
 {
 	u8 data;
 
-	/* TODO Power up TMDS if the tx->tmds_state is down */
+	/* TODO Power up TMDS if the tx->tmds_enabled is false */
 
 	data = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_RQB);
 

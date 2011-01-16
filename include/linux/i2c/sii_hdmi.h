@@ -286,6 +286,9 @@ struct siihdmi_tx {
 	struct notifier_block nb;
 	struct delayed_work hotplug;
 
+	bool tmds_enabled;
+	int irq;
+
 	/* sink information */
 	bool enable_audio;
 	enum {
@@ -297,8 +300,6 @@ struct siihdmi_tx {
 		PIXEL_MAPPING_UNDERSCANNED,
 		PIXEL_MAPPING_OVERSCANNED,
 	} pixel_mapping;
-	bool tmds_state;
-	int irq;
 };
 
 
