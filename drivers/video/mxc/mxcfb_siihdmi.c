@@ -256,70 +256,19 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 	return 0;
 }
 
-static void siihdmi_parse_cea_extension(struct siihdmi_tx *tx,
-					struct cea_timing_block *ctb)
-{
-	tx->enable_audio = ctb->basic_audio_supported;
-
-	if (ctb->underscan_supported)
-		tx->pixel_mapping = PIXEL_MAPPING_UNDERSCANNED;
-
-	if (ctb->dtd_start_offset == CTB_DTD_INVALID)
-		return;
-
-#if 0
-	/* okay DTD data is off in the wild reaches so the next blocks
-	 * will be audio, video, vendor and speaker configuration
-	 */
-	u8 length, offset = 0x5;
-	struct cea_dbc_header *dbc_header = (struct cea_dbc_header *) &ctb->dbc_start_offset;
-
-	while (offset <= 127) {
-		switch(dbc_header->block_type_tag) {
-		case CEA_DATA_BLOCK_TAG_AUDIO:
-			length = dbc_header->length;
-			siihdmi_parse_audio(tx, (struct cea_dbc_audio *) &edid[EEDID_EXTENSION_DATA_OFFSET + offset]);
-			offset += length;
-			break;
-		case CEA_DATA_BLOCK_TAG_VIDEO:
-			length = dbc_header->length;
-			siihdmi_parse_video(tx, (struct cea_dbc_video *) &edid[EEDID_EXTENSION_DATA_OFFSET + offset]);
-			offset += length;
-			break;
-		case CEA_DATA_BLOCK_TAG_SPEAKER:
-			length = dbc_header->length;
-			siihdmi_parse_speaker(tx, (struct cea_dbc_speaker *) &edid[EEDID_EXTENSION_DATA_OFFSET + offset]);
-			offset += length;
-			break;
-		case CEA_DATA_BLOCK_TAG_VENDOR:
-			length = dbc_header->length;
-			siihdmi_parse_vendor(tx, (struct cea_dbc_vendor *) &edid[EEDID_EXTENSION_DATA_OFFSET + offset]);
-			offset += length;
-			break;
-		}
-	}
-#endif
-}
-
 static void siihdmi_detect_sink(struct siihdmi_tx *tx)
 {
-	/*
-	 * Sink detection is a fairly simple matter.  Assume that we are
-	 * connected to a DVI sink (video only, no audio support).  Check the
-	 * EDID for the presence of the CEA extension (which is guaranteed to be
-	 * the first extension blob, if present).  If it is present, and the CEA
-	 * timing block data reports support for audio, then the sink is HDMI.
-	 */
-
 	u8 edid[EDID_BLOCK_SIZE << 1];
 	const struct edid_block0 * const block0 = (struct edid_block0 *) edid;
 	const struct edid_extension * const block1 =
 		(struct edid_extension *) edid + EDID_BLOCK_SIZE;
 
+	/* defaults */
 	tx->connection_type = CONNECTION_TYPE_DVI;
 	tx->pixel_mapping = PIXEL_MAPPING_EXACT;
 	tx->enable_audio = false;
 
+	/* use EDID to identify sink characteristics */
 	if (siihdmi_read_edid(tx, edid, sizeof(edid)) < 0)
 		return;
 
@@ -327,9 +276,20 @@ static void siihdmi_detect_sink(struct siihdmi_tx *tx)
 		return;
 
 	switch (block1->tag) {
-	case EDID_EXTENSION_CEA:
-		siihdmi_parse_cea_extension(tx,
-					    (struct cea_timing_block *) block1);
+	case EDID_EXTENSION_CEA: {
+		const struct cea_timing_block *ctb =
+			(struct cea_timing_block *) block1;
+
+		tx->enable_audio = ctb->basic_audio_supported;
+
+		if (ctb->underscan_supported)
+			tx->pixel_mapping = PIXEL_MAPPING_UNDERSCANNED;
+
+		if (!memcmp(ctb->ieee_registration,
+			    CEA861_OUI_REGISTRATION_ID_HDMI,
+			    sizeof(ctb->ieee_registration)))
+			tx->connection_type = CONNECTION_TYPE_HDMI;
+		}
 		break;
 	default:
 		break;
@@ -444,7 +404,7 @@ static int siihdmi_set_avi_info_frame(struct siihdmi_tx *tx,
 		break;
 	}
 
-	cea861_checksum_info_frame((u8 *) &avi);
+	cea861_checksum_hdmi_info_frame((u8 *) &avi);
 
 	BUILD_BUG_ON(sizeof(avi) - SIIHDMI_AVI_INFO_FRAME_OFFSET != SIIHDMI_TPI_REG_AVI_INFO_FRAME_LENGTH);
 	ret = i2c_smbus_write_i2c_block_data(tx->client,
@@ -483,7 +443,7 @@ static int siihdmi_set_spd_info_frame(struct siihdmi_tx *tx,
 		},
 	};
 
-	cea861_checksum_info_frame((u8 *) &packet.spd);
+	cea861_checksum_hdmi_info_frame((u8 *) &packet.spd);
 
 	BUILD_BUG_ON(sizeof(packet) != SIIHDMI_INFO_FRAME_BUFFER_LENGTH);
 	ret = i2c_smbus_write_i2c_block_data(tx->client,
