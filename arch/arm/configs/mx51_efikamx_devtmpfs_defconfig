@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.31.14.13
-# Mon Jan 10 20:42:43 2011
+# Mon Jan 17 14:25:05 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -230,7 +230,7 @@ CONFIG_MXC_TZIC=y
 CONFIG_ISP1504_MXC=y
 # CONFIG_MXC_IRQ_PRIOR is not set
 # CONFIG_MXC_PWM is not set
-# CONFIG_MXC_DVFS_PER is not set
+CONFIG_MXC_DVFS_PER=y
 
 #
 # Processor Type
@@ -1758,7 +1758,6 @@ CONFIG_FB_MXC_SYNC_PANEL=y
 # CONFIG_FB_MXC_TVOUT_TVE is not set
 # CONFIG_FB_MXC_LDB is not set
 # CONFIG_FB_MXC_CLAA_WVGA_SYNC_PANEL is not set
-# CONFIG_FB_MXC_SII9022 is not set
 CONFIG_FB_MXC_SIIHDMI=y
 # CONFIG_FB_SIIHDMI_HOTPLUG is not set
 # CONFIG_FB_MXC_CH7026 is not set

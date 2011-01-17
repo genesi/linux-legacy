@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.31.14.13
-# Mon Jan 10 20:42:43 2011
+# Mon Jan 17 14:25:05 2011
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -231,7 +231,7 @@ CONFIG_MXC_TZIC=y
 CONFIG_ISP1504_MXC=y
 # CONFIG_MXC_IRQ_PRIOR is not set
 CONFIG_MXC_PWM=y
-# CONFIG_MXC_DVFS_PER is not set
+CONFIG_MXC_DVFS_PER=y
 
 #
 # Processor Type
