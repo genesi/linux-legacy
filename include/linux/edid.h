@@ -38,7 +38,8 @@
 #define EDID_BLOCK_SIZE					(0x80)
 #define EDID_MAX_EXTENSIONS				(0xfe)
 
-#define EDID_MAGIC					(0x00ffffffffffff00)
+
+static const u8 EDID_HEADER[8] = { 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00 };
 
 
 enum edid_extension_type {
@@ -198,7 +199,7 @@ struct __packed edid_block0 {
 	u8 header[8];
 
 	/* vendor/product identification */
-	struct {
+	struct __packed {
 		unsigned id0  : 5;
 		unsigned id1  : 5;
 		unsigned id2  : 5;
@@ -215,7 +216,7 @@ struct __packed edid_block0 {
 	u8 revision;
 
 	/* basic display parameters and features */
-	struct {
+	struct __packed {
 		unsigned dfp_1x_vsync_serration : 1; /* VESA DFP 1.x */
 		unsigned green_video_sync       : 1;
 		unsigned composite_sync         : 1;
@@ -227,9 +228,10 @@ struct __packed edid_block0 {
 
 	u8 maximum_horizontal_image_size;       /* cm */
 	u8 maximum_vertical_image_size;         /* cm */
+
 	u8 display_transfer_characteristics;    /* gamma = (value + 100) / 100 */
 
-	struct {
+	struct __packed {
 		unsigned default_gtf                    : 1; /* generalised timing formula */
 		unsigned preferred_timing_mode          : 1;
 		unsigned standard_default_color_space   : 1;
@@ -260,7 +262,7 @@ struct __packed edid_block0 {
 	u8 white_y;
 
 	/* established timings */
-	struct {
+	struct __packed {
 		unsigned timing_800x600_60   : 1;
 		unsigned timing_800x600_56   : 1;
 		unsigned timing_640x480_75   : 1;
@@ -279,13 +281,13 @@ struct __packed edid_block0 {
 		unsigned timing_800x600_72   : 1;
 	} established_timings;
 
-	struct {
+	struct __packed {
 		unsigned reserved            : 7;
 		unsigned timing_1152x870_75  : 1;
 	} manufacturer_timings;
 
 	/* standard timing id */
-	struct {
+	struct __packed {
 		u8       horizontal_active_pixels;    /* = (value + 31) * 8 */
 
 		unsigned refresh_rate       : 6;      /* = value + 60 */
