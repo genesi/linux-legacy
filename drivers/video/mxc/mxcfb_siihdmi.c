@@ -100,7 +100,7 @@ static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 	finish = jiffies;
 
 	DEBUG("took %u ms to read device id\n",
-	      jiffies_to_msecs(finish - start));
+	      jiffies_to_usecs(finish - start));
 
 	if (data != SIIHDMI_DEVICE_ID_902x)
 		return -ENODEV;
@@ -217,8 +217,8 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 		 !time_after(jiffies, start + bus_timeout));
 	finish = jiffies;
 
-	DEBUG("took %u ms to request DDC bus\n",
-	      jiffies_to_msecs(finish - start));
+	DEBUG("took %u us to request DDC bus\n",
+	      jiffies_to_usecs(finish - start));
 
 	/* step 4: take ownership of the DDC bus */
 	ret = i2c_smbus_write_byte_data(tx->client,
@@ -248,8 +248,8 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 		 !time_after(jiffies, start + bus_timeout));
 	finish = jiffies;
 
-	DEBUG("took %u ms to relinquish DDC bus\n",
-	      jiffies_to_msecs(finish - start));
+	DEBUG("took %u us to relinquish DDC bus\n",
+	      jiffies_to_usecs(finish - start));
 
 	/* step 7: (potentially) enable HDCP */
 
@@ -673,7 +673,7 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *fb)
 	}
 
 	/* TODO use platform_data to prune modelist */
-	fb_edid_to_monspecs((u8 *) &edid, &fb->monspecs);
+	fb_edid_to_monspecs(edid, &fb->monspecs);
 	siihdmi_dump_modelines(&fb->monspecs);
 	/* TODO mxcfb_videomode_to_modelist did some additional work */
 	fb_videomode_to_modelist(fb->monspecs.modedb,
