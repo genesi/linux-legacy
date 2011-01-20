@@ -197,9 +197,9 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 
 	/* step 1: (potentially) disable HDCP */
 
-	/* step 2: request the DDC bus */
 	ctrl = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_SYS_CTRL);
 
+	/* step 2: request the DDC bus */
 	ret = i2c_smbus_write_byte_data(tx->client,
 					SIIHDMI_TPI_REG_SYS_CTRL,
 					ctrl | SIIHDMI_SYS_CTRL_DDC_BUS_REQUEST);
@@ -256,12 +256,57 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 	return 0;
 }
 
+static void siihdmi_parse_cea861_timing_block(struct siihdmi_tx *tx,
+					      const struct edid_extension *ext)
+{
+	const struct cea861_timing_block * const cea =
+		(struct cea861_timing_block *) ext;
+	const u8 offset = offsetof(struct cea861_timing_block, data);
+	u8 index = 0;
+
+	BUILD_BUG_ON(sizeof(*cea) != sizeof(*ext));
+
+	tx->enable_audio = cea->basic_audio_supported;
+
+	if (cea->underscan_supported)
+		tx->pixel_mapping = PIXEL_MAPPING_UNDERSCANNED;
+
+	if (cea->dtd_offset == CEA81_NO_DTDS_PRESENT)
+		return;
+
+	do {
+		const struct cea861_data_block_header * const header =
+			(struct cea861_data_block_header *) &cea->data[index];
+
+		switch (header->tag) {
+		case CEA861_DATA_BLOCK_TYPE_VENDOR_SPECIFIC: {
+				const struct cea861_vendor_specific_data_block * const vsdb =
+					(struct cea861_vendor_specific_data_block *) header;
+
+				if (!memcmp(vsdb->ieee_registration,
+					    CEA861_OUI_REGISTRATION_ID_HDMI_LSB,
+					    sizeof(vsdb->ieee_registration)))
+					tx->connection_type = CONNECTION_TYPE_HDMI;
+			}
+			break;
+		default:
+			break;
+		}
+
+		index = index + header->length + sizeof(header);
+	} while (index < cea->dtd_offset - offset);
+}
+
 static void siihdmi_detect_sink(struct siihdmi_tx *tx)
 {
-	u8 edid[EDID_BLOCK_SIZE << 1];
-	const struct edid_block0 * const block0 = (struct edid_block0 *) edid;
-	const struct edid_extension * const block1 =
-		(struct edid_extension *) edid + EDID_BLOCK_SIZE;
+	u8 *edid;
+	struct edid_extension *extensions, *extension;
+	struct edid_block0 block0;
+	u32 length;
+	u8 i;
+
+	BUILD_BUG_ON(sizeof(block0) != EDID_BLOCK_SIZE);
+	BUILD_BUG_ON(sizeof(*extension) != EDID_BLOCK_SIZE);
 
 	/* defaults */
 	tx->connection_type = CONNECTION_TYPE_DVI;
@@ -269,31 +314,38 @@ static void siihdmi_detect_sink(struct siihdmi_tx *tx)
 	tx->enable_audio = false;
 
 	/* use EDID to identify sink characteristics */
-	if (siihdmi_read_edid(tx, edid, sizeof(edid)) < 0)
+	if (siihdmi_read_edid(tx, (u8 *) &block0, sizeof(block0)) < 0)
 		return;
 
-	if (!block0->extensions)
+	if (!block0.extensions)
 		return;
 
-	switch (block1->tag) {
-	case EDID_EXTENSION_CEA: {
-		const struct cea_timing_block *ctb =
-			(struct cea_timing_block *) block1;
+	/* need to allocate space for block 0 as well as the extensions */
+	length = (block0.extensions + 1) * EDID_BLOCK_SIZE;
 
-		tx->enable_audio = ctb->basic_audio_supported;
+	edid = kzalloc(length, GFP_KERNEL);
+	if (!edid)
+		return;
 
-		if (ctb->underscan_supported)
-			tx->pixel_mapping = PIXEL_MAPPING_UNDERSCANNED;
+	if (siihdmi_read_edid(tx, edid, length) < 0)
+		goto out;
 
-		if (!memcmp(ctb->ieee_registration,
-			    CEA861_OUI_REGISTRATION_ID_HDMI,
-			    sizeof(ctb->ieee_registration)))
-			tx->connection_type = CONNECTION_TYPE_HDMI;
+	extensions = (struct edid_extension *) edid + sizeof(block0);
+
+	for (i = 0; i < block0.extensions; i++) {
+		extension = &extensions[i];
+
+		switch (extension->tag) {
+		case EDID_EXTENSION_CEA:
+			siihdmi_parse_cea861_timing_block(tx, extension);
+			break;
+		default:
+			break;
 		}
-		break;
-	default:
-		break;
 	}
+
+out:
+	kfree(edid);
 }
 
 static inline unsigned long siihdmi_ps_to_hz(const unsigned long ps)

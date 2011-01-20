@@ -29,27 +29,59 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/* Header file for EIA CEA 861-E structures and definitions */
+
 #ifndef LINUX_CEA861_H
 #define LINUX_CEA861_H
 
-/* Header file for EIA CEA 861-E structures and definitions */
-
 #include <linux/edid.h>
 
-#define CEA861_DTD_NOT_PRESENT				(0x04)
 
-/* NOTE: This is placed inot the EDID in little-endian order */
-static const u8 CEA861_OUI_REGISTRATION_ID_HDMI[] = { 0x00, 0x0C, 0x03 };
+#if !defined(__LITTLE_ENDIAN_BITFIELD)
+#warning "structures defined and packed for little-endian byte order"
+#endif
 
-struct __packed cea_timing_block {
+
+#define CEA81_NO_DTDS_PRESENT				(0x04)
+
+static const u8 CEA861_OUI_REGISTRATION_ID_HDMI_LSB[] = { 0x03, 0x0C, 0x00 };
+
+
+enum cea861_data_block_type {
+	CEA861_DATA_BLOCK_TYPE_RESERVED0,
+	CEA861_DATA_BLOCK_TYPE_AUDIO,
+	CEA861_DATA_BLOCK_TYPE_VIDEO,
+	CEA861_DATA_BLOCK_TYPE_VENDOR_SPECIFIC,
+	CEA861_DATA_BLOCK_TYPE_SPEAKER_ALLOCATION,
+	CEA861_DATA_BLOCK_TYPE_VESA_DTC,
+	CEA861_DATA_BLOCK_TYPE_RESERVED6,
+	CEA861_DATA_BLOCK_TYPE_EXTENDED,
+};
+
+
+struct __packed cea861_data_block_header {
+	unsigned length : 5;
+	unsigned tag    : 3;
+};
+
+struct __packed cea861_vendor_specific_data_block {
+	struct cea861_data_block_header header;
+
+	u8 extended_tag;
+	u8 ieee_registration[3];
+	u8 data[];
+};
+
+
+struct __packed cea861_timing_block {
 	/* CEA Extension Header */
 	u8       tag;
 	u8       revision;
-	u8       dtd_start_offset;
+	u8       dtd_offset;
 
 	/* Global Declarations */
 #if defined(__LITTLE_ENDIAN_BITFIELD)
-	unsigned dtd_block_count       : 4;
+	unsigned native_dtds           : 4;
 	unsigned yuv_422_supported     : 1;
 	unsigned yuv_444_supported     : 1;
 	unsigned basic_audio_supported : 1;
@@ -59,45 +91,57 @@ struct __packed cea_timing_block {
 	unsigned basic_audio_supported : 1;
 	unsigned yuv_444_supported     : 1;
 	unsigned yuv_422_supported     : 1;
-	unsigned dtd_block_count       : 4;
+	unsigned native_dtds           : 4;
 #endif
 
-	/* CEA Data Block Collection */
-	/* Video Data Block */
-	u8       video_data_start_offset;
-	u8       short_video_descriptor[7];
-
-	/* Audio Data Block */
-	u8       audio_data_start_offset;
-	u8       audio_format;
-	u8       frequency;
-	u8       bit_rate;
-
-	/* Speaker Allocation Block */
-	u8       speaker_allocation_start_offset;
-	u8       speaker_designation;
-	u8       reserved[2];
-
-	/* Vendor Specific Data Block */
-	u8       vendor_specific_offset;
-	u8       ieee_registration[3];
-	u8       component_source[2];
-
-	struct edid_detailed_timing_descriptor dtb[4];
-
-	u8       padding[29];
+	u8       data[123];
 
 	u8       checksum;
 };
 
 
-#if !defined(__LITTLE_ENDIAN_BITFIELD)
-#warning "structures defined and packed for little-endian byte order"
-#endif
-
 /* HDMI Constants and Structures */
+
 #define HDMI_PACKET_TYPE_INFO_FRAME			(0x80)
 #define HDMI_PACKET_CHECKSUM				(0x100)
+
+struct __packed hdmi_vsdb {
+	struct cea861_data_block_header header;
+
+	u8       ieee_registration_id[3];
+	unsigned port_configuration_a            : 4;
+	unsigned port_configuration_b            : 4;
+	unsigned port_configuration_c            : 4;
+	unsigned port_configuration_d            : 4;
+
+	/* extension fields */
+	unsigned dvi_dual_link                   : 1;
+	unsigned                                 : 1;
+	unsigned                                 : 1;
+	unsigned yuv_444_supported               : 1;
+	unsigned colour_depth_30_bit             : 1;
+	unsigned colour_depth_36_bit             : 1;
+	unsigned colour_depth_48_bit             : 1;
+	unsigned audio_info_supported            : 1;
+
+	u8       max_tmds_clock;
+
+	unsigned                                 : 1;
+	unsigned                                 : 1;
+	unsigned                                 : 1;
+	unsigned                                 : 1;
+	unsigned                                 : 1;
+	unsigned                                 : 1;
+	unsigned interlaced_latency_fields       : 1;
+	unsigned latency_fields                  : 1;
+
+	u8       video_latency;
+	u8       audio_latency;
+	u8       interlaced_video_latency;
+	u8       interlaced_audio_latency;
+
+	u8       reserved[];
+};
 
 /* InfoFrame type constants */
 enum info_frame_type {
