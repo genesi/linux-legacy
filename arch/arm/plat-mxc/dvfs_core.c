@@ -89,6 +89,7 @@ extern int cpufreq_trig_needed;
 struct timeval core_prev_intr;
 
 void dump_dvfs_core_regs(void);
+void stop_dvfs(void);
 static struct delayed_work dvfs_core_handler;
 
 /*
@@ -268,6 +269,7 @@ static int set_cpu_freq(int wp)
 		/* Set ARM_PODF */
 		reg &= 0xFFFFFFF8;
 		reg |= arm_podf;
+		spin_lock_irqsave(&mxc_dvfs_core_lock, flags);
 
 		reg1 = __raw_readl(dvfs_data->ccm_cdhipr_reg_addr);
 		if ((reg1 & 0x00010000) == 0)
@@ -277,12 +279,6 @@ static int set_cpu_freq(int wp)
 			return 0;
 		}
 
-		/* START the GPC main control FSM */
-		reg = __raw_readl(dvfs_data->gpc_cntr_reg_addr);
-		reg |= MXC_GPCCNTR_FUPD;
-		/* ADU=1, select ARM domain */
-		reg |= MXC_GPCCNTR_ADU;
-		__raw_writel(reg, dvfs_data->gpc_cntr_reg_addr);
 		/* set VINC */
 		reg = __raw_readl(dvfs_data->gpc_vcr_reg_addr);
 		reg &=
@@ -294,8 +290,13 @@ static int set_cpu_freq(int wp)
 		__raw_writel(reg, dvfs_data->gpc_vcr_reg_addr);
 
 		reg = __raw_readl(dvfs_data->gpc_cntr_reg_addr);
-		reg &= (~(MXC_GPCCNTR_ADU | MXC_GPCCNTR_FUPD));
-		reg |= MXC_GPCCNTR_ADU | MXC_GPCCNTR_FUPD | MXC_GPCCNTR_STRT;
+		reg &= (~(MXC_GPCCNTR_ADU | MXC_GPCCNTR_FUPD | MXC_GPCCNTR_STRT));
+		__raw_writel(reg, dvfs_data->gpc_cntr_reg_addr);
+		reg = __raw_readl(dvfs_data->gpc_cntr_reg_addr);
+		reg |= MXC_GPCCNTR_ADU | MXC_GPCCNTR_FUPD;
+		__raw_writel(reg, dvfs_data->gpc_cntr_reg_addr);
+		reg = __raw_readl(dvfs_data->gpc_cntr_reg_addr);
+		reg |= MXC_GPCCNTR_STRT;
 		__raw_writel(reg, dvfs_data->gpc_cntr_reg_addr);
 
 		/* Wait for arm podf Enable */
@@ -304,6 +305,8 @@ static int set_cpu_freq(int wp)
 			printk(KERN_DEBUG "Waiting arm_podf enabled!\n");
 			udelay(10);
 		}
+
+		spin_unlock_irqrestore(&mxc_dvfs_core_lock, flags);
 
 		if (vinc == 0) {
 			ret = regulator_set_voltage(core_regulator,
@@ -485,7 +488,7 @@ static void dvfs_core_work_handler(struct work_struct *work)
 			maxf = 1;
 			goto END;
 		} else {
-			if (low_bus_freq_mode) {
+			if (!high_bus_freq_mode) {
 				/* bump up LP freq first. */
 				bus_incr = 1;
 				dvfs_load_config(2);
@@ -511,8 +514,8 @@ static void dvfs_core_work_handler(struct work_struct *work)
 			cpu_dcr = 0;
 		}
 	} else {
-		if (low_bus_freq_mode)
-			set_high_bus_freq(0);
+		if (!high_bus_freq_mode)
+			set_high_bus_freq(1);
 
 		if (!bus_incr)
 			ret = set_cpu_freq(curr_wp);
@@ -551,7 +554,7 @@ END:	/* Set MAXF, MINF */
 /*!
  * This function disables the DVFS module.
  */
-static void stop_dvfs(void)
+void stop_dvfs(void)
 {
 	u32 reg = 0;
 	unsigned long flags;

@@ -104,7 +104,7 @@ int set_low_bus_freq(void)
 
 	if (bus_freq_scaling_initialized) {
 		/* can not enter low bus freq, when cpu is in highest freq */
-		if (clk_get_rate(cpu_clk) != cpu_wp_tbl[cpu_wp_nr - 1].cpu_rate)
+		if (clk_get_rate(cpu_clk) > cpu_wp_tbl[cpu_wp_nr - 1].cpu_rate)
 			return 0;
 
 		/* currently not support on mx53 */
@@ -223,7 +223,7 @@ int set_high_bus_freq(int high_bus_freq)
 			 * If the CPU freq is 800MHz, set the bus to the high
 			 * setpoint (133MHz) and DDR to 200MHz.
 			 */
-			if (clk_get_rate(cpu_clk) !=
+			if (clk_get_rate(cpu_clk) >
 					cpu_wp_tbl[cpu_wp_nr - 1].cpu_rate)
 				high_bus_freq = 1;
 

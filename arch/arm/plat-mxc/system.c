@@ -38,6 +38,10 @@
 #define WDOG_WCR_ENABLE		(1 << 2)
 #endif
 
+extern int dvfs_core_is_active;
+extern void stop_dvfs(void);
+
+
 /*
  * Reset the system. It is called by machine_restart().
  */
@@ -50,6 +54,9 @@ void arch_reset(char mode, const char *cmd)
 		if (!IS_ERR(clk))
 			clk_enable(clk);
 	}
+
+	if (dvfs_core_is_active)
+		stop_dvfs();
 
 	/* Assert SRS signal */
 	__raw_writew(WDOG_WCR_ENABLE, WDOG_WCR_REG);

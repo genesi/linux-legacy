@@ -38,6 +38,8 @@
 
 extern int mxc_jtag_enabled;
 extern int iram_ready;
+extern int dvfs_core_is_active;
+extern void stop_dvfs(void);
 static struct clk *gpc_dvfs_clk;
 
 extern void cpu_cortexa8_do_idle(void *addr);
@@ -71,6 +73,7 @@ void mxc_cpu_lp_set(enum mxc_cpu_pwr_mode mode)
 		if (mode == WAIT_UNCLOCKED_POWER_OFF) {
 			ccm_clpcr |= (0x1 << MXC_CCM_CLPCR_LPM_OFFSET);
 			ccm_clpcr &= ~MXC_CCM_CLPCR_VSTBY;
+			ccm_clpcr &= ~MXC_CCM_CLPCR_SBYOS;
 			stop_mode = 0;
 		} else {
 			ccm_clpcr |= (0x2 << MXC_CCM_CLPCR_LPM_OFFSET);
@@ -178,6 +181,9 @@ void arch_reset(char mode)
 	 */
 	if (cpu_is_mx51() || cpu_is_mx53())
 		__raw_writel(0x20600, IO_ADDRESS(NFC_BASE_ADDR) + 0x28);
+
+	if (dvfs_core_is_active)
+		stop_dvfs();
 
 	/* Assert SRS signal */
 	mxc_wd_reset();
