@@ -297,57 +297,6 @@ static void siihdmi_parse_cea861_timing_block(struct siihdmi_tx *tx,
 	} while (index < cea->dtd_offset - offset);
 }
 
-static void siihdmi_detect_sink(struct siihdmi_tx *tx)
-{
-	u8 *edid;
-	struct edid_extension *extensions, *extension;
-	struct edid_block0 block0;
-	u32 length;
-	u8 i;
-
-	BUILD_BUG_ON(sizeof(block0) != EDID_BLOCK_SIZE);
-	BUILD_BUG_ON(sizeof(*extension) != EDID_BLOCK_SIZE);
-
-	/* defaults */
-	tx->connection_type = CONNECTION_TYPE_DVI;
-	tx->pixel_mapping = PIXEL_MAPPING_EXACT;
-	tx->enable_audio = false;
-
-	/* use EDID to identify sink characteristics */
-	if (siihdmi_read_edid(tx, (u8 *) &block0, sizeof(block0)) < 0)
-		return;
-
-	if (!block0.extensions)
-		return;
-
-	/* need to allocate space for block 0 as well as the extensions */
-	length = (block0.extensions + 1) * EDID_BLOCK_SIZE;
-
-	edid = kzalloc(length, GFP_KERNEL);
-	if (!edid)
-		return;
-
-	if (siihdmi_read_edid(tx, edid, length) < 0)
-		goto out;
-
-	extensions = (struct edid_extension *) edid + sizeof(block0);
-
-	for (i = 0; i < block0.extensions; i++) {
-		extension = &extensions[i];
-
-		switch (extension->tag) {
-		case EDID_EXTENSION_CEA:
-			siihdmi_parse_cea861_timing_block(tx, extension);
-			break;
-		default:
-			break;
-		}
-	}
-
-out:
-	kfree(edid);
-}
-
 static inline unsigned long siihdmi_ps_to_hz(const unsigned long ps)
 {
 	unsigned long long numerator = 1000000000000ull;
@@ -674,17 +623,56 @@ static void siihdmi_dump_modelines(const struct fb_monspecs * const monspecs)
 
 static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *fb)
 {
-	const struct edid_block0 edid;
+	u8 *edid = NULL;
 	const struct fb_videomode *mode = NULL;
 	struct fb_var_screeninfo var = {0};
-	int ret;
+	struct edid_block0 block0;
+	int ret = 0;
+	u32 length;
 
-	siihdmi_detect_sink(tx);
+	BUILD_BUG_ON(sizeof(struct edid_block0) != EDID_BLOCK_SIZE);
+	BUILD_BUG_ON(sizeof(struct edid_extension) != EDID_BLOCK_SIZE);
 
-	/* TODO use platform_data to prune modelist */
-	if ((ret = siihdmi_read_edid(tx, (u8 *) &edid, sizeof(edid))) < 0)
+	/* defaults */
+	tx->connection_type = CONNECTION_TYPE_DVI;
+	tx->pixel_mapping = PIXEL_MAPPING_EXACT;
+	tx->enable_audio = false;
+
+	/* use EDID to detect sink characteristics */
+	if ((ret = siihdmi_read_edid(tx, (u8 *) &block0, sizeof(block0))) < 0)
 		return ret;
 
+	/* need to allocate space for block 0 as well as the extensions */
+	length = (block0.extensions + 1) * EDID_BLOCK_SIZE;
+
+	edid = kzalloc(length, GFP_KERNEL);
+	if (!edid)
+		return -ENOMEM;
+
+	if ((ret = siihdmi_read_edid(tx, edid, length)) < 0)
+		goto out;
+
+	if (block0.extensions) {
+		const struct edid_extension * const extensions =
+			(struct edid_extension *) edid + sizeof(block0);
+		u8 i;
+
+		for (i = 0; i < block0.extensions; i++) {
+			const struct edid_extension * const extension =
+				&extensions[i];
+
+			switch (extension->tag) {
+			case EDID_EXTENSION_CEA:
+				siihdmi_parse_cea861_timing_block(tx,
+								  extension);
+				break;
+			default:
+				break;
+			}
+		}
+	}
+
+	/* TODO use platform_data to prune modelist */
 	fb_edid_to_monspecs((u8 *) &edid, &fb->monspecs);
 	siihdmi_dump_modelines(&fb->monspecs);
 	/* TODO mxcfb_videomode_to_modelist did some additional work */
@@ -698,9 +686,11 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *fb)
 
 	/* TODO mxcfb_adjust did some additional work */
 	fb_videomode_to_var(&var, mode);
+
 	msleep(10); // pause to let IPU settle
+
 	if ((ret = siihdmi_set_resolution(tx, &var)) < 0)
-		return ret;
+		goto out;
 
 	/* activate the framebuffer */
 	var.activate = FB_ACTIVATE_ALL;
@@ -711,7 +701,9 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *fb)
 	fb->flags &= ~FBINFO_MISC_USEREVENT;
 	release_console_sem();
 
-	return 0;
+out:
+	kfree(edid);
+	return ret;
 }
 
 static int siihdmi_blank(struct siihdmi_tx *tx, struct fb_var_screeninfo *var, int powerdown)
