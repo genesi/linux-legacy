@@ -843,8 +843,9 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 				    unsigned long val,
 				    void *v)
 {
-	struct fb_event *event = v;
-	struct siihdmi_tx *tx = container_of(nb, struct siihdmi_tx, nb);
+	const struct fb_event * const event = v;
+	struct siihdmi_tx * const tx = container_of(nb, struct siihdmi_tx, nb);
+	struct fb_var_screeninfo var = {0};
 
 	switch (val) {
 	case FB_EVENT_FB_REGISTERED:
@@ -853,23 +854,15 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 #endif
 		return siihdmi_init_fb(tx, event->info);
 	case FB_EVENT_MODE_CHANGE:
-	{
-		struct fb_var_screeninfo var = {0};
-
 		fb_videomode_to_var(&var, event->info->mode);
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
 		msleep(MX51_IPU_SETTLE_TIME_MS);
 #endif
 		return siihdmi_set_resolution(tx, &var);
-	}
-	break;
 	case FB_EVENT_BLANK:
-	{
-		struct fb_var_screeninfo var = {0};
-		int event_type = *((int *)event->data);
 		fb_videomode_to_var(&var, event->info->mode);
 
-		switch (event_type) {
+		switch (*((int *) event->data)) {
 		case FB_BLANK_POWERDOWN:
 			return siihdmi_blank(tx, &var, 1);
 		case FB_BLANK_VSYNC_SUSPEND:
@@ -879,8 +872,8 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 		case FB_BLANK_UNBLANK:
 			return siihdmi_unblank(tx, &var);
 		}
-	}
-	break;
+
+		break;
 	default:
 		DEBUG("unhandled fb event 0x%lx", val);
 		break;
