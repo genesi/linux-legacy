@@ -52,7 +52,7 @@
 
 
 /* module parameters */
-static unsigned int bus_timeout = 50;
+static unsigned int bus_timeout = 10;
 module_param(bus_timeout, uint, 0644);
 MODULE_PARM_DESC(bus_timeout, "bus timeout in milliseconds");
 
@@ -99,8 +99,8 @@ static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 		 !time_after(jiffies, start + bus_timeout));
 	finish = jiffies;
 
-	DEBUG("took %u ms to read device id\n",
-	      jiffies_to_usecs(finish - start));
+//	DEBUG("took %u us to read device id\n",
+//	      jiffies_to_usecs(finish - start));
 
 	if (data != SIIHDMI_DEVICE_ID_902x)
 		return -ENODEV;
@@ -217,8 +217,8 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 		 !time_after(jiffies, start + bus_timeout));
 	finish = jiffies;
 
-	DEBUG("took %u us to request DDC bus\n",
-	      jiffies_to_usecs(finish - start));
+//	DEBUG("took %u us to request DDC bus\n",
+//	      jiffies_to_usecs(finish - start));
 
 	/* step 4: take ownership of the DDC bus */
 	ret = i2c_smbus_write_byte_data(tx->client,
@@ -248,8 +248,8 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 		 !time_after(jiffies, start + bus_timeout));
 	finish = jiffies;
 
-	DEBUG("took %u us to relinquish DDC bus\n",
-	      jiffies_to_usecs(finish - start));
+//	DEBUG("took %u us to relinquish DDC bus\n",
+//	      jiffies_to_usecs(finish - start));
 
 	/* step 7: (potentially) enable HDCP */
 
@@ -580,11 +580,12 @@ static bool siihdmi_sink_present(struct siihdmi_tx *tx)
 		       SIIHDMI_ISR_RECEIVER_SENSE_EVENT));
 }
 
+/* TODO: use the real modelist and not monitor specs so it reflects the cull */
 static void siihdmi_dump_modelines(const struct fb_monspecs * const monspecs)
 {
 	u32 i;
 
-	INFO("%u Supported Modelines:\n", monspecs->modedb_len);
+	INFO("Monitor supports %u modelines:\n", monspecs->modedb_len);
 	for (i = 0; i < monspecs->modedb_len; i++) {
 		const struct fb_videomode * const mode = &monspecs->modedb[i];
 		const bool interlaced = (mode->vmode & FB_VMODE_INTERLACED);
@@ -621,7 +622,83 @@ static void siihdmi_dump_modelines(const struct fb_monspecs * const monspecs)
 	}
 }
 
-static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *fb)
+static int siihdmi_res_is_equal(const struct fb_videomode *mode1, const struct fb_videomode *mode2)
+{
+	return (mode1->xres		== mode2->xres &&
+		mode1->yres		== mode2->yres &&
+		mode1->refresh		== mode2->refresh);
+}
+
+static void siihdmi_sanitize_modelist(struct siihdmi_tx *tx, const struct fb_info *info)
+{
+	int del = 0;
+
+	struct list_head *head = (struct list_head *) &info->modelist;
+	struct list_head *pos, *n, *pos2, *n2;
+	struct fb_modelist *modelist, *modelist2;
+	struct fb_videomode *mode, *mode2, *preferred;
+
+	INFO("Removing incompatible video modes\n");
+
+	preferred = (struct fb_videomode *) fb_find_best_display((const struct fb_monspecs *) &info->monspecs, head);
+	if (preferred) {
+		INFO("Found a preferred video mode: %ux%u@%u\n", preferred->xres, preferred->yres, preferred->refresh);
+		memcpy((void *) &tx->preferred, (void *) preferred, sizeof(struct fb_videomode));
+	}
+
+	list_for_each_safe(pos, n, head) {
+		modelist = list_entry(pos, struct fb_modelist, list);
+		mode = &modelist->mode;
+
+		/* if candidate is a detailed timing, delete the existing one in the modelist since
+		 * some monitors and TVs support slightly adjusted (and more compatible) timings
+		 * and we don't want to use the VESA/CEA one over and above the monitor EDID one
+		 * TODO: we need to build a list of detailed modes and match them against the ones
+		 * we're currently parsing, or scan the list in an inner loop looking for other
+		 * modes
+	 	*/
+		list_for_each_safe(pos2, n2, head) {
+			modelist2 = list_entry(pos2, struct fb_modelist, list);
+			mode2 = &modelist2->mode;
+
+			if (siihdmi_res_is_equal(mode, mode2) && /* same mode */
+				!(mode->flag & FB_MODE_IS_DETAILED) &&				 /* original is not detailed */
+				(mode2->flag & FB_MODE_IS_DETAILED) ) {				 /* but comparison is */
+				INFO("    Removing duplicate mode %ux%u@%u\n",
+					mode->xres, mode->yres,
+					mode->refresh );
+				del = 1;							 /* mark delete the original */
+			}
+		}
+
+		/* check for del = 0 just in case otherwise we print two reasons */
+		if ((del == 0) && (mode->vmode & FB_VMODE_INTERLACED)) {
+			INFO("    Removing interlaced mode %ux%ui@%u\n",
+				mode->xres, mode->yres,
+				mode->refresh);
+			del = 1;
+		} else if ((del == 0) && (mode->pixclock < tx->max_pixclock)) {
+			INFO("    Removing mode %ux%u@%u - pixel clock exceeds limit\n",
+				mode->xres, mode->yres,
+				mode->refresh);
+
+			del = 1;
+		}
+
+		if (del == 1) {
+			/* we could use flag & FB_MODE_IS_FIRST but it may not be the mode
+			 * fb_find_best_display actually returned */
+			if (fb_mode_is_equal(&tx->preferred, mode)) {
+				INFO("deleted preferred videomode!\n");
+			}
+			list_del(pos);
+			kfree(pos);
+		}
+		del = 0;
+	}
+}
+
+static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 {
 	u8 *edid = NULL;
 	const struct fb_videomode *mode = NULL;
@@ -637,6 +714,8 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *fb)
 	tx->connection_type = CONNECTION_TYPE_DVI;
 	tx->pixel_mapping = PIXEL_MAPPING_EXACT;
 	tx->enable_audio = false;
+	/* this should be in platform data */
+	tx->max_pixclock = KHZ2PICOS(133000L);
 
 	/* use EDID to detect sink characteristics */
 	if ((ret = siihdmi_read_edid(tx, (u8 *) &block0, sizeof(block0))) < 0)
@@ -672,19 +751,44 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *fb)
 		}
 	}
 
-	/* TODO use platform_data to prune modelist */
-	fb_edid_to_monspecs(edid, &fb->monspecs);
-	siihdmi_dump_modelines(&fb->monspecs);
-	/* TODO mxcfb_videomode_to_modelist did some additional work */
-	fb_videomode_to_modelist(fb->monspecs.modedb,
-				 fb->monspecs.modedb_len,
-				 &fb->modelist);
+	fb_edid_to_monspecs(edid, &info->monspecs);
+	/* TODO: dump modelines after cull */
+	siihdmi_dump_modelines(&info->monspecs);
 
-	/* TODO mxcfb_update_default_var did some additional work */
-	mode = fb_find_nearest_mode(&siihdmi_default_video_mode, &fb->modelist);
+	fb_videomode_to_modelist(info->monspecs.modedb, info->monspecs.modedb_len, &info->modelist);
+	siihdmi_sanitize_modelist(tx, info);
+
+
+	if (tx->preferred.xres > 0) {
+		/* in theory if the preferred mode is there or not this will find the nearest one.
+		 * hopefully the monitor may have two modes (60Hz and 75Hz) for the same resolution
+		 * so if the higher one is culled, the lower one will still work.
+		 * if not then we'll still get something close to native panel size.
+		 * TODO: respect display aspect ratio so we pick a 16:9/16:10/4:3 mode in respect
+		 * to the nearest mode
+		 */
+		mode = fb_find_nearest_mode(&tx->preferred, &info->modelist);
+		if (!mode) {
+			mode = fb_find_nearest_mode(&siihdmi_default_video_mode, &info->modelist);
+		}
+	} else {
+		/* if no preferred mode exists, try and match 1280x720p to the monitor, this is
+		 * needed for not-so-HDMI monitors (old DVI stuff, not TVs) where 720p is unknown
+		 */
+		mode = fb_find_nearest_mode(&siihdmi_default_video_mode, &info->modelist);
+	}
+
+	/* if no mode was found push 1280x720 anyway */
 	mode = mode ? mode : &siihdmi_default_video_mode;
 
-	/* TODO mxcfb_adjust did some additional work */
+	/* at modes somewhat greater than 1280x720 (1280x768, 1280x800 may be fine) doing heavy video work
+	 * like playing a 720p movie may cause the IPU to black the screen intermittently due to lack of
+	 * IPU bandwidth. Say so.
+	 */
+	if ((mode->xres > 1024) && (mode->yres > 720)) {
+		INFO("warning: available video bandwidth may be very low at this resolution and may cause IPU errors\n");
+	}
+
 	fb_videomode_to_var(&var, mode);
 
 	msleep(10); // pause to let IPU settle
@@ -696,9 +800,9 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *fb)
 	var.activate = FB_ACTIVATE_ALL;
 
 	acquire_console_sem();
-	fb->flags |= FBINFO_MISC_USEREVENT;
-	fb_set_var(fb, &var);
-	fb->flags &= ~FBINFO_MISC_USEREVENT;
+	info->flags |= FBINFO_MISC_USEREVENT;
+	fb_set_var(info, &var);
+	info->flags &= ~FBINFO_MISC_USEREVENT;
 	release_console_sem();
 
 out:
