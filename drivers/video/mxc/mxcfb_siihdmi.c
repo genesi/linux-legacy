@@ -706,12 +706,10 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx *tx, const struct fb_inf
 
 static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 {
-	u8 *edid = NULL;
 	const struct fb_videomode *mode = NULL;
 	struct fb_var_screeninfo var = {0};
 	struct edid_block0 block0;
-	int ret = 0;
-	u32 length;
+	int ret;
 
 	BUILD_BUG_ON(sizeof(struct edid_block0) != EDID_BLOCK_SIZE);
 	BUILD_BUG_ON(sizeof(struct edid_extension) != EDID_BLOCK_SIZE);
@@ -728,18 +726,18 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 		return ret;
 
 	/* need to allocate space for block 0 as well as the extensions */
-	length = (block0.extensions + 1) * EDID_BLOCK_SIZE;
+	tx->edid_length = (block0.extensions + 1) * EDID_BLOCK_SIZE;
 
-	edid = kzalloc(length, GFP_KERNEL);
-	if (!edid)
+	tx->edid = kzalloc(tx->edid_length, GFP_KERNEL);
+	if (!tx->edid)
 		return -ENOMEM;
 
-	if ((ret = siihdmi_read_edid(tx, edid, length)) < 0)
-		goto out;
+	if ((ret = siihdmi_read_edid(tx, tx->edid, tx->edid_length)) < 0)
+		return ret;
 
 	if (block0.extensions) {
 		const struct edid_extension * const extensions =
-			(struct edid_extension *) edid + sizeof(block0);
+			(struct edid_extension *) tx->edid + sizeof(block0);
 		u8 i;
 
 		for (i = 0; i < block0.extensions; i++) {
@@ -757,13 +755,12 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 		}
 	}
 
-	fb_edid_to_monspecs(edid, &info->monspecs);
+	fb_edid_to_monspecs(tx->edid, &info->monspecs);
 	/* TODO: dump modelines after cull */
 	siihdmi_dump_modelines(&info->monspecs);
 
 	fb_videomode_to_modelist(info->monspecs.modedb, info->monspecs.modedb_len, &info->modelist);
 	siihdmi_sanitize_modelist(tx, info);
-
 
 	if (tx->preferred.xres > 0) {
 		/* in theory if the preferred mode is there or not this will find the nearest one.
@@ -802,7 +799,7 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 #endif
 
 	if ((ret = siihdmi_set_resolution(tx, &var)) < 0)
-		goto out;
+		return ret;
 
 	/* activate the framebuffer */
 	var.activate = FB_ACTIVATE_ALL;
@@ -813,9 +810,7 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 	info->flags &= ~FBINFO_MISC_USEREVENT;
 	release_console_sem();
 
-out:
-	kfree(edid);
-	return ret;
+	return 0;
 }
 
 static int siihdmi_blank(struct siihdmi_tx *tx, struct fb_var_screeninfo *var, int powerdown)
@@ -1031,6 +1026,9 @@ static int __devexit siihdmi_remove(struct i2c_client *client)
 	if (tx) {
 		if (tx->irq)
 			free_irq(tx->irq, NULL);
+
+		if (tx->edid)
+			kfree(tx->edid);
 
 		fb_unregister_client(&tx->nb);
 		kfree(tx);

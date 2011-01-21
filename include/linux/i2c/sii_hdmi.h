@@ -320,6 +320,9 @@ struct siihdmi_tx {
 	int irq;
 
 	/* sink information */
+	u8 *edid;
+	u32 edid_length;
+
 	bool enable_audio;
 	enum {
 		CONNECTION_TYPE_DVI,
