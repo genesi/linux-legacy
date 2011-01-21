@@ -179,6 +179,16 @@ static int siihdmi_initialise(struct siihdmi_tx *tx)
 	return 0;
 }
 
+static bool siihdmi_sink_present(struct siihdmi_tx *tx)
+{
+	u8 isr;
+
+	isr = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_ISR);
+
+	return (isr & (SIIHDMI_ISR_HOT_PLUG_EVENT |
+		       SIIHDMI_ISR_RECEIVER_SENSE_EVENT));
+}
+
 static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 {
 	u8 offset, ctrl;
@@ -417,44 +427,6 @@ static int siihdmi_set_avi_info_frame(struct siihdmi_tx *tx)
 	return ret;
 }
 
-static int siihdmi_set_spd_info_frame(struct siihdmi_tx *tx)
-{
-	int ret;
-	struct siihdmi_spd_info_frame packet = {
-		.header = {
-			.info_frame = INFO_FRAME_BUFFER_SPD_ACP,
-			.repeat     = false,
-			.enable     = true,
-		},
-
-		.info_frame = {
-			.header = {
-				.type    = INFO_FRAME_TYPE_SOURCE_PRODUCT_DESCRIPTION,
-				.version = CEA861_SPD_INFO_FRAME_VERSION,
-				.length  = sizeof(packet.info_frame) - sizeof(packet.info_frame.header),
-			},
-
-			/* TODO this should be in platform data */
-			.vendor      = "Genesi",
-			.description = "Efika MX",
-
-			.source_device_info = SPD_SOURCE_PC_GENERAL,
-		},
-	};
-
-	cea861_checksum_hdmi_info_frame((u8 *) &packet.info_frame);
-
-	BUILD_BUG_ON(sizeof(packet) != SIIHDMI_TPI_REG_MISC_INFO_FRAME_LENGTH);
-	ret = i2c_smbus_write_i2c_block_data(tx->client,
-					     SIIHDMI_TPI_REG_MISC_INFO_FRAME_BASE,
-					     sizeof(packet),
-					     (u8 *) &packet);
-	if (ret < 0)
-		DEBUG("unable to write SPD info frame\n");
-
-	return ret;
-}
-
 static int siihdmi_set_audio_info_frame(struct siihdmi_tx *tx)
 {
 	int ret;
@@ -494,6 +466,44 @@ static int siihdmi_set_audio_info_frame(struct siihdmi_tx *tx)
 					     (u8 *) &packet);
 	if (ret < 0)
 		DEBUG("unable to write audio info frame\n");
+
+	return ret;
+}
+
+static int siihdmi_set_spd_info_frame(struct siihdmi_tx *tx)
+{
+	int ret;
+	struct siihdmi_spd_info_frame packet = {
+		.header = {
+			.info_frame = INFO_FRAME_BUFFER_SPD_ACP,
+			.repeat     = false,
+			.enable     = true,
+		},
+
+		.info_frame = {
+			.header = {
+				.type    = INFO_FRAME_TYPE_SOURCE_PRODUCT_DESCRIPTION,
+				.version = CEA861_SPD_INFO_FRAME_VERSION,
+				.length  = sizeof(packet.info_frame) - sizeof(packet.info_frame.header),
+			},
+
+			/* TODO this should be in platform data */
+			.vendor      = "Genesi",
+			.description = "Efika MX",
+
+			.source_device_info = SPD_SOURCE_PC_GENERAL,
+		},
+	};
+
+	cea861_checksum_hdmi_info_frame((u8 *) &packet.info_frame);
+
+	BUILD_BUG_ON(sizeof(packet) != SIIHDMI_TPI_REG_MISC_INFO_FRAME_LENGTH);
+	ret = i2c_smbus_write_i2c_block_data(tx->client,
+					     SIIHDMI_TPI_REG_MISC_INFO_FRAME_BASE,
+					     sizeof(packet),
+					     (u8 *) &packet);
+	if (ret < 0)
+		DEBUG("unable to write SPD info frame\n");
 
 	return ret;
 }
@@ -568,16 +578,6 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	tx->tmds_enabled = true;
 
 	return ret;
-}
-
-static bool siihdmi_sink_present(struct siihdmi_tx *tx)
-{
-	u8 isr;
-
-	isr = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_ISR);
-
-	return (isr & (SIIHDMI_ISR_HOT_PLUG_EVENT |
-		       SIIHDMI_ISR_RECEIVER_SENSE_EVENT));
 }
 
 /* TODO: use the real modelist and not monitor specs so it reflects the cull */
