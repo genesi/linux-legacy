@@ -438,7 +438,7 @@ static int siihdmi_set_audio_info_frame(struct siihdmi_tx *tx)
 	int ret;
 	struct siihdmi_audio_info_frame packet = {
 		.header = {
-			.info_frame = INFO_FRAME_BUFFER_AUDIO,
+			.info_frame = SIIHDMI_INFO_FRAME_AUDIO,
 			.repeat     = false,
 			.enable     = tx->enable_audio,
 		},
@@ -481,7 +481,7 @@ static int siihdmi_set_spd_info_frame(struct siihdmi_tx *tx)
 	int ret;
 	struct siihdmi_spd_info_frame packet = {
 		.header = {
-			.info_frame = INFO_FRAME_BUFFER_SPD_ACP,
+			.info_frame = SIIHDMI_INFO_FRAME_SPD_ACP,
 			.repeat     = false,
 			.enable     = true,
 		},
