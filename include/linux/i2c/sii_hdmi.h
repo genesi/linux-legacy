@@ -311,8 +311,25 @@ struct siihdmi_audio_info_frame {
 	struct audio_info_frame         info_frame;
 };
 
+struct siihdmi_platform_data {
+	/* reset function */
+	void (*reset)(void);
+
+	/* HDMI SPD InfoFrame Data */
+	char *vendor;
+	char *description;
+
+	/* framebuffer fixed id */
+	char *framebuffer;
+
+	/* hotplug IRQ */
+	int hotplug_irq;
+};
+
 struct siihdmi_tx {
 	struct i2c_client *client;
+	struct siihdmi_platform_data *platform;
+
 	struct notifier_block nb;
 	struct delayed_work hotplug;
 

@@ -493,13 +493,15 @@ static int siihdmi_set_spd_info_frame(struct siihdmi_tx *tx)
 				.length  = sizeof(packet.info_frame) - sizeof(packet.info_frame.header),
 			},
 
-			/* TODO this should be in platform data */
-			.vendor      = "Genesi",
-			.description = "Efika MX",
-
 			.source_device_info = SPD_SOURCE_PC_GENERAL,
 		},
 	};
+
+	strncpy(packet.info_frame.vendor, tx->platform->vendor,
+		sizeof(packet.info_frame.vendor));
+
+	strncpy(packet.info_frame.description, tx->platform->description,
+		sizeof(packet.info_frame.description));
 
 	cea861_checksum_hdmi_info_frame((u8 *) &packet.info_frame);
 
@@ -933,9 +935,6 @@ static void siihdmi_hotplug_event(struct work_struct *work)
 static int __devinit siihdmi_probe(struct i2c_client *client,
 				   const struct i2c_device_id *id)
 {
-#ifdef CONFIG_SIIHDMI_HOTPLUG
-	struct mxc_lcd_platform_data *plat = client->dev.platform_data;
-#endif
 	struct siihdmi_tx *tx;
 	int i, ret;
 
@@ -944,17 +943,19 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 		return -ENOMEM;
 
 	tx->client = client;
-
-	i2c_set_clientdata(client, tx);
+	tx->platform = client->dev.platform_data;
 
 #ifdef CONFIG_SIIHDMI_HOTPLUG
-	tx->irq = plat->hotplug_irq;
+	tx->irq = tx->platform->hotplug_irq;
+
 	PREPARE_DELAYED_WORK(&tx->hotplug, siihdmi_hotplug_event);
-	ret = request_irq(tx->irq, siihdmi_irq_handler, IRQF_TRIGGER_RISING, "hdmi_hotplug", (void *) tx);
-	if (ret) {
+
+	if (request_irq(tx->irq, siihdmi_irq_handler,
+			IRQF_TRIGGER_RISING, "hdmi_hotplug", tx) < 0)
 		DEBUG("could not register display hotplug irq\n");
-	}
 #endif
+
+	i2c_set_clientdata(client, tx);
 
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
 	msleep(MX51_IPU_SETTLE_TIME_MS);
@@ -967,12 +968,14 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	if (siihdmi_sink_present(tx)) {
 		/* enable any existing framebuffers */
 		DEBUG("%d registered framebuffers\n", num_registered_fb);
-		for (i = 0; i < num_registered_fb; i++)
-		{
-			/* hack: only init the background framebuffer */
-			if (!strncmp("DISP3 BG", registered_fb[i]->fix.id, 8))
-				if ((ret = siihdmi_init_fb(tx, registered_fb[i])) < 0)
-					goto error;
+
+		for (i = 0; i < num_registered_fb; i++) {
+			if (strcmp(registered_fb[i]->fix.id,
+				   tx->platform->framebuffer))
+				continue;
+
+			if ((ret = siihdmi_init_fb(tx, registered_fb[i])) < 0)
+				goto error;
 		}
 	} else {
 		/*

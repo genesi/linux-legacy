@@ -23,6 +23,8 @@
 #include <mach/gpio.h>
 #include <mach/irqs.h>
 
+#include <linux/i2c/sii_hdmi.h>
+
 #include "devices.h"
 #include "mx51_pins.h"
 #include "iomux.h"
@@ -62,10 +64,23 @@ static struct mxc_lcd_platform_data mx51_efikamx_cs8556_data = {
 	.reset = mx51_efikamx_display_reset,
 };
 
+#if 0
 static struct mxc_lcd_platform_data mx51_efikamx_sii9022_data = {
 	.core_reg = "VGEN1",
 	.io_reg = "VGEN3",
 	.reset = mx51_efikamx_display_reset,
+	.hotplug_irq = IOMUX_TO_IRQ(MX51_PIN_DISPB2_SER_DIO),
+};
+#endif
+
+static struct siihdmi_platform_data mx51_efikamx_sii9022_data = {
+	.reset       = mx51_efikamx_display_reset,
+
+	.vendor      = "Genesi",
+	.description = "Efika MX",
+
+	.framebuffer = "DISP3 BG",
+
 	.hotplug_irq = IOMUX_TO_IRQ(MX51_PIN_DISPB2_SER_DIO),
 };
 
