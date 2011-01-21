@@ -43,6 +43,12 @@
 
 #include <mach/hardware.h>
 
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+/* TODO Figure out why we need to wait for the IPU on the EFIKA MX */
+#define MX51_IPU_SETTLE_TIME_MS				(100)
+#endif
+
+
 /* logging helpers */
 #define CONTINUE(fmt, ...)	printk(KERN_CONT  fmt, ## __VA_ARGS__)
 #define DEBUG(fmt, ...)		printk(KERN_DEBUG "SIIHDMI: " fmt, ## __VA_ARGS__)
@@ -791,7 +797,9 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 
 	fb_videomode_to_var(&var, mode);
 
-	msleep(10); // pause to let IPU settle
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+	msleep(MX51_IPU_SETTLE_TIME_MS);
+#endif
 
 	if ((ret = siihdmi_set_resolution(tx, &var)) < 0)
 		goto out;
@@ -845,20 +853,18 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 
 	switch (val) {
 	case FB_EVENT_FB_REGISTERED:
-	{
-		/*
-		 * sleep just a little while to let the IPU settle
-		 * before we force it to change again to an EDID mode
-		 */
-		msleep(100);
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+		msleep(MX51_IPU_SETTLE_TIME_MS);
+#endif
 		return siihdmi_init_fb(tx, event->info);
-	}
 	case FB_EVENT_MODE_CHANGE:
 	{
 		struct fb_var_screeninfo var = {0};
 
 		fb_videomode_to_var(&var, event->info->mode);
-		msleep(100);
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+		msleep(MX51_IPU_SETTLE_TIME_MS);
+#endif
 		return siihdmi_set_resolution(tx, &var);
 	}
 	break;
@@ -961,7 +967,10 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 		DEBUG("could not register display hotplug irq\n");
 	}
 #endif
-	msleep(100); // let things settle, for some reason this improves compatibility
+
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+	msleep(MX51_IPU_SETTLE_TIME_MS);
+#endif
 
 	/* initialise the device */
 	if ((ret = siihdmi_initialise(tx)) < 0)
