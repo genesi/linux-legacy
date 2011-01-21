@@ -954,7 +954,7 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	PREPARE_DELAYED_WORK(&tx->hotplug, siihdmi_hotplug_event);
 
 	if (request_irq(tx->irq, siihdmi_irq_handler,
-			IRQF_TRIGGER_RISING, "hdmi_hotplug", tx) < 0)
+			IRQF_TRIGGER_RISING, "siihdmi", tx) < 0)
 		DEBUG("could not register display hotplug irq\n");
 #endif
 
