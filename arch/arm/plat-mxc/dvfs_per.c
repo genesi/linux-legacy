@@ -658,8 +658,8 @@ int dvfs_per_pixel_clk_limit()
 	int even_div1 = 1;
 	int even_div2  = 1;
 
-	disp0_pixel_clk = clk_get(NULL, "pixel_clk.0");
-	disp1_pixel_clk = clk_get(NULL, "pixel_clk.1");
+	disp0_pixel_clk = clk_get(NULL, "ipu_di0_clk");
+	disp1_pixel_clk = clk_get(NULL, "ipu_di1_clk");
 
 	if (disp0_pixel_clk != NULL)
 		disp0_rate = clk_get_rate(disp0_pixel_clk);
