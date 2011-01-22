@@ -621,7 +621,7 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx,
 			DEBUG("Removing mode %ux%u@%u (interlaced)\n",
 			      mode->xres, mode->yres, mode->refresh);
 			remove = true;
-		} else if (mode->pixclock < tx->max_pixclock) {
+		} else if (mode->pixclock < tx->platform->pixclock) {
 			DEBUG("Removing mode %ux%u@%u (exceeds pixclk limit)\n",
 			      mode->xres, mode->yres, mode->refresh);
 			remove = true;
@@ -711,8 +711,6 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 	tx->connection_type = CONNECTION_TYPE_DVI;
 	tx->pixel_mapping = PIXEL_MAPPING_EXACT;
 	tx->enable_audio = false;
-	/* this should be in platform data */
-	tx->max_pixclock = KHZ2PICOS(133000L);
 
 	/* use EDID to detect sink characteristics */
 	if ((ret = siihdmi_read_edid(tx, (u8 *) &block0, sizeof(block0))) < 0)

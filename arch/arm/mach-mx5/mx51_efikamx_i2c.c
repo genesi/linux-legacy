@@ -23,6 +23,7 @@
 #include <mach/gpio.h>
 #include <mach/irqs.h>
 
+#include <linux/fb.h>
 #include <linux/i2c/sii_hdmi.h>
 
 #include "devices.h"
@@ -82,6 +83,8 @@ static struct siihdmi_platform_data mx51_efikamx_sii9022_data = {
 	.framebuffer = "DISP3 BG",
 
 	.hotplug_irq = IOMUX_TO_IRQ(MX51_PIN_DISPB2_SER_DIO),
+
+	.pixclock    = KHZ2PICOS(133000L),
 };
 
 static struct i2c_board_info mx51_efikamx_i2c_board_info[] __initdata = {

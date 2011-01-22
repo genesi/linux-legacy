@@ -324,6 +324,9 @@ struct siihdmi_platform_data {
 
 	/* hotplug IRQ */
 	int hotplug_irq;
+
+	/* maximum pixel clock rate */
+	int pixclock;
 };
 
 struct siihdmi_tx {
@@ -353,8 +356,6 @@ struct siihdmi_tx {
 
 	/* preferred video mode (based on EDID) */
 	struct fb_videomode preferred;
-
-	int max_pixclock; /* platform data vs. EDID max tmds rate */
 };
 
 #endif
