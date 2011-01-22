@@ -582,72 +582,77 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	return ret;
 }
 
-static void siihdmi_sanitize_modelist(struct siihdmi_tx *tx, const struct fb_info *info)
+static const struct fb_videomode *
+_fb_match_resolution(const struct fb_videomode * const mode,
+		     struct list_head *head)
 {
-	int del = 0;
+	const struct fb_modelist *entry, *next;
 
-	struct list_head *head = (struct list_head *) &info->modelist;
-	struct list_head *pos, *n, *pos2, *n2;
-	struct fb_modelist *modelist, *modelist2;
-	struct fb_videomode *mode, *mode2, *preferred;
-
-	INFO("Removing incompatible video modes\n");
-
-	preferred = (struct fb_videomode *) fb_find_best_display((const struct fb_monspecs *) &info->monspecs, head);
-	if (preferred) {
-		INFO("Found a preferred video mode: %ux%u@%u\n", preferred->xres, preferred->yres, preferred->refresh);
-		memcpy((void *) &tx->preferred, (void *) preferred, sizeof(struct fb_videomode));
+	list_for_each_entry_safe(entry, next, head, list) {
+		if (fb_res_is_equal(mode, &entry->mode))
+			return &entry->mode;
 	}
 
-	list_for_each_safe(pos, n, head) {
-		modelist = list_entry(pos, struct fb_modelist, list);
-		mode = &modelist->mode;
+	return NULL;
+}
 
-		/* if candidate is a detailed timing, delete the existing one in the modelist since
-		 * some monitors and TVs support slightly adjusted (and more compatible) timings
-		 * and we don't want to use the VESA/CEA one over and above the monitor EDID one
-		 * TODO: we need to build a list of detailed modes and match them against the ones
-		 * we're currently parsing, or scan the list in an inner loop looking for other
-		 * modes
-	 	*/
-		list_for_each_safe(pos2, n2, head) {
-			modelist2 = list_entry(pos2, struct fb_modelist, list);
-			mode2 = &modelist2->mode;
 
-			if (fb_res_is_equal(mode, mode2) &&
-				!(mode->flag & FB_MODE_IS_DETAILED) &&				 /* original is not detailed */
-				(mode2->flag & FB_MODE_IS_DETAILED) ) {				 /* but comparison is */
-				INFO("    Removing duplicate mode %ux%u@%u\n",
-					mode->xres, mode->yres,
-					mode->refresh );
-				del = 1;							 /* mark delete the original */
+static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx,
+				      struct fb_info * const info)
+{
+	struct list_head *modelist = &info->modelist;
+	const struct fb_modelist *entry, *next;
+	const struct fb_videomode *mode;
+
+	if ((mode = fb_find_best_display(&info->monspecs, modelist)))
+		memcpy(&tx->preferred, mode, sizeof(tx->preferred));
+
+	/*
+	 * Prefer detailed timings found in EDID.  Certain sinks support slight
+	 * variations of VESA/CEA timings, and using those allows us to support
+	 * a wider variety of devieces.
+	 */
+	/* TODO: build a list of detailed timing modes and match against it */
+	list_for_each_entry_safe(entry, next, modelist, list) {
+		bool remove = false;
+
+		mode = &entry->mode;
+		if (mode->vmode & FB_VMODE_INTERLACED) {
+			DEBUG("Removing mode %ux%u@%u (interlaced)\n",
+			      mode->xres, mode->yres, mode->refresh);
+			remove = true;
+		} else if (mode->pixclock < tx->max_pixclock) {
+			DEBUG("Removing mode %ux%u@%u (exceeds pixclk limit)\n",
+			      mode->xres, mode->yres, mode->refresh);
+			remove = true;
+		} else {
+			const struct fb_videomode *match =
+				_fb_match_resolution(mode, modelist);
+
+			if ((match = _fb_match_resolution(mode, modelist)) &&
+			    (~mode->flag & FB_MODE_IS_DETAILED)            &&
+			    (match->flag & FB_MODE_IS_DETAILED)) {
+				DEBUG("Removing mode %ux%u@%u (detailed match)\n",
+				      mode->xres, mode->yres, mode->refresh);
+				remove = true;
 			}
 		}
 
-		/* check for del = 0 just in case otherwise we print two reasons */
-		if ((del == 0) && (mode->vmode & FB_VMODE_INTERLACED)) {
-			INFO("    Removing interlaced mode %ux%ui@%u\n",
-				mode->xres, mode->yres,
-				mode->refresh);
-			del = 1;
-		} else if ((del == 0) && (mode->pixclock < tx->max_pixclock)) {
-			INFO("    Removing mode %ux%u@%u - pixel clock exceeds limit\n",
-				mode->xres, mode->yres,
-				mode->refresh);
+		if (remove) {
+			struct fb_modelist *modelist =
+				container_of(mode, struct fb_modelist, mode);
 
-			del = 1;
-		}
+			/*
+			 * We could use flag & FB_MODE_IS_FIRST but it may not
+			 * be the mode fb_find_best_display actually returned
+			 */
 
-		if (del == 1) {
-			/* we could use flag & FB_MODE_IS_FIRST but it may not be the mode
-			 * fb_find_best_display actually returned */
-			if (fb_mode_is_equal(&tx->preferred, mode)) {
-				INFO("deleted preferred videomode!\n");
-			}
-			list_del(pos);
-			kfree(pos);
+			if (fb_mode_is_equal(&tx->preferred, mode))
+				DEBUG("deleted preferred video mode!\n");
+
+			list_del(&modelist->list);
+			kfree(&modelist->list);
 		}
-		del = 0;
 	}
 }
 

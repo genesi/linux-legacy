@@ -351,8 +351,10 @@ struct siihdmi_tx {
 		PIXEL_MAPPING_OVERSCANNED,
 	} pixel_mapping;
 
+	/* preferred video mode (based on EDID) */
+	struct fb_videomode preferred;
+
 	int max_pixclock; /* platform data vs. EDID max tmds rate */
-	const struct fb_videomode preferred; /* EDID preferred mode */
 };
 
 #endif
