@@ -105,9 +105,6 @@ static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 		 !time_after(jiffies, start + bus_timeout));
 	finish = jiffies;
 
-//	DEBUG("took %u us to read device id\n",
-//	      jiffies_to_usecs(finish - start));
-
 	if (data != SIIHDMI_DEVICE_ID_902x)
 		return -ENODEV;
 
@@ -236,9 +233,6 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 		 !time_after(jiffies, start + bus_timeout));
 	finish = jiffies;
 
-//	DEBUG("took %u us to request DDC bus\n",
-//	      jiffies_to_usecs(finish - start));
-
 	/* step 4: take ownership of the DDC bus */
 	ret = i2c_smbus_write_byte_data(tx->client,
 					SIIHDMI_TPI_REG_SYS_CTRL,
@@ -266,9 +260,6 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 	} while ((ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
 		 !time_after(jiffies, start + bus_timeout));
 	finish = jiffies;
-
-//	DEBUG("took %u us to relinquish DDC bus\n",
-//	      jiffies_to_usecs(finish - start));
 
 	/* step 7: (potentially) enable HDCP */
 
