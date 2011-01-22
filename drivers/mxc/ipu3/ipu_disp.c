@@ -55,7 +55,7 @@ struct dp_csc_param_t {
 #define DC_DISP_ID_SERIAL	2
 #define DC_DISP_ID_ASYNC	3
 
-int dmfc_type_setup;
+int dmfc_type_setup/* = DMFC_HIGH_RESOLUTION_ONLY_DP*/;
 static int dmfc_size_28, dmfc_size_29, dmfc_size_24, dmfc_size_27, dmfc_size_23;
 
 void _ipu_dmfc_init(int dmfc_type, int first)
@@ -881,6 +881,10 @@ void _ipu_init_dc_mappings(void)
 	_ipu_dc_map_link(11, 5, 1, 5, 2, 5, 0);
 	_ipu_dc_map_clear(12);
 	_ipu_dc_map_link(12, 5, 2, 5, 1, 5, 0);
+
+	/* IPU_PIX_FMT_GBR24 */
+	_ipu_dc_map_clear(13);
+	_ipu_dc_map_link(13, 0, 2, 0, 0, 0, 1);
 }
 
 int _ipu_pixfmt_to_map(uint32_t fmt)
@@ -905,6 +909,9 @@ int _ipu_pixfmt_to_map(uint32_t fmt)
 		return 10;
 	case IPU_PIX_FMT_YVYU:
 		return 12;
+	case IPU_PIX_FMT_GBR24:
+		return 13;
+
 	}
 
 	return -1;
@@ -1137,7 +1144,7 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 					DI_SYNC_NONE, 	/* CNT_POLARITY_CLR_SEL */
 					DI_SYNC_NONE, 	/* CNT_POLARITY_TRIGGER_SEL */
 					0, 				/* COUNT UP */
-					4				/* COUNT DOWN */
+					2*div				/* COUNT DOWN */
 					);
 
 			/* Setup internal HSYNC waveform */
@@ -1154,7 +1161,7 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 					DI_SYNC_NONE, 	/* CNT_POLARITY_CLR_SEL */
 					DI_SYNC_NONE, 	/* CNT_POLARITY_TRIGGER_SEL */
 					0, 				/* COUNT UP */
-					4				/* COUNT DOWN */
+					2*div				/* COUNT DOWN */
 					);
 
 			/* Active Field ? */
@@ -1243,7 +1250,7 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 					0				/* COUNT DOWN */
 					);
 
-			/* ??? */
+			/* Second VSYNC */
 			_ipu_di_sync_config(
 					disp, 			/* display */
 					9, 				/* counter */
@@ -1257,7 +1264,7 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 					DI_SYNC_NONE, 	/* CNT_POLARITY_CLR_SEL  */
 					DI_SYNC_NONE, 	/* CNT_POLARITY_TRIGGER_SEL */
 					0, 				/* COUNT UP */
-					4				/* COUNT DOWN */
+					2*div				/* COUNT DOWN */
 					);
 
 			/* set gentime select and tag sel */
