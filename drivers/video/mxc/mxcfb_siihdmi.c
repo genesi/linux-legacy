@@ -582,52 +582,6 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	return ret;
 }
 
-static void siihdmi_dump_modelines(const struct fb_monspecs * const monspecs)
-{
-	u32 i;
-
-	/*
-	 * TODO:
-	 * use the real modelist and not monitor specs so it reflects the cull
-	 */
-
-	INFO("Monitor supports %u modelines:\n", monspecs->modedb_len);
-	for (i = 0; i < monspecs->modedb_len; i++) {
-		const struct fb_videomode * const mode = &monspecs->modedb[i];
-		const bool interlaced = (mode->vmode & FB_VMODE_INTERLACED);
-		const bool double_scan = (mode->vmode & FB_VMODE_DOUBLE);
-		u32 pixel_clock = siihdmi_ps_to_hz(mode->pixclock);
-
-		pixel_clock >>= (double_scan ? 1 : 0);
-
-		INFO("    \"%dx%d@%d%s\" %lu.%.2lu %u %u %u %u %u %u %u %u %chsync %cvsync\n",
-		     /* mode name */
-		     mode->xres, mode->yres,
-		     mode->refresh << (interlaced ? 1 : 0),
-		     interlaced ? "i" : (double_scan ? "d" : ""),
-
-		     /* dot clock frequency (MHz) */
-		     pixel_clock / 1000000ul,
-		     pixel_clock % 1000000ul,
-
-		     /* horizontal timings */
-		     mode->xres,
-		     mode->xres + mode->right_margin,
-		     mode->xres + mode->right_margin + mode->hsync_len,
-		     mode->xres + mode->right_margin + mode->hsync_len + mode->left_margin,
-
-		     /* vertical timings */
-		     mode->yres,
-		     mode->yres + mode->lower_margin,
-		     mode->yres + mode->lower_margin + mode->vsync_len,
-		     mode->yres + mode->lower_margin + mode->vsync_len + mode->upper_margin,
-
-		     /* sync direction */
-		     (mode->sync & FB_SYNC_HOR_HIGH_ACT) ? '+' : '-',
-		     (mode->sync & FB_SYNC_VERT_HIGH_ACT) ? '+' : '-');
-	}
-}
-
 static void siihdmi_sanitize_modelist(struct siihdmi_tx *tx, const struct fb_info *info)
 {
 	int del = 0;
@@ -697,6 +651,47 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx *tx, const struct fb_inf
 	}
 }
 
+static void siihdmi_dump_modelines(const struct list_head * const modelines)
+{
+	const struct fb_modelist *entry;
+
+	INFO("Supported modelines:\n");
+	list_for_each_entry(entry, modelines, list) {
+		const struct fb_videomode * const mode = &entry->mode;
+		const bool interlaced = (mode->vmode & FB_VMODE_INTERLACED);
+		const bool double_scan = (mode->vmode & FB_VMODE_DOUBLE);
+		u32 pixel_clock = siihdmi_ps_to_hz(mode->pixclock);
+
+		pixel_clock >>= (double_scan ? 1 : 0);
+
+		INFO("    \"%dx%d@%d%s\" %lu.%.2lu %u %u %u %u %u %u %u %u %chsync %cvsync\n",
+		     /* mode name */
+		     mode->xres, mode->yres,
+		     mode->refresh << (interlaced ? 1 : 0),
+		     interlaced ? "i" : (double_scan ? "d" : ""),
+
+		     /* dot clock frequency (MHz) */
+		     pixel_clock / 1000000ul,
+		     pixel_clock % 1000000ul,
+
+		     /* horizontal timings */
+		     mode->xres,
+		     mode->xres + mode->right_margin,
+		     mode->xres + mode->right_margin + mode->hsync_len,
+		     mode->xres + mode->right_margin + mode->hsync_len + mode->left_margin,
+
+		     /* vertical timings */
+		     mode->yres,
+		     mode->yres + mode->lower_margin,
+		     mode->yres + mode->lower_margin + mode->vsync_len,
+		     mode->yres + mode->lower_margin + mode->vsync_len + mode->upper_margin,
+
+		     /* sync direction */
+		     (mode->sync & FB_SYNC_HOR_HIGH_ACT) ? '+' : '-',
+		     (mode->sync & FB_SYNC_VERT_HIGH_ACT) ? '+' : '-');
+	}
+}
+
 static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 {
 	const struct fb_videomode *mode = NULL;
@@ -749,14 +744,13 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 	}
 
 	fb_edid_to_monspecs(tx->edid, &info->monspecs);
-	/* TODO: dump modelines after cull */
-	siihdmi_dump_modelines(&info->monspecs);
-
 	fb_videomode_to_modelist(info->monspecs.modedb,
 				 info->monspecs.modedb_len,
 				 &info->modelist);
-
 	siihdmi_sanitize_modelist(tx, info);
+
+	siihdmi_dump_modelines(&info->modelist);
+
 
 	if (tx->preferred.xres > 0) {
 		/* in theory if the preferred mode is there or not this will find the nearest one.
