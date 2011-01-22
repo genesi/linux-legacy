@@ -3043,7 +3043,7 @@ static void calc_load_account_active(struct rq *this_rq)
 			return;
 		}
 
-		if (calc_load_tasks_deferred.counter) {
+		if (atomic_long_read(&calc_load_tasks_deferred)) {
 			deferred = atomic_long_xchg(&calc_load_tasks_deferred,
 						    0);
 			delta += deferred;
