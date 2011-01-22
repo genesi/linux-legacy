@@ -582,10 +582,14 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	return ret;
 }
 
-/* TODO: use the real modelist and not monitor specs so it reflects the cull */
 static void siihdmi_dump_modelines(const struct fb_monspecs * const monspecs)
 {
 	u32 i;
+
+	/*
+	 * TODO:
+	 * use the real modelist and not monitor specs so it reflects the cull
+	 */
 
 	INFO("Monitor supports %u modelines:\n", monspecs->modedb_len);
 	for (i = 0; i < monspecs->modedb_len; i++) {
@@ -624,13 +628,6 @@ static void siihdmi_dump_modelines(const struct fb_monspecs * const monspecs)
 	}
 }
 
-static int siihdmi_res_is_equal(const struct fb_videomode *mode1, const struct fb_videomode *mode2)
-{
-	return (mode1->xres		== mode2->xres &&
-		mode1->yres		== mode2->yres &&
-		mode1->refresh		== mode2->refresh);
-}
-
 static void siihdmi_sanitize_modelist(struct siihdmi_tx *tx, const struct fb_info *info)
 {
 	int del = 0;
@@ -663,7 +660,7 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx *tx, const struct fb_inf
 			modelist2 = list_entry(pos2, struct fb_modelist, list);
 			mode2 = &modelist2->mode;
 
-			if (siihdmi_res_is_equal(mode, mode2) && /* same mode */
+			if (fb_res_is_equal(mode, mode2) &&
 				!(mode->flag & FB_MODE_IS_DETAILED) &&				 /* original is not detailed */
 				(mode2->flag & FB_MODE_IS_DETAILED) ) {				 /* but comparison is */
 				INFO("    Removing duplicate mode %ux%u@%u\n",
@@ -755,7 +752,10 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 	/* TODO: dump modelines after cull */
 	siihdmi_dump_modelines(&info->monspecs);
 
-	fb_videomode_to_modelist(info->monspecs.modedb, info->monspecs.modedb_len, &info->modelist);
+	fb_videomode_to_modelist(info->monspecs.modedb,
+				 info->monspecs.modedb_len,
+				 &info->modelist);
+
 	siihdmi_sanitize_modelist(tx, info);
 
 	if (tx->preferred.xres > 0) {

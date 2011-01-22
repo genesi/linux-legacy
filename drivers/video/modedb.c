@@ -786,6 +786,22 @@ void fb_videomode_to_var(struct fb_var_screeninfo *var,
 }
 
 /**
+ * fb_res_is_equal - compare 2 videomodes
+ * @mode1: first videomode
+ * @mode2: second videomode
+ *
+ * RETURNS:
+ * 1 if resolution is equal, 0 if not
+ */
+int fb_res_is_equal(const struct fb_videomode *mode1,
+		    const struct fb_videomode *mode2)
+{
+	return (mode1->xres    == mode2->xres &&
+		mode1->yres    == mode2->yres &&
+		mode1->refresh == mode2->refresh);
+}
+
+/**
  * fb_mode_is_equal - compare 2 videomodes
  * @mode1: first videomode
  * @mode2: second videomode
