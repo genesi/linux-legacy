@@ -43,10 +43,6 @@
 
 #define MEGA              1000000
 
-u8 edid[256];
-
-struct fb_videomode preferred_mode;
-
 static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_display_iomux_pins[] = {
 	/* display reset pin */
 	{
