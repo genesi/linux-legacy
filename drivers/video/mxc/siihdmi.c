@@ -41,8 +41,6 @@
 #include <linux/cea861.h>
 #include <linux/i2c/siihdmi.h>
 
-#include <mach/hardware.h>
-
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
 /* TODO Figure out why we need to wait for the IPU on the EFIKA MX */
 #define MX51_IPU_SETTLE_TIME_MS				(100)
