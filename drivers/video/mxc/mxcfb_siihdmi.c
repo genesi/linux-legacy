@@ -39,7 +39,7 @@
 
 #include <linux/edid.h>
 #include <linux/cea861.h>
-#include <linux/i2c/sii_hdmi.h>
+#include <linux/i2c/siihdmi.h>
 
 #include <mach/hardware.h>
 
