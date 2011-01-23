@@ -38,10 +38,6 @@ config FB_MXC_CLAA_WVGA_SYNC_PANEL
 	depends on FB_MXC_SYNC_PANEL
 	tristate "CLAA WVGA Panel"
 
-config FB_MXC_SII9022
-	depends on FB_MXC_SYNC_PANEL && !MACH_MX51_EFIKAMX && !MACH_MX51_EFIKASB
-	tristate "SII9022A HDMI Interface Chip"
-
 config FB_MXC_SIIHDMI
 	depends on FB_MXC_SYNC_PANEL && MACH_MX51_EFIKAMX
 	tristate "SII9xxx HDMI Interface Chips"
