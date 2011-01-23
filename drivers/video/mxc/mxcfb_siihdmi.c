@@ -50,11 +50,11 @@
 
 
 /* logging helpers */
-#define CONTINUE(fmt, ...)	printk(KERN_CONT  fmt, ## __VA_ARGS__)
-#define DEBUG(fmt, ...)		printk(KERN_DEBUG "SIIHDMI: " fmt, ## __VA_ARGS__)
-#define ERROR(fmt, ...)		printk(KERN_ERR   "SIIHDMI: " fmt, ## __VA_ARGS__)
-#define WARNING(fmt, ...)	printk(KERN_WARN  "SIIHDMI: " fmt, ## __VA_ARGS__)
-#define INFO(fmt, ...)		printk(KERN_INFO  "SIIHDMI: " fmt, ## __VA_ARGS__)
+#define CONTINUE(fmt, ...)	printk(KERN_CONT    fmt, ## __VA_ARGS__)
+#define DEBUG(fmt, ...)		printk(KERN_DEBUG   "SIIHDMI: " fmt, ## __VA_ARGS__)
+#define ERROR(fmt, ...)		printk(KERN_ERR     "SIIHDMI: " fmt, ## __VA_ARGS__)
+#define WARNING(fmt, ...)	printk(KERN_WARNING "SIIHDMI: " fmt, ## __VA_ARGS__)
+#define INFO(fmt, ...)		printk(KERN_INFO    "SIIHDMI: " fmt, ## __VA_ARGS__)
 
 
 /* module parameters */
@@ -596,7 +596,6 @@ _fb_match_resolution(const struct fb_videomode * const mode,
 	return NULL;
 }
 
-
 static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx,
 				      struct fb_info * const info)
 {
@@ -697,9 +696,40 @@ static void siihdmi_dump_modelines(const struct list_head * const modelines)
 	}
 }
 
-static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
+static const struct fb_videomode *
+siihdmi_select_video_mode(const struct siihdmi_tx * const tx,
+			  struct fb_info * const info)
 {
 	const struct fb_videomode *mode = NULL;
+
+	/* TODO respect display aspect ratio */
+	if (tx->preferred.xres && tx->preferred.yres)
+		mode = fb_find_nearest_mode(&tx->preferred, &info->modelist);
+
+	if (!mode)
+		mode = fb_find_nearest_mode(&siihdmi_default_video_mode,
+					    &info->modelist);
+
+	/* if no mode was found push 1280x720 anyway */
+	mode = mode ? mode : &siihdmi_default_video_mode;
+
+#if defined(CONFIG_MACH_MX51_EFIKAMX)
+	/*
+	 * At modes somewhat greater than 1280x720 (1280x768, 1280x800 may be
+	 * fine) doing heavy video work like playing a 720p movie may cause the
+	 * IPU to black the screen intermittently due to lack of IPU bandwidth.
+	 */
+	if ((mode->xres > 1024) && (mode->yres > 720))
+		WARNING("available video bandwidth may be very low at the "
+			"selected resolution (%ux%u@%u) and may cause IPU errors\n",
+			mode->xres, mode->yres, mode->refresh);
+#endif
+
+	return mode;
+}
+
+static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
+{
 	struct fb_var_screeninfo var = {0};
 	struct edid_block0 block0;
 	int ret;
@@ -750,42 +780,11 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 	fb_videomode_to_modelist(info->monspecs.modedb,
 				 info->monspecs.modedb_len,
 				 &info->modelist);
-	siihdmi_sanitize_modelist(tx, info);
 
+	siihdmi_sanitize_modelist(tx, info);
 	siihdmi_dump_modelines(&info->modelist);
 
-
-	if (tx->preferred.xres > 0) {
-		/* in theory if the preferred mode is there or not this will find the nearest one.
-		 * hopefully the monitor may have two modes (60Hz and 75Hz) for the same resolution
-		 * so if the higher one is culled, the lower one will still work.
-		 * if not then we'll still get something close to native panel size.
-		 * TODO: respect display aspect ratio so we pick a 16:9/16:10/4:3 mode in respect
-		 * to the nearest mode
-		 */
-		mode = fb_find_nearest_mode(&tx->preferred, &info->modelist);
-		if (!mode) {
-			mode = fb_find_nearest_mode(&siihdmi_default_video_mode, &info->modelist);
-		}
-	} else {
-		/* if no preferred mode exists, try and match 1280x720p to the monitor, this is
-		 * needed for not-so-HDMI monitors (old DVI stuff, not TVs) where 720p is unknown
-		 */
-		mode = fb_find_nearest_mode(&siihdmi_default_video_mode, &info->modelist);
-	}
-
-	/* if no mode was found push 1280x720 anyway */
-	mode = mode ? mode : &siihdmi_default_video_mode;
-
-	/* at modes somewhat greater than 1280x720 (1280x768, 1280x800 may be fine) doing heavy video work
-	 * like playing a 720p movie may cause the IPU to black the screen intermittently due to lack of
-	 * IPU bandwidth. Say so.
-	 */
-	if ((mode->xres > 1024) && (mode->yres > 720)) {
-		INFO("warning: available video bandwidth may be very low at this resolution and may cause IPU errors\n");
-	}
-
-	fb_videomode_to_var(&var, mode);
+	fb_videomode_to_var(&var, siihdmi_select_video_mode(tx, info));
 
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
 	msleep(MX51_IPU_SETTLE_TIME_MS);
