@@ -19,7 +19,6 @@ obj-$(CONFIG_FB_MXC_TVOUT_CH7024)           += ch7024.o
 obj-$(CONFIG_FB_MXC_TVOUT_TVE)              += tve.o
 obj-$(CONFIG_FB_MXC_LDB)                    += ldb.o
 obj-$(CONFIG_FB_MXC_CH7026)		    		+= mxcfb_ch7026.o
-#obj-$(CONFIG_FB_MODE_HELPERS)				+= mxc_edid.o
 obj-$(CONFIG_FB_MXC_SII9022)    		+= mxcfb_sii9022.o
 obj-$(CONFIG_FB_MXC_SIIHDMI)    		+= mxcfb_siihdmi.o
 obj-$(CONFIG_FB_MXC_MTL017)                 += mxcfb_mtl017.o

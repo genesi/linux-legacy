@@ -41,7 +41,6 @@
 #include <linux/mxcfb.h>
 #include <linux/ipu.h>
 #include <linux/spinlock.h>
-#include <mach/mxc_edid.h>
 #include <mach/hardware.h>
 
 #define EDID_LENGTH	128

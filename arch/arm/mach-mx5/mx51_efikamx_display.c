@@ -32,7 +32,6 @@
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <mach/gpio.h>
-#include <mach/mxc_edid.h>
 
 #include "devices.h"
 #include "iomux.h"

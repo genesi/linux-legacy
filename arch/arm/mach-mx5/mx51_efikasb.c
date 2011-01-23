@@ -48,7 +48,6 @@
 #include <mach/gpio.h>
 #include <mach/mmc.h>
 #include <mach/mxc_dvfs.h>
-#include <mach/mxc_edid.h>
 
 #include "devices.h"
 #include "mx51_efikasb.h"
