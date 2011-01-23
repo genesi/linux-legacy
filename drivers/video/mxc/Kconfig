@@ -40,7 +40,7 @@ config FB_MXC_CLAA_WVGA_SYNC_PANEL
 
 config FB_MXC_SIIHDMI
 	depends on FB_MXC_SYNC_PANEL && MACH_MX51_EFIKAMX
-	tristate "SII9xxx HDMI Interface Chips"
+	bool "SII9xxx HDMI Interface Chips"
 
 config FB_SIIHDMI_HOTPLUG
 	depends on FB_MXC_SIIHDMI
