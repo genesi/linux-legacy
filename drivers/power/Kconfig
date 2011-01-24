@@ -124,6 +124,13 @@ config MXS_VBUS_CURRENT_DRAW
 	  Say Y to enable 100mA limitation when USB vbus power on system
 	  before enumeration to match USB2.0 requirement.
 
+config BATTERY_SBS
+	bool "Smart Battery System"
+	depends on I2C
+	help
+	  This driver supports the Smart Battery System, another type of
+	  access to battery information.
+
 
 config BATTERY_EFIKASB
         tristate "Efika MX Smartbook battery driver"

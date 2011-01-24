@@ -378,11 +378,19 @@ static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
 		.addr = 0x3a,
 		.platform_data = &lvds_data,
 	},
+#if defined(CONFIG_BATTERY_SBS)
+	{
+		.type = "smart-battery",
+		.addr = 0x0b,
+		.platform_data = &efikasb_batt_data,
+	},
+#else
 	{
 		.type = "efikasb-battery",
 		.addr = 0x0b,
 		.platform_data = &efikasb_batt_data,
 	},
+#endif
 };
 #endif
 
