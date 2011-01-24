@@ -57,13 +57,8 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_i2c_iomux_pins[] = {
 	},
 };
 
+/* FYI VGA core_reg was VCAM, does that mean we can power the regulator off ? */
 extern void mx51_efikamx_display_reset(void);
-static struct mxc_lcd_platform_data mx51_efikamx_cs8556_data = {
-	.core_reg = "VCAM",
-	.io_reg = "VGEN3",
-	.analog_reg = "VAUDIO",
-	.reset = mx51_efikamx_display_reset,
-};
 
 #if 0
 static struct mxc_lcd_platform_data mx51_efikamx_sii9022_data = {
@@ -91,11 +86,6 @@ static struct i2c_board_info mx51_efikamx_i2c_board_info[] __initdata = {
 	{
 	 .type = "sgtl5000-i2c",
 	 .addr = 0x0a,
-	 },
-	{
-	 .type = "cs8556",
-	 .addr = 0x3d,
-	 .platform_data = &mx51_efikamx_cs8556_data,
 	 },
 	{
 	 .type = "sii9022",

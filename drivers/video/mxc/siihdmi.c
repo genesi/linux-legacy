@@ -42,7 +42,12 @@
 #include <linux/i2c/siihdmi.h>
 
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
-/* TODO Figure out why we need to wait for the IPU on the EFIKA MX */
+/*
+ * IPU flings out DI0_SYNC_DISP_ERR and something similar to IDMAC_NFB4EOF_ERR_21
+ * if we change modes aggressively and will be panicking while we're trying to set
+ * the sync config and we are not synchronized to the blanking interval of the IPU.
+ * This is described in the MX51 manual (rev 1 42.3.6.5.1)
+ */
 #define MX51_IPU_SETTLE_TIME_MS				(100)
 #endif
 
@@ -66,8 +71,7 @@ MODULE_PARM_DESC(bus_timeout, "bus timeout in milliseconds");
  * CEA spec describes several 1080p "low" field rates at 24, 25 and 30 fields
  * per second (mode 32, 33, 34).  They all run at a 74.250MHz pixel clock just
  * like 720p@60. A decent HDMI TV should be able to display these as it
- * corresponds to "film mode". The question is, how do we detect these? They do
- * not seem to be in any EDID data we've ever seen...
+ * corresponds to "film mode". These are in CEA Short Video Descriptors.
  */
 
 static struct fb_videomode siihdmi_default_video_mode = {

@@ -57,15 +57,11 @@ int mxcfb_initialized = 0;
 
 void mx51_efikamx_display_reset(void)
 {
-	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIN), 0);
-	gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIN), 0);
-	msleep(50);
-
-	/* do reset */
 	gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIN), 1);
-	msleep(20);		/* tRES >= 50us */
+	msleep(50);		/* SII9022 Treset >= 100us */
 
 	gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIN), 0);
+	msleep(100);
 }
 
 
