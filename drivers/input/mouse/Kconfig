@@ -321,4 +321,28 @@ config MOUSE_SYNAPTICS_I2C
 	  To compile this driver as a module, choose M here: the
 	  module will be called synaptics_i2c.
 
+config MOUSE_SYNAPTICS_USB
+	tristate "Synaptics USB Touchpad support"
+	depends on USB
+	help
+	  Say Y here if you want to use a Synaptics USB touchpad. Synaptics USB
+	  touchpads emulate an USB mouse by default, so you can also use the
+	  usbhid driver. But you will be able to use Synaptics TouchPad driver
+	  for X.Org in combination with this kernel module, which will improve
+	  mouse movement, enable vertical/horizontal scrolling, etc. More
+	  information can be found at:
+	  <http://jan-steinhoff.de/linux/synaptics-usb.html>
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called synaptics_usb.
+
+config MOUSE_SYNAPTICS_CPADDEV
+	bool "Synaptics cPad display support"
+	depends on MOUSE_SYNAPTICS_USB
+	help
+	  Say Y here if you want to use the display of Synaptics cPad. The
+	  display can be acessed through a character device /dev/usb/cpad?.
+	  Programs that use the character device can be found at:
+	  <http://jan-steinhoff.de/linux/synaptics-usb.html>
+
 endif

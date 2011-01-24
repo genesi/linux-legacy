@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.31.14.13
-# Mon Jan 17 14:25:05 2011
+# Linux kernel version: 2.6.31.14.17
+# Mon Jan 24 11:47:01 2011
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1179,6 +1179,8 @@ CONFIG_INPUT_MOUSE=y
 # CONFIG_MOUSE_VSXXXAA is not set
 # CONFIG_MOUSE_GPIO is not set
 # CONFIG_MOUSE_SYNAPTICS_I2C is not set
+CONFIG_MOUSE_SYNAPTICS_USB=m
+# CONFIG_MOUSE_SYNAPTICS_CPADDEV is not set
 CONFIG_INPUT_JOYSTICK=y
 # CONFIG_JOYSTICK_ANALOG is not set
 # CONFIG_JOYSTICK_A3D is not set
@@ -1401,6 +1403,7 @@ CONFIG_POWER_SUPPLY=y
 # CONFIG_BATTERY_DS2782 is not set
 # CONFIG_BATTERY_BQ27x00 is not set
 # CONFIG_BATTERY_MAX17040 is not set
+# CONFIG_BATTERY_SBS is not set
 CONFIG_BATTERY_EFIKASB=y
 # CONFIG_HWMON is not set
 # CONFIG_THERMAL is not set
