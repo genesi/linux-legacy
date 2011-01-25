@@ -347,6 +347,14 @@ static int start_dvfs(void)
 
 	dvfs_load_config(0);
 
+	/* get current working point */
+	cpu_rate = clk_get_rate(cpu_clk);
+	curr_wp = cpu_wp_nr - 1;
+	do {
+		if (cpu_rate <= cpu_wp_tbl[curr_wp].cpu_rate)
+			break;
+	} while (--curr_wp >= 0);
+	old_wp = curr_wp;
 	/* config reg GPC_CNTR */
 	reg = __raw_readl(dvfs_data->gpc_cntr_reg_addr);
 
