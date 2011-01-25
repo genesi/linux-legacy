@@ -96,6 +96,11 @@ module_param(cache_time, uint, 0644);
 MODULE_PARM_DESC(cache_time, "cache time in milliseconds");
 
 
+struct sbs_string {
+	u8 length;
+	u8 data[];
+};
+
 struct sbs_battery {
 	struct i2c_client   *client;
 
@@ -171,26 +176,28 @@ static enum power_supply_property sbs_battery_properties[] = {
 	POWER_SUPPLY_PROP_ENERGY_NOW,
 };
 
-static inline int __chem_to_tech(const char * const chem)
+static inline int __chem_to_tech(const u8 * const chem)
 {
-	if (!strcasecmp(chem, "PbAc")) /* Lead Acid */
+	const struct sbs_string * const str = (struct sbs_string *) chem;
+
+	if (!strcasecmp(str->data, "PbAc")) /* Lead Acid */
 		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
-	if (!strcasecmp(chem, "LION")) /* Lithium Ion */
+	if (!strcasecmp(str->data, "LION")) /* Lithium Ion */
 		return POWER_SUPPLY_TECHNOLOGY_LION;
-	if (!strcasecmp(chem, "NiCd")) /* Nickel Cadmium */
+	if (!strcasecmp(str->data, "NiCd")) /* Nickel Cadmium */
 		return POWER_SUPPLY_TECHNOLOGY_NiCd;
-	if (!strcasecmp(chem, "NiMH")) /* Nickel Metal Hydride */
+	if (!strcasecmp(str->data, "NiMH")) /* Nickel Metal Hydride */
 		return POWER_SUPPLY_TECHNOLOGY_NiMH;
-	if (!strcasecmp(chem, "NiZn")) /* Nickel Zinc */
+	if (!strcasecmp(str->data, "NiZn")) /* Nickel Zinc */
 		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
-	if (!strcasecmp(chem, "RAM"))  /* Rechargable Alkaline-Manganese */
+	if (!strcasecmp(str->data, "RAM"))  /* Rechargable Alkaline-Manganese */
 		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
-	if (!strcasecmp(chem, "ZnAr")) /* Zinc Air */
+	if (!strcasecmp(str->data, "ZnAr")) /* Zinc Air */
 		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
-	if (!strcasecmp(chem, "LiP"))  /* Lithium Polymer */
+	if (!strcasecmp(str->data, "LiP"))  /* Lithium Polymer */
 		return POWER_SUPPLY_TECHNOLOGY_LIPO;
 
-	DEBUG("Unknown Device Chemistry: %s", chem);
+	DEBUG("Unknown Device Chemistry: %.*s", str->length, str->data);
 	return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
 }
 
@@ -225,9 +232,9 @@ static inline void read_battery_field(struct sbs_battery * const batt,
 
 	switch (field->size) {
 	case SBS_READ_WORD:
-		cache[field->offset] =
-			(u16) i2c_smbus_read_word_data(batt->client,
-						       field->command);
+		*((u16 *) &cache[field->offset]) =
+			i2c_smbus_read_word_data(batt->client,
+					         field->command);
 		break;
 	case SBS_READ_BLOCK:
 		BUILD_BUG_ON(sizeof(*batt) - field->offset >= I2C_SMBUS_BLOCK_MAX);
@@ -290,6 +297,7 @@ static int sbs_get_battery_property(struct power_supply *psy,
 {
 	struct sbs_battery *batt =
 		container_of(psy, struct sbs_battery, battery);
+	const struct sbs_string *str;
 
 	val->intval = 0;
 
@@ -308,11 +316,12 @@ static int sbs_get_battery_property(struct power_supply *psy,
 		val->intval = __mV_2_uV(batt, batt->cache.design_voltage);
 		break;
 	case POWER_SUPPLY_PROP_MODEL_NAME:
-		val->strval = kstrdup(batt->cache.device_name, GFP_KERNEL);
+		str = (struct sbs_string *) batt->cache.device_name;
+		val->strval = kstrndup(str->data, str->length, GFP_KERNEL);
 		break;
 	case POWER_SUPPLY_PROP_MANUFACTURER:
-		val->strval = kstrdup(batt->cache.manufacturer_name,
-				      GFP_KERNEL);
+		str = (struct sbs_string *) batt->cache.manufacturer_name;
+		val->strval = kstrndup(str->data, str->length, GFP_KERNEL);
 		break;
 	case POWER_SUPPLY_PROP_SERIAL_NUMBER:
 		val->strval = kasprintf(GFP_KERNEL,
