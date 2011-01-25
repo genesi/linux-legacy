@@ -626,6 +626,10 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx,
 			DEBUG("Removing mode %ux%u@%u (exceeds pixclk limit)\n",
 			      mode->xres, mode->yres, mode->refresh);
 			remove = true;
+		} else if (mode->vsync_len < 2) {
+			DEBUG("Removing mode %ux%u@%u (vertical sync period too short)\n", 
+			      mode->xres, mode->yres, mode->refresh);
+			remove = true;
 		} else {
 			const struct fb_videomode *match =
 				_fb_match_resolution(mode, modelist);

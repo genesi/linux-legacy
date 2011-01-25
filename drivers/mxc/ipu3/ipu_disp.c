@@ -958,7 +958,6 @@ void adapt_panel_to_ipu_restrictions(uint32_t *pixel_clk,
 				      uint16_t v_start_width,
 				      uint16_t *v_end_width)
 {
-#if 0
 	if (*v_end_width < 2) {
 		uint16_t total_width = width + h_start_width + h_end_width;
 		uint16_t total_height_old = height + v_start_width + (*v_end_width);
@@ -968,7 +967,6 @@ void adapt_panel_to_ipu_restrictions(uint32_t *pixel_clk,
 			(total_width * total_height_old);
 		dev_err(g_ipu_dev, "WARNING: adapt panel end blank lines\n");
 	}
-#endif
 }
 
 /*!
@@ -1031,11 +1029,9 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 	if ((v_sync_width == 0) || (h_sync_width == 0))
 		return EINVAL;
 
-	if (!machine_is_mx51_efikamx() && !machine_is_mx51_efikasb()) {
-		adapt_panel_to_ipu_restrictions(&pixel_clk, width, height,
-						 h_start_width, h_end_width,
-						 v_start_width, &v_end_width);
-	}
+	adapt_panel_to_ipu_restrictions(&pixel_clk, width, height,
+					 h_start_width, h_end_width,
+					 v_start_width, &v_end_width);
 
 	h_total = width + h_sync_width + h_start_width + h_end_width;
 	v_total = height + v_sync_width + v_start_width + v_end_width;
