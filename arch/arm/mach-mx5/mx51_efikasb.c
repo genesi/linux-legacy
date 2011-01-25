@@ -57,6 +57,8 @@
 #include "usb.h"
 #include <mach/clock.h>
 
+#include <linux/sbs.h>
+
 #if defined(CONFIG_I2C_MXC) && defined(CONFIG_I2C_IMX)
 #error pick CONFIG_I2C_MXC or CONFIG_I2C_IMX but not both, please..
 #endif
@@ -357,6 +359,11 @@ static struct platform_device mxc_led_device = {
 	.id = 1,
 };
 
+static struct sbs_platform_data sbs_platform_data = {
+	.get_mains_status   = mxc_get_ac_adapter_insertion_status,
+	.get_battery_status = mxc_get_battery_insertion_status,
+};
+
 static struct mxc_battery_platform_data efikasb_batt_data = {
 	.batt_in_irq = IOMUX_TO_IRQ(BATT_INS_PIN),
 	.ac_in_irq = IOMUX_TO_IRQ(AC_ADAP_INS_PIN),
@@ -380,9 +387,9 @@ static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
 	},
 #if defined(CONFIG_BATTERY_SBS)
 	{
-		.type = "smart-battery",
-		.addr = 0x0b,
-		.platform_data = &efikasb_batt_data,
+		.type          = "smart-battery",
+		.addr          = 0x0b,
+		.platform_data = &sbs_platform_data,
 	},
 #else
 	{

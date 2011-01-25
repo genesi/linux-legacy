@@ -29,6 +29,7 @@
  */
 
 #include <linux/i2c.h>
+#include <linux/sbs.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/jiffies.h>
@@ -102,7 +103,8 @@ struct sbs_string {
 };
 
 struct sbs_battery {
-	struct i2c_client   *client;
+	struct i2c_client        *client;
+	struct sbs_platform_data *platform;
 
 	struct {
 		u32 timestamp;
@@ -346,8 +348,7 @@ static int sbs_get_battery_property(struct power_supply *psy,
 			val->intval = POWER_SUPPLY_STATUS_FULL;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
-		/* TODO use platform_data to detect battery status */
-		val->intval = true;
+		val->intval = batt->platform->get_battery_status();
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:                          /* uV */
 		val->intval = __mV_2_uV(batt, batt->cache.voltage);
@@ -475,10 +476,12 @@ static int sbs_get_mains_property(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  union power_supply_propval *val)
 {
+	struct sbs_battery *batt =
+		container_of(psy, struct sbs_battery, mains);
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		/* TODO Use platform_data to get a way to detect mains status */
-		val->intval = false;
+		val->intval = batt->platform->get_mains_status();
 		break;
 	default:
 		return -EINVAL;
@@ -507,8 +510,11 @@ static int __devinit sbs_probe(struct i2c_client *client,
 		return -ENOMEM;
 
 	batt->client = client;
+	batt->platform = client->dev.platform_data;
+
 	batt->mains = sbs_mains;
 	batt->battery = sbs_battery;
+
 	i2c_set_clientdata(client, batt);
 
 	if ((ret = power_supply_register(&client->dev, &batt->battery)) < 0)
