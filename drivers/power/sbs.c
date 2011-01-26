@@ -301,40 +301,35 @@ static int sbs_get_battery_property(struct power_supply *psy,
 		container_of(psy, struct sbs_battery, battery);
 	const struct sbs_string *str;
 
-	val->intval = 0;
-
 	/* don't bother updating the cache for static data */
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = __chem_to_tech(batt->cache.device_chemistry);
-		break;
+		return 0;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34)
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
 		val->intval = batt->cache.battery_cycle_count;
-		break;
+		return 0;
 #endif
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:                   /* uV */
 		val->intval = __mV_2_uV(batt, batt->cache.design_voltage);
-		break;
+		return 0;
 	case POWER_SUPPLY_PROP_MODEL_NAME:
 		str = (struct sbs_string *) batt->cache.device_name;
 		val->strval = kstrndup(str->data, str->length, GFP_KERNEL);
-		break;
+		return 0;
 	case POWER_SUPPLY_PROP_MANUFACTURER:
 		str = (struct sbs_string *) batt->cache.manufacturer_name;
 		val->strval = kstrndup(str->data, str->length, GFP_KERNEL);
-		break;
+		return 0;
 	case POWER_SUPPLY_PROP_SERIAL_NUMBER:
 		val->strval = kasprintf(GFP_KERNEL,
 					"%u", batt->cache.serial_number);
-		break;
+		return 0;
 	default:
 		break;
 	}
-
-	if (val->intval)
-		return 0;
 
 	sbs_get_battery_state(batt);
 
