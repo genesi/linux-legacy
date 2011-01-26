@@ -85,6 +85,8 @@ static ssize_t power_supply_show_property(struct device *dev,
 			}
 			return sprintf(buf, "%s\n", technology_text[value.intval]);
 		case POWER_SUPPLY_PROP_MODEL_NAME:
+		case POWER_SUPPLY_PROP_MANUFACTURER:
+		case POWER_SUPPLY_PROP_SERIAL_NUMBER:
 			return sprintf(buf, "%s\n", value.strval);
 		default:
 			return sprintf(buf, "%d\n", value.intval);
