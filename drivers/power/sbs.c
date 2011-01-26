@@ -434,7 +434,7 @@ static inline unsigned int ipow(const int base, int exp)
 	unsigned int value = base;
 
 	if (unlikely(!exp))
-		return 0;
+		return 1;
 
 	while (--exp)
 		value *= base;
