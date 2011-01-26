@@ -91,45 +91,45 @@
 #define CAPACITY_MODE				(1 << 15)
 
 
+#define SBS_STRING_REGISTER_LEN			(32)
+
+
 /* module parameters */
 static unsigned int cache_time = 1000;
 module_param(cache_time, uint, 0644);
 MODULE_PARM_DESC(cache_time, "cache time in milliseconds");
 
 
-struct sbs_string {
-	u8 length;
-	u8 data[];
-};
-
 struct sbs_battery {
 	struct i2c_client        *client;
 	struct sbs_platform_data *platform;
 
 	struct {
-		u32 timestamp;
+		u32   timestamp;
 
 		/* dynamic information */
-		u16 battery_mode;
-		u16 temperature;
-		u16 voltage;
-		u16 current_now;
-		u16 average_current;
-		u16 absolute_state_of_charge;
-		u16 remaining_capacity;
+		u16   battery_mode;
+		u16   temperature;
+		u16   voltage;
+		u16   current_now;
+		u16   average_current;
+		u16   absolute_state_of_charge;
+		u16   remaining_capacity;
 
 		/* affected by battery_mode */
-		u16 full_charge_capacity;
-		u16 design_capacity;
+		u16   full_charge_capacity;
+		u16   design_capacity;
 
 		/* static information */
-		u16 battery_cycle_count;
-		u16 design_voltage;
-		u16 specification_info;
-		u16 serial_number;
-		 u8 manufacturer_name[I2C_SMBUS_BLOCK_MAX];
-		 u8 device_name[I2C_SMBUS_BLOCK_MAX];
-		 u8 device_chemistry[I2C_SMBUS_BLOCK_MAX];
+		u16   battery_cycle_count;
+		u16   design_voltage;
+		u16   specification_info;
+		u16   _serial_number;
+
+		char *serial_number;
+		char *manufacturer_name;
+		char *device_name;
+		char *device_chemistry;
 	} cache;
 
 	unsigned int vscale;
@@ -139,12 +139,12 @@ struct sbs_battery {
 	struct power_supply mains;
 };
 
-struct sbs_battery_field {
-	u8     command;
+struct sbs_battery_register {
+	u8     address;
 	enum {
-		SBS_READ_WORD,
-		SBS_READ_BLOCK,
-	}      size;
+		SBS_REGISTER_INT,
+		SBS_REGISTER_STRING,
+	}      type;
 	size_t offset;
 };
 
@@ -178,28 +178,29 @@ static enum power_supply_property sbs_battery_properties[] = {
 	POWER_SUPPLY_PROP_ENERGY_NOW,
 };
 
-static inline int __chem_to_tech(const u8 * const chem)
+static inline int __chem_to_tech(const char * const chem)
 {
-	const struct sbs_string * const str = (struct sbs_string *) chem;
+	if (!chem)
+		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
 
-	if (!strcasecmp(str->data, "PbAc")) /* Lead Acid */
+	if (!strcasecmp(chem, "PbAc")) /* Lead Acid */
 		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
-	if (!strcasecmp(str->data, "LION")) /* Lithium Ion */
+	if (!strcasecmp(chem, "LION")) /* Lithium Ion */
 		return POWER_SUPPLY_TECHNOLOGY_LION;
-	if (!strcasecmp(str->data, "NiCd")) /* Nickel Cadmium */
+	if (!strcasecmp(chem, "NiCd")) /* Nickel Cadmium */
 		return POWER_SUPPLY_TECHNOLOGY_NiCd;
-	if (!strcasecmp(str->data, "NiMH")) /* Nickel Metal Hydride */
+	if (!strcasecmp(chem, "NiMH")) /* Nickel Metal Hydride */
 		return POWER_SUPPLY_TECHNOLOGY_NiMH;
-	if (!strcasecmp(str->data, "NiZn")) /* Nickel Zinc */
+	if (!strcasecmp(chem, "NiZn")) /* Nickel Zinc */
 		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
-	if (!strcasecmp(str->data, "RAM"))  /* Rechargable Alkaline-Manganese */
+	if (!strcasecmp(chem, "RAM"))  /* Rechargable Alkaline-Manganese */
 		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
-	if (!strcasecmp(str->data, "ZnAr")) /* Zinc Air */
+	if (!strcasecmp(chem, "ZnAr")) /* Zinc Air */
 		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
-	if (!strcasecmp(str->data, "LiP"))  /* Lithium Polymer */
+	if (!strcasecmp(chem, "LiP"))  /* Lithium Polymer */
 		return POWER_SUPPLY_TECHNOLOGY_LIPO;
 
-	DEBUG("Unknown Device Chemistry: %.*s", str->length, str->data);
+	DEBUG("Unknown Device Chemistry: %s", chem);
 	return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
 }
 
@@ -227,54 +228,78 @@ static inline const int __mW_2_uW(const struct sbs_battery * const batt,
 	return batt->vscale * batt->ipscale * mw * 1000 * 10;
 }
 
-static inline void read_battery_field(struct sbs_battery * const batt,
-				      const struct sbs_battery_field * const field)
+static inline void read_battery_register(struct sbs_battery * const batt,
+					 const struct sbs_battery_register *reg)
 {
 	u8 * const cache = (u8 *) batt;
 
-	switch (field->size) {
-	case SBS_READ_WORD:
-		*((u16 *) &cache[field->offset]) =
-			i2c_smbus_read_word_data(batt->client,
-					         field->command);
+	switch (reg->type) {
+	case SBS_REGISTER_INT:
+		{
+			u16 *data = (u16 *)(cache + reg->offset);
+			*data = i2c_smbus_read_word_data(batt->client,
+							 reg->address);
+		}
 		break;
-	case SBS_READ_BLOCK:
-		BUILD_BUG_ON(sizeof(*batt) - field->offset >= I2C_SMBUS_BLOCK_MAX);
-		i2c_smbus_read_i2c_block_data(batt->client,
-					      field->command,
-					      I2C_SMBUS_BLOCK_MAX,
-					      &cache[field->offset]);
+	case SBS_REGISTER_STRING:
+		{
+			char **data = (char **)(cache + reg->offset);
+
+			struct {
+				u8 length;
+				u8 data[SBS_STRING_REGISTER_LEN - 1];
+			} buffer;
+
+			BUILD_BUG_ON(sizeof(buffer) != SBS_STRING_REGISTER_LEN);
+			BUILD_BUG_ON(sizeof(buffer) > I2C_SMBUS_BLOCK_MAX);
+
+			i2c_smbus_read_i2c_block_data(batt->client,
+						      reg->address,
+						      sizeof(buffer),
+						      (u8 *) &buffer);
+
+			BUG_ON(buffer.length > sizeof(buffer.data));
+			buffer.length = min(buffer.length,
+					    (u8) sizeof(buffer.data));
+			buffer.data[buffer.length - 1] = '\0';
+
+			if (*data)
+				kfree(*data);
+
+			*data = kstrndup(buffer.data, buffer.length,
+					 GFP_KERNEL);
+		}
 		break;
 	}
 }
 
-static const struct sbs_battery_field sbs_state_fields[] = {
+static const struct sbs_battery_register sbs_state_registers[] = {
 	{ SBS_BATTERY_MODE,
-	  SBS_READ_WORD,
+	  SBS_REGISTER_INT,
 	  offsetof(struct sbs_battery, cache.battery_mode), },
 	{ SBS_TEMPERATURE,
-	  SBS_READ_WORD,
+	  SBS_REGISTER_INT,
 	  offsetof(struct sbs_battery, cache.temperature), },
 	{ SBS_VOLTAGE,
-	  SBS_READ_WORD,
+	  SBS_REGISTER_INT,
 	  offsetof(struct sbs_battery, cache.voltage), },
 	{ SBS_CURRENT,
-	  SBS_READ_WORD,
+	  SBS_REGISTER_INT,
 	  offsetof(struct sbs_battery, cache.current_now), },
 	{ SBS_AVERAGE_CURRENT,
-	  SBS_READ_WORD,
+	  SBS_REGISTER_INT,
 	  offsetof(struct sbs_battery, cache.average_current), },
 	{ SBS_ABSOLUTE_STATE_OF_CHARGE,
-	  SBS_READ_WORD,
+	  SBS_REGISTER_INT,
 	  offsetof(struct sbs_battery, cache.absolute_state_of_charge), },
 	{ SBS_REMAINING_CAPACITY,
-	  SBS_READ_WORD,
+	  SBS_REGISTER_INT,
 	  offsetof(struct sbs_battery, cache.remaining_capacity), },
 	{ SBS_FULL_CHARGE_CAPACITY,
-	  SBS_READ_WORD,
+	  SBS_REGISTER_INT,
 	  offsetof(struct sbs_battery, cache.full_charge_capacity), },
 	{ SBS_DESIGN_CAPACITY,
-	  SBS_READ_WORD,
+	  SBS_REGISTER_INT,
 	  offsetof(struct sbs_battery, cache.design_capacity), },
 };
 
@@ -287,10 +312,16 @@ static void sbs_get_battery_state(struct sbs_battery *batt)
 				batt->cache.timestamp + msecs_to_jiffies(cache_time)))
 			return;
 
-	for (i = 0; i < ARRAY_SIZE(sbs_state_fields); i++)
-		read_battery_field(batt, &sbs_state_fields[i]);
+	for (i = 0; i < ARRAY_SIZE(sbs_state_registers); i++)
+		read_battery_register(batt, &sbs_state_registers[i]);
 
 	batt->cache.timestamp = jiffies;
+
+	if (batt->cache.serial_number)
+		kfree(batt->cache.serial_number);
+
+	batt->cache.serial_number = kasprintf(GFP_KERNEL,
+					      "%u", batt->cache._serial_number);
 }
 
 static int sbs_get_battery_property(struct power_supply *psy,
@@ -299,7 +330,6 @@ static int sbs_get_battery_property(struct power_supply *psy,
 {
 	struct sbs_battery *batt =
 		container_of(psy, struct sbs_battery, battery);
-	const struct sbs_string *str;
 
 	/* don't bother updating the cache for static data */
 
@@ -316,16 +346,13 @@ static int sbs_get_battery_property(struct power_supply *psy,
 		val->intval = __mV_2_uV(batt, batt->cache.design_voltage);
 		return 0;
 	case POWER_SUPPLY_PROP_MODEL_NAME:
-		str = (struct sbs_string *) batt->cache.device_name;
-		val->strval = kstrndup(str->data, str->length, GFP_KERNEL);
+		val->strval = batt->cache.device_name;
 		return 0;
 	case POWER_SUPPLY_PROP_MANUFACTURER:
-		str = (struct sbs_string *) batt->cache.manufacturer_name;
-		val->strval = kstrndup(str->data, str->length, GFP_KERNEL);
+		val->strval = batt->cache.manufacturer_name;
 		return 0;
 	case POWER_SUPPLY_PROP_SERIAL_NUMBER:
-		val->strval = kasprintf(GFP_KERNEL,
-					"%u", batt->cache.serial_number);
+		val->strval = batt->cache.serial_number;
 		return 0;
 	default:
 		break;
@@ -403,29 +430,29 @@ static int sbs_get_battery_property(struct power_supply *psy,
 }
 
 /* Battery Information */
-static const struct sbs_battery_field sbs_info_fields[] = {
+static const struct sbs_battery_register sbs_info_registers[] = {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34)
 	{ SBS_BATTERY_CYCLE_COUNT,
-	  SBS_READ_WORD,
+	  SBS_REGISTER_INT,
 	  offsetof(struct sbs_battery, cache.battery_cycle_count), },
 #endif
 	{ SBS_DESIGN_VOLTAGE,
-	  SBS_READ_WORD,
+	  SBS_REGISTER_INT,
 	  offsetof(struct sbs_battery, cache.design_voltage), },
 	{ SBS_SPECIFICATION_INFO,
-	  SBS_READ_WORD,
+	  SBS_REGISTER_INT,
 	  offsetof(struct sbs_battery, cache.specification_info), },
 	{ SBS_SERIAL_NUMBER,
-	  SBS_READ_WORD,
-	  offsetof(struct sbs_battery, cache.serial_number), },
+	  SBS_REGISTER_INT,
+	  offsetof(struct sbs_battery, cache._serial_number), },
 	{ SBS_MANUFACTURER_NAME,
-	  SBS_READ_BLOCK,
+	  SBS_REGISTER_STRING,
 	  offsetof(struct sbs_battery, cache.manufacturer_name), },
 	{ SBS_DEVICE_NAME,
-	  SBS_READ_BLOCK,
+	  SBS_REGISTER_STRING,
 	  offsetof(struct sbs_battery, cache.device_name), },
 	{ SBS_DEVICE_CHEMISTRY,
-	  SBS_READ_BLOCK,
+	  SBS_REGISTER_STRING,
 	  offsetof(struct sbs_battery, cache.device_chemistry), },
 };
 
@@ -446,8 +473,8 @@ static void sbs_get_battery_info(struct sbs_battery *batt)
 {
 	unsigned int i;
 
-	for (i = 0; i < ARRAY_SIZE(sbs_info_fields); i++)
-		read_battery_field(batt, &sbs_info_fields[i]);
+	for (i = 0; i < ARRAY_SIZE(sbs_info_registers); i++)
+		read_battery_register(batt, &sbs_info_registers[i]);
 
 	batt->vscale = ipow(10, (batt->cache.specification_info >> 8) & 0xf);
 	batt->ipscale = ipow(10, (batt->cache.specification_info >> 12) & 0xf);
@@ -538,6 +565,18 @@ static int __devexit sbs_remove(struct i2c_client *client)
 	if (batt) {
 		power_supply_unregister(&batt->mains);
 		power_supply_unregister(&batt->battery);
+
+		if (batt->cache.manufacturer_name)
+			kfree(batt->cache.manufacturer_name);
+
+		if (batt->cache.device_name)
+			kfree(batt->cache.device_name);
+
+		if (batt->cache.device_chemistry)
+			kfree(batt->cache.device_chemistry);
+
+		if (batt->cache.serial_number)
+			kfree(batt->cache.serial_number);
 
 		kfree(batt);
 		i2c_set_clientdata(client, NULL);
