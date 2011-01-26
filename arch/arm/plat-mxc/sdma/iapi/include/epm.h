@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2010 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright (C) 2007-2011 Freescale Semiconductor, Inc. All Rights Reserved.
  */
 
 /*
@@ -20,32 +20,35 @@
 extern void __iomem *sdma_base;
 #define SDMA_BASE_IO_ADDR (sdma_base)
 
-#define SDMA_H_C0PTR            *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x000))
-#define SDMA_H_INTR             *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x004))
-#define SDMA_H_STATSTOP         *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x008))
-#define SDMA_H_START            *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x00C))
-#define SDMA_H_EVTOVR           *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x010))
-#define SDMA_H_DSPOVR           *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x014))
-#define SDMA_H_HOSTOVR          *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x018))
-#define SDMA_H_EVTPEND          *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x01C))
-#define SDMA_H_DSPENBL          *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x020))
-#define SDMA_H_RESET            *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x024))
-#define SDMA_H_EVTERR           *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x028))
-#define SDMA_H_INTRMSK          *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x02C))
-#define SDMA_H_PSW              *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x030))
-#define SDMA_H_EVTERRDBG        *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x034))
-#define SDMA_H_CONFIG           *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x038))
-#define SDMA_ONCE_ENB           *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x040))
-#define SDMA_ONCE_DATA          *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x044))
-#define SDMA_ONCE_INSTR         *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x048))
-#define SDMA_ONCE_STAT          *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x04C))
-#define SDMA_ONCE_CMD           *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x050))
-#define SDMA_EVT_MIRROR         *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x054))
-#define SDMA_ILLINSTADDR        *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x058))
-#define SDMA_CHN0ADDR           *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x05C))
-#define SDMA_ONCE_RTB           *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x060))
-#define SDMA_XTRIG_CONF1        *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x070))
-#define SDMA_XTRIG_CONF2        *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x074))
+#define SDMA_H_STATSTOP_ADDR    (SDMA_BASE_IO_ADDR + 0x008)
+#define SDMA_H_START_ADDR       (SDMA_BASE_IO_ADDR + 0x00C)
+
+#define SDMA_H_C0PTR            (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x000)))
+#define SDMA_H_INTR             (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x004)))
+#define SDMA_H_STATSTOP         (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x008)))
+#define SDMA_H_START            (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x00C)))
+#define SDMA_H_EVTOVR           (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x010)))
+#define SDMA_H_DSPOVR           (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x014)))
+#define SDMA_H_HOSTOVR          (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x018)))
+#define SDMA_H_EVTPEND          (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x01C)))
+#define SDMA_H_DSPENBL          (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x020)))
+#define SDMA_H_RESET            (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x024)))
+#define SDMA_H_EVTERR           (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x028)))
+#define SDMA_H_INTRMSK          (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x02C)))
+#define SDMA_H_PSW              (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x030)))
+#define SDMA_H_EVTERRDBG        (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x034)))
+#define SDMA_H_CONFIG           (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x038)))
+#define SDMA_ONCE_ENB           (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x040)))
+#define SDMA_ONCE_DATA          (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x044)))
+#define SDMA_ONCE_INSTR         (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x048)))
+#define SDMA_ONCE_STAT          (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x04C)))
+#define SDMA_ONCE_CMD           (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x050)))
+#define SDMA_EVT_MIRROR         (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x054)))
+#define SDMA_ILLINSTADDR        (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x058)))
+#define SDMA_CHN0ADDR           (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x05C)))
+#define SDMA_ONCE_RTB           (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x060)))
+#define SDMA_XTRIG_CONF1        (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x070)))
+#define SDMA_XTRIG_CONF2        (*((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x074)))
 
 #ifdef MXC_SDMA_V2
 #define SDMA_CHNENBL_0          *((volatile unsigned long *)(SDMA_BASE_IO_ADDR + 0x200))
