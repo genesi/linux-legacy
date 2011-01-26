@@ -39,29 +39,34 @@
 
 #include "mx51_efikamx.h"
 
-#define VIDEO_MODE_HDMI_DEF     4
-
-#define MEGA              1000000
+#define EFIKAMX_DISPLAY_RESET	MX51_PIN_DISPB2_SER_DIN
+#define EFIKAMX_HDMI_EN		MX51_PIN_DI1_D1_CS	/*active low*/
+#define EFIKAMX_VGA_EN		MX51_PIN_DISPB2_SER_CLK /*active low*/
+#define EFIKAMX_HDMI_IRQ	MX51_PIN_DISPB2_SER_DIO
 
 static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_display_iomux_pins[] = {
-	/* display reset pin */
-	{
-	 MX51_PIN_DISPB2_SER_DIN, IOMUX_CONFIG_GPIO,
-	 0,
-	 MUX_IN_GPIO3_IPP_IND_G_IN_5_SELECT_INPUT,
-	 INPUT_CTL_PATH1,
-	 },
+	{EFIKAMX_DISPLAY_RESET, IOMUX_CONFIG_GPIO,},
+	{EFIKAMX_HDMI_EN, IOMUX_CONFIG_GPIO, },
+	{EFIKAMX_HDMI_IRQ, IOMUX_CONFIG_GPIO, },
+	{EFIKAMX_VGA_EN, IOMUX_CONFIG_GPIO, },
 };
 
 int mxcfb_initialized = 0;
 
 void mx51_efikamx_display_reset(void)
 {
-	gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIN), 1);
-	msleep(50);		/* SII9022 Treset >= 100us */
+	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_DISPLAY_RESET), 1);
+	msleep(1);		/* SII9022 Treset >= 100us */
 
-	gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIN), 0);
-	msleep(100);
+	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_DISPLAY_RESET), 0);
+	/*
+	 * this is a very long time, but we need to wait this long for the
+	 * SII9022 to come out of reset *AND* for any hotplug events to have
+	 * registered and a sink detection to be absolutely accurate
+	 * (SII9022 programmer's reference p42:
+	 *		Tplug_dly min. 400 typ. 480 max. 600ms)
+	 */
+	msleep(600);
 }
 
 
@@ -93,13 +98,24 @@ void __init mx51_efikamx_init_display(void)
 {
 	CONFIG_IOMUX(mx51_efikamx_display_iomux_pins);
 
+	/* DISP_EN# and DISP2_EN# go to a level shifter which we need to turn on */
+	gpio_free(IOMUX_TO_GPIO(EFIKAMX_HDMI_EN));
+	gpio_request(IOMUX_TO_GPIO(EFIKAMX_HDMI_EN), "hdmi:enable#");
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_HDMI_EN), 0);
+
+	gpio_free(IOMUX_TO_GPIO(EFIKAMX_VGA_EN));
+	gpio_request(IOMUX_TO_GPIO(EFIKAMX_VGA_EN), "vga:enable#");
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_VGA_EN), 1);
+
 	/* HDMI Reset - Assert for i2c disabled mode */
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIN), "hdmi:reset");
-	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIN), 0);
+	gpio_free(IOMUX_TO_GPIO(EFIKAMX_DISPLAY_RESET));
+	gpio_request(IOMUX_TO_GPIO(EFIKAMX_DISPLAY_RESET), "hdmi:reset");
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_DISPLAY_RESET), 0);
 
 	/* HDMI Interrupt pin (plug detect etc.)  */
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIO), "hdmi:irq");
-	gpio_direction_input(IOMUX_TO_GPIO(MX51_PIN_DISPB2_SER_DIO));
+	gpio_free(IOMUX_TO_GPIO(EFIKAMX_HDMI_IRQ));
+	gpio_request(IOMUX_TO_GPIO(EFIKAMX_HDMI_IRQ), "hdmi:irq");
+	gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_HDMI_IRQ));
 
 	mxc_ipu_data.di_clk[0] = clk_get(NULL, "ipu_di0_clk");
 	mxc_ipu_data.csi_clk[0] = clk_get(NULL, "csi_mclk1");
