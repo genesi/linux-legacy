@@ -223,8 +223,8 @@ static inline const int __dK_2_dC(const int dk)
 static inline const int __mW_2_uW(const struct sbs_battery * const batt,
 				  const int mw)
 {
-	/* SBS reports mWh in 10 mWh units, so, only multiply by 100 */
-	return batt->vscale * batt->ipscale * mw * 100;
+	/* SBS reports mWh in 10 mWh units */
+	return batt->vscale * batt->ipscale * mw * 1000 * 10;
 }
 
 static inline void read_battery_field(struct sbs_battery * const batt,
