@@ -335,9 +335,9 @@ static int sbs_get_battery_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		if (batt->cache.current_now < 0)
+		if ((s16) batt->cache.current_now < 0)
 			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
-		else if (batt->cache.current_now > 0)
+		else if ((s16) batt->cache.current_now > 0)
 			val->intval = POWER_SUPPLY_STATUS_CHARGING;
 		else
 			val->intval = POWER_SUPPLY_STATUS_FULL;
