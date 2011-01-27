@@ -61,7 +61,7 @@
 
 
 /* module parameters */
-static unsigned int bus_timeout = 10;
+static unsigned int bus_timeout = 50;
 module_param(bus_timeout, uint, 0644);
 MODULE_PARM_DESC(bus_timeout, "bus timeout in milliseconds");
 
