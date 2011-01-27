@@ -880,7 +880,7 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 	return 0;
 }
 
-#ifdef CONFIG_SIIHDMI_HOTPLUG
+#ifdef CONFIG_FB_SIIHDMI_HOTPLUG
 static irqreturn_t siihdmi_irq_handler(int irq, void *dev_id)
 {
 	struct siihdmi_tx *tx = ((struct siihdmi_tx *) dev_id);
@@ -941,7 +941,7 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	tx->client = client;
 	tx->platform = client->dev.platform_data;
 
-#ifdef CONFIG_SIIHDMI_HOTPLUG
+#ifdef CONFIG_FB_SIIHDMI_HOTPLUG
 	tx->irq = tx->platform->hotplug_irq;
 
 	PREPARE_DELAYED_WORK(&tx->hotplug, siihdmi_hotplug_event);
