@@ -111,7 +111,7 @@ struct sbs_battery {
 		u16   battery_mode;
 		u16   temperature;
 		u16   voltage;
-		u16   current_now;
+		u16   _current;                 /* current is a macro */
 		u16   average_current;
 		u16   absolute_state_of_charge;
 		u16   remaining_capacity;
@@ -124,9 +124,9 @@ struct sbs_battery {
 		u16   battery_cycle_count;
 		u16   design_voltage;
 		u16   specification_info;
-		u16   _serial_number;
+		u16   _serial_number;           /* raw serial # */
 
-		char *serial_number;
+		char *serial_number;            /* string form for PS driver */
 		char *manufacturer_name;
 		char *device_name;
 		char *device_chemistry;
@@ -286,7 +286,7 @@ static const struct sbs_battery_register sbs_state_registers[] = {
 	  offsetof(struct sbs_battery, cache.voltage), },
 	{ SBS_CURRENT,
 	  SBS_REGISTER_INT,
-	  offsetof(struct sbs_battery, cache.current_now), },
+	  offsetof(struct sbs_battery, cache._current), },
 	{ SBS_AVERAGE_CURRENT,
 	  SBS_REGISTER_INT,
 	  offsetof(struct sbs_battery, cache.average_current), },
@@ -363,9 +363,9 @@ static int sbs_get_battery_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		if ((s16) batt->cache.current_now < 0)
+		if ((s16) batt->cache._current < 0)
 			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
-		else if ((s16) batt->cache.current_now > 0)
+		else if ((s16) batt->cache._current > 0)
 			val->intval = POWER_SUPPLY_STATUS_CHARGING;
 		else
 			val->intval = POWER_SUPPLY_STATUS_FULL;
@@ -377,7 +377,7 @@ static int sbs_get_battery_property(struct power_supply *psy,
 		val->intval = __mV_2_uV(batt, batt->cache.voltage);
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:                          /* µA */
-		val->intval = __mA_2_uA(batt, abs(batt->cache.current_now));
+		val->intval = __mA_2_uA(batt, abs(batt->cache._current));
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_AVG:                          /* µA */
 		val->intval = __mA_2_uA(batt, abs(batt->cache.average_current));
