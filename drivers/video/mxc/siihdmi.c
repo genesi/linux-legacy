@@ -722,13 +722,18 @@ siihdmi_select_video_mode(const struct siihdmi_tx * const tx,
 {
 	const struct fb_videomode *mode = NULL;
 
-	/* TODO respect display aspect ratio */
-	if (tx->preferred.xres && tx->preferred.yres)
-		mode = fb_find_nearest_mode(&tx->preferred, &info->modelist);
+	mode = fb_find_nearest_mode(&siihdmi_default_video_mode,
+				    &info->modelist);
 
-	if (!mode)
-		mode = fb_find_nearest_mode(&siihdmi_default_video_mode,
-					    &info->modelist);
+	/* prefer 1280x720 if the monitor supports that mode exactly */
+	/* TODO default video mode will change, this code assumes 1280x720 */
+	if (mode && (mode->xres == 1280) && (mode->yres == 720)) {
+		return mode;
+	}
+	/* otherwise, use the closest to the monitor preferred mode */
+	else if (tx->preferred.xres && tx->preferred.yres) {
+		mode = fb_find_nearest_mode(&tx->preferred, &info->modelist);
+	}
 
 	/* if no mode was found push 1280x720 anyway */
 	mode = mode ? mode : &siihdmi_default_video_mode;
