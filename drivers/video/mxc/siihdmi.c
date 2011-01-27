@@ -241,6 +241,9 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 	} while ((~ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
 		 !time_after(jiffies, start + bus_timeout));
 
+	if (!(ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED))
+		goto relinquish;
+
 	/* step 4: take ownership of the DDC bus */
 	ret = i2c_smbus_write_byte_data(tx->client,
 					SIIHDMI_TPI_REG_SYS_CTRL,
@@ -248,7 +251,7 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 					SIIHDMI_SYS_CTRL_DDC_BUS_OWNER_HOST);
 	if (ret < 0) {
 		DEBUG("unable to take ownership of the DDC bus\n");
-		return ret;
+		goto relinquish;
 	}
 
 	/* step 5: read edid */
@@ -257,6 +260,7 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 	if (ret != ARRAY_SIZE(request))
 		DEBUG("unable to read EDID block\n");
 
+relinquish:
 	/* step 6: relinquish ownership of the DDC bus */
 	start = jiffies;
 	do {
