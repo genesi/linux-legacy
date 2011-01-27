@@ -67,9 +67,12 @@ struct __packed cea861_data_block_header {
 struct __packed cea861_vendor_specific_data_block {
 	struct cea861_data_block_header header;
 
-	u8 extended_tag;
 	u8 ieee_registration[3];
-	u8 data[];
+	unsigned port_configuration_b            : 4;
+	unsigned port_configuration_a            : 4;
+	unsigned port_configuration_d            : 4;
+	unsigned port_configuration_c            : 4;
+	u8 data[28];
 };
 
 
