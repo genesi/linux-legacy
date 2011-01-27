@@ -636,7 +636,12 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx,
 			      mode->xres, mode->yres, mode->refresh);
 			remove = true;
 		} else if (mode->vsync_len < 2) {
-			DEBUG("Removing mode %ux%u@%u (vertical sync period too short)\n", 
+			/*
+			 *HDMI specification requires at least 2 lines of
+			 * vertical sync, as detailed in SII9022 datasheet
+			 * (page 22) and HDMI 1.3 spec (5.1.2)
+			 */
+			DEBUG("Removing mode %ux%u@%u (vertical sync period too short)\n",
 			      mode->xres, mode->yres, mode->refresh);
 			remove = true;
 		} else {
