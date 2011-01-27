@@ -188,12 +188,20 @@ static int siihdmi_initialise(struct siihdmi_tx *tx)
 
 static bool siihdmi_sink_present(struct siihdmi_tx *tx)
 {
-	u8 isr;
+	u8 isr, sink_present;
 
 	isr = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_ISR);
 
-	return (isr & (SIIHDMI_ISR_HOT_PLUG_EVENT |
-		       SIIHDMI_ISR_RECEIVER_SENSE_EVENT));
+	sink_present = isr & (SIIHDMI_ISR_HOT_PLUG_EVENT | SIIHDMI_ISR_RECEIVER_SENSE_EVENT);
+
+	if (sink_present) {
+		DEBUG("Sink detect%s%s\n", (isr & SIIHDMI_ISR_HOT_PLUG_EVENT) ? " HotPlug" : "",
+				     (isr & SIIHDMI_ISR_RECEIVER_SENSE_EVENT) ? " ReceiverSense" : "" );
+	} else {
+		DEBUG("No sink detected\n");
+	}
+
+	return sink_present;
 }
 
 static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
