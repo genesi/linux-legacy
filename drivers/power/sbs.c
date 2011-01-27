@@ -110,9 +110,9 @@ struct sbs_battery {
 		/* dynamic information */
 		u16   battery_mode;
 		u16   temperature;
-		u16   voltage;
-		u16   _current;                 /* current is a macro */
-		u16   average_current;
+		s16   voltage;
+		s16   _current;                 /* current is a macro */
+		s16   average_current;
 		u16   absolute_state_of_charge;
 		u16   remaining_capacity;
 
@@ -364,9 +364,9 @@ static int sbs_get_battery_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		if ((s16) batt->cache._current < 0)
+		if (batt->cache._current < 0)
 			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
-		else if ((s16) batt->cache._current > 0)
+		else if (batt->cache._current > 0)
 			val->intval = POWER_SUPPLY_STATUS_CHARGING;
 		else
 			val->intval = POWER_SUPPLY_STATUS_FULL;
