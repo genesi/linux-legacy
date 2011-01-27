@@ -97,7 +97,7 @@ static struct fb_videomode siihdmi_default_video_mode = {
 static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 {
 	u8 data;
-	unsigned long start, finish;
+	unsigned long start;
 
 	start = jiffies;
 	do {
@@ -105,7 +105,6 @@ static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 						SIIHDMI_TPI_REG_DEVICE_ID);
 	} while (data != SIIHDMI_DEVICE_ID_902x &&
 		 !time_after(jiffies, start + bus_timeout));
-	finish = jiffies;
 
 	if (data != SIIHDMI_DEVICE_ID_902x)
 		return -ENODEV;
@@ -201,7 +200,7 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 {
 	u8 offset, ctrl;
 	int ret;
-	unsigned long start, finish;
+	unsigned long start;
 
 	struct i2c_msg request[] = {
 		{ .addr  = EDID_I2C_DDC_DATA_ADDRESS,
@@ -233,7 +232,6 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 						SIIHDMI_TPI_REG_SYS_CTRL);
 	} while ((~ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
 		 !time_after(jiffies, start + bus_timeout));
-	finish = jiffies;
 
 	/* step 4: take ownership of the DDC bus */
 	ret = i2c_smbus_write_byte_data(tx->client,
@@ -261,7 +259,6 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 						SIIHDMI_TPI_REG_SYS_CTRL);
 	} while ((ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
 		 !time_after(jiffies, start + bus_timeout));
-	finish = jiffies;
 
 	/* step 7: (potentially) enable HDCP */
 
