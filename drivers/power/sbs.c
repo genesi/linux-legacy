@@ -481,7 +481,7 @@ static void sbs_get_battery_info(struct sbs_battery *batt)
 }
 
 static struct power_supply sbs_battery = {
-	.name           = "sbs-battery",
+	.name           = "battery",
 	.type           = POWER_SUPPLY_TYPE_BATTERY,
 	.properties     = sbs_battery_properties,
 	.num_properties = ARRAY_SIZE(sbs_battery_properties),
@@ -513,7 +513,7 @@ static int sbs_get_mains_property(struct power_supply *psy,
 }
 
 static struct power_supply sbs_mains = {
-	.name           = "sbs-mains",
+	.name           = "mains",
 	.type           = POWER_SUPPLY_TYPE_MAINS,
 	.properties     = sbs_mains_properties,
 	.num_properties = ARRAY_SIZE(sbs_mains_properties),
