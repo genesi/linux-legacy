@@ -32,8 +32,9 @@
 #define LINUX_SBS_H
 
 struct sbs_platform_data {
-	int (*get_mains_status)(void);
-	int (*get_battery_status)(void);
+	int (*mains_insertion_status)(void);
+	int (*battery_insertion_status)(void);
+
 };
 
 #endif

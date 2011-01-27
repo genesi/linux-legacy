@@ -360,8 +360,8 @@ static struct platform_device mxc_led_device = {
 };
 
 static struct sbs_platform_data sbs_platform_data = {
-	.get_mains_status   = mxc_get_ac_adapter_insertion_status,
-	.get_battery_status = mxc_get_battery_insertion_status,
+	.mains_insertion_status   = mxc_get_ac_adapter_insertion_status,
+	.battery_insertion_status = mxc_get_battery_insertion_status,
 };
 
 static struct mxc_battery_platform_data efikasb_batt_data = {

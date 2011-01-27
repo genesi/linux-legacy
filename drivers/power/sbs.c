@@ -371,7 +371,7 @@ static int sbs_get_battery_property(struct power_supply *psy,
 			val->intval = POWER_SUPPLY_STATUS_FULL;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
-		val->intval = batt->platform->get_battery_status();
+		val->intval = batt->platform->battery_insertion_status();
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:                          /* uV */
 		val->intval = __mV_2_uV(batt, batt->cache.voltage);
@@ -504,7 +504,7 @@ static int sbs_get_mains_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = batt->platform->get_mains_status();
+		val->intval = batt->platform->mains_insertion_status();
 		break;
 	default:
 		return -EINVAL;
