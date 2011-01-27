@@ -112,10 +112,10 @@ struct __packed hdmi_vsdb {
 	struct cea861_data_block_header header;
 
 	u8       ieee_registration_id[3];
-	unsigned port_configuration_a            : 4;
 	unsigned port_configuration_b            : 4;
-	unsigned port_configuration_c            : 4;
+	unsigned port_configuration_a            : 4;
 	unsigned port_configuration_d            : 4;
+	unsigned port_configuration_c            : 4;
 
 	/* extension fields */
 	unsigned dvi_dual_link                   : 1;
