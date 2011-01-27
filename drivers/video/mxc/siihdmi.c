@@ -904,7 +904,6 @@ static irqreturn_t siihdmi_irq_handler(int irq, void *dev_id)
 {
 	struct siihdmi_tx *tx = ((struct siihdmi_tx *) dev_id);
 
-	DEBUG("hotplug event irq handled, scheduling hotplug work\n");
 	schedule_delayed_work(&tx->hotplug, msecs_to_jiffies(50));
 	return IRQ_HANDLED;
 }
@@ -917,6 +916,9 @@ static void siihdmi_hotplug_event(struct work_struct *work)
 	DEBUG("hotplug event work called\n");
 
 	data = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_ISR);
+
+	/* clear ISR so the interrupt line goes down */
+	i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_ISR, data);
 
 	if (data & SIIHDMI_IER_HOT_PLUG_EVENT)
 		DEBUG("interrupt hot plug event\n");
@@ -942,8 +944,7 @@ static void siihdmi_hotplug_event(struct work_struct *work)
 	if (data & SIIHDMI_IER_HDCP_AUTHENTICATION_STATUS_CHANGE)
 		DEBUG("interrupt HDCP authentication status change\n");
 
-	// write 1 to every fired event, to clear it
-	i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_ISR, data);
+	/* once we handle the event, we should actually poll for new events here */
 }
 #endif
 
