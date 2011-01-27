@@ -213,12 +213,12 @@ static enum power_supply_property sbs_battery_properties[] = {
 	POWER_SUPPLY_PROP_MANUFACTURER,
 	POWER_SUPPLY_PROP_SERIAL_NUMBER,
 
-	/* Capacity Mode */
+	/* Current */
 	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_NOW,
 
-	/* Energy Mode */
+	/* Power */
 	POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN,
 	POWER_SUPPLY_PROP_ENERGY_FULL,
 	POWER_SUPPLY_PROP_ENERGY_NOW,
@@ -359,6 +359,7 @@ static int sbs_get_battery_property(struct power_supply *psy,
 		break;
 	}
 
+	val->intval = 0;
 	sbs_get_battery_state(batt);
 
 	switch (psp) {
@@ -389,38 +390,38 @@ static int sbs_get_battery_property(struct power_supply *psy,
 		val->intval = __dK_2_dC(batt->cache.temperature);
 		break;
 
-	/* Capacity Mode */
+	/* Current */
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:                   /* µAh */
-		if (batt->cache.battery_mode & CAPACITY_MODE)
-			return -EINVAL;
-		val->intval = __mA_2_uA(batt, batt->cache.design_capacity);
+		if (~batt->cache.battery_mode & CAPACITY_MODE)
+			val->intval = __mA_2_uA(batt,
+						batt->cache.design_capacity);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:                          /* µAh */
-		if (batt->cache.battery_mode & CAPACITY_MODE)
-			return -EINVAL;
-		val->intval = __mA_2_uA(batt, batt->cache.full_charge_capacity);
+		if (~batt->cache.battery_mode & CAPACITY_MODE)
+			val->intval = __mA_2_uA(batt,
+						batt->cache.full_charge_capacity);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW:                           /* µAh */
-		if (batt->cache.battery_mode & CAPACITY_MODE)
-			return -EINVAL;
-		val->intval = __mA_2_uA(batt, batt->cache.remaining_capacity);
+		if (~batt->cache.battery_mode & CAPACITY_MODE)
+			val->intval = __mA_2_uA(batt,
+						batt->cache.remaining_capacity);
 		break;
 
-	/* Energy Mode */
+	/* Power */
 	case POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN:                   /* µWh */
-		if (!(batt->cache.battery_mode & CAPACITY_MODE))
-			return -EINVAL;
-		val->intval = __mW_2_uW(batt, batt->cache.design_capacity);
+		if (batt->cache.battery_mode & CAPACITY_MODE)
+			val->intval = __mW_2_uW(batt,
+						batt->cache.design_capacity);
 		break;
 	case POWER_SUPPLY_PROP_ENERGY_FULL:                          /* µWh */
-		if (!(batt->cache.battery_mode & CAPACITY_MODE))
-			return -EINVAL;
-		val->intval = __mW_2_uW(batt, batt->cache.full_charge_capacity);
+		if (batt->cache.battery_mode & CAPACITY_MODE)
+			val->intval = __mW_2_uW(batt,
+						batt->cache.full_charge_capacity);
 		break;
 	case POWER_SUPPLY_PROP_ENERGY_NOW:                           /* µWh */
-		if (!(batt->cache.battery_mode & CAPACITY_MODE))
-			return -EINVAL;
-		val->intval = __mW_2_uW(batt, batt->cache.remaining_capacity);
+		if (batt->cache.battery_mode & CAPACITY_MODE)
+			val->intval = __mW_2_uW(batt,
+						batt->cache.remaining_capacity);
 		break;
 
 	default:
