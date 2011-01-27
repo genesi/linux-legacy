@@ -149,6 +149,52 @@ struct sbs_battery_register {
 };
 
 
+static inline void read_battery_register(struct sbs_battery * const batt,
+					 const struct sbs_battery_register *reg)
+{
+	u8 * const cache = (u8 *) batt;
+
+	switch (reg->type) {
+	case SBS_REGISTER_INT:
+		{
+			u16 *data = (u16 *)(cache + reg->offset);
+			*data = i2c_smbus_read_word_data(batt->client,
+							 reg->address);
+		}
+		break;
+	case SBS_REGISTER_STRING:
+		{
+			char **data = (char **)(cache + reg->offset);
+
+			struct {
+				u8 length;
+				u8 data[SBS_STRING_REGISTER_LEN - 1];
+			} buffer;
+
+			BUILD_BUG_ON(sizeof(buffer) != SBS_STRING_REGISTER_LEN);
+			BUILD_BUG_ON(sizeof(buffer) > I2C_SMBUS_BLOCK_MAX);
+
+			i2c_smbus_read_i2c_block_data(batt->client,
+						      reg->address,
+						      sizeof(buffer),
+						      (u8 *) &buffer);
+
+			BUG_ON(buffer.length > sizeof(buffer.data));
+			buffer.length = min(buffer.length,
+					    (u8) sizeof(buffer.data));
+			buffer.data[buffer.length - 1] = '\0';
+
+			if (*data)
+				kfree(*data);
+
+			*data = kstrndup(buffer.data, buffer.length,
+					 GFP_KERNEL);
+		}
+		break;
+	}
+}
+
+
 /* Battery State */
 static enum power_supply_property sbs_battery_properties[] = {
 	POWER_SUPPLY_PROP_STATUS,
@@ -226,51 +272,6 @@ static inline const int __mW_2_uW(const struct sbs_battery * const batt,
 {
 	/* SBS reports mWh in 10 mWh units */
 	return batt->vscale * batt->ipscale * mw * 1000 * 10;
-}
-
-static inline void read_battery_register(struct sbs_battery * const batt,
-					 const struct sbs_battery_register *reg)
-{
-	u8 * const cache = (u8 *) batt;
-
-	switch (reg->type) {
-	case SBS_REGISTER_INT:
-		{
-			u16 *data = (u16 *)(cache + reg->offset);
-			*data = i2c_smbus_read_word_data(batt->client,
-							 reg->address);
-		}
-		break;
-	case SBS_REGISTER_STRING:
-		{
-			char **data = (char **)(cache + reg->offset);
-
-			struct {
-				u8 length;
-				u8 data[SBS_STRING_REGISTER_LEN - 1];
-			} buffer;
-
-			BUILD_BUG_ON(sizeof(buffer) != SBS_STRING_REGISTER_LEN);
-			BUILD_BUG_ON(sizeof(buffer) > I2C_SMBUS_BLOCK_MAX);
-
-			i2c_smbus_read_i2c_block_data(batt->client,
-						      reg->address,
-						      sizeof(buffer),
-						      (u8 *) &buffer);
-
-			BUG_ON(buffer.length > sizeof(buffer.data));
-			buffer.length = min(buffer.length,
-					    (u8) sizeof(buffer.data));
-			buffer.data[buffer.length - 1] = '\0';
-
-			if (*data)
-				kfree(*data);
-
-			*data = kstrndup(buffer.data, buffer.length,
-					 GFP_KERNEL);
-		}
-		break;
-	}
 }
 
 static const struct sbs_battery_register sbs_state_registers[] = {
