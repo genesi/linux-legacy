@@ -181,8 +181,8 @@ static inline void read_battery_register(struct sbs_battery * const batt,
 
 			BUG_ON(buffer.length > sizeof(buffer.data));
 			buffer.length = min(buffer.length,
-					    (u8) sizeof(buffer.data));
-			buffer.data[buffer.length - 1] = '\0';
+					    (u8) sizeof(buffer.data) - 1);
+			buffer.data[buffer.length] = '\0';
 
 			if (*data)
 				kfree(*data);
