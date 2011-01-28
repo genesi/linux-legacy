@@ -36,6 +36,7 @@
 #include <linux/console.h>
 #include <linux/workqueue.h>
 #include <linux/interrupt.h>
+#include <linux/sysfs.h>
 
 #include <linux/edid.h>
 #include <linux/cea861.h>
@@ -294,6 +295,8 @@ static void siihdmi_parse_cea861_timing_block(struct siihdmi_tx *tx,
 
 	if (cea->dtd_offset == CEA81_NO_DTDS_PRESENT)
 		return;
+
+	DEBUG("Looking for extension blocks\n");
 
 	do {
 		const struct cea861_data_block_header * const header =
@@ -753,6 +756,26 @@ siihdmi_select_video_mode(const struct siihdmi_tx * const tx,
 	return mode;
 }
 
+
+static ssize_t siihdmi_sysfs_read_edid(struct kobject *kobj,
+                                 struct bin_attribute *bin_attr,
+                                 char *buf, loff_t off, size_t count)
+{
+	struct siihdmi_tx *tx = (struct siihdmi_tx *) bin_attr->private;
+
+	return memory_read_from_buffer(buf, count, &off, tx->edid, tx->edid_length);
+}
+
+static struct bin_attribute edid_attr = {
+	.attr = {
+		.name = "EDID",
+		.owner = THIS_MODULE,
+		.mode = 0444,
+	},
+	.size = SZ_32K, /* maximum size of an EDID, not necessarily the size of the EDID */
+	.read = siihdmi_sysfs_read_edid,
+};
+
 static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 {
 	struct fb_var_screeninfo var = {0};
@@ -780,6 +803,16 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 
 	if ((ret = siihdmi_read_edid(tx, tx->edid, tx->edid_length)) < 0)
 		return ret;
+
+	if (!tx->fb_kobj) {
+		tx->fb_kobj = &(info->dev->kobj);
+
+		/* plug in the sysfs property private data */
+		edid_attr.private = (void *) tx;
+
+		if (0 != sysfs_create_bin_file(tx->fb_kobj, &edid_attr))
+			tx->fb_kobj = NULL;
+	}
 
 	if (block0.extensions) {
 		const struct edid_extension * const extensions =
@@ -1038,6 +1071,10 @@ static int __devexit siihdmi_remove(struct i2c_client *client)
 	if (tx) {
 		if (tx->irq)
 			free_irq(tx->irq, NULL);
+
+
+		if (tx->fb_kobj)
+			sysfs_remove_bin_file(tx->fb_kobj, &edid_attr);
 
 		if (tx->edid)
 			kfree(tx->edid);

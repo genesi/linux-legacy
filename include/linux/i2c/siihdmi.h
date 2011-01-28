@@ -333,6 +333,7 @@ struct siihdmi_tx {
 	struct i2c_client *client;
 	struct siihdmi_platform_data *platform;
 
+	struct kobject *fb_kobj; /* registered framebuffer */
 	struct notifier_block nb;
 	struct delayed_work hotplug;
 
