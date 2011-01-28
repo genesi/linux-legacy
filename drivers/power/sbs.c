@@ -504,6 +504,8 @@ static int sbs_get_mains_property(struct power_supply *psy,
 	struct sbs_battery *batt =
 		container_of(psy, struct sbs_battery, mains);
 
+	val->intval = 0;
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		if (batt->platform->mains_insertion_status)
