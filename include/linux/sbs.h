@@ -35,6 +35,10 @@ struct sbs_platform_data {
 	int (*mains_insertion_status)(void);
 	int (*battery_insertion_status)(void);
 
+	struct resource *battery_alert;
+
+	struct resource *mains_presence_changed;
+	struct resource *battery_presence_changed;
 };
 
 #endif

@@ -359,9 +359,48 @@ static struct platform_device mxc_led_device = {
 	.id = 1,
 };
 
+
+enum mxc_power_resource {
+	MAINS_INSERTION_STATUS,
+	BATTERY_INSERTION_STATUS,
+	BATTERY_ALERT,
+};
+
+static struct resource mxc_power_resources[] = {
+	[MAINS_INSERTION_STATUS] = {
+		.start = IOMUX_TO_IRQ(AC_ADAP_INS_PIN),
+		.end   = IOMUX_TO_IRQ(AC_ADAP_INS_PIN),
+		.name  = "mains-insertion-status",
+		.flags =  IORESOURCE_IRQ
+			| IORESOURCE_IRQ_LOWEDGE
+			| IORESOURCE_IRQ_HIGHEDGE,
+	},
+	[BATTERY_INSERTION_STATUS] = {
+		.start = IOMUX_TO_IRQ(BATT_INS_PIN),
+		.end   = IOMUX_TO_IRQ(BATT_INS_PIN),
+		.name  = "battery-insertion-status",
+		.flags =  IORESOURCE_IRQ
+			| IORESOURCE_IRQ_LOWEDGE
+			| IORESOURCE_IRQ_HIGHEDGE,
+	},
+	[BATTERY_ALERT] = {
+		.start = IOMUX_TO_IRQ(BATT_LOW_PIN),
+		.end   = IOMUX_TO_IRQ(BATT_LOW_PIN),
+		.name  = "battery-alert",
+		.flags =  IORESOURCE_IRQ
+			| IORESOURCE_IRQ_LOWEDGE
+			| IORESOURCE_IRQ_HIGHEDGE,
+	},
+};
+
 static struct sbs_platform_data sbs_platform_data = {
 	.mains_insertion_status   = mxc_get_ac_adapter_insertion_status,
 	.battery_insertion_status = mxc_get_battery_insertion_status,
+
+	.battery_alert            = &mxc_power_resources[BATTERY_ALERT],
+
+	.mains_presence_changed   = &mxc_power_resources[MAINS_INSERTION_STATUS],
+	.battery_presence_changed = &mxc_power_resources[BATTERY_INSERTION_STATUS],
 };
 
 static struct mxc_battery_platform_data efikasb_batt_data = {

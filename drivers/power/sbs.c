@@ -34,15 +34,16 @@
 #include <linux/module.h>
 #include <linux/jiffies.h>
 #include <linux/version.h>
+#include <linux/interrupt.h>
 #include <linux/moduleparam.h>
 #include <linux/power_supply.h>
 
 /* logging helpers */
-#define ERROR(fmt, ...)		printk(KERN_ERR     "SBS: " fmt, __VA_ARGS__)
-#define WARNING(fmt, ...)	printk(KERN_WARNING "SBS: " fmt, __VA_ARGS__)
-#define INFO(fmt, ...)		printk(KERN_INFO    "SBS: " fmt, __VA_ARGS__)
-#define DEBUG(fmt, ...)		printk(KERN_DEBUG   "SBS: " fmt, __VA_ARGS__)
-#define CONTINUE(fmt, ...)	printk(KERN_CONT fmt, __VA_ARGS__)
+#define ERROR(fmt, ...)		printk(KERN_ERR     "SBS: " fmt, ## __VA_ARGS__)
+#define WARNING(fmt, ...)	printk(KERN_WARNING "SBS: " fmt, ## __VA_ARGS__)
+#define INFO(fmt, ...)		printk(KERN_INFO    "SBS: " fmt, ## __VA_ARGS__)
+#define DEBUG(fmt, ...)		printk(KERN_DEBUG   "SBS: " fmt, ## __VA_ARGS__)
+#define CONTINUE(fmt, ...)	printk(KERN_CONT fmt, ## __VA_ARGS__)
 
 /* Smart Battery Messages */
 #define SBS_MANUFACTURER_ACCESS		(0x00)
@@ -100,6 +101,19 @@ module_param(cache_time, uint, 0644);
 MODULE_PARM_DESC(cache_time, "cache time in milliseconds");
 
 
+enum sbs_irq {
+	SBS_IRQ_BATTERY_ALERT,
+	SBS_IRQ_MAINS_PRESENCE_CHANGED,
+	SBS_IRQ_BATTERY_PRESENCE_CHANGED,
+	SBS_IRQS,
+};
+
+struct sbs_irq_request {
+	const struct resource *irq;
+	irq_handler_t          handler;
+	bool                   requested;
+};
+
 struct sbs_battery {
 	struct i2c_client        *client;
 	struct sbs_platform_data *platform;
@@ -137,6 +151,8 @@ struct sbs_battery {
 
 	struct power_supply battery;
 	struct power_supply mains;
+
+	struct sbs_irq_request irq_requests[SBS_IRQS];
 };
 
 struct sbs_battery_register {
@@ -181,7 +197,7 @@ static inline void read_battery_register(struct sbs_battery * const batt,
 
 			BUG_ON(buffer.length > sizeof(buffer.data));
 			buffer.length = min(buffer.length,
-					    (u8) sizeof(buffer.data) - 1);
+					    (u8) (sizeof(buffer.data) - 1));
 			buffer.data[buffer.length] = '\0';
 
 			if (*data)
@@ -526,10 +542,88 @@ static struct power_supply sbs_mains = {
 	.get_property   = sbs_get_mains_property,
 };
 
+static inline unsigned long __irq_flags(const struct resource * const res)
+{
+	return IRQF_SAMPLE_RANDOM | IRQF_SHARED | (res->flags & IRQF_TRIGGER_MASK);
+}
+
+static void sbs_free_irqs(struct sbs_battery * const batt)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(batt->irq_requests); i++) {
+		struct sbs_irq_request * const request = &batt->irq_requests[i];
+
+		if (!request->irq || !request->requested)
+			continue;
+
+		free_irq(request->irq->start, NULL);
+		request->requested = false;
+	}
+}
+
+static int sbs_request_irqs(struct sbs_battery * const batt)
+{
+	int i, ret;
+
+	for (i = 0; i < ARRAY_SIZE(batt->irq_requests); i++) {
+		struct sbs_irq_request * const request = &batt->irq_requests[i];
+
+		if (!request->irq)
+			continue;
+
+		ret = request_irq(request->irq->start, request->handler,
+				  __irq_flags(request->irq),
+				  request->irq->name,
+				  batt);
+		if (ret < 0) {
+			sbs_free_irqs(batt);
+			return ret;
+		}
+
+		request->requested = true;
+	}
+
+	return 0;
+}
+
+static irqreturn_t sbs_battery_alert(int irq, void *data)
+{
+	INFO("battery is critically low\n");
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t sbs_mains_presence_changed(int irq, void *data)
+{
+	struct sbs_battery * const batt = (struct sbs_battery *) data;
+
+	if (batt->platform->mains_insertion_status)
+		DEBUG("mains %sconnected\n",
+		      batt->platform->mains_insertion_status() ? "" : "dis");
+
+	power_supply_changed(&batt->mains);
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t sbs_battery_presence_changed(int irq, void *data)
+{
+	struct sbs_battery * const batt = (struct sbs_battery *) data;
+
+	memset(&batt->cache, 0, sizeof(batt->cache));
+
+	if (batt->platform->battery_insertion_status) {
+		const bool present = batt->platform->battery_insertion_status();
+		DEBUG("battery %s\n", present ? "inserted" : "removed");
+	}
+
+	power_supply_changed(&batt->battery);
+	return IRQ_HANDLED;
+}
 
 static int __devinit sbs_probe(struct i2c_client *client,
 			       const struct i2c_device_id *id)
 {
+	struct sbs_irq_request *request;
 	struct sbs_battery *batt;
 	int ret;
 
@@ -543,6 +637,21 @@ static int __devinit sbs_probe(struct i2c_client *client,
 	batt->mains = sbs_mains;
 	batt->battery = sbs_battery;
 
+	request = &batt->irq_requests[SBS_IRQ_BATTERY_ALERT];
+	request->irq       = batt->platform->battery_alert;
+	request->handler   = sbs_battery_alert;
+	request->requested = false;
+
+	request = &batt->irq_requests[SBS_IRQ_MAINS_PRESENCE_CHANGED];
+	request->irq       = batt->platform->mains_presence_changed;
+	request->handler   = sbs_mains_presence_changed;
+	request->requested = false;
+
+	request = &batt->irq_requests[SBS_IRQ_BATTERY_PRESENCE_CHANGED];
+	request->irq       = batt->platform->battery_presence_changed;
+	request->handler   = sbs_battery_presence_changed;
+	request->requested = false;
+
 	i2c_set_clientdata(client, batt);
 
 	if ((ret = power_supply_register(&client->dev, &batt->battery)) < 0)
@@ -553,9 +662,16 @@ static int __devinit sbs_probe(struct i2c_client *client,
 		goto error;
 	}
 
+	if (sbs_request_irqs(batt) < 0)
+		goto irq_request_failure;
+
 	sbs_get_battery_info(batt);
 
 	return 0;
+
+irq_request_failure:
+	power_supply_unregister(&batt->mains);
+	power_supply_unregister(&batt->battery);
 
 error:
 	kfree(batt);
@@ -583,6 +699,8 @@ static int __devexit sbs_remove(struct i2c_client *client)
 
 		if (batt->cache.serial_number)
 			kfree(batt->cache.serial_number);
+
+		sbs_free_irqs(batt);
 
 		kfree(batt);
 		i2c_set_clientdata(client, NULL);
