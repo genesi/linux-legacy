@@ -33,6 +33,7 @@
 #define LINUX_SIIHDMI_H
 
 #include <linux/cea861.h>
+#include <linux/ioport.h>
 
 /* TPI registers */
 #define SIIHDMI_TPI_REG_VIDEO_MODE_DATA_BASE		(0x00)
@@ -323,7 +324,7 @@ struct siihdmi_platform_data {
 	char *framebuffer;
 
 	/* hotplug IRQ */
-	int hotplug_irq;
+	struct resource hotplug;
 
 	/* maximum pixel clock rate */
 	int pixclock;
@@ -335,10 +336,10 @@ struct siihdmi_tx {
 
 	struct kobject *fb_kobj; /* registered framebuffer */
 	struct notifier_block nb;
+
 	struct delayed_work hotplug;
 
 	bool tmds_enabled;
-	int irq;
 
 	/* sink information */
 	u8 *edid;

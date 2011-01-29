@@ -981,6 +981,11 @@ static void siihdmi_hotplug_event(struct work_struct *work)
 }
 #endif
 
+static inline unsigned long __irq_flags(const struct resource * const res)
+{
+	return (res->flags & IRQF_TRIGGER_MASK);
+}
+
 static int __devinit siihdmi_probe(struct i2c_client *client,
 				   const struct i2c_device_id *id)
 {
@@ -995,13 +1000,12 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	tx->platform = client->dev.platform_data;
 
 #ifdef CONFIG_FB_SIIHDMI_HOTPLUG
-	tx->irq = tx->platform->hotplug_irq;
-
 	PREPARE_DELAYED_WORK(&tx->hotplug, siihdmi_hotplug_event);
 
-	if (request_irq(tx->irq, siihdmi_irq_handler,
-			IRQF_TRIGGER_RISING, "siihdmi", tx) < 0)
-		DEBUG("could not register display hotplug irq\n");
+	if (request_irq(tx->platform->hotplug.start, siihdmi_irq_handler,
+			__irq_flags(&tx->platform->hotplug),
+			tx->platform->hotplug.name, tx) < 0)
+		DEBUG("could not register display hotplug IRQ\n");
 #endif
 
 	i2c_set_clientdata(client, tx);
@@ -1055,8 +1059,10 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	return 0;
 
 error:
-	if (tx->irq)
-		free_irq(tx->irq, NULL);
+#if defined(CONFIG_SIIHDMI_HOTPLUG)
+	if (tx->platform->hotplug.start)
+		free_irq(tx->platform->hotplug.start, NULL);
+#endif
 
 	kfree(tx);
 	i2c_set_clientdata(client, NULL);
@@ -1069,8 +1075,10 @@ static int __devexit siihdmi_remove(struct i2c_client *client)
 
 	tx = i2c_get_clientdata(client);
 	if (tx) {
-		if (tx->irq)
-			free_irq(tx->irq, NULL);
+#if defined(CONFIG_SIIHDMI_HOTPLUG)
+		if (tx->platform->hotplug.start)
+			free_irq(tx->platform->hotplug.start, NULL);
+#endif
 
 
 		if (tx->fb_kobj)
