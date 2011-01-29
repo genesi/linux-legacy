@@ -360,6 +360,7 @@ static struct platform_device mxc_led_device = {
 };
 
 
+#if defined(CONFIG_BATTERY_SBS)
 enum mxc_power_resource {
 	MAINS_INSERTION_STATUS,
 	BATTERY_INSERTION_STATUS,
@@ -402,7 +403,9 @@ static struct sbs_platform_data sbs_platform_data = {
 	.mains_presence_changed   = &mxc_power_resources[MAINS_INSERTION_STATUS],
 	.battery_presence_changed = &mxc_power_resources[BATTERY_INSERTION_STATUS],
 };
+#endif
 
+#if defined(CONFIG_BATTERY_EFIKASB)
 static struct mxc_battery_platform_data efikasb_batt_data = {
 	.batt_in_irq = IOMUX_TO_IRQ(BATT_INS_PIN),
 	.ac_in_irq = IOMUX_TO_IRQ(AC_ADAP_INS_PIN),
@@ -412,6 +415,7 @@ static struct mxc_battery_platform_data efikasb_batt_data = {
 	.get_batt_low_status = mxc_get_batt_low_status,
 	.set_batt_low_led = NULL/* mxc_turn_on_batt_low_led */,
 };
+#endif
 
 #if defined(CONFIG_I2C_MXC) || defined(CONFIG_I2C_MXC_MODULE) || defined(CONFIG_I2C_IMX) || defined(CONFIG_I2C_IMX_MODULE)
 static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
@@ -430,7 +434,8 @@ static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
 		.addr          = 0x0b,
 		.platform_data = &sbs_platform_data,
 	},
-#else
+#endif
+#if defined(CONFIG_BATTERY_EFIKASB)
 	{
 		.type = "efikasb-battery",
 		.addr = 0x0b,
