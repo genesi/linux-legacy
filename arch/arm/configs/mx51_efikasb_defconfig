@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.31.14.17
-# Mon Jan 24 11:47:01 2011
+# Sat Jan 29 09:29:35 2011
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1403,8 +1403,8 @@ CONFIG_POWER_SUPPLY=y
 # CONFIG_BATTERY_DS2782 is not set
 # CONFIG_BATTERY_BQ27x00 is not set
 # CONFIG_BATTERY_MAX17040 is not set
-# CONFIG_BATTERY_SBS is not set
-CONFIG_BATTERY_EFIKASB=y
+CONFIG_BATTERY_SBS=y
+# CONFIG_BATTERY_EFIKASB is not set
 # CONFIG_HWMON is not set
 # CONFIG_THERMAL is not set
 # CONFIG_THERMAL_HWMON is not set
