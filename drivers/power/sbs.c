@@ -245,6 +245,12 @@ static inline int __chem_to_tech(const char * const chem)
 	if (!chem)
 		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
 
+	if (!strcasecmp(chem, "LSO2")) /* Lithium Sulfur Dioxide */
+		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
+	if (!strcasecmp(chem, "LMnO")) /* Lithium Manganese Dioxide */
+		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
+	if (!strcasecmp(chem, "LCFx")) /* Lithium */
+		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
 	if (!strcasecmp(chem, "PbAc")) /* Lead Acid */
 		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
 	if (!strcasecmp(chem, "LION")) /* Lithium Ion */
@@ -261,6 +267,22 @@ static inline int __chem_to_tech(const char * const chem)
 		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
 	if (!strcasecmp(chem, "LiP"))  /* Lithium Polymer */
 		return POWER_SUPPLY_TECHNOLOGY_LIPO;
+	if (!strcasecmp(chem, "H2FC")) /* Hydrogen Fuel Cell */
+		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
+	if (!strcasecmp(chem, "BHFC")) /* NaBH Fuel Cell */
+		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
+	if (!strcasecmp(chem, "RMFC")) /* Reformed Methanol Fuel Cell */
+		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
+	if (!strcasecmp(chem, "DMFC")) /* Direct Methanol Fuel Cell */
+		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
+	if (!strcasecmp(chem, "FAFC")) /* Formic Acid Fuel Cell */
+		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
+	if (!strcasecmp(chem, "BSFC")) /* Butane Fuel Cell */
+		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
+	if (!strcasecmp(chem, "PSFC")) /* Propane Fuel Cell */
+		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
+	if (!strcasecmp(chem, "SOFC")) /* Solid Oxide Fuel Cell */
+		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
 
 	DEBUG("Unknown Device Chemistry: %s", chem);
 	return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
