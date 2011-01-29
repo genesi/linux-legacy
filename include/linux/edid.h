@@ -39,7 +39,7 @@
 #define EDID_MAX_EXTENSIONS				(0xfe)
 
 
-static const u8 EDID_HEADER[8] = { 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00 };
+static const u8 EDID_HEADER[] = { 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00 };
 
 
 enum edid_extension_type {
@@ -122,7 +122,7 @@ struct __packed edid_detailed_timing_descriptor {
 static inline u16
 edid_timing_pixel_clock(const struct edid_detailed_timing_descriptor * const dtb)
 {
-	return dtb->pixel_clock * 1000;
+	return dtb->pixel_clock * 10000;
 }
 
 static inline u16
@@ -189,9 +189,16 @@ edid_timing_vertical_image_size(const struct edid_detailed_timing_descriptor * c
 struct __packed edid_monitor_descriptor {
 	u16 flag0;
 	u8  flag1;
-	u8  data_type_tag;
+	u8  tag;
 	u8  flag2;
 	u8  data[13];
+};
+
+struct __packed edid_standard_timing_descriptor {
+	u8       horizontal_active_pixels;    /* = (value + 31) * 8 */
+
+	unsigned refresh_rate       : 6;      /* = value + 60 */
+	unsigned image_aspect_ratio : 2;
 };
 
 struct __packed edid_block0 {
@@ -200,9 +207,9 @@ struct __packed edid_block0 {
 
 	/* vendor/product identification */
 	struct __packed {
-		unsigned id0  : 5;
-		unsigned id1  : 5;
 		unsigned id2  : 5;
+		unsigned id1  : 5;
+		unsigned id0  : 5;
 		unsigned zero : 1;
 	} manufacturer;
 
@@ -274,6 +281,7 @@ struct __packed edid_block0 {
 
 		unsigned timing_1280x1024_75 : 1;
 		unsigned timing_1024x768_75  : 1;
+		unsigned timing_1024x768_70  : 1;
 		unsigned timing_1024x768_60  : 1;
 		unsigned timing_1024x768_87  : 1;
 		unsigned timing_832x624_75   : 1;
@@ -287,12 +295,7 @@ struct __packed edid_block0 {
 	} manufacturer_timings;
 
 	/* standard timing id */
-	struct __packed {
-		u8       horizontal_active_pixels;    /* = (value + 31) * 8 */
-
-		unsigned refresh_rate       : 6;      /* = value + 60 */
-		unsigned image_aspect_ratio : 2;
-	} standard_timing_identification[8];
+	struct edid_standard_timing_descriptor standard_timing_id[8];
 
 	/* detailed timing */
 	union {
