@@ -610,14 +610,13 @@ _fb_match_resolution(const struct fb_videomode * const mode,
 	return NULL;
 }
 
-static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx,
-				      struct fb_info * const info)
+static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 {
-	struct list_head *modelist = &info->modelist;
+	struct list_head *modelist = &tx->info->modelist;
 	const struct fb_modelist *entry, *next;
 	const struct fb_videomode *mode;
 
-	if ((mode = fb_find_best_display(&info->monspecs, modelist)))
+	if ((mode = fb_find_best_display(&tx->info->monspecs, modelist)))
 		memcpy(&tx->preferred, mode, sizeof(tx->preferred));
 
 	/*
@@ -719,20 +718,19 @@ static void siihdmi_dump_modelines(const struct list_head * const modelines)
 }
 
 static const struct fb_videomode *
-siihdmi_select_video_mode(const struct siihdmi_tx * const tx,
-			  struct fb_info * const info)
+siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 {
 	const struct fb_videomode *mode = NULL;
 	const struct fb_videomode * const pref = &siihdmi_default_video_mode;
 
-	mode = fb_find_nearest_mode(pref, &info->modelist);
+	mode = fb_find_nearest_mode(pref, &tx->info->modelist);
 
 	if (mode && (mode->xres == pref->xres) && (mode->yres == pref->yres)) {
 		/* prefer 1280x720 if the monitor supports that mode exactly */
 		return mode;
 	} else if (tx->preferred.xres && tx->preferred.yres) {
 		/* otherwise, use the closest to the monitor preferred mode */
-		mode = fb_find_nearest_mode(&tx->preferred, &info->modelist);
+		mode = fb_find_nearest_mode(&tx->preferred, &tx->info->modelist);
 	}
 
 	/* if no mode was found push 1280x720 anyway */
@@ -815,10 +813,10 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx)
 				 tx->info->monspecs.modedb_len,
 				 &tx->info->modelist);
 
-	siihdmi_sanitize_modelist(tx, tx->info);
+	siihdmi_sanitize_modelist(tx);
 	siihdmi_dump_modelines(&tx->info->modelist);
 
-	fb_videomode_to_var(&var, siihdmi_select_video_mode(tx, tx->info));
+	fb_videomode_to_var(&var, siihdmi_select_video_mode(tx));
 
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
 	msleep(MX51_IPU_SETTLE_TIME_MS);
