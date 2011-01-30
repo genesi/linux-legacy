@@ -298,8 +298,6 @@ static void siihdmi_parse_cea861_timing_block(struct siihdmi_tx *tx,
 	if (cea->dtd_offset == CEA81_NO_DTDS_PRESENT)
 		return;
 
-	DEBUG("Looking for extension blocks\n");
-
 	do {
 		const struct cea861_data_block_header * const header =
 			(struct cea861_data_block_header *) &cea->data[index];
@@ -1019,9 +1017,6 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 		goto error;
 
 	if (siihdmi_sink_present(tx)) {
-		/* enable any existing framebuffers */
-		DEBUG("%d registered framebuffers\n", num_registered_fb);
-
 		for (i = 0; i < num_registered_fb; i++) {
 			struct fb_info * const info = registered_fb[i];
 
