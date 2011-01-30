@@ -933,7 +933,7 @@ static void siihdmi_hotplug_event(struct work_struct *work)
 	isr = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_ISR);
 	i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_ISR, isr);
 
-	DEBUG("hotplug event(s) received: %s%s%s%s%s\b\b\n",
+	DEBUG("hotplug event(s) received: %s%s%s%s%s%s\b\b\n",
 	      (ier & SIIHDMI_IER_HOT_PLUG_EVENT) ? "hotplug, " : "",
 	      (ier & SIIHDMI_IER_RECEIVER_SENSE_EVENT) ? "receiver, " : "",
 	      (ier & SIIHDMI_IER_CTRL_BUS_EVENT) ? "control bus, " : "",
