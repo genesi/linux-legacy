@@ -399,6 +399,23 @@ static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
 		DEBUG("unable to set output format\n");
 }
 
+static int siihdmi_clear_avi_info_frame(struct siihdmi_tx *tx)
+{
+	const u8 buffer[SIIHDMI_TPI_REG_AVI_INFO_FRAME_LENGTH] = {0};
+	int ret;
+
+	BUG_ON(tx->connection_type != CONNECTION_TYPE_DVI);
+
+	ret = i2c_smbus_write_i2c_block_data(tx->client,
+					     SIIHDMI_TPI_REG_AVI_INFO_FRAME_BASE,
+					     sizeof(buffer), buffer);
+	if (ret < 0)
+		DEBUG("unable to clear avi info frame\n");
+
+	return ret;
+
+}
+
 static int siihdmi_set_avi_info_frame(struct siihdmi_tx *tx)
 {
 	int ret;
@@ -416,6 +433,8 @@ static int siihdmi_set_avi_info_frame(struct siihdmi_tx *tx)
 
 		.video_format              = VIDEO_FORMAT_UNKNOWN,
 	};
+
+	BUG_ON(tx->connection_type != CONNECTION_TYPE_HDMI);
 
 	switch (tx->pixel_mapping) {
 	case PIXEL_MAPPING_UNDERSCANNED:
@@ -472,6 +491,8 @@ static int siihdmi_set_audio_info_frame(struct siihdmi_tx *tx)
 		},
 	};
 
+	BUG_ON(tx->connection_type != CONNECTION_TYPE_HDMI);
+
 	cea861_checksum_hdmi_info_frame((u8 *) &packet.info_frame);
 
 	BUILD_BUG_ON(sizeof(packet) != SIIHDMI_TPI_REG_AUDIO_INFO_FRAME_LENGTH);
@@ -505,6 +526,8 @@ static int siihdmi_set_spd_info_frame(struct siihdmi_tx *tx)
 			.source_device_info = SPD_SOURCE_PC_GENERAL,
 		},
 	};
+
+	BUG_ON(tx->connection_type != CONNECTION_TYPE_HDMI);
 
 	strncpy(packet.info_frame.vendor, tx->platform->vendor,
 		sizeof(packet.info_frame.vendor));
@@ -570,13 +593,21 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	/* step 5: set the vmode registers */
 	siihdmi_set_vmode_registers(tx, var);
 
-	/* step 6: [HDMI] set AVI InfoFrame */
-	/* NOTE this is required as it flushes the vmode registers */
-	siihdmi_set_avi_info_frame(tx);
+	/*
+	 * step 6:
+	 *      [DVI]  clear AVI InfoFrame
+	 *      [HDMI] set AVI InfoFrame
+	 */
+	if (tx->connection_type == CONNECTION_TYPE_HDMI)
+		siihdmi_set_avi_info_frame(tx);
+	else
+		siihdmi_clear_avi_info_frame(tx);
 
 	/* step 7: [HDMI] set new audio information */
-	siihdmi_set_audio_info_frame(tx);
-	siihdmi_set_spd_info_frame(tx);
+	if (tx->connection_type == CONNECTION_TYPE_HDMI) {
+		siihdmi_set_audio_info_frame(tx);
+		siihdmi_set_spd_info_frame(tx);
+	}
 
 	/* step 8: enable display */
 	ctrl &= ~SIIHDMI_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN;
