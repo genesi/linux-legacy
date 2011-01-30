@@ -960,11 +960,9 @@ static void siihdmi_hotplug_event(struct work_struct *work)
 		container_of(work, struct siihdmi_tx, hotplug.work);
 	u8 isr, ier;
 
-	ier = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_IER);
-
 	/* clear the interrupt */
-	isr = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_ISR);
-	i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_ISR, isr);
+	ier = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_IER);
+	i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_IER, ier);
 
 	DEBUG("hotplug event(s) received: %s%s%s%s%s%s\b\b\n",
 	      (ier & SIIHDMI_IER_HOT_PLUG_EVENT) ? "hotplug, " : "",
@@ -976,7 +974,18 @@ static void siihdmi_hotplug_event(struct work_struct *work)
 	              SIIHDMI_IER_HDCP_VALUE_READY       |
 	              SIIHDMI_IER_HDCP_AUTHENTICATION_STATUS_CHANGE)) ? "HDCP, " : "");
 
-	/* TODO we should actually poll for new events here */
+	/* TODO Handle Events */
+
+	isr = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_ISR);
+	DEBUG("polled event(s) received: %s%s%s%s%s%s\b\b\n",
+	      (isr & SIIHDMI_ISR_HOT_PLUG_EVENT) ? "hotplug, " : "",
+	      (isr & SIIHDMI_ISR_RECEIVER_SENSE_EVENT) ? "receiver, " : "",
+	      (isr & SIIHDMI_ISR_CTRL_BUS_EVENT) ? "control bus, " : "",
+	      (isr & SIIHDMI_ISR_CPI_EVENT) ? "CPI, " : "",
+	      (isr & SIIHDMI_ISR_AUDIO_EVENT) ? "audio error, " : "",
+	      (isr & (SIIHDMI_ISR_SECURITY_STATUS_CHANGED |
+	              SIIHDMI_ISR_HDCP_VALUE_READY        |
+	              SIIHDMI_ISR_HDCP_AUTHENTICATION_STATUS_CHANGED)) ? "HDCP, " : "");
 }
 #endif
 
