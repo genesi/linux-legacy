@@ -911,7 +911,7 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 }
 
 #ifdef CONFIG_FB_SIIHDMI_HOTPLUG
-static irqreturn_t siihdmi_irq_handler(int irq, void *dev_id)
+static irqreturn_t siihdmi_hotplug_handler(int irq, void *dev_id)
 {
 	struct siihdmi_tx *tx = ((struct siihdmi_tx *) dev_id);
 
@@ -998,10 +998,11 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 #ifdef CONFIG_FB_SIIHDMI_HOTPLUG
 	PREPARE_DELAYED_WORK(&tx->hotplug, siihdmi_hotplug_event);
 
-	if (request_irq(tx->platform->hotplug.start, siihdmi_irq_handler,
-			__irq_flags(&tx->platform->hotplug),
-			tx->platform->hotplug.name, tx) < 0)
-		DEBUG("could not register display hotplug IRQ\n");
+	ret = request_irq(tx->platform->hotplug.start, siihdmi_hotplug_handler,
+			  __irq_flags(&tx->platform->hotplug),
+			  tx->platform->hotplug.name, tx);
+	if (ret < 0)
+		DEBUG("failed to setup hotplug interrupt: %d\n", ret);
 #endif
 
 	i2c_set_clientdata(client, tx);
