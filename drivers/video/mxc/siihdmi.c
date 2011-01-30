@@ -322,19 +322,6 @@ static void siihdmi_parse_cea861_timing_block(struct siihdmi_tx *tx,
 	} while (index < cea->dtd_offset - offset);
 }
 
-static inline unsigned long siihdmi_ps_to_hz(const unsigned long ps)
-{
-	unsigned long long numerator = 1000000000000ull;
-
-	if (ps == 0)
-		return 0;
-
-	/* freq = 1 / time; 10^12 ps = 1s; 10^12/ps = freq */
-	do_div(numerator, ps);
-
-	return (unsigned long) numerator;
-}
-
 static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
 					struct fb_var_screeninfo *var)
 {
@@ -353,13 +340,15 @@ static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
 
 	BUILD_BUG_ON(sizeof(vmode) != 8);
 
-	pixclk = siihdmi_ps_to_hz(var->pixclock);
+	pixclk = var->pixclock ? PICOS2KHZ(var->pixclock) : 0;
 	htotal = var->xres + var->left_margin + var->hsync_len + var->right_margin;
 	vtotal = var->yres + var->upper_margin + var->vsync_len + var->lower_margin;
-	refresh = (htotal * vtotal) / pixclk;
+	refresh = (htotal * vtotal) / (pixclk * 1000ul);
+
+	BUG_ON(pixclk == 0);
 
 	/* basic video mode data */
-	vmode[PIXEL_CLOCK]  = pixclk / 10000;
+	vmode[PIXEL_CLOCK]  = pixclk / 10;
 	vmode[REFRESH_RATE] = refresh;
 	vmode[X_RESOLUTION] = htotal;
 	vmode[Y_RESOLUTION] = vtotal;
@@ -717,9 +706,9 @@ static void siihdmi_dump_modelines(const struct list_head * const modelines)
 		const struct fb_videomode * const mode = &entry->mode;
 		const bool interlaced = (mode->vmode & FB_VMODE_INTERLACED);
 		const bool double_scan = (mode->vmode & FB_VMODE_DOUBLE);
-		u32 pixel_clock = siihdmi_ps_to_hz(mode->pixclock);
+		u32 pixclk = mode->pixclock ? PICOS2KHZ(mode->pixclock) : 0;
 
-		pixel_clock >>= (double_scan ? 1 : 0);
+		pixclk >>= (double_scan ? 1 : 0);
 
 		INFO("    \"%dx%d@%d%s\" %lu.%.2lu %u %u %u %u %u %u %u %u %chsync %cvsync\n",
 		     /* mode name */
@@ -728,8 +717,8 @@ static void siihdmi_dump_modelines(const struct list_head * const modelines)
 		     interlaced ? "i" : (double_scan ? "d" : ""),
 
 		     /* dot clock frequency (MHz) */
-		     pixel_clock / 1000000ul,
-		     pixel_clock % 1000000ul,
+		     pixclk / 1000ul,
+		     pixclk % 1000ul,
 
 		     /* horizontal timings */
 		     mode->xres,
