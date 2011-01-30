@@ -200,9 +200,9 @@ static bool siihdmi_sink_present(struct siihdmi_tx *tx)
 	DEBUG("%ssink detected%s%s%s%s\n",
 	      present ? "" : "no ",
 	      present ? " (" : "",
-	      (isr & SIIHDMI_ISR_HOT_PLUG_EVENT) ? "hotplug " : "",
-	      (isr & SIIHDMI_ISR_RECEIVER_SENSE_EVENT) ? "receiver sense" : "",
-	      present ? ")" : "");
+	      (isr & SIIHDMI_ISR_HOT_PLUG_EVENT) ? "hotplug, " : ", ",
+	      (isr & SIIHDMI_ISR_RECEIVER_SENSE_EVENT) ? "receiver sense, " : ", ",
+	      present ? "\b\b)" : "\b\b");
 
 	return present;
 }
