@@ -66,6 +66,9 @@ static unsigned int bus_timeout = 50;
 module_param(bus_timeout, uint, 0644);
 MODULE_PARM_DESC(bus_timeout, "bus timeout in milliseconds");
 
+static unsigned int i2c_settle_time = 50;
+module_param(i2c_settle_time, uint, 0644);
+MODULE_PARM_DESC(i2c_settle_time, "time to wait for i2c to settle in ms");
 
 /*
  * Interesting note:
@@ -915,45 +918,33 @@ static irqreturn_t siihdmi_hotplug_handler(int irq, void *dev_id)
 {
 	struct siihdmi_tx *tx = ((struct siihdmi_tx *) dev_id);
 
-	schedule_delayed_work(&tx->hotplug, msecs_to_jiffies(50));
+	schedule_delayed_work(&tx->hotplug,
+			      msecs_to_jiffies(i2c_settle_time));
+
 	return IRQ_HANDLED;
 }
 
 static void siihdmi_hotplug_event(struct work_struct *work)
 {
-	struct siihdmi_tx *tx = container_of(work, struct siihdmi_tx, hotplug.work);
-	u8 data;
+	struct siihdmi_tx *tx =
+		container_of(work, struct siihdmi_tx, hotplug.work);
+	u8 isr, ier;
 
-	DEBUG("hotplug event work called\n");
+	ier = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_IER);
 
-	data = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_ISR);
+	/* clear the interrupt */
+	isr = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_ISR);
+	i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_ISR, isr);
 
-	/* clear ISR so the interrupt line goes down */
-	i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_ISR, data);
-
-	if (data & SIIHDMI_IER_HOT_PLUG_EVENT)
-		DEBUG("interrupt hot plug event\n");
-
-	if (data & SIIHDMI_IER_RECEIVER_SENSE_EVENT)
-		DEBUG("interrupt receiver sense event or CTRL bus error\n");
-
-	if (data & SIIHDMI_IER_CTRL_BUS_EVENT)
-		DEBUG("interrupt CTRL bus event pending or hotplug state high\n");
-
-	if (data & SIIHDMI_IER_CPI_EVENT)
-		DEBUG("interrupt CPI event or RxSense state high\n");
-
-	if (data & SIIHDMI_IER_AUDIO_EVENT)
-		DEBUG("interrupt audio event\n");
-
-	if (data & SIIHDMI_IER_SECURITY_STATUS_CHANGE)
-		DEBUG("interrupt security status change\n");
-
-	if (data & SIIHDMI_IER_HDCP_VALUE_READY)
-		DEBUG("interrupt HDCP value ready\n");
-
-	if (data & SIIHDMI_IER_HDCP_AUTHENTICATION_STATUS_CHANGE)
-		DEBUG("interrupt HDCP authentication status change\n");
+	DEBUG("hotplug event(s) received: %s%s%s%s%s\b\b\n",
+	      (ier & SIIHDMI_IER_HOT_PLUG_EVENT) ? "hotplug, " : "",
+	      (ier & SIIHDMI_IER_RECEIVER_SENSE_EVENT) ? "receiver, " : "",
+	      (ier & SIIHDMI_IER_CTRL_BUS_EVENT) ? "control bus, " : "",
+	      (ier & SIIHDMI_IER_CPI_EVENT) ? "CPI, " : "",
+	      (ier & SIIHDMI_IER_AUDIO_EVENT) ? "audio error, " : "",
+	      (ier & (SIIHDMI_IER_SECURITY_STATUS_CHANGE |
+	              SIIHDMI_IER_HDCP_VALUE_READY       |
+	              SIIHDMI_IER_HDCP_AUTHENTICATION_STATUS_CHANGE)) ? "HDCP, " : "");
 
 	/* TODO we should actually poll for new events here */
 }
@@ -996,7 +987,7 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	tx->edid_attr.read       = siihdmi_sysfs_read_edid;
 
 #if defined(CONFIG_FB_SIIHDMI_HOTPLUG)
-	PREPARE_DELAYED_WORK(&tx->hotplug, siihdmi_hotplug_event);
+	INIT_DELAYED_WORK(&tx->hotplug, siihdmi_hotplug_event);
 
 	ret = request_irq(tx->platform->hotplug.start, siihdmi_hotplug_handler,
 			  __irq_flags(&tx->platform->hotplug),
