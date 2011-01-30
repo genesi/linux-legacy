@@ -145,7 +145,7 @@ static int siihdmi_initialise(struct siihdmi_tx *tx)
 
 	ret = i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_RQB, 0x00);
 	if (ret < 0) {
-		DEBUG("unable to initialise device to TPI mode\n");
+		WARNING("unable to initialise device to TPI mode\n");
 		return ret;
 	}
 
@@ -160,7 +160,7 @@ static int siihdmi_initialise(struct siihdmi_tx *tx)
 					SIIHDMI_TPI_REG_PWR_STATE,
 					SIIHDMI_POWER_STATE_D0);
 	if (ret < 0) {
-		DEBUG("unable to power up transmitter\n");
+		ERROR("unable to power up transmitter\n");
 		return ret;
 	}
 
@@ -180,7 +180,7 @@ static int siihdmi_initialise(struct siihdmi_tx *tx)
 					SIIHDMI_IER_HOT_PLUG_EVENT |
 					SIIHDMI_IER_RECEIVER_SENSE_EVENT);
 	if (ret < 0) {
-		DEBUG("unable to setup interrupt request\n");
+		WARNING("unable to setup interrupt request\n");
 		return ret;
 	}
 
@@ -1002,7 +1002,7 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 			  __irq_flags(&tx->platform->hotplug),
 			  tx->platform->hotplug.name, tx);
 	if (ret < 0)
-		DEBUG("failed to setup hotplug interrupt: %d\n", ret);
+		WARNING("failed to setup hotplug interrupt: %d\n", ret);
 #endif
 
 	i2c_set_clientdata(client, tx);
@@ -1045,7 +1045,7 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 						SIIHDMI_TPI_REG_PWR_STATE,
 						SIIHDMI_POWER_STATE_D2);
 		if (ret < 0)
-			DEBUG("unable to change to a low power-state\n");
+			WARNING("unable to change to a low power-state\n");
 	}
 
 	/* register a notifier for future fb events */
