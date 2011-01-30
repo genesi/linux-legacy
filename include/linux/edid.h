@@ -358,5 +358,16 @@ struct __packed edid_extension {
 	u8 checksum;
 };
 
+static inline bool edid_verify_checksum(const u8 * const block)
+{
+	u8 checksum = 0;
+	int i;
+
+	for (i = 0; i < EDID_BLOCK_SIZE; i++)
+		checksum += block[i];
+
+	return (checksum == 0);
+}
+
 #endif
 

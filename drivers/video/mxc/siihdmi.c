@@ -773,6 +773,9 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx)
 	if ((ret = siihdmi_read_edid(tx, (u8 *) &block0, sizeof(block0))) < 0)
 		return ret;
 
+	if (!edid_verify_checksum((u8 *) &block0))
+		WARNING("EDID block 0 CRC mismatch\n");
+
 	/* need to allocate space for block 0 as well as the extensions */
 	tx->edid_length = (block0.extensions + 1) * EDID_BLOCK_SIZE;
 
@@ -794,6 +797,9 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx)
 		for (i = 0; i < block0.extensions; i++) {
 			const struct edid_extension * const extension =
 				&extensions[i];
+
+			if (!edid_verify_checksum((u8 *) extension))
+				WARNING("EDID block %u CRC mismatch\n", i);
 
 			switch (extension->tag) {
 			case EDID_EXTENSION_CEA:
