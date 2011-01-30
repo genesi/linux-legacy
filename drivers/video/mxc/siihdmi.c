@@ -755,27 +755,7 @@ siihdmi_select_video_mode(const struct siihdmi_tx * const tx,
 	return mode;
 }
 
-
-static ssize_t siihdmi_sysfs_read_edid(struct kobject *kobj,
-                                 struct bin_attribute *bin_attr,
-                                 char *buf, loff_t off, size_t count)
-{
-	struct siihdmi_tx *tx = (struct siihdmi_tx *) bin_attr->private;
-
-	return memory_read_from_buffer(buf, count, &off, tx->edid, tx->edid_length);
-}
-
-static struct bin_attribute edid_attr = {
-	.attr = {
-		.name = "EDID",
-		.owner = THIS_MODULE,
-		.mode = 0444,
-	},
-	.size = SZ_32K, /* maximum size of an EDID, not necessarily the size of the EDID */
-	.read = siihdmi_sysfs_read_edid,
-};
-
-static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
+static int siihdmi_init_fb(struct siihdmi_tx *tx)
 {
 	struct fb_var_screeninfo var = {0};
 	struct edid_block0 block0;
@@ -803,15 +783,8 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 	if ((ret = siihdmi_read_edid(tx, tx->edid, tx->edid_length)) < 0)
 		return ret;
 
-	if (!tx->fb_kobj) {
-		tx->fb_kobj = &(info->dev->kobj);
-
-		/* plug in the sysfs property private data */
-		edid_attr.private = (void *) tx;
-
-		if (0 != sysfs_create_bin_file(tx->fb_kobj, &edid_attr))
-			tx->fb_kobj = NULL;
-	}
+	if (sysfs_create_bin_file(&tx->info->dev->kobj, &tx->edid_attr) < 0)
+		WARNING("unable to populate edid sysfs attribute\n");
 
 	if (block0.extensions) {
 		const struct edid_extension * const extensions =
@@ -833,15 +806,15 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 		}
 	}
 
-	fb_edid_to_monspecs(tx->edid, &info->monspecs);
-	fb_videomode_to_modelist(info->monspecs.modedb,
-				 info->monspecs.modedb_len,
-				 &info->modelist);
+	fb_edid_to_monspecs(tx->edid, &tx->info->monspecs);
+	fb_videomode_to_modelist(tx->info->monspecs.modedb,
+				 tx->info->monspecs.modedb_len,
+				 &tx->info->modelist);
 
-	siihdmi_sanitize_modelist(tx, info);
-	siihdmi_dump_modelines(&info->modelist);
+	siihdmi_sanitize_modelist(tx, tx->info);
+	siihdmi_dump_modelines(&tx->info->modelist);
 
-	fb_videomode_to_var(&var, siihdmi_select_video_mode(tx, info));
+	fb_videomode_to_var(&var, siihdmi_select_video_mode(tx, tx->info));
 
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
 	msleep(MX51_IPU_SETTLE_TIME_MS);
@@ -854,9 +827,9 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx, struct fb_info *info)
 	var.activate = FB_ACTIVATE_ALL;
 
 	acquire_console_sem();
-	info->flags |= FBINFO_MISC_USEREVENT;
-	fb_set_var(info, &var);
-	info->flags &= ~FBINFO_MISC_USEREVENT;
+	tx->info->flags |= FBINFO_MISC_USEREVENT;
+	fb_set_var(tx->info, &var);
+	tx->info->flags &= ~FBINFO_MISC_USEREVENT;
 	release_console_sem();
 
 	return 0;
@@ -901,7 +874,11 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
 		msleep(MX51_IPU_SETTLE_TIME_MS);
 #endif
-		return siihdmi_init_fb(tx, event->info);
+		if (!strcmp(event->info->fix.id, tx->platform->framebuffer)) {
+			tx->info = event->info;
+			return siihdmi_init_fb(tx);
+		}
+		break;
 	case FB_EVENT_MODE_CHANGE:
 		fb_videomode_to_var(&var, event->info->mode);
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
@@ -980,6 +957,17 @@ static void siihdmi_hotplug_event(struct work_struct *work)
 }
 #endif
 
+static ssize_t siihdmi_sysfs_read_edid(struct kobject *kobj,
+				       struct bin_attribute *bin_attr,
+				       char *buf, loff_t off, size_t count)
+{
+	const struct siihdmi_tx * const tx =
+		container_of(bin_attr, struct siihdmi_tx, edid_attr);
+
+	return memory_read_from_buffer(buf, count, &off,
+				       tx->edid, tx->edid_length);
+}
+
 static inline unsigned long __irq_flags(const struct resource * const res)
 {
 	return (res->flags & IRQF_TRIGGER_MASK);
@@ -997,6 +985,13 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 
 	tx->client = client;
 	tx->platform = client->dev.platform_data;
+
+	tx->edid_attr.attr.name  = "edid";
+	tx->edid_attr.attr.owner = THIS_MODULE;
+	tx->edid_attr.attr.mode  = 0444;
+	/* maximum size of EDID, not necessarily the size of our data */
+	tx->edid_attr.size       = SZ_32K;
+	tx->edid_attr.read       = siihdmi_sysfs_read_edid;
 
 #ifdef CONFIG_FB_SIIHDMI_HOTPLUG
 	PREPARE_DELAYED_WORK(&tx->hotplug, siihdmi_hotplug_event);
@@ -1022,12 +1017,14 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 		DEBUG("%d registered framebuffers\n", num_registered_fb);
 
 		for (i = 0; i < num_registered_fb; i++) {
-			if (strcmp(registered_fb[i]->fix.id,
-				   tx->platform->framebuffer))
-				continue;
+			struct fb_info * const info = registered_fb[i];
 
-			if ((ret = siihdmi_init_fb(tx, registered_fb[i])) < 0)
-				goto error;
+			if (!strcmp(info->fix.id, tx->platform->framebuffer)) {
+				tx->info = info;
+				if (siihdmi_init_fb(tx) < 0)
+					goto error;
+				break;
+			}
 		}
 	} else {
 		/*
@@ -1079,9 +1076,7 @@ static int __devexit siihdmi_remove(struct i2c_client *client)
 			free_irq(tx->platform->hotplug.start, NULL);
 #endif
 
-
-		if (tx->fb_kobj)
-			sysfs_remove_bin_file(tx->fb_kobj, &edid_attr);
+		sysfs_remove_bin_file(&tx->info->dev->kobj, &tx->edid_attr);
 
 		if (tx->edid)
 			kfree(tx->edid);

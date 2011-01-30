@@ -334,17 +334,18 @@ struct siihdmi_tx {
 	struct i2c_client *client;
 	struct siihdmi_platform_data *platform;
 
-	struct kobject *fb_kobj; /* registered framebuffer */
+	struct fb_info *info;
 	struct notifier_block nb;
 
 	struct delayed_work hotplug;
 
 	bool tmds_enabled;
 
-	/* sink information */
 	u8 *edid;
 	u32 edid_length;
+	struct bin_attribute edid_attr;
 
+	/* sink information */
 	bool enable_audio;
 	enum {
 		CONNECTION_TYPE_DVI,
