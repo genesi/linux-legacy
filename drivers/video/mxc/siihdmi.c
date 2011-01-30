@@ -783,7 +783,7 @@ siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 	return mode;
 }
 
-static int siihdmi_init_fb(struct siihdmi_tx *tx)
+static int siihdmi_setup_display(struct siihdmi_tx *tx)
 {
 	struct fb_var_screeninfo var = {0};
 	struct edid_block0 block0;
@@ -910,8 +910,9 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 #endif
 		if (!strcmp(event->info->fix.id, tx->platform->framebuffer)) {
 			tx->info = event->info;
-			return siihdmi_init_fb(tx);
+			return siihdmi_setup_display(tx);
 		}
+
 		break;
 	case FB_EVENT_MODE_CHANGE:
 		fb_videomode_to_var(&var, event->info->mode);
@@ -1041,8 +1042,10 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 
 			if (!strcmp(info->fix.id, tx->platform->framebuffer)) {
 				tx->info = info;
-				if (siihdmi_init_fb(tx) < 0)
+
+				if (siihdmi_setup_display(tx) < 0)
 					goto error;
+
 				break;
 			}
 		}
