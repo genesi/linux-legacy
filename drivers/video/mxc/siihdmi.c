@@ -791,7 +791,7 @@ static int siihdmi_init_fb(struct siihdmi_tx *tx)
 
 	if (block0.extensions) {
 		const struct edid_extension * const extensions =
-			(struct edid_extension *) tx->edid + sizeof(block0);
+			(struct edid_extension *) (tx->edid + sizeof(block0));
 		u8 i;
 
 		for (i = 0; i < block0.extensions; i++) {
