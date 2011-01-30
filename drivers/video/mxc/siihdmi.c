@@ -910,7 +910,7 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 	return 0;
 }
 
-#ifdef CONFIG_FB_SIIHDMI_HOTPLUG
+#if defined(CONFIG_FB_SIIHDMI_HOTPLUG)
 static irqreturn_t siihdmi_hotplug_handler(int irq, void *dev_id)
 {
 	struct siihdmi_tx *tx = ((struct siihdmi_tx *) dev_id);
@@ -995,7 +995,7 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	tx->edid_attr.size       = SZ_32K;
 	tx->edid_attr.read       = siihdmi_sysfs_read_edid;
 
-#ifdef CONFIG_FB_SIIHDMI_HOTPLUG
+#if defined(CONFIG_FB_SIIHDMI_HOTPLUG)
 	PREPARE_DELAYED_WORK(&tx->hotplug, siihdmi_hotplug_event);
 
 	ret = request_irq(tx->platform->hotplug.start, siihdmi_hotplug_handler,
@@ -1055,7 +1055,7 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	return 0;
 
 error:
-#if defined(CONFIG_SIIHDMI_HOTPLUG)
+#if defined(CONFIG_FB_SIIHDMI_HOTPLUG)
 	if (tx->platform->hotplug.start)
 		free_irq(tx->platform->hotplug.start, NULL);
 #endif
@@ -1071,7 +1071,7 @@ static int __devexit siihdmi_remove(struct i2c_client *client)
 
 	tx = i2c_get_clientdata(client);
 	if (tx) {
-#if defined(CONFIG_SIIHDMI_HOTPLUG)
+#if defined(CONFIG_FB_SIIHDMI_HOTPLUG)
 		if (tx->platform->hotplug.start)
 			free_irq(tx->platform->hotplug.start, NULL);
 #endif
