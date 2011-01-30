@@ -32,11 +32,11 @@
 #include <linux/fb.h>
 #include <linux/i2c.h>
 #include <linux/delay.h>
+#include <linux/sysfs.h>
 #include <linux/kernel.h>
 #include <linux/console.h>
 #include <linux/workqueue.h>
 #include <linux/interrupt.h>
-#include <linux/sysfs.h>
 
 #include <linux/edid.h>
 #include <linux/cea861.h>
@@ -189,20 +189,22 @@ static int siihdmi_initialise(struct siihdmi_tx *tx)
 
 static bool siihdmi_sink_present(struct siihdmi_tx *tx)
 {
-	u8 isr, sink_present;
+	u8 isr;
+	bool present;
 
 	isr = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_ISR);
 
-	sink_present = isr & (SIIHDMI_ISR_HOT_PLUG_EVENT | SIIHDMI_ISR_RECEIVER_SENSE_EVENT);
+	present = isr & (SIIHDMI_ISR_HOT_PLUG_EVENT |
+			 SIIHDMI_ISR_RECEIVER_SENSE_EVENT);
 
-	if (sink_present) {
-		DEBUG("Sink detect%s%s\n", (isr & SIIHDMI_ISR_HOT_PLUG_EVENT) ? " HotPlug" : "",
-				     (isr & SIIHDMI_ISR_RECEIVER_SENSE_EVENT) ? " ReceiverSense" : "" );
-	} else {
-		DEBUG("No sink detected\n");
-	}
+	DEBUG("%ssink detected%s%s%s%s\n",
+	      present ? "" : "no ",
+	      present ? " (" : "",
+	      (isr & SIIHDMI_ISR_HOT_PLUG_EVENT) ? "hotplug " : "",
+	      (isr & SIIHDMI_ISR_RECEIVER_SENSE_EVENT) ? "receiver sense" : "",
+	      present ? ")" : "");
 
-	return sink_present;
+	return present;
 }
 
 static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
@@ -242,7 +244,7 @@ static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
 	} while ((~ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
 		 !time_after(jiffies, start + bus_timeout));
 
-	if (!(ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED))
+	if (~ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED)
 		goto relinquish;
 
 	/* step 4: take ownership of the DDC bus */
@@ -640,9 +642,8 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx,
 			remove = true;
 		} else if (mode->vsync_len < 2) {
 			/*
-			 *HDMI specification requires at least 2 lines of
-			 * vertical sync, as detailed in SII9022 datasheet
-			 * (page 22) and HDMI 1.3 spec (5.1.2)
+			 * HDMI specification requires at least 2 lines of
+			 * vertical sync (sect. 5.1.2).
 			 */
 			DEBUG("Removing mode %ux%u@%u (vertical sync period too short)\n",
 			      mode->xres, mode->yres, mode->refresh);
@@ -724,22 +725,20 @@ siihdmi_select_video_mode(const struct siihdmi_tx * const tx,
 			  struct fb_info * const info)
 {
 	const struct fb_videomode *mode = NULL;
+	const struct fb_videomode * const pref = &siihdmi_default_video_mode;
 
-	mode = fb_find_nearest_mode(&siihdmi_default_video_mode,
-				    &info->modelist);
+	mode = fb_find_nearest_mode(pref, &info->modelist);
 
-	/* prefer 1280x720 if the monitor supports that mode exactly */
-	/* TODO default video mode will change, this code assumes 1280x720 */
-	if (mode && (mode->xres == 1280) && (mode->yres == 720)) {
+	if (mode && (mode->xres == pref->xres) && (mode->yres == pref->yres)) {
+		/* prefer 1280x720 if the monitor supports that mode exactly */
 		return mode;
-	}
-	/* otherwise, use the closest to the monitor preferred mode */
-	else if (tx->preferred.xres && tx->preferred.yres) {
+	} else if (tx->preferred.xres && tx->preferred.yres) {
+		/* otherwise, use the closest to the monitor preferred mode */
 		mode = fb_find_nearest_mode(&tx->preferred, &info->modelist);
 	}
 
 	/* if no mode was found push 1280x720 anyway */
-	mode = mode ? mode : &siihdmi_default_video_mode;
+	mode = mode ? mode : pref;
 
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
 	/*
@@ -977,7 +976,7 @@ static void siihdmi_hotplug_event(struct work_struct *work)
 	if (data & SIIHDMI_IER_HDCP_AUTHENTICATION_STATUS_CHANGE)
 		DEBUG("interrupt HDCP authentication status change\n");
 
-	/* once we handle the event, we should actually poll for new events here */
+	/* TODO we should actually poll for new events here */
 }
 #endif
 
