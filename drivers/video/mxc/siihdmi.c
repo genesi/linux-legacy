@@ -66,9 +66,6 @@ static unsigned int bus_timeout = 50;
 module_param(bus_timeout, uint, 0644);
 MODULE_PARM_DESC(bus_timeout, "bus timeout in milliseconds");
 
-static unsigned int i2c_settle_time = 50;
-module_param(i2c_settle_time, uint, 0644);
-MODULE_PARM_DESC(i2c_settle_time, "time to wait for i2c to settle in ms");
 
 /*
  * Interesting note:
@@ -919,7 +916,7 @@ static irqreturn_t siihdmi_hotplug_handler(int irq, void *dev_id)
 	struct siihdmi_tx *tx = ((struct siihdmi_tx *) dev_id);
 
 	schedule_delayed_work(&tx->hotplug,
-			      msecs_to_jiffies(i2c_settle_time));
+			      msecs_to_jiffies(SIIHDMI_HOTPLUG_HANDLER_TIMEOUT));
 
 	return IRQ_HANDLED;
 }
