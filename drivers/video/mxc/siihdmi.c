@@ -44,10 +44,11 @@
 
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
 /*
- * IPU flings out DI0_SYNC_DISP_ERR and something similar to IDMAC_NFB4EOF_ERR_21
- * if we change modes aggressively and will be panicking while we're trying to set
- * the sync config and we are not synchronized to the blanking interval of the IPU.
- * This is described in the MX51 manual (rev 1 42.3.6.5.1)
+ * IPU flings out DI0_SYNC_DISP_ERR and something similar to
+ * IDMAC_NFB4EOF_ERR_21 if we change modes aggressively and will be panicking
+ * while we're trying to set the sync config and we are not synchronized to the
+ * blanking interval of the IPU.  This is described in the MX51 manual
+ * (rev 1 42.3.6.5.1)
  */
 #define MX51_IPU_SETTLE_TIME_MS				(100)
 #endif
