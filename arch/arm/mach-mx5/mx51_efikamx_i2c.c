@@ -81,7 +81,7 @@ static struct siihdmi_platform_data mx51_efikamx_sii9022_data = {
 		.start = IOMUX_TO_IRQ(MX51_PIN_DISPB2_SER_DIO),
 		.end   = IOMUX_TO_IRQ(MX51_PIN_DISPB2_SER_DIO),
 		.name  = "video-hotplug",
-		.flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHEDGE,
+		.flags = IORESOURCE_IRQ | IORESOURCE_IRQ_LOWEDGE,
 	},
 
 	.pixclock    = KHZ2PICOS(133000L),
