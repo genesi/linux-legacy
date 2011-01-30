@@ -1053,17 +1053,9 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 		 * As a result, we can power down the transmitter and be
 		 * signalled when the sink state changes.
 		 */
-
-		/* TODO In theory, we should be able to switch to D3 since we
-		 * have RSEN and Hot Plug event bits set in the IER.  Because
-		 * there is no sink present, we need not access the registers
-		 * on the tx.  When the IRQ is triggered, we need will assert
-		 * the RESET# pin to return from D3.
-		 */
-
 		ret = i2c_smbus_write_byte_data(tx->client,
 						SIIHDMI_TPI_REG_PWR_STATE,
-						SIIHDMI_POWER_STATE_D2);
+						SIIHDMI_POWER_STATE_D3);
 		if (ret < 0)
 			WARNING("unable to change to a low power-state\n");
 	}
