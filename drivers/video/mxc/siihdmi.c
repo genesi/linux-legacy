@@ -658,7 +658,7 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 			DEBUG("Removing mode %ux%u@%u (exceeds pixclk limit)\n",
 			      mode->xres, mode->yres, mode->refresh);
 			remove = true;
-		} else if (mode->vsync_len < 2) {
+		} else if (mode->lower_margin < 2) {
 			/*
 			 * HDMI specification requires at least 2 lines of
 			 * vertical sync (sect. 5.1.2).
