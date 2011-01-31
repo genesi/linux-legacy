@@ -806,6 +806,9 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 	if (sysfs_create_bin_file(&tx->info->dev->kobj, &tx->edid_attr) < 0)
 		WARNING("unable to populate edid sysfs attribute\n");
 
+	/* create monspecs from EDID for the basic stuff */
+	fb_edid_to_monspecs(tx->edid, &tx->info->monspecs);
+
 	if (block0.extensions) {
 		const struct edid_extension * const extensions =
 			(struct edid_extension *) (tx->edid + sizeof(block0));
@@ -818,6 +821,9 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 			if (!edid_verify_checksum((u8 *) extension))
 				WARNING("EDID block %u CRC mismatch\n", i);
 
+			/* if there's an extension, add them to the monspecs */
+			fb_edid_add_monspecs((unsigned char *) extension, &tx->info->monspecs);
+
 			switch (extension->tag) {
 			case EDID_EXTENSION_CEA:
 				siihdmi_parse_cea861_timing_block(tx,
@@ -829,7 +835,6 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 		}
 	}
 
-	fb_edid_to_monspecs(tx->edid, &tx->info->monspecs);
 	fb_videomode_to_modelist(tx->info->monspecs.modedb,
 				 tx->info->monspecs.modedb_len,
 				 &tx->info->modelist);
