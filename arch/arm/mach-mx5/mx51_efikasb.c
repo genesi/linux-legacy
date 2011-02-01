@@ -257,11 +257,7 @@ static struct resource mxcfb_resources[] = {
 };
 
 static struct mxc_fb_platform_data fb_data[] = {
-	{
-	 .interface_pix_fmt = IPU_PIX_FMT_RGB24,
-	 .mode_str = "1280x720MR-16@60", /* ron: TBD */
-	},
-	{
+	[1] = {
 	 .interface_pix_fmt = IPU_PIX_FMT_RGB565,
 	 .mode_str = "1024x600M-16@60", /* ron: TBD */
 	},
