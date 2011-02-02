@@ -113,8 +113,8 @@ static struct cpu_wp cpu_wp_auto[] = {
 	 .mfd = 2,
 	 .mfn = 1,
 	 .cpu_podf = 4,
-	 .cpu_voltage = 850000,},
-
+	 .cpu_voltage = 850000,
+	},
 };
 
 struct cpu_wp *mx51_efikasb_get_cpu_wp(int *wp)
@@ -129,12 +129,6 @@ void mx51_efikasb_set_num_cpu_wp(int num)
 	return;
 }
 
-static struct platform_pwm_backlight_data mxc_pwm_backlight_data = {
-	.pwm_id = 0,
-	.max_brightness = 255,
-	.dft_brightness = 128,
-	.pwm_period_ns = 78770,
-};
 
 extern void mx5_ipu_reset(void); /*  eric 20100521 */
 static struct mxc_ipu_config mxc_ipu_data = {
@@ -320,6 +314,15 @@ static void mxc_turn_on_lcd_backlight(int on)
                 gpio_direction_output(IOMUX_TO_GPIO(LCD_BL_PWM_PIN), 0);
         }
 }
+
+static struct platform_pwm_backlight_data mxc_pwm_backlight_data = {
+	.pwm_id = 0,
+	.max_brightness = 64,
+	.dft_brightness = 32,
+	.pwm_period_ns = 78770,
+	.power = mxc_turn_on_lcd_backlight,
+};
+
 
 static void mxc_reset_lvds(void)
 {
