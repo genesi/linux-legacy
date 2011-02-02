@@ -40,7 +40,9 @@ EXPORT_SYMBOL_GPL(unregister_backlight_notifier);
 struct pwm_bl_data {
 	struct pwm_device	*pwm;
 	unsigned int		period;
+	bool			power_state;
 	int			(*notify)(int brightness);
+	void			(*power)(int state);
 };
 
 static int pwm_backlight_update_status(struct backlight_device *bl)
@@ -61,9 +63,17 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
 	if (brightness == 0) {
 		pwm_config(pb->pwm, 0, pb->period);
 		pwm_disable(pb->pwm);
+		if (pb->power) {
+			pb->power(0);
+			pb->power_state = 0;
+		}
 	} else {
 		pwm_config(pb->pwm, brightness * pb->period / max, pb->period);
 		pwm_enable(pb->pwm);
+		if (pb->power && !pb->power_state) {
+			pb->power(1);
+			pb->power_state = 1;
+		}
 	}
 	return 0;
 }
@@ -115,6 +125,7 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 
 	pb->period = data->pwm_period_ns;
 	pb->notify = data->notify;
+	pb->power = data->power;
 
 	pb->pwm = pwm_request(data->pwm_id, "backlight");
 	if (IS_ERR(pb->pwm)) {
