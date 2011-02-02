@@ -689,7 +689,7 @@ static int lcd_fb_event(struct notifier_block *nb, unsigned long val, void *v)
 
 static int lcd_bl_event(struct notifier_block *nb, unsigned long val, void *v)
 {
-        int brightness = v;
+        int brightness = v; /* ugh? */
 
         switch (val) {
         case BL_BRIGHTNESS:
@@ -833,7 +833,8 @@ static void disp_power_on(void)
         if(mtl017->disp_on || mtl017->suspending)
                 return;
 
-        down_interruptible(&mtl017->sem);
+        if (down_interruptible(&mtl017->sem))
+		return;
 
         if(mtl017->mode == &auo_mode) {
 
@@ -887,7 +888,8 @@ static void disp_power_off(void)
         if(mtl017->disp_on == 0)
                 return;
 
-        down_interruptible(&mtl017->sem);
+	if (down_interruptible(&mtl017->sem))
+		return;
 
         if(mtl017->turn_on_backlight)
                 mtl017->turn_on_backlight(0);
