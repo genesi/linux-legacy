@@ -100,6 +100,10 @@ static unsigned int cache_time = 10000;
 module_param(cache_time, uint, 0644);
 MODULE_PARM_DESC(cache_time, "cache time in milliseconds");
 
+static unsigned int i2c_settle_time = 1500;
+module_param(i2c_settle_time, uint, 0644);
+MODULE_PARM_DESC(i2c_settle_time, "i2c settle time in milliseconds");
+
 
 enum sbs_irq {
 	SBS_IRQ_BATTERY_ALERT,
@@ -153,6 +157,8 @@ struct sbs_battery {
 	struct power_supply mains;
 
 	struct sbs_irq_request irq_requests[SBS_IRQS];
+
+	struct delayed_work refresh;
 };
 
 struct sbs_battery_register {
@@ -638,8 +644,22 @@ static irqreturn_t sbs_battery_presence_changed(int irq, void *data)
 		DEBUG("battery %s\n", present ? "inserted" : "removed");
 	}
 
-	power_supply_changed(&batt->battery);
+	schedule_delayed_work(&batt->refresh,
+			      msecs_to_jiffies(i2c_settle_time));
+
 	return IRQ_HANDLED;
+}
+
+static void sbs_refresh_battery_info(struct work_struct *work)
+{
+	struct sbs_battery * const batt =
+		container_of(work, struct sbs_battery, refresh.work);
+
+	if (!batt->platform->battery_insertion_status ||
+	    batt->platform->battery_insertion_status())
+		sbs_get_battery_info(batt);
+
+	power_supply_changed(&batt->battery);
 }
 
 static int __devinit sbs_probe(struct i2c_client *client,
@@ -687,7 +707,8 @@ static int __devinit sbs_probe(struct i2c_client *client,
 	if (sbs_request_irqs(batt) < 0)
 		goto irq_request_failure;
 
-	sbs_get_battery_info(batt);
+	INIT_DELAYED_WORK(&batt->refresh, sbs_refresh_battery_info);
+	schedule_delayed_work(&batt->refresh, 0);
 
 	return 0;
 
