@@ -91,6 +91,17 @@
 #define CHARGER_MODE				(1 << 14)
 #define CAPACITY_MODE				(1 << 15)
 
+/* Battery Status Flags */
+#define FULLY_DISCHARGED			(1 << 4)
+#define FULLY_CHARGED				(1 << 5)
+#define DISCHARGING				(1 << 6)
+#define INITIALIZED				(1 << 7)
+#define REMAINING_TIME_ALARM			(1 << 8)
+#define REMAINING_CAPACITY_ALARM		(1 << 10)
+#define TERMINATE_DISCHARGE_ALARM		(1 << 11)
+#define OVER_TEMP_ALARM				(1 << 12)
+#define TERMINATE_CHARGE_ALARM			(1 << 14)
+#define OVER_CHARGED_ALARM			(1 << 15)
 
 #define SBS_STRING_REGISTER_LEN			(32)
 
@@ -137,6 +148,7 @@ struct sbs_battery {
 		/* affected by battery_mode */
 		u16   full_charge_capacity;
 		u16   design_capacity;
+		u16   battery_status;
 
 		/* static information */
 		u16   battery_cycle_count;
@@ -149,6 +161,12 @@ struct sbs_battery {
 		char *device_name;
 		char *device_chemistry;
 	} cache;
+
+	struct __packed {
+		unsigned capacity_relearn : 1;
+		unsigned uninitialized    : 1;
+		unsigned                  : 6;
+	} state;
 
 	unsigned int vscale;
 	unsigned int ipscale;
@@ -343,6 +361,9 @@ static const struct sbs_battery_register sbs_state_registers[] = {
 	{ SBS_FULL_CHARGE_CAPACITY,
 	  SBS_REGISTER_INT,
 	  offsetof(struct sbs_battery, cache.full_charge_capacity), },
+	{ SBS_BATTERY_STATUS,
+	  SBS_REGISTER_INT,
+	  offsetof(struct sbs_battery, cache.battery_status), },
 	{ SBS_DESIGN_CAPACITY,
 	  SBS_REGISTER_INT,
 	  offsetof(struct sbs_battery, cache.design_capacity), },
@@ -367,6 +388,31 @@ static void sbs_get_battery_state(struct sbs_battery *batt)
 
 	batt->cache.serial_number = kasprintf(GFP_KERNEL,
 					      "%u", batt->cache._serial_number);
+
+	if (batt->cache.battery_mode & CAPACITY_RELEARN) {
+		if (!batt->state.capacity_relearn) {
+			INFO("conditioning cycle requested\n");
+			batt->state.capacity_relearn = true;
+		}
+	} else {
+		if (batt->state.capacity_relearn) {
+			INFO("conditioning cycle completed\n");
+			batt->state.capacity_relearn = false;
+		}
+	}
+
+	if (~batt->cache.battery_status & INITIALIZED) {
+		if (!batt->state.uninitialized) {
+			WARNING("battery electronics have deteriorated; data "
+				"may be inaccurate or invalid!");
+			batt->state.uninitialized = true;
+		}
+	} else {
+		if (batt->state.uninitialized) {
+			INFO("battery initialisation state has returned to normal");
+			batt->state.uninitialized = false;
+		}
+	}
 }
 
 static int sbs_get_battery_property(struct power_supply *psy,
@@ -638,6 +684,7 @@ static irqreturn_t sbs_battery_presence_changed(int irq, void *data)
 	struct sbs_battery * const batt = (struct sbs_battery *) data;
 
 	memset(&batt->cache, 0, sizeof(batt->cache));
+	memset(&batt->state, 0, sizeof(batt->state));
 
 	if (batt->platform->battery_insertion_status) {
 		const bool present = batt->platform->battery_insertion_status();
