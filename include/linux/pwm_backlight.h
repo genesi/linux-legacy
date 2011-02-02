@@ -12,6 +12,7 @@ struct platform_pwm_backlight_data {
 	int (*init)(struct device *dev);
 	int (*notify)(int brightness);
 	void (*exit)(struct device *dev);
+	void (*power)(int state);
 };
 
 #endif
