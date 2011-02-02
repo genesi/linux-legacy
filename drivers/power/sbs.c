@@ -46,64 +46,64 @@
 #define CONTINUE(fmt, ...)	printk(KERN_CONT fmt, ## __VA_ARGS__)
 
 /* Smart Battery Messages */
-#define SBS_MANUFACTURER_ACCESS		(0x00)
-#define SBS_REMAINING_CAPACITY_ALARM	(0x01)
-#define SBS_REMAINING_TIME_ALARM	(0x02)
-#define SBS_BATTERY_MODE		(0x03)
-#define SBS_AT_RATE			(0x04)
-#define SBS_AT_RATE_TIME_TO_FULL	(0x05)
-#define SBS_AT_RATE_TIME_TO_EMPTY	(0x06)
-#define SBS_AT_RATE_OK			(0x07)
-#define SBS_TEMPERATURE			(0x08)
-#define SBS_VOLTAGE			(0x09)
-#define SBS_CURRENT			(0x0a)
-#define SBS_AVERAGE_CURRENT		(0x0b)
-#define SBS_MAX_ERROR			(0x0c)
-#define SBS_RELATIVE_STATE_OF_CHARGE	(0x0d)
-#define SBS_ABSOLUTE_STATE_OF_CHARGE	(0x0e)
-#define SBS_REMAINING_CAPACITY		(0x0f)
-#define SBS_FULL_CHARGE_CAPACITY	(0x10)
-#define SBS_RUN_TIME_TO_EMPTY		(0x11)
-#define SBS_AVERAGE_TIME_TO_EMPTY	(0x12)
-#define SBS_AVERAGE_TIME_TO_FULL	(0x13)
-#define SBS_CHARGING_CURRENT		(0x14)
-#define SBS_CHARGING_VOLTAGE		(0x15)
-#define SBS_BATTERY_STATUS		(0x16)
-#define SBS_ALARM_WARNING		(0x16)
-#define SBS_BATTERY_CYCLE_COUNT		(0x17)
-#define SBS_DESIGN_CAPACITY		(0x18)
-#define SBS_DESIGN_VOLTAGE		(0x19)
-#define SBS_SPECIFICATION_INFO		(0x1a)
-#define SBS_MANUFACTURE_DATE		(0x1b)
-#define SBS_SERIAL_NUMBER		(0x1c)
-#define SBS_MANUFACTURER_NAME		(0x20)
-#define SBS_DEVICE_NAME			(0x21)
-#define SBS_DEVICE_CHEMISTRY		(0x22)
-#define SBS_MANUFACTURER_DATA		(0x23)
+#define SBS_MANUFACTURER_ACCESS				(0x00)
+#define SBS_REMAINING_CAPACITY_ALARM			(0x01)
+#define SBS_REMAINING_TIME_ALARM			(0x02)
+#define SBS_BATTERY_MODE				(0x03)
+#define SBS_AT_RATE					(0x04)
+#define SBS_AT_RATE_TIME_TO_FULL			(0x05)
+#define SBS_AT_RATE_TIME_TO_EMPTY			(0x06)
+#define SBS_AT_RATE_OK					(0x07)
+#define SBS_TEMPERATURE					(0x08)
+#define SBS_VOLTAGE					(0x09)
+#define SBS_CURRENT					(0x0a)
+#define SBS_AVERAGE_CURRENT				(0x0b)
+#define SBS_MAX_ERROR					(0x0c)
+#define SBS_RELATIVE_STATE_OF_CHARGE			(0x0d)
+#define SBS_ABSOLUTE_STATE_OF_CHARGE			(0x0e)
+#define SBS_REMAINING_CAPACITY				(0x0f)
+#define SBS_FULL_CHARGE_CAPACITY			(0x10)
+#define SBS_RUN_TIME_TO_EMPTY				(0x11)
+#define SBS_AVERAGE_TIME_TO_EMPTY			(0x12)
+#define SBS_AVERAGE_TIME_TO_FULL			(0x13)
+#define SBS_CHARGING_CURRENT				(0x14)
+#define SBS_CHARGING_VOLTAGE				(0x15)
+#define SBS_BATTERY_STATUS				(0x16)
+#define SBS_ALARM_WARNING				(0x16)
+#define SBS_BATTERY_CYCLE_COUNT				(0x17)
+#define SBS_DESIGN_CAPACITY				(0x18)
+#define SBS_DESIGN_VOLTAGE				(0x19)
+#define SBS_SPECIFICATION_INFO				(0x1a)
+#define SBS_MANUFACTURE_DATE				(0x1b)
+#define SBS_SERIAL_NUMBER				(0x1c)
+#define SBS_MANUFACTURER_NAME				(0x20)
+#define SBS_DEVICE_NAME					(0x21)
+#define SBS_DEVICE_CHEMISTRY				(0x22)
+#define SBS_MANUFACTURER_DATA				(0x23)
 
 /* Battery Mode Flags */
-#define INTERNAL_CHARGE_CONTROLLER_CAPABILITY	(1 << 0)
-#define BATTERY_ROLE_CAPABILITY			(1 << 1)
-#define CAPACITY_RELEARN			(1 << 7)
-#define INTERNAL_CHARGE_CONTROLLER_ENABLED	(1 << 8)
-#define PRIMARY_BATTERY				(1 << 9)
-#define ALARM_MODE				(1 << 13)
-#define CHARGER_MODE				(1 << 14)
-#define CAPACITY_MODE				(1 << 15)
+#define MODE_INTERNAL_CHARGE_CONTROLLER_CAPABILITY	(1 << 0)
+#define MODE_BATTERY_ROLE_CAPABILITY			(1 << 1)
+#define MODE_CAPACITY_RELEARN				(1 << 7)
+#define MODE_INTERNAL_CHARGE_CONTROLLER_ENABLED		(1 << 8)
+#define MODE_PRIMARY_BATTERY				(1 << 9)
+#define MODE_ALARM					(1 << 13)
+#define MODE_CHARGER					(1 << 14)
+#define MODE_CAPACITY					(1 << 15)
 
 /* Battery Status Flags */
-#define FULLY_DISCHARGED			(1 << 4)
-#define FULLY_CHARGED				(1 << 5)
-#define DISCHARGING				(1 << 6)
-#define INITIALIZED				(1 << 7)
-#define REMAINING_TIME_ALARM			(1 << 8)
-#define REMAINING_CAPACITY_ALARM		(1 << 10)
-#define TERMINATE_DISCHARGE_ALARM		(1 << 11)
-#define OVER_TEMP_ALARM				(1 << 12)
-#define TERMINATE_CHARGE_ALARM			(1 << 14)
-#define OVER_CHARGED_ALARM			(1 << 15)
+#define STATUS_FULLY_DISCHARGED				(1 << 4)
+#define STATUS_FULLY_CHARGED				(1 << 5)
+#define STATUS_DISCHARGING				(1 << 6)
+#define STATUS_INITIALIZED				(1 << 7)
+#define STATUS_REMAINING_TIME_ALARM			(1 << 8)
+#define STATUS_REMAINING_CAPACITY_ALARM			(1 << 10)
+#define STATUS_TERMINATE_DISCHARGE_ALARM		(1 << 11)
+#define STATUS_OVER_TEMP_ALARM				(1 << 12)
+#define STATUS_TERMINATE_CHARGE_ALARM			(1 << 14)
+#define STATUS_OVER_CHARGED_ALARM			(1 << 15)
 
-#define SBS_STRING_REGISTER_LEN			(32)
+#define SBS_STRING_REGISTER_LEN				(32)
 
 
 /* module parameters */
@@ -389,7 +389,7 @@ static void sbs_get_battery_state(struct sbs_battery *batt)
 	batt->cache.serial_number = kasprintf(GFP_KERNEL,
 					      "%u", batt->cache._serial_number);
 
-	if (batt->cache.battery_mode & CAPACITY_RELEARN) {
+	if (batt->cache.battery_mode & MODE_CAPACITY_RELEARN) {
 		if (!batt->state.capacity_relearn) {
 			INFO("conditioning cycle requested\n");
 			batt->state.capacity_relearn = true;
@@ -401,7 +401,7 @@ static void sbs_get_battery_state(struct sbs_battery *batt)
 		}
 	}
 
-	if (~batt->cache.battery_status & INITIALIZED) {
+	if (~batt->cache.battery_status & STATUS_INITIALIZED) {
 		if (!batt->state.uninitialized) {
 			WARNING("battery electronics have deteriorated; data "
 				"may be inaccurate or invalid!");
@@ -483,34 +483,34 @@ static int sbs_get_battery_property(struct power_supply *psy,
 
 	/* Current */
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:                   /* µAh */
-		if (~batt->cache.battery_mode & CAPACITY_MODE)
+		if (~batt->cache.battery_mode & MODE_CAPACITY)
 			val->intval = __mA_2_uA(batt,
 						batt->cache.design_capacity);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:                          /* µAh */
-		if (~batt->cache.battery_mode & CAPACITY_MODE)
+		if (~batt->cache.battery_mode & MODE_CAPACITY)
 			val->intval = __mA_2_uA(batt,
 						batt->cache.full_charge_capacity);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_NOW:                           /* µAh */
-		if (~batt->cache.battery_mode & CAPACITY_MODE)
+		if (~batt->cache.battery_mode & MODE_CAPACITY)
 			val->intval = __mA_2_uA(batt,
 						batt->cache.remaining_capacity);
 		break;
 
 	/* Power */
 	case POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN:                   /* µWh */
-		if (batt->cache.battery_mode & CAPACITY_MODE)
+		if (batt->cache.battery_mode & MODE_CAPACITY)
 			val->intval = __mW_2_uW(batt,
 						batt->cache.design_capacity);
 		break;
 	case POWER_SUPPLY_PROP_ENERGY_FULL:                          /* µWh */
-		if (batt->cache.battery_mode & CAPACITY_MODE)
+		if (batt->cache.battery_mode & MODE_CAPACITY)
 			val->intval = __mW_2_uW(batt,
 						batt->cache.full_charge_capacity);
 		break;
 	case POWER_SUPPLY_PROP_ENERGY_NOW:                           /* µWh */
-		if (batt->cache.battery_mode & CAPACITY_MODE)
+		if (batt->cache.battery_mode & MODE_CAPACITY)
 			val->intval = __mW_2_uW(batt,
 						batt->cache.remaining_capacity);
 		break;
