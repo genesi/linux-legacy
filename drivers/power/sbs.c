@@ -96,7 +96,7 @@
 
 
 /* module parameters */
-static unsigned int cache_time = 1000;
+static unsigned int cache_time = 10000;
 module_param(cache_time, uint, 0644);
 MODULE_PARM_DESC(cache_time, "cache time in milliseconds");
 
