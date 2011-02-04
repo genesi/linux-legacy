@@ -341,6 +341,10 @@ struct siihdmi_tx {
 
 	struct delayed_work hotplug;
 
+	u16 device_id;
+	u8 tpi;
+	u8 hdcp;
+
 	bool tmds_enabled;
 
 	u8 *edid;
