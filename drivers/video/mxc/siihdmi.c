@@ -67,6 +67,7 @@ static unsigned int bus_timeout = 50;
 module_param(bus_timeout, uint, 0644);
 MODULE_PARM_DESC(bus_timeout, "bus timeout in milliseconds");
 
+static unsigned int teneighty = 0;
 
 /*
  * Interesting note:
@@ -90,11 +91,27 @@ static struct fb_videomode siihdmi_default_video_mode = {
 	.vsync_len    = 5,
 	.sync         = FB_SYNC_BROADCAST     |
 	                FB_SYNC_HOR_HIGH_ACT  |
-	                FB_SYNC_VERT_HIGH_ACT |
-	                FB_SYNC_EXT,
+	                FB_SYNC_VERT_HIGH_ACT,
 	.vmode        = FB_VMODE_NONINTERLACED,
 };
 
+static struct fb_videomode siihdmi_hd_video_mode = {
+	.name         = "1920x1080@24", // 1080p CEA mode 32
+	.refresh      = 24,
+	.xres         = 1920,
+	.yres         = 1080,
+	.pixclock     = 13468,
+	.left_margin  = 148,
+	.right_margin = 638,
+	.upper_margin = 36,
+	.lower_margin = 4,
+	.hsync_len    = 44,
+	.vsync_len    = 5,
+	.sync         = FB_SYNC_BROADCAST     |
+	                FB_SYNC_HOR_HIGH_ACT  |
+	                FB_SYNC_VERT_HIGH_ACT,
+	.vmode        = FB_VMODE_NONINTERLACED,
+};
 
 static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 {
@@ -759,6 +776,13 @@ siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 	const struct fb_videomode *mode = NULL;
 	const struct fb_videomode * const pref = &siihdmi_default_video_mode;
 
+	if (teneighty) {
+		/* try for 1080p24 if it's there */
+		mode = fb_find_nearest_mode(&siihdmi_hd_video_mode, &tx->info->modelist);
+		if (mode)
+			return mode;
+	}
+
 	mode = fb_find_nearest_mode(pref, &tx->info->modelist);
 
 	if (mode && (mode->xres == pref->xres) && (mode->yres == pref->yres)) {
@@ -1143,6 +1167,22 @@ static void __exit siihdmi_exit(void)
 {
 	i2c_del_driver(&siihdmi_driver);
 }
+
+static int __init siihdmi_teneighty_setup(char *options)
+{
+	if (!options || !*options)
+		return 1;
+
+	teneighty = simple_strtol(options, NULL, 6);
+
+	if (teneighty) {
+		INFO("1080p mode enabled\n");
+	}
+
+	return 1;
+}
+__setup("teneighty", siihdmi_teneighty_setup);
+
 
 /* Module Information */
 MODULE_AUTHOR("Saleem Abdulrasool <compnerd@compnerd.org>");
