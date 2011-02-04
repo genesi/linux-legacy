@@ -353,7 +353,7 @@ static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
 	};
 
 	u16 vmode[FIELDS];
-	u16 pixclk, htotal, vtotal, refresh;
+	u32 pixclk, htotal, vtotal, refresh;
 	u8 format;
 	int ret;
 
@@ -362,15 +362,16 @@ static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
 	pixclk = var->pixclock ? PICOS2KHZ(var->pixclock) : 0;
 	htotal = var->xres + var->left_margin + var->hsync_len + var->right_margin;
 	vtotal = var->yres + var->upper_margin + var->vsync_len + var->lower_margin;
-	refresh = (htotal * vtotal) / (pixclk * 1000ul);
+	refresh = (pixclk * 1000ul) / (htotal * vtotal);
 
 	BUG_ON(pixclk == 0);
 
 	/* basic video mode data */
-	vmode[PIXEL_CLOCK]  = pixclk / 10;
-	vmode[REFRESH_RATE] = refresh;
-	vmode[X_RESOLUTION] = htotal;
-	vmode[Y_RESOLUTION] = vtotal;
+	pixclk /= 10;
+	vmode[PIXEL_CLOCK]  = (u16) pixclk;
+	vmode[REFRESH_RATE] = (u16) refresh;
+	vmode[X_RESOLUTION] = (u16) htotal;
+	vmode[Y_RESOLUTION] = (u16) vtotal;
 
 	ret = i2c_smbus_write_i2c_block_data(tx->client,
 					     SIIHDMI_TPI_REG_VIDEO_MODE_DATA_BASE,
