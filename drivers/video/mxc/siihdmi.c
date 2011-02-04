@@ -699,8 +699,9 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 	}
 }
 
-static void siihdmi_dump_modelines(const struct list_head * const modelines)
+static void siihdmi_dump_modelines(struct siihdmi_tx *tx)
 {
+	const struct list_head * const modelines = &tx->info->modelist;
 	const struct fb_modelist *entry;
 
 	INFO("Supported modelines:\n");
@@ -709,10 +710,20 @@ static void siihdmi_dump_modelines(const struct list_head * const modelines)
 		const bool interlaced = (mode->vmode & FB_VMODE_INTERLACED);
 		const bool double_scan = (mode->vmode & FB_VMODE_DOUBLE);
 		u32 pixclk = mode->pixclock ? PICOS2KHZ(mode->pixclock) : 0;
+		char *flag = " ";
+
+		if (fb_mode_is_equal(&tx->preferred, mode)) {
+			flag = "*";
+		}
+		if (mode->flag & FB_MODE_IS_CEA) {
+			flag = "C";
+		}
 
 		pixclk >>= (double_scan ? 1 : 0);
 
-		INFO("    \"%dx%d@%d%s\" %lu.%.2lu %u %u %u %u %u %u %u %u %chsync %cvsync\n",
+		INFO("  %s \"%dx%d@%d%s\" %lu.%.2lu %u %u %u %u %u %u %u %u %chsync %cvsync\n",
+		     /* list CEA or preferred status of modeline */
+		     flag,
 		     /* mode name */
 		     mode->xres, mode->yres,
 		     mode->refresh << (interlaced ? 1 : 0),
@@ -842,7 +853,7 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 				 &tx->info->modelist);
 
 	siihdmi_sanitize_modelist(tx);
-	siihdmi_dump_modelines(&tx->info->modelist);
+	siihdmi_dump_modelines(tx);
 
 	fb_videomode_to_var(&var, siihdmi_select_video_mode(tx));
 
