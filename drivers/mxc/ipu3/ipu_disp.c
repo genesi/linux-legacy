@@ -965,7 +965,7 @@ void adapt_panel_to_ipu_restrictions(uint32_t *pixel_clk,
 		*v_end_width = 2;
 		*pixel_clk = (*pixel_clk) * total_width * total_height_new /
 			(total_width * total_height_old);
-		dev_err(g_ipu_dev, "WARNING: adapt panel end blank lines\n");
+		//dev_err(g_ipu_dev, "WARNING: adapt panel end blank lines\n");
 	}
 }
 
