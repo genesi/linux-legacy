@@ -651,20 +651,17 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 
 		mode = &entry->mode;
 		if (mode->vmode & FB_VMODE_INTERLACED) {
-			DEBUG("Removing mode %ux%u@%u (interlaced)\n",
-			      mode->xres, mode->yres, mode->refresh);
+//			DEBUG("Removing mode %ux%u@%u (interlaced)\n", mode->xres, mode->yres, mode->refresh);
 			remove = true;
 		} else if (mode->pixclock < tx->platform->pixclock) {
-			DEBUG("Removing mode %ux%u@%u (exceeds pixclk limit)\n",
-			      mode->xres, mode->yres, mode->refresh);
+//			DEBUG("Removing mode %ux%u@%u (exceeds pixclk limit)\n", mode->xres, mode->yres, mode->refresh);
 			remove = true;
 		} else if (mode->lower_margin < 2) {
 			/*
 			 * HDMI specification requires at least 2 lines of
 			 * vertical sync (sect. 5.1.2).
 			 */
-			DEBUG("Removing mode %ux%u@%u (vertical sync period too short)\n",
-			      mode->xres, mode->yres, mode->refresh);
+//			DEBUG("Removing mode %ux%u@%u (vertical sync period too short)\n", mode->xres, mode->yres, mode->refresh);
 			remove = true;
 		} else {
 			const struct fb_videomode *match =
@@ -673,8 +670,14 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 			if ((match = _fb_match_resolution(mode, modelist)) &&
 			    (~mode->flag & FB_MODE_IS_DETAILED)            &&
 			    (match->flag & FB_MODE_IS_DETAILED)) {
-				DEBUG("Removing mode %ux%u@%u (detailed match)\n",
-				      mode->xres, mode->yres, mode->refresh);
+//				DEBUG("Removing mode %ux%u@%u (redundant mode, detailed match)\n", mode->xres, mode->yres, mode->refresh);
+				remove = true;
+			}
+
+			if ((match = _fb_match_resolution(mode, modelist)) &&
+			    (~mode->flag & FB_MODE_IS_CEA)            &&
+			    (match->flag & FB_MODE_IS_CEA)) {
+//				DEBUG("Removing mode %ux%u@%u (redundant mode, cea match)\n", mode->xres, mode->yres, mode->refresh);
 				remove = true;
 			}
 		}
@@ -688,8 +691,7 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 			 * be the mode fb_find_best_display actually returned
 			 */
 
-			if (fb_mode_is_equal(&tx->preferred, mode))
-				DEBUG("deleted preferred video mode!\n");
+//			if (fb_mode_is_equal(&tx->preferred, mode)) DEBUG("deleted preferred video mode!\n");
 
 			list_del(&modelist->list);
 			kfree(&modelist->list);
