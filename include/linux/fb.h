@@ -1047,6 +1047,7 @@ extern void fb_bl_default_curve(struct fb_info *fb_info, u8 off, u8 min, u8 max)
 #define FB_MODE_IS_CALCULATED	8
 #define FB_MODE_IS_FIRST	16
 #define FB_MODE_IS_FROM_VAR     32
+#define FB_MODE_IS_CEA     64
 
 extern int fbmon_dpms(const struct fb_info *fb_info);
 extern int fb_get_mode(int flags, u32 val, struct fb_var_screeninfo *var,
