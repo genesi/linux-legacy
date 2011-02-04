@@ -310,8 +310,10 @@ static void siihdmi_parse_cea861_timing_block(struct siihdmi_tx *tx,
 
 				if (!memcmp(vsdb->ieee_registration,
 					    CEA861_OUI_REGISTRATION_ID_HDMI_LSB,
-					    sizeof(vsdb->ieee_registration)))
+					    sizeof(vsdb->ieee_registration))) {
+					DEBUG("HDMI sink verified\n");
 					tx->connection_type = CONNECTION_TYPE_HDMI;
+				}
 			}
 			break;
 		default:
