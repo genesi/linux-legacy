@@ -337,7 +337,7 @@ static void siihdmi_parse_cea861_timing_block(struct siihdmi_tx *tx,
 			break;
 		}
 
-		index = index + header->length + sizeof(header);
+		index = index + header->length + sizeof(*header);
 	} while (index < cea->dtd_offset - offset);
 }
 
