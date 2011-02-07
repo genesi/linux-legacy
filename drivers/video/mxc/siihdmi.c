@@ -687,16 +687,12 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 			const struct fb_videomode *match =
 				_fb_match_resolution(mode, modelist);
 
-			if ((match = _fb_match_resolution(mode, modelist)) &&
-			    (~mode->flag & FB_MODE_IS_DETAILED)            &&
-			    (match->flag & FB_MODE_IS_DETAILED)) {
+			if (match && (~(mode->flag) & FB_MODE_IS_DETAILED) &&
+				     (match->flag & FB_MODE_IS_DETAILED)) {
 //				DEBUG("Removing mode %ux%u@%u (redundant mode, detailed match)\n", mode->xres, mode->yres, mode->refresh);
 				remove = true;
-			}
-
-			if ((match = _fb_match_resolution(mode, modelist)) &&
-			    (~mode->flag & FB_MODE_IS_CEA)            &&
-			    (match->flag & FB_MODE_IS_CEA)) {
+			} else if (match && (~(mode->flag) & FB_MODE_IS_CEA) &&
+					    (match->flag & FB_MODE_IS_CEA)) {
 //				DEBUG("Removing mode %ux%u@%u (redundant mode, cea match)\n", mode->xres, mode->yres, mode->refresh);
 				remove = true;
 			}
