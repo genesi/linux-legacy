@@ -362,7 +362,7 @@ static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
 	pixclk = var->pixclock ? PICOS2KHZ(var->pixclock) : 0;
 	htotal = var->xres + var->left_margin + var->hsync_len + var->right_margin;
 	vtotal = var->yres + var->upper_margin + var->vsync_len + var->lower_margin;
-	refresh = (pixclk * 1000ul) / (htotal * vtotal);
+	refresh = (pixclk * 100000ul) / (htotal * vtotal);
 
 	BUG_ON(pixclk == 0);
 
