@@ -493,6 +493,41 @@ static int siihdmi_set_audio_info_frame(struct siihdmi_tx *tx)
 	return ret;
 }
 
+static void siihdmi_audio_mute(struct siihdmi_tx *tx, u8 mute)
+{
+	/*
+	 * Very simple operation: read current data, mask off mute bit preserving existing data,
+	 * and set the mute data. Mute needs to be called before setting registers 0x27-0x28.
+	 */
+	u8 data;
+
+	data = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_I2S_AUDIO_PACKET_LAYOUT_CTRL);
+
+	data &= 0xEF;
+
+	data |= mute;
+
+	i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_I2S_AUDIO_PACKET_LAYOUT_CTRL, data);
+}
+
+static int siihdmi_audio_setup(struct siihdmi_tx *tx, u8 mode)
+{
+	siihdmi_audio_mute(tx, SIIHDMI_AUDIO_MUTE);
+
+	/* enable audio interface (0x26) */
+	i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_I2S_AUDIO_PACKET_LAYOUT_CTRL, mode | SIIHDMI_AUDIO_MUTE);
+	/* refer to stream header for everything for now (0x27) */
+	i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_I2S_AUDIO_SAMPLING_HBR, 0);
+
+	if (mode == SIIHDMI_AUDIO_SPDIF_ENABLE) {
+		/* make a determination about whether we pass only basic audio or not (0x25)*/
+		i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_I2S_ORIGINAL_FREQ_SAMPLE_LENGTH, 2);
+	}
+
+	/* unmuting is left until after audioframes are sent so we do it later */
+	return mode;
+}
+
 static int siihdmi_set_spd_info_frame(struct siihdmi_tx *tx)
 {
 	int ret;
@@ -592,7 +627,11 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 
 	/* step 7: [HDMI] set new audio information */
 	if (tx->connection_type == CONNECTION_TYPE_HDMI) {
-		siihdmi_set_audio_info_frame(tx);
+		if (tx->enable_audio) {
+			siihdmi_audio_setup(tx, SIIHDMI_AUDIO_SPDIF_ENABLE);
+			siihdmi_set_audio_info_frame(tx);
+			siihdmi_audio_mute(tx, SIIHDMI_AUDIO_UNMUTE);
+		}
 		siihdmi_set_spd_info_frame(tx);
 	}
 
