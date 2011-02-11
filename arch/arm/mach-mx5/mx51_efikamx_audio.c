@@ -32,7 +32,7 @@
 #define EFIKAMX_AMP_ENABLE		MX51_PIN_EIM_A23
 #define EFIKAMX_AUDIO_CLOCK_ENABLE	MX51_PIN_GPIO1_9
 #define EFIKAMX_HP_DETECT		MX51_PIN_DISPB2_SER_RS
-
+#define EFIKAMX_SPDIF_OUT		MX51_PIN_OWIRE_LINE
 
 static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_audio_iomux_pins[] = {
 	{
@@ -62,6 +62,7 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_audio_iomux_pins[] = {
 	{ EFIKAMX_AUDIO_CLOCK_ENABLE, IOMUX_CONFIG_GPIO, }, /* ALT4? */
 	{ EFIKAMX_AMP_ENABLE, IOMUX_CONFIG_GPIO, PAD_CTL_100K_PU, },
 	{ EFIKAMX_HP_DETECT, IOMUX_CONFIG_GPIO, PAD_CTL_100K_PU, },
+	{ EFIKAMX_SPDIF_OUT, IOMUX_CONFIG_ALT6, },
 };
 
 static int mx51_efikamx_audio_amp_enable(int enable)
@@ -134,6 +135,5 @@ void mx51_efikamx_init_audio(void)
 	mx51_efikamx_spdif_data.spdif_core_clk = clk_get(NULL, "spdif_xtal_clk");
 	clk_put(mx51_efikamx_spdif_data.spdif_core_clk);
 
-	/* this is in no way hooked in..???  */
 	mxc_register_device(&mxc_alsa_spdif_device, &mx51_efikamx_spdif_data);
 };
