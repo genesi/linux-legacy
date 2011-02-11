@@ -576,7 +576,14 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	u8 ctrl;
 	int ret;
 
-	INFO("Setting Resolution: %dx%d\n", var->xres, var->yres);
+	u32 pixclk, htotal, vtotal, refresh;
+
+	pixclk = var->pixclock ? PICOS2KHZ(var->pixclock) : 0;
+	htotal = var->xres + var->left_margin + var->hsync_len + var->right_margin;
+	vtotal = var->yres + var->upper_margin + var->vsync_len + var->lower_margin;
+	refresh = (pixclk * 100000ul) / (htotal * vtotal);
+
+	INFO("Setting Resolution: %ux%u@%u.%u\n", var->xres, var->yres, (refresh / 100), (refresh % 100));
 
 	ctrl = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_SYS_CTRL);
 
