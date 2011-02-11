@@ -661,6 +661,65 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	return ret;
 }
 
+static void siihdmi_dump_single_modeline(const struct siihdmi_tx *tx, const struct fb_videomode *mode, char flag)
+{
+	const bool interlaced = (mode->vmode & FB_VMODE_INTERLACED);
+	const bool double_scan = (mode->vmode & FB_VMODE_DOUBLE);
+	u32 pixclk = mode->pixclock ? PICOS2KHZ(mode->pixclock) : 0;
+
+	pixclk >>= (double_scan ? 1 : 0);
+
+	if (!flag) flag = ' ';
+
+	INFO("  %c \"%dx%d@%d%s\" %lu.%.2lu %u %u %u %u %u %u %u %u %chsync %cvsync\n",
+	     /* list CEA or preferred status of modeline */
+	     flag,
+	     /* mode name */
+	     mode->xres, mode->yres,
+	     mode->refresh << (interlaced ? 1 : 0),
+	     interlaced ? "i" : (double_scan ? "d" : ""),
+
+	     /* dot clock frequency (MHz) */
+	     pixclk / 1000ul,
+	     pixclk % 1000ul,
+
+	     /* horizontal timings */
+	     mode->xres,
+	     mode->xres + mode->right_margin,
+	     mode->xres + mode->right_margin + mode->hsync_len,
+	     mode->xres + mode->right_margin + mode->hsync_len + mode->left_margin,
+
+	     /* vertical timings */
+	     mode->yres,
+	     mode->yres + mode->lower_margin,
+	     mode->yres + mode->lower_margin + mode->vsync_len,
+	     mode->yres + mode->lower_margin + mode->vsync_len + mode->upper_margin,
+
+	     /* sync direction */
+	     (mode->sync & FB_SYNC_HOR_HIGH_ACT) ? '+' : '-',
+	     (mode->sync & FB_SYNC_VERT_HIGH_ACT) ? '+' : '-');
+}
+
+static void siihdmi_dump_modelines(struct siihdmi_tx *tx)
+{
+	const struct list_head * const modelines = &tx->info->modelist;
+	const struct fb_modelist *entry;
+
+	INFO("Supported modelines:\n");
+	list_for_each_entry(entry, modelines, list) {
+		char flag = ' ';
+
+		if (fb_mode_is_equal(&tx->preferred, &entry->mode)) {
+			flag = '*';
+		}
+		if (entry->mode.flag & FB_MODE_IS_CEA) {
+			flag = 'C';
+		}
+
+		siihdmi_dump_single_modeline(tx, &entry->mode, flag);
+	}
+}
+
 static const struct fb_videomode *
 _fb_match_resolution(const struct fb_videomode * const mode,
 		     struct list_head *head)
@@ -675,11 +734,24 @@ _fb_match_resolution(const struct fb_videomode * const mode,
 	return NULL;
 }
 
+#define REASON_INTERLACED	1
+#define REASON_DOUBLE		2
+#define REASON_PIXCLOCK		3
+#define REASON_MARGIN		4
+#define REASON_DETAILMATCH	5
+#define REASON_CEAMATCH		6
+
+static char removal_codes[] = {
+	/* lower case only please */
+	0, 'i', 'd', 'p', 'v', 'm', 'c',
+};
+
 static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 {
 	struct list_head *modelist = &tx->info->modelist;
 	const struct fb_modelist *entry, *next;
 	const struct fb_videomode *mode;
+	int num_removed = 0;
 
 	if ((mode = fb_find_best_display(&tx->info->monspecs, modelist)))
 		memcpy(&tx->preferred, mode, sizeof(tx->preferred));
@@ -691,106 +763,55 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 	 */
 	/* TODO: build a list of detailed timing modes and match against it */
 	list_for_each_entry_safe(entry, next, modelist, list) {
-		bool remove = false;
+		int remove = 0;
 
 		mode = &entry->mode;
 		if (mode->vmode & FB_VMODE_INTERLACED) {
-			DEBUG("Removing mode %ux%u@%u (interlaced)\n", mode->xres, mode->yres, mode->refresh);
-			remove = true;
+			remove = REASON_INTERLACED;
 		} else if (mode->vmode & FB_VMODE_DOUBLE) {
-			DEBUG("Removing mode %ux%u@%u (doublescan)\n", mode->xres, mode->yres, mode->refresh);
-			remove = true;
+			remove = REASON_DOUBLE;
 		} else if (mode->pixclock < tx->platform->pixclock) {
-			DEBUG("Removing mode %ux%u@%u (exceeds pixclk limit)\n", mode->xres, mode->yres, mode->refresh);
-			remove = true;
+			remove = REASON_PIXCLOCK;
 		} else if (mode->lower_margin < 2) {
 			/*
 			 * HDMI specification requires at least 2 lines of
 			 * vertical sync (sect. 5.1.2).
 			 */
-			DEBUG("Removing mode %ux%u@%u (vertical sync period too short)\n", mode->xres, mode->yres, mode->refresh);
-			remove = true;
+			remove = REASON_MARGIN;
 		} else {
 			const struct fb_videomode *match =
 				_fb_match_resolution(mode, modelist);
 
 			if (match && (~(mode->flag) & FB_MODE_IS_DETAILED) &&
 				     (match->flag & FB_MODE_IS_DETAILED)) {
-				DEBUG("Removing mode %ux%u@%u (redundant mode, detailed match)\n", mode->xres, mode->yres, mode->refresh);
-				remove = true;
+				remove = REASON_DETAILMATCH;
 			} else if (match && (~(mode->flag) & FB_MODE_IS_CEA) &&
 					    (match->flag & FB_MODE_IS_CEA)) {
-				DEBUG("Removing mode %ux%u@%u (redundant mode, cea match)\n", mode->xres, mode->yres, mode->refresh);
-				remove = true;
+				remove = REASON_CEAMATCH;
 			}
 		}
 
-		if (remove) {
+		if (remove > 0) {
 			struct fb_modelist *modelist =
 				container_of(mode, struct fb_modelist, mode);
 
-			/*
-			 * We could use flag & FB_MODE_IS_FIRST but it may not
-			 * be the mode fb_find_best_display actually returned
-			 */
+			if (num_removed == 0) { // first time only
+				INFO("Unsupported modelines:\n");
+			}
 
-//			if (fb_mode_is_equal(&tx->preferred, mode)) DEBUG("deleted preferred video mode!\n");
+			siihdmi_dump_single_modeline(tx, mode,
+					fb_mode_is_equal(&tx->preferred, mode) ?
+							removal_codes[remove] - 32 : /* hack to capitalize the code */
+							removal_codes[remove] );
 
 			list_del(&modelist->list);
 			kfree(&modelist->list);
+			num_removed++;
 		}
 	}
-}
 
-static void siihdmi_dump_modelines(struct siihdmi_tx *tx)
-{
-	const struct list_head * const modelines = &tx->info->modelist;
-	const struct fb_modelist *entry;
-
-	INFO("Supported modelines:\n");
-	list_for_each_entry(entry, modelines, list) {
-		const struct fb_videomode * const mode = &entry->mode;
-		const bool interlaced = (mode->vmode & FB_VMODE_INTERLACED);
-		const bool double_scan = (mode->vmode & FB_VMODE_DOUBLE);
-		u32 pixclk = mode->pixclock ? PICOS2KHZ(mode->pixclock) : 0;
-		char *flag = " ";
-
-		if (fb_mode_is_equal(&tx->preferred, mode)) {
-			flag = "*";
-		}
-		if (mode->flag & FB_MODE_IS_CEA) {
-			flag = "C";
-		}
-
-		pixclk >>= (double_scan ? 1 : 0);
-
-		INFO("  %s \"%dx%d@%d%s\" %lu.%.2lu %u %u %u %u %u %u %u %u %chsync %cvsync\n",
-		     /* list CEA or preferred status of modeline */
-		     flag,
-		     /* mode name */
-		     mode->xres, mode->yres,
-		     mode->refresh << (interlaced ? 1 : 0),
-		     interlaced ? "i" : (double_scan ? "d" : ""),
-
-		     /* dot clock frequency (MHz) */
-		     pixclk / 1000ul,
-		     pixclk % 1000ul,
-
-		     /* horizontal timings */
-		     mode->xres,
-		     mode->xres + mode->right_margin,
-		     mode->xres + mode->right_margin + mode->hsync_len,
-		     mode->xres + mode->right_margin + mode->hsync_len + mode->left_margin,
-
-		     /* vertical timings */
-		     mode->yres,
-		     mode->yres + mode->lower_margin,
-		     mode->yres + mode->lower_margin + mode->vsync_len,
-		     mode->yres + mode->lower_margin + mode->vsync_len + mode->upper_margin,
-
-		     /* sync direction */
-		     (mode->sync & FB_SYNC_HOR_HIGH_ACT) ? '+' : '-',
-		     (mode->sync & FB_SYNC_VERT_HIGH_ACT) ? '+' : '-');
+	if (num_removed > 0) {
+		INFO("Removed %u modes due to incompatibilities\n", num_removed);
 	}
 }
 
@@ -798,7 +819,7 @@ static const struct fb_videomode *
 siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 {
 	const struct fb_videomode *mode = NULL;
-	const struct fb_videomode * const def = &cea_modes[4];
+	const struct fb_videomode * const def = &cea_modes[19];
 
 	if (teneighty) {
 		int i;
