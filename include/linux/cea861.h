@@ -68,7 +68,16 @@ struct __packed cea861_vendor_specific_data_block {
 	struct cea861_data_block_header header;
 
 	u8 ieee_registration[3];
-	u8 data[30];
+	u8 data[28];
+};
+
+struct __packed cea861_video_data_block {
+	struct cea861_data_block_header header;
+
+	/* actual length in header, the index stops us from walking out of
+	 * spec but not out of bounds
+	 */
+	u8 svd[31];
 };
 
 
