@@ -276,33 +276,6 @@ static const struct fb_videomode modedb[] = {
 };
 
 #ifdef CONFIG_FB_MODE_HELPERS
-const struct fb_videomode cea_modes[64] = {
-	/* #1: 640x480p@59.94/60Hz */
-	[1] = {
-		"CEA Mode 1 (480p60)", 60, 640, 480, 39722, 48, 16, 33, 10, 96, 2, 0, FB_VMODE_NONINTERLACED, FB_MODE_IS_CEA,
-	},
-	/* #3: 720x480p@59.94/60Hz */
-	[3] = {
-		"CEA Mode 3 (480p60 wide)", 60, 720, 480, 37037, 60, 16, 30, 9, 62, 6, 0, FB_VMODE_NONINTERLACED, FB_MODE_IS_CEA,
-	},
-	/* #4: 1280x720p@60Hz */
-	[4] = {
-		"CEA Mode 4 (720p60)", 60, 1280, 720, 13468, 220, 110, 20, 5, 40, 5, FB_VMODE_NONINTERLACED, FB_MODE_IS_CEA,
-	},
-	/* #18: 720x576pH@50Hz */
-	[18] = {
-		"CEA Mode 18 (576p50)", 50, 720, 576, 37037, 68, 12, 39, 5, 64, 5, 0, FB_VMODE_NONINTERLACED, FB_MODE_IS_CEA,
-	},
-	/* #19: 1280x720p@50Hz */
-	[19] = {
-		"CEA Mode 19 (720p50)", 50, 1280, 720, 13468, 220, 440, 20, 5, 40, 5, 0, FB_VMODE_NONINTERLACED, FB_MODE_IS_CEA,
-	},
-	/* #32: 1920x1080p@23.98/24Hz */
-	[32] = {
-		"CEA Mode 32 (1080p24)", 24, 1920, 1080, 13468, 148, 638, 36, 4, 44, 5, 0, FB_VMODE_NONINTERLACED, FB_MODE_IS_CEA,
-	},
-};
-
 const struct fb_videomode vesa_modes[] = {
 	/* 0 640x350-85 VESA */
 	{ NULL, 85, 640, 350, 31746,  96, 32, 60, 32, 64, 3,
