@@ -695,20 +695,20 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 
 		mode = &entry->mode;
 		if (mode->vmode & FB_VMODE_INTERLACED) {
-//			DEBUG("Removing mode %ux%u@%u (interlaced)\n", mode->xres, mode->yres, mode->refresh);
+			DEBUG("Removing mode %ux%u@%u (interlaced)\n", mode->xres, mode->yres, mode->refresh);
 			remove = true;
 		} else if (mode->vmode & FB_VMODE_DOUBLE) {
-//			DEBUG("Removing mode %ux%u@%u (doublescan)\n", mode->xres, mode->yres, mode->refresh);
+			DEBUG("Removing mode %ux%u@%u (doublescan)\n", mode->xres, mode->yres, mode->refresh);
 			remove = true;
 		} else if (mode->pixclock < tx->platform->pixclock) {
-//			DEBUG("Removing mode %ux%u@%u (exceeds pixclk limit)\n", mode->xres, mode->yres, mode->refresh);
+			DEBUG("Removing mode %ux%u@%u (exceeds pixclk limit)\n", mode->xres, mode->yres, mode->refresh);
 			remove = true;
 		} else if (mode->lower_margin < 2) {
 			/*
 			 * HDMI specification requires at least 2 lines of
 			 * vertical sync (sect. 5.1.2).
 			 */
-//			DEBUG("Removing mode %ux%u@%u (vertical sync period too short)\n", mode->xres, mode->yres, mode->refresh);
+			DEBUG("Removing mode %ux%u@%u (vertical sync period too short)\n", mode->xres, mode->yres, mode->refresh);
 			remove = true;
 		} else {
 			const struct fb_videomode *match =
@@ -716,11 +716,11 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 
 			if (match && (~(mode->flag) & FB_MODE_IS_DETAILED) &&
 				     (match->flag & FB_MODE_IS_DETAILED)) {
-//				DEBUG("Removing mode %ux%u@%u (redundant mode, detailed match)\n", mode->xres, mode->yres, mode->refresh);
+				DEBUG("Removing mode %ux%u@%u (redundant mode, detailed match)\n", mode->xres, mode->yres, mode->refresh);
 				remove = true;
 			} else if (match && (~(mode->flag) & FB_MODE_IS_CEA) &&
 					    (match->flag & FB_MODE_IS_CEA)) {
-//				DEBUG("Removing mode %ux%u@%u (redundant mode, cea match)\n", mode->xres, mode->yres, mode->refresh);
+				DEBUG("Removing mode %ux%u@%u (redundant mode, cea match)\n", mode->xres, mode->yres, mode->refresh);
 				remove = true;
 			}
 		}
@@ -817,7 +817,7 @@ siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 	mode = fb_find_nearest_mode(def, &tx->info->modelist);
 
 	if (mode && (mode->xres == def->xres) && (mode->yres == def->yres)) {
-		/* prefer 1280x720 if the monitor supports that mode exactly */
+		/* prefer default mode if the monitor supports that mode exactly */
 		return mode;
 	} else if (tx->preferred.xres && tx->preferred.yres) {
 		/* otherwise, use the closest to the monitor preferred mode */
@@ -825,7 +825,7 @@ siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 	}
 
 	/* if no mode was found push 1280x720 anyway */
-	mode = mode ? mode : def;
+	mode = mode ? mode : &cea_modes[4];
 
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
 	/*
