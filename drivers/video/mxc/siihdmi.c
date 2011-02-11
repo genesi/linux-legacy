@@ -40,6 +40,7 @@
 
 #include <linux/edid.h>
 #include <linux/cea861.h>
+#include <linux/cea861_modes.h>
 #include <linux/i2c/siihdmi.h>
 
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
@@ -67,51 +68,7 @@ static unsigned int bus_timeout = 50;
 module_param(bus_timeout, uint, 0644);
 MODULE_PARM_DESC(bus_timeout, "bus timeout in milliseconds");
 
-static unsigned int teneighty = 0;
-
-/*
- * Interesting note:
- * CEA spec describes several 1080p "low" field rates at 24, 25 and 30 fields
- * per second (mode 32, 33, 34).  They all run at a 74.250MHz pixel clock just
- * like 720p@60. A decent HDMI TV should be able to display these as it
- * corresponds to "film mode". These are in CEA Short Video Descriptors.
- */
-
-static struct fb_videomode siihdmi_default_video_mode = {
-	.name         = "1280x720@60", // 720p CEA Mode 4
-	.refresh      = 60,
-	.xres         = 1280,
-	.yres         = 720,
-	.pixclock     = 13468,
-	.left_margin  = 220,
-	.right_margin = 110,
-	.upper_margin = 20,
-	.lower_margin = 5,
-	.hsync_len    = 40,
-	.vsync_len    = 5,
-	.sync         = FB_SYNC_BROADCAST     |
-	                FB_SYNC_HOR_HIGH_ACT  |
-	                FB_SYNC_VERT_HIGH_ACT,
-	.vmode        = FB_VMODE_NONINTERLACED,
-};
-
-static struct fb_videomode siihdmi_hd_video_mode = {
-	.name         = "1920x1080@24", // 1080p CEA mode 32
-	.refresh      = 24,
-	.xres         = 1920,
-	.yres         = 1080,
-	.pixclock     = 13468,
-	.left_margin  = 148,
-	.right_margin = 638,
-	.upper_margin = 36,
-	.lower_margin = 4,
-	.hsync_len    = 44,
-	.vsync_len    = 5,
-	.sync         = FB_SYNC_BROADCAST     |
-	                FB_SYNC_HOR_HIGH_ACT  |
-	                FB_SYNC_VERT_HIGH_ACT,
-	.vmode        = FB_VMODE_NONINTERLACED,
-};
+static unsigned int teneighty = 1;
 
 static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 {
@@ -333,6 +290,25 @@ static void siihdmi_parse_cea861_timing_block(struct siihdmi_tx *tx,
 					if (tx->enable_audio)
 						tx->connection_type = CONNECTION_TYPE_HDMI;
 				}
+			}
+			break;
+		case CEA861_DATA_BLOCK_TYPE_VIDEO: {
+				const struct cea861_video_data_block * const video =
+					(struct cea861_video_data_block *) header;
+
+				int i, added = 0;
+
+				for (i = 0; i < header->length; i++) {
+					int vic = video->svd[i] & 0x7f;
+					//int native = video->svd[i] & 0x80;
+
+					if ((vic >= 1) && (vic <= 64)) {
+						fb_add_videomode(&cea_modes[vic], &tx->info->modelist);
+						added++;
+					}
+
+				}
+				DEBUG("Added %u modes from CEA Video Data Block\n", added);
 			}
 			break;
 		default:
@@ -773,18 +749,25 @@ static const struct fb_videomode *
 siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 {
 	const struct fb_videomode *mode = NULL;
-	const struct fb_videomode * const pref = &siihdmi_default_video_mode;
+	const struct fb_videomode * const def = &cea_modes[4];
 
 	if (teneighty) {
-		/* try for 1080p24 if it's there */
-		mode = fb_find_nearest_mode(&siihdmi_hd_video_mode, &tx->info->modelist);
-		if (mode)
-			return mode;
+		int i;
+		/*
+		 * search the CEA modes 32, 33, 34 in the modelist, since they represent 1080p
+		 * at 24, 25 and 30Hz respectively (with 74.250MHz clock rate). Do it backwards
+		 * do we pick the highest field rate first if possible.
+		 */
+		for (i = 34; i >= 32; i--) {
+			mode = fb_find_nearest_mode(&cea_modes[i], &tx->info->modelist);
+			if (mode)
+				return mode;
+		}
 	}
 
-	mode = fb_find_nearest_mode(pref, &tx->info->modelist);
+	mode = fb_find_nearest_mode(def, &tx->info->modelist);
 
-	if (mode && (mode->xres == pref->xres) && (mode->yres == pref->yres)) {
+	if (mode && (mode->xres == def->xres) && (mode->yres == def->yres)) {
 		/* prefer 1280x720 if the monitor supports that mode exactly */
 		return mode;
 	} else if (tx->preferred.xres && tx->preferred.yres) {
@@ -793,7 +776,7 @@ siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 	}
 
 	/* if no mode was found push 1280x720 anyway */
-	mode = mode ? mode : pref;
+	mode = mode ? mode : def;
 
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
 	/*
@@ -846,6 +829,10 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 
 	/* create monspecs from EDID for the basic stuff */
 	fb_edid_to_monspecs(tx->edid, &tx->info->monspecs);
+	fb_videomode_to_modelist(tx->info->monspecs.modedb,
+				 tx->info->monspecs.modedb_len,
+				 &tx->info->modelist);
+
 
 	if (block0.extensions) {
 		const struct edid_extension * const extensions =
@@ -869,10 +856,6 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 			}
 		}
 	}
-
-	fb_videomode_to_modelist(tx->info->monspecs.modedb,
-				 tx->info->monspecs.modedb_len,
-				 &tx->info->modelist);
 
 	siihdmi_sanitize_modelist(tx);
 	siihdmi_dump_modelines(tx);
