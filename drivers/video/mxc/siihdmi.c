@@ -830,7 +830,7 @@ siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 		 */
 		for (i = 34; i >= 32; i--) {
 			mode = fb_find_nearest_mode(&cea_modes[i], &tx->info->modelist);
-			if (mode)
+			if (mode && (mode->xres == cea_modes[i].xres) && (mode->yres == cea_modes[i].yres))
 				return mode;
 		}
 	}
