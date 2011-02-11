@@ -202,6 +202,13 @@
 #define SIIHDMI_POWER_STATE_D3				(3 << 0)
 #define SIIHDMI_WAKEUP_STATE_COLD			(1 << 2)
 
+/* Audio Interface Control */
+#define SIIHDMI_AUDIO_DISABLE                          (0 << 6)
+#define SIIHDMI_AUDIO_I2S_ENABLE                       (2 << 6)
+#define SIIHDMI_AUDIO_SPDIF_ENABLE                     (1 << 6)
+#define SIIHDMI_AUDIO_MUTE                             (1 << 4)
+#define SIIHDMI_AUDIO_UNMUTE                           (0 << 4)
+
 /* I²S Enable and Mapping */
 #define SIIHDMI_I2S_MAPPING_SELECT_SD_CHANNEL_0		(0 << 0)
 #define SIIHDMI_I2S_MAPPING_SELECT_SD_CHANNEL_1		(1 << 0)
