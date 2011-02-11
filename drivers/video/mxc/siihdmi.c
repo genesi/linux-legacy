@@ -857,9 +857,6 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 			if (!edid_verify_checksum((u8 *) extension))
 				WARNING("EDID block %u CRC mismatch\n", i);
 
-			/* if there's an extension, add them to the monspecs */
-			//fb_edid_add_monspecs((unsigned char *) extension, &tx->info->monspecs);
-
 			switch (extension->tag) {
 			case EDID_EXTENSION_CEA:
 				siihdmi_parse_cea861_timing_block(tx,
