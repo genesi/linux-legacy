@@ -690,6 +690,9 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 		if (mode->vmode & FB_VMODE_INTERLACED) {
 //			DEBUG("Removing mode %ux%u@%u (interlaced)\n", mode->xres, mode->yres, mode->refresh);
 			remove = true;
+		} else if (mode->vmode & FB_VMODE_DOUBLE) {
+//			DEBUG("Removing mode %ux%u@%u (doublescan)\n", mode->xres, mode->yres, mode->refresh);
+			remove = true;
 		} else if (mode->pixclock < tx->platform->pixclock) {
 //			DEBUG("Removing mode %ux%u@%u (exceeds pixclk limit)\n", mode->xres, mode->yres, mode->refresh);
 			remove = true;
