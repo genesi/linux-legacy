@@ -69,6 +69,12 @@ module_param(bus_timeout, uint, 0644);
 MODULE_PARM_DESC(bus_timeout, "bus timeout in milliseconds");
 
 static unsigned int teneighty = 1;
+module_param(teneighty, uint, 0644);
+MODULE_PARM_DESC(teneighty, "try 1080p low field-rate modes");
+
+static unsigned int seventwenty = 1;
+module_param(seventwenty, uint, 0644);
+MODULE_PARM_DESC(seventwenty, "stick to 720p instead of using EDID modes");
 
 static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 {
@@ -835,12 +841,16 @@ siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 		}
 	}
 
-	mode = fb_find_nearest_mode(def, &tx->info->modelist);
-
-	if (mode && (mode->xres == def->xres) && (mode->yres == def->yres)) {
+	if (seventwenty) {
 		/* prefer default mode if the monitor supports that mode exactly */
-		return mode;
-	} else if (tx->preferred.xres && tx->preferred.yres) {
+		mode = fb_find_nearest_mode(def, &tx->info->modelist);
+
+		if (mode && (mode->xres == def->xres) && (mode->yres == def->yres)) {
+			return mode;
+		}
+	}
+
+	if (tx->preferred.xres && tx->preferred.yres) {
 		/* otherwise, use the closest to the monitor preferred mode */
 		mode = fb_find_nearest_mode(&tx->preferred, &tx->info->modelist);
 	}
@@ -1216,22 +1226,6 @@ static void __exit siihdmi_exit(void)
 {
 	i2c_del_driver(&siihdmi_driver);
 }
-
-static int __init siihdmi_teneighty_setup(char *options)
-{
-	if (!options || !*options)
-		return 1;
-
-	teneighty = simple_strtol(options, NULL, 6);
-
-	if (teneighty) {
-		INFO("1080p mode enabled\n");
-	}
-
-	return 1;
-}
-__setup("teneighty", siihdmi_teneighty_setup);
-
 
 /* Module Information */
 MODULE_AUTHOR("Saleem Abdulrasool <compnerd@compnerd.org>");
