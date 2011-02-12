@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.31.14.17
-# Fri Feb 11 20:52:26 2011
+# Sat Feb 12 03:18:38 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -2314,7 +2314,7 @@ CONFIG_MXC_MC13892_POWER=y
 # MXC VPU(Video Processing Unit) support
 #
 CONFIG_MXC_VPU=y
-CONFIG_MXC_VPU_IRAM=y
+# CONFIG_MXC_VPU_IRAM is not set
 # CONFIG_MXC_VPU_DEBUG is not set
 
 #
