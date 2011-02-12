@@ -361,9 +361,10 @@ struct siihdmi_tx {
 	u8 *edid;
 	u32 edid_length;
 	struct bin_attribute edid_attr;
+	struct bin_attribute audio_attr;
 
 	/* sink information */
-	bool enable_audio;
+	bool basic_audio;
 	enum {
 		CONNECTION_TYPE_DVI,
 		CONNECTION_TYPE_HDMI,

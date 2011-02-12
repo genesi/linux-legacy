@@ -271,7 +271,7 @@ static void siihdmi_parse_cea861_timing_block(struct siihdmi_tx *tx,
 
 	BUILD_BUG_ON(sizeof(*cea) != sizeof(*ext));
 
-	tx->enable_audio = cea->basic_audio_supported;
+	tx->basic_audio = cea->basic_audio_supported;
 
 	if (cea->underscan_supported)
 		tx->pixel_mapping = PIXEL_MAPPING_UNDERSCANNED;
@@ -292,8 +292,8 @@ static void siihdmi_parse_cea861_timing_block(struct siihdmi_tx *tx,
 					    CEA861_OUI_REGISTRATION_ID_HDMI_LSB,
 					    sizeof(vsdb->ieee_registration))) {
 					DEBUG("HDMI sink verified %s\n",
-					tx->enable_audio ? "" : "but not enabled due to lack of audio support");
-					if (tx->enable_audio)
+					tx->basic_audio ? "" : "but not enabled due to lack of audio support");
+					if (tx->basic_audio)
 						tx->connection_type = CONNECTION_TYPE_HDMI;
 				}
 			}
@@ -461,7 +461,7 @@ static int siihdmi_set_audio_info_frame(struct siihdmi_tx *tx)
 		.header = {
 			.info_frame = SIIHDMI_INFO_FRAME_AUDIO,
 			.repeat     = false,
-			.enable     = tx->enable_audio,
+			.enable     = tx->basic_audio,
 		},
 
 		.info_frame = {
@@ -640,7 +640,7 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 
 	/* step 7: [HDMI] set new audio information */
 	if (tx->connection_type == CONNECTION_TYPE_HDMI) {
-		if (tx->enable_audio) {
+		if (tx->basic_audio) {
 			siihdmi_audio_setup(tx, SIIHDMI_AUDIO_SPDIF_ENABLE);
 			siihdmi_set_audio_info_frame(tx);
 			siihdmi_audio_mute(tx, SIIHDMI_AUDIO_UNMUTE);
@@ -767,7 +767,6 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 	 * variations of VESA/CEA timings, and using those allows us to support
 	 * a wider variety of devieces.
 	 */
-	/* TODO: build a list of detailed timing modes and match against it */
 	list_for_each_entry_safe(entry, next, modelist, list) {
 		int remove = 0;
 
@@ -885,7 +884,7 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 	/* defaults */
 	tx->connection_type = CONNECTION_TYPE_DVI;
 	tx->pixel_mapping = PIXEL_MAPPING_EXACT;
-	tx->enable_audio = false;
+	tx->basic_audio = false;
 
 	/* use EDID to detect sink characteristics */
 	if ((ret = siihdmi_read_edid(tx, (u8 *) &block0, sizeof(block0))) < 0)
@@ -904,15 +903,11 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 	if ((ret = siihdmi_read_edid(tx, tx->edid, tx->edid_length)) < 0)
 		return ret;
 
-	if (sysfs_create_bin_file(&tx->info->dev->kobj, &tx->edid_attr) < 0)
-		WARNING("unable to populate edid sysfs attribute\n");
-
 	/* create monspecs from EDID for the basic stuff */
 	fb_edid_to_monspecs(tx->edid, &tx->info->monspecs);
 	fb_videomode_to_modelist(tx->info->monspecs.modedb,
 				 tx->info->monspecs.modedb_len,
 				 &tx->info->modelist);
-
 
 	if (block0.extensions) {
 		const struct edid_extension * const extensions =
@@ -936,6 +931,17 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 			}
 		}
 	}
+
+	if (sysfs_create_bin_file(&tx->info->dev->kobj, &tx->edid_attr) < 0) {
+		WARNING("unable to populate edid sysfs attribute\n");
+	}
+
+	if (tx->basic_audio) {
+		if (sysfs_create_bin_file(&tx->info->dev->kobj, &tx->audio_attr) < 0) {
+			WARNING("unable to populate audio sysfs attribute\n");
+		}
+	}
+
 
 	siihdmi_sanitize_modelist(tx);
 	siihdmi_dump_modelines(tx);
@@ -1092,6 +1098,16 @@ static ssize_t siihdmi_sysfs_read_edid(struct kobject *kobj,
 				       tx->edid, tx->edid_length);
 }
 
+static ssize_t siihdmi_sysfs_read_audio(struct kobject *kobj,
+				       struct bin_attribute *bin_attr,
+				       char *buf, loff_t off, size_t count)
+{
+	const struct siihdmi_tx * const tx =
+		container_of(bin_attr, struct siihdmi_tx, audio_attr);
+
+	return memory_read_from_buffer(buf, count, &off, tx->basic_audio ? (void *) "hdmi" : (void *) "none", 4);
+}
+
 static inline unsigned long __irq_flags(const struct resource * const res)
 {
 	return (res->flags & IRQF_TRIGGER_MASK);
@@ -1116,6 +1132,13 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 	/* maximum size of EDID, not necessarily the size of our data */
 	tx->edid_attr.size       = SZ_32K;
 	tx->edid_attr.read       = siihdmi_sysfs_read_edid;
+
+	tx->audio_attr.attr.name = "audio";
+	tx->audio_attr.attr.owner = THIS_MODULE;
+	tx->audio_attr.attr.mode  = 0444;
+	/* we only want to return the value "hdmi" */
+	tx->audio_attr.size       = 4;
+	tx->audio_attr.read       = siihdmi_sysfs_read_audio;
 
 #if defined(CONFIG_FB_SIIHDMI_HOTPLUG)
 	INIT_DELAYED_WORK(&tx->hotplug, siihdmi_hotplug_event);
@@ -1193,6 +1216,9 @@ static int __devexit siihdmi_remove(struct i2c_client *client)
 #endif
 
 		sysfs_remove_bin_file(&tx->info->dev->kobj, &tx->edid_attr);
+
+		if (tx->basic_audio)
+			sysfs_remove_bin_file(&tx->info->dev->kobj, &tx->audio_attr);
 
 		if (tx->edid)
 			kfree(tx->edid);
