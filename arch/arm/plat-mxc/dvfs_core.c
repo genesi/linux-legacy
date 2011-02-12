@@ -335,7 +335,7 @@ static int set_cpu_freq(int wp)
 
 static int start_dvfs(void)
 {
-	u32 reg;
+	u32 reg, cpu_rate;
 	unsigned long flags;
 
 	if (dvfs_core_is_active)
