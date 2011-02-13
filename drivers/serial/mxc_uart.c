@@ -1556,6 +1556,79 @@ mxcuart_pm(struct uart_port *port, unsigned int state, unsigned int oldstate)
 		clk_enable(umxc->clk);
 }
 
+#ifdef CONFIG_CONSOLE_POLL
+static int mxc_uart_get_poll_char(struct uart_port *port)
+{
+	volatile unsigned int status;
+	unsigned int cr1, cr2, cr3;
+	unsigned char c;
+
+	/* save control registers */
+	cr1 = readl(port->membase + MXC_UARTUCR1);
+	cr2 = readl(port->membase + MXC_UARTUCR2);
+	cr3 = readl(port->membase + MXC_UARTUCR3);
+
+	/* disable interrupts */
+	writel(MXC_UARTUCR1_UARTEN, port->membase + MXC_UARTUCR1);
+	writel(cr2 & ~(MXC_UARTUCR2_ATEN | MXC_UARTUCR2_RTSEN | MXC_UARTUCR2_ESCI),
+	       port->membase + MXC_UARTUCR2);
+	writel(cr3 & ~(MXC_UARTUCR3_DCD | MXC_UARTUCR3_RI | MXC_UARTUCR3_DTRDEN),
+	       port->membase + MXC_UARTUCR3);
+
+	/* poll */
+	do {
+		status = readl(port->membase + MXC_UARTUSR2);
+	} while (~status & MXC_UARTUSR2_RDR);
+
+	/* read */
+	c = readl(port->membase + MXC_UARTURXD);
+
+	/* restore control registers */
+	writel(cr1, port->membase + MXC_UARTUCR1);
+	writel(cr2, port->membase + MXC_UARTUCR2);
+	writel(cr3, port->membase + MXC_UARTUCR3);
+
+	return c & 0xff;
+}
+
+static void mxc_uart_put_poll_char(struct uart_port *port,
+				   unsigned char c)
+{
+	volatile unsigned int status;
+	unsigned int cr1, cr2, cr3;
+
+	/* save control registers */
+	cr1 = readl(port->membase + MXC_UARTUCR1);
+	cr2 = readl(port->membase + MXC_UARTUCR2);
+	cr3 = readl(port->membase + MXC_UARTUCR3);
+
+	/* disable interrupts */
+	writel(MXC_UARTUCR1_UARTEN, port->membase + MXC_UARTUCR1);
+	writel(cr2 & ~(MXC_UARTUCR2_ATEN | MXC_UARTUCR2_RTSEN | MXC_UARTUCR2_ESCI),
+	       port->membase + MXC_UARTUCR2);
+	writel(cr3 & ~(MXC_UARTUCR3_DCD | MXC_UARTUCR3_RI | MXC_UARTUCR3_DTRDEN),
+	       port->membase + MXC_UARTUCR3);
+
+	/* drain */
+	do {
+		status = readl(port->membase + MXC_UARTUSR1);
+	} while (~status & MXC_UARTUSR1_TRDY);
+
+	/* write */
+	writel(c, port->membase + MXC_UARTUTXD);
+
+	/* flush */
+	do {
+		status = readl(port->membase + MXC_UARTUSR2);
+	} while (~status & MXC_UARTUSR2_TXDC);
+
+	/* restore control registers */
+	writel(cr1, port->membase + MXC_UARTUCR1);
+	writel(cr2, port->membase + MXC_UARTUCR2);
+	writel(cr3, port->membase + MXC_UARTUCR3);
+}
+#endif
+
 /*!
  * This structure contains the pointers to the control functions that are
  * invoked by the core serial driver to access the UART hardware. The
@@ -1580,6 +1653,11 @@ static struct uart_ops mxc_ops = {
 	.config_port = mxcuart_config_port,
 	.verify_port = mxcuart_verify_port,
 	.send_xchar = mxcuart_send_xchar,
+
+#ifdef CONFIG_CONSOLE_POLL
+	.poll_get_char = mxc_uart_get_poll_char,
+	.poll_put_char = mxc_uart_put_poll_char,
+#endif
 };
 
 #ifdef CONFIG_SERIAL_MXC_CONSOLE
