@@ -965,7 +965,7 @@ void adapt_panel_to_ipu_restrictions(uint16_t *v_start_width,
 			*v_sync_width = *v_sync_width - diff;
 		} else
 			dev_err(g_ipu_dev, "WARNING: try to adapt timming, but failed\n");
-		dev_err(g_ipu_dev, "WARNING: adapt panel end blank lines\n");
+		dev_info(g_ipu_dev, "WARNING: adapt panel end blank lines\n");
 	}
 }
 
@@ -1029,7 +1029,7 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 	if ((v_sync_width == 0) || (h_sync_width == 0))
 		return EINVAL;
 
-	adapt_panel_to_ipu_restrictions(&v_start_width, &v_sync_width, &v_end_width);
+	//adapt_panel_to_ipu_restrictions(&v_start_width, &v_sync_width, &v_end_width);
 
 	h_total = width + h_sync_width + h_start_width + h_end_width;
 	v_total = height + v_sync_width + v_start_width + v_end_width;
