@@ -79,7 +79,6 @@ static struct resource mxcfb_resources[] = {
 static struct mxc_fb_platform_data mxcfb_data[] = {
 	{
 		.interface_pix_fmt = IPU_PIX_FMT_RGB24, /* physical pixel format (to transmitter */
-		.mode_str = "800x600-16@60", // safe default for HDMI
 	},
 };
 
