@@ -285,6 +285,15 @@ static int mxcfb_set_par(struct fb_info *fbi)
 	ipu_di_signal_cfg_t sig_cfg;
 	struct mxcfb_info *mxc_fbi = (struct mxcfb_info *)fbi->par;
 
+	/*
+	 * stubbornly refuse to clock a mode less than 12.5MHz. This fixes the
+	 * issue where a "dummy" 320x240 mode gives us all kinds of hassle when
+	 * we catch framebuffer registration. There is no standard mode that
+	 * goes this low so everything should still work :)
+	 */
+	if (fbi->var.pixclock > 80000)
+		return 0;
+
 	dev_dbg(fbi->device, "Reconfiguring framebuffer\n");
 
 	ipu_disable_irq(mxc_fbi->ipu_ch_irq);
