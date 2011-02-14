@@ -825,7 +825,7 @@ module_init(sbs_init);
 module_exit(sbs_exit);
 
 MODULE_AUTHOR("Saleem Abdulrasool <compnerd@compnerd.org>");
-MODULE_LICENSE("BSD-3");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Smart Battery");
 MODULE_DEVICE_TABLE(i2c, sbs_device_table);
 
