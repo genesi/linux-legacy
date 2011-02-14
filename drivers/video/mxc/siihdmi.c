@@ -1173,8 +1173,8 @@ error:
 		free_irq(tx->platform->hotplug.start, NULL);
 #endif
 
-	kfree(tx);
 	i2c_set_clientdata(client, NULL);
+	kfree(tx);
 	return ret;
 }
 
@@ -1198,8 +1198,8 @@ static int __devexit siihdmi_remove(struct i2c_client *client)
 			kfree(tx->edid);
 
 		fb_unregister_client(&tx->nb);
-		kfree(tx);
 		i2c_set_clientdata(client, NULL);
+		kfree(tx);
 	}
 
 	return 0;
