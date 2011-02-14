@@ -43,18 +43,6 @@
 #include <linux/cea861_modes.h>
 #include <linux/i2c/siihdmi.h>
 
-#if defined(CONFIG_MACH_MX51_EFIKAMX)
-/*
- * IPU flings out DI0_SYNC_DISP_ERR and something similar to
- * IDMAC_NFB4EOF_ERR_21 if we change modes aggressively and will be panicking
- * while we're trying to set the sync config and we are not synchronized to the
- * blanking interval of the IPU.  This is described in the MX51 manual
- * (rev 1 42.3.6.5.1)
- */
-#define MX51_IPU_SETTLE_TIME_MS				(100)
-#endif
-
-
 /* logging helpers */
 #define CONTINUE(fmt, ...)	printk(KERN_CONT    fmt, ## __VA_ARGS__)
 #define DEBUG(fmt, ...)		printk(KERN_DEBUG   "SIIHDMI: " fmt, ## __VA_ARGS__)
@@ -948,10 +936,6 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 
 	fb_videomode_to_var(&var, siihdmi_select_video_mode(tx));
 
-#if defined(CONFIG_MACH_MX51_EFIKAMX)
-	msleep(MX51_IPU_SETTLE_TIME_MS);
-#endif
-
 	if ((ret = siihdmi_set_resolution(tx, &var)) < 0)
 		return ret;
 
@@ -1003,9 +987,6 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 
 	switch (val) {
 	case FB_EVENT_FB_REGISTERED:
-#if defined(CONFIG_MACH_MX51_EFIKAMX)
-		msleep(MX51_IPU_SETTLE_TIME_MS);
-#endif
 		if (!strcmp(event->info->fix.id, tx->platform->framebuffer)) {
 			tx->info = event->info;
 			return siihdmi_setup_display(tx);
@@ -1014,9 +995,6 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 		break;
 	case FB_EVENT_MODE_CHANGE:
 		fb_videomode_to_var(&var, event->info->mode);
-#if defined(CONFIG_MACH_MX51_EFIKAMX)
-		msleep(MX51_IPU_SETTLE_TIME_MS);
-#endif
 		return siihdmi_set_resolution(tx, &var);
 	case FB_EVENT_BLANK:
 		fb_videomode_to_var(&var, event->info->mode);
@@ -1151,10 +1129,6 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 #endif
 
 	i2c_set_clientdata(client, tx);
-
-#if defined(CONFIG_MACH_MX51_EFIKAMX)
-	msleep(MX51_IPU_SETTLE_TIME_MS);
-#endif
 
 	/* initialise the device */
 	if ((ret = siihdmi_initialise(tx)) < 0)
