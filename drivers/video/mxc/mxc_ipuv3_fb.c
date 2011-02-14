@@ -124,6 +124,25 @@ static uint32_t bpp_to_pixfmt(struct fb_info *fbi)
 	return pixfmt;
 }
 
+static uint32_t pixfmt_to_bpp(uint32_t pixfmt)
+{
+	uint32_t bpp;
+
+	switch (pixfmt) {
+	case IPU_PIX_FMT_BGR24:
+	case IPU_PIX_FMT_BGR32:
+	case IPU_PIX_FMT_RGB24:
+		bpp = 32;
+		break;
+	case IPU_PIX_FMT_RGB565:
+	default:
+		bpp = 16;
+		break;
+	}
+
+	return bpp;
+}
+
 static irqreturn_t mxcfb_irq_handler(int irq, void *dev_id);
 static int mxcfb_blank(int blank, struct fb_info *info);
 static int mxcfb_map_video_memory(struct fb_info *fbi);
@@ -615,7 +634,7 @@ static int mxcfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	if ((var->bits_per_pixel != 32) && (var->bits_per_pixel != 24) &&
 	    (var->bits_per_pixel != 16) && (var->bits_per_pixel != 12) &&
 	    (var->bits_per_pixel != 8))
-		var->bits_per_pixel = 16;
+		var->bits_per_pixel = mxc_fbi->default_bpp;
 
 	switch (var->bits_per_pixel) {
 	case 8:
@@ -1713,11 +1732,14 @@ static int mxcfb_probe(struct platform_device *pdev)
 	fbi->var.xres = 240;
 	fbi->var.yres = 320;
 
+	if (plat_data && !mxcfbi->ipu_di_pix_fmt) {
+		mxcfbi->ipu_di_pix_fmt = plat_data->interface_pix_fmt;
+		/* try and use a bit depth closest to the bit depth we use for the panel */
+		mxcfbi->default_bpp = pixfmt_to_bpp(plat_data->interface_pix_fmt);
+	}
+
 	if (!mxcfbi->default_bpp)
 		mxcfbi->default_bpp = 16;
-
-	if (plat_data && !mxcfbi->ipu_di_pix_fmt)
-		mxcfbi->ipu_di_pix_fmt = plat_data->interface_pix_fmt;
 
 	if (plat_data && plat_data->mode && plat_data->num_modes)
 		fb_videomode_to_modelist(plat_data->mode, plat_data->num_modes,
