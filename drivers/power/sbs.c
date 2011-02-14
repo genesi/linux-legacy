@@ -160,6 +160,11 @@ struct sbs_battery {
 		char *manufacturer_name;
 		char *device_name;
 		char *device_chemistry;
+
+		struct __packed {
+			unsigned info_valid : 1;
+			unsigned            : 7;
+		} flags;
 	} cache;
 
 	struct __packed {
@@ -234,6 +239,59 @@ static inline void read_battery_register(struct sbs_battery * const batt,
 	}
 }
 
+
+/* Battery Information */
+static const struct sbs_battery_register sbs_info_registers[] = {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34)
+	{ SBS_BATTERY_CYCLE_COUNT,
+	  SBS_REGISTER_INT,
+	  offsetof(struct sbs_battery, cache.battery_cycle_count), },
+#endif
+	{ SBS_DESIGN_VOLTAGE,
+	  SBS_REGISTER_INT,
+	  offsetof(struct sbs_battery, cache.design_voltage), },
+	{ SBS_SPECIFICATION_INFO,
+	  SBS_REGISTER_INT,
+	  offsetof(struct sbs_battery, cache.specification_info), },
+	{ SBS_SERIAL_NUMBER,
+	  SBS_REGISTER_INT,
+	  offsetof(struct sbs_battery, cache._serial_number), },
+	{ SBS_MANUFACTURER_NAME,
+	  SBS_REGISTER_STRING,
+	  offsetof(struct sbs_battery, cache.manufacturer_name), },
+	{ SBS_DEVICE_NAME,
+	  SBS_REGISTER_STRING,
+	  offsetof(struct sbs_battery, cache.device_name), },
+	{ SBS_DEVICE_CHEMISTRY,
+	  SBS_REGISTER_STRING,
+	  offsetof(struct sbs_battery, cache.device_chemistry), },
+};
+
+static inline unsigned int ipow(const int base, int exp)
+{
+	unsigned int value = base;
+
+	if (unlikely(!exp))
+		return 1;
+
+	while (--exp)
+		value *= base;
+
+	return value;
+}
+
+static void sbs_get_battery_info(struct sbs_battery *batt)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(sbs_info_registers); i++)
+		read_battery_register(batt, &sbs_info_registers[i]);
+
+	batt->vscale = ipow(10, (batt->cache.specification_info >> 8) & 0xf);
+	batt->ipscale = ipow(10, (batt->cache.specification_info >> 12) & 0xf);
+
+	batt->cache.flags.info_valid = true;
+}
 
 /* Battery State */
 static enum power_supply_property sbs_battery_properties[] = {
@@ -422,7 +480,8 @@ static int sbs_get_battery_property(struct power_supply *psy,
 	struct sbs_battery *batt =
 		container_of(psy, struct sbs_battery, battery);
 
-	/* don't bother updating the cache for static data */
+	if (!batt->cache.flags.info_valid)
+		sbs_get_battery_info(batt);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
@@ -520,57 +579,6 @@ static int sbs_get_battery_property(struct power_supply *psy,
 	}
 
 	return 0;
-}
-
-/* Battery Information */
-static const struct sbs_battery_register sbs_info_registers[] = {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34)
-	{ SBS_BATTERY_CYCLE_COUNT,
-	  SBS_REGISTER_INT,
-	  offsetof(struct sbs_battery, cache.battery_cycle_count), },
-#endif
-	{ SBS_DESIGN_VOLTAGE,
-	  SBS_REGISTER_INT,
-	  offsetof(struct sbs_battery, cache.design_voltage), },
-	{ SBS_SPECIFICATION_INFO,
-	  SBS_REGISTER_INT,
-	  offsetof(struct sbs_battery, cache.specification_info), },
-	{ SBS_SERIAL_NUMBER,
-	  SBS_REGISTER_INT,
-	  offsetof(struct sbs_battery, cache._serial_number), },
-	{ SBS_MANUFACTURER_NAME,
-	  SBS_REGISTER_STRING,
-	  offsetof(struct sbs_battery, cache.manufacturer_name), },
-	{ SBS_DEVICE_NAME,
-	  SBS_REGISTER_STRING,
-	  offsetof(struct sbs_battery, cache.device_name), },
-	{ SBS_DEVICE_CHEMISTRY,
-	  SBS_REGISTER_STRING,
-	  offsetof(struct sbs_battery, cache.device_chemistry), },
-};
-
-static inline unsigned int ipow(const int base, int exp)
-{
-	unsigned int value = base;
-
-	if (unlikely(!exp))
-		return 1;
-
-	while (--exp)
-		value *= base;
-
-	return value;
-}
-
-static void sbs_get_battery_info(struct sbs_battery *batt)
-{
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(sbs_info_registers); i++)
-		read_battery_register(batt, &sbs_info_registers[i]);
-
-	batt->vscale = ipow(10, (batt->cache.specification_info >> 8) & 0xf);
-	batt->ipscale = ipow(10, (batt->cache.specification_info >> 12) & 0xf);
 }
 
 static struct power_supply sbs_battery = {
@@ -755,7 +763,6 @@ static int __devinit sbs_probe(struct i2c_client *client,
 		goto irq_request_failure;
 
 	INIT_DELAYED_WORK(&batt->refresh, sbs_refresh_battery_info);
-	schedule_delayed_work(&batt->refresh, 0);
 
 	return 0;
 
@@ -825,7 +832,7 @@ module_init(sbs_init);
 module_exit(sbs_exit);
 
 MODULE_AUTHOR("Saleem Abdulrasool <compnerd@compnerd.org>");
-MODULE_LICENSE("BSD-3");
+MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("Smart Battery");
 MODULE_DEVICE_TABLE(i2c, sbs_device_table);
 
