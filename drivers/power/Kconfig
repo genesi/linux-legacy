@@ -125,18 +125,10 @@ config MXS_VBUS_CURRENT_DRAW
 	  before enumeration to match USB2.0 requirement.
 
 config BATTERY_SBS
-	bool "Smart Battery System"
+	tristate "Smart Battery System"
 	depends on I2C
 	help
 	  This driver supports the Smart Battery System, another type of
 	  access to battery information.
-
-
-config BATTERY_EFIKASB
-        tristate "Efika MX Smartbook battery driver"
-        depends on I2C
-        help
-          Say Y here to enable support for Efika MX Smartbook battery.
-
 
 endif # POWER_SUPPLY
