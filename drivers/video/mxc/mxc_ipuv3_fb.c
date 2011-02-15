@@ -1735,7 +1735,8 @@ static int mxcfb_probe(struct platform_device *pdev)
 	if (plat_data && !mxcfbi->ipu_di_pix_fmt) {
 		mxcfbi->ipu_di_pix_fmt = plat_data->interface_pix_fmt;
 		/* try and use a bit depth closest to the bit depth we use for the panel */
-		mxcfbi->default_bpp = pixfmt_to_bpp(plat_data->interface_pix_fmt);
+		if (!mxcfbi->default_bpp)
+			mxcfbi->default_bpp = pixfmt_to_bpp(plat_data->interface_pix_fmt);
 	}
 
 	if (!mxcfbi->default_bpp)
