@@ -24,4 +24,4 @@ obj-$(CONFIG_MACH_MX51_EFIKAMX) += mx51_efikamx.o mx51_efikamx_io.o mx51_efikamx
 				   mx51_efikamx_audio.o mx51_efikamx_display.o early_setup.o
 obj-$(CONFIG_MACH_MX51_EFIKASB) += mx51_efikasb.o mx51_efikasb_gpio.o mx51_efikasb_pmic.o \
                                    mx51_efikasb_input.o mx51_efikasb_lid.o mx51_efikasb_powerkey.o \
-				   mx51_efikamx_audio.o mx51_efikamx_ata.o early_setup.o
+				   mx51_efikamx_audio.o mx51_efikamx_ata.o mx51_efikamx_mmc.o early_setup.o

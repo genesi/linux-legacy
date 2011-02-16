@@ -21,7 +21,7 @@ extern int __init mx51_efikamx_init_mc13892(void);
 extern void __init mx51_efikamx_timer_init(void);
 
 /* peripheral inits */
-extern void __init mx51_efikamx_init_sdhc(void);
+extern void __init mx51_efikamx_init_mmc(void);
 extern void __init mx51_efikamx_init_leds(void);
 extern void __init mx51_efikamx_init_power_key(void);
 extern void __init mx51_efikamx_init_spi(void);

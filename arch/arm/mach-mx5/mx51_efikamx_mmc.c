@@ -21,15 +21,18 @@
 #include <mach/gpio.h>
 #include <mach/mmc.h>
 #include <mach/common.h>
+#include <asm/mach-types.h>
 
 #include "mx51_pins.h"
 #include "iomux.h"
 
 #include "mx51_efikamx.h"
 
-
+/* debate as to which of these is actually hooked, Smartbook schematic shows both */
+#define EFIKASB_SDHC1_CD MX51_PIN_EIM_CS2
 #define EFIKAMX_SDHC1_CD MX51_PIN_GPIO1_0
 #define EFIKAMX_SDHC1_WP MX51_PIN_GPIO1_1
+
 #define EFIKAMX_SDHC2_CD MX51_PIN_GPIO1_8
 #define EFIKAMX_SDHC2_WP MX51_PIN_GPIO1_7
 
@@ -64,19 +67,6 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_internal_sdhc1_iomux_pin
 	 MX51_PIN_SD1_DATA3, IOMUX_CONFIG_ALT0,
 	 (PAD_CTL_PUE_KEEPER | PAD_CTL_PKE_ENABLE | PAD_CTL_DRV_HIGH |
 	  PAD_CTL_47K_PU | PAD_CTL_SRE_FAST),
-	 },
-	/* SDHC1 CD */
-	{
-	 EFIKAMX_SDHC1_CD, IOMUX_CONFIG_ALT0 | IOMUX_CONFIG_SION,
-	 (PAD_CTL_DRV_HIGH | PAD_CTL_HYS_ENABLE | PAD_CTL_PUE_KEEPER |
-	  PAD_CTL_100K_PU | PAD_CTL_ODE_OPENDRAIN_NONE | PAD_CTL_PKE_ENABLE |
-	  PAD_CTL_SRE_FAST),
-	 },
-	/* SDHC1 WP */
-	{
-	 EFIKAMX_SDHC1_WP, IOMUX_CONFIG_ALT0 | IOMUX_CONFIG_SION,
-	 (PAD_CTL_DRV_HIGH | PAD_CTL_HYS_ENABLE | PAD_CTL_100K_PU |
-	  PAD_CTL_ODE_OPENDRAIN_NONE | PAD_CTL_SRE_FAST),
 	 },
 };
 
@@ -119,7 +109,36 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_external_sdhc1_iomux_pin
 	  PAD_CTL_ODE_OPENDRAIN_NONE | PAD_CTL_SRE_FAST),
 	 },
 };
-/* only relevant for board revisions 1.1 and below */
+
+static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_sdhc1_wpcd_pins[] = {
+	{
+	 EFIKAMX_SDHC1_CD, IOMUX_CONFIG_ALT0 | IOMUX_CONFIG_SION,
+	 (PAD_CTL_DRV_HIGH | PAD_CTL_HYS_ENABLE | PAD_CTL_PUE_KEEPER |
+	  PAD_CTL_100K_PU | PAD_CTL_ODE_OPENDRAIN_NONE | PAD_CTL_PKE_ENABLE |
+	  PAD_CTL_SRE_FAST),
+	 },
+	{
+	 EFIKAMX_SDHC1_WP, IOMUX_CONFIG_ALT0 | IOMUX_CONFIG_SION,
+	 (PAD_CTL_DRV_HIGH | PAD_CTL_HYS_ENABLE | PAD_CTL_100K_PU |
+	  PAD_CTL_ODE_OPENDRAIN_NONE | PAD_CTL_SRE_FAST),
+	 },
+};
+
+static struct mxc_iomux_pin_cfg __initdata mx51_efikasb_sdhc1_wpcd_pins[] = {
+	{
+	 EFIKASB_SDHC1_CD, IOMUX_CONFIG_ALT0 | IOMUX_CONFIG_SION,
+	 (PAD_CTL_DRV_HIGH | PAD_CTL_HYS_ENABLE | PAD_CTL_PUE_KEEPER |
+	  PAD_CTL_100K_PU | PAD_CTL_ODE_OPENDRAIN_NONE | PAD_CTL_PKE_ENABLE |
+	  PAD_CTL_SRE_FAST),
+	 },
+	{
+	 EFIKAMX_SDHC1_WP, IOMUX_CONFIG_ALT0 | IOMUX_CONFIG_SION,
+	 (PAD_CTL_DRV_HIGH | PAD_CTL_HYS_ENABLE | PAD_CTL_100K_PU |
+	  PAD_CTL_ODE_OPENDRAIN_NONE | PAD_CTL_SRE_FAST),
+	 },
+};
+
+/* only relevant for Smarttop board revisions 1.1 and below, and Smartbook */
 static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_sdhc2_iomux_pins[] = {
 	{
 	 MX51_PIN_SD2_CMD, IOMUX_CONFIG_ALT0 | IOMUX_CONFIG_SION,
@@ -145,22 +164,21 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_sdhc2_iomux_pins[] = {
 	 MX51_PIN_SD2_DATA3, IOMUX_CONFIG_ALT0,
 	 (PAD_CTL_DRV_MAX | PAD_CTL_22K_PU | PAD_CTL_SRE_FAST),
 	 },
-	/* SDHC2 CD */
+};
+
+static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_sdhc2_wpcd_pins[] = {
 	{
 	 EFIKAMX_SDHC2_WP, IOMUX_CONFIG_ALT6 | IOMUX_CONFIG_SION,
 	 (PAD_CTL_DRV_HIGH | PAD_CTL_HYS_ENABLE | PAD_CTL_PUE_KEEPER |
 	  PAD_CTL_100K_PU | PAD_CTL_ODE_OPENDRAIN_NONE | PAD_CTL_PKE_ENABLE |
 	  PAD_CTL_SRE_FAST),
 	 },
-	/* SDHC2 WP */
 	{
 	 EFIKAMX_SDHC2_CD, IOMUX_CONFIG_ALT6 | IOMUX_CONFIG_SION,
 	 (PAD_CTL_DRV_HIGH | PAD_CTL_HYS_ENABLE | PAD_CTL_100K_PU |
 	  PAD_CTL_ODE_OPENDRAIN_NONE | PAD_CTL_SRE_FAST),
 	 },
 };
-
-
 
 
 static int mx51_efikamx_sdhc_wp(struct device *dev)
@@ -186,31 +204,36 @@ static int mx51_efikamx_sdhc_wp(struct device *dev)
 
 static unsigned int mx51_efikamx_sdhc_cd(struct device *dev)
 {
-	// SDHC CD is active low, by the way, so default is "card inserted"
+	/* SDHC CD is active low, by the way, so default is "card inserted" */
 	int rc = 0;
 
-	if (mx51_efikamx_revision() >= 2)
-	{
-		/* only one SD card slot on board 1.2 and above (SDHC1) */
-		rc = gpio_get_value(IOMUX_TO_GPIO(EFIKAMX_SDHC1_CD));
-	}
-	else
-	{
-		/* no card detect on SDHC1 (0) on 1.1 there as internal
-		   MicroSDHC carrier has no detect pin */
-		/* SDHC2 is fine though */
-		if (to_platform_device(dev)->id == 1)
-			rc = gpio_get_value(IOMUX_TO_GPIO(EFIKAMX_SDHC2_CD));
+	if (machine_is_mx51_efikamx()) {
+		if (mx51_efikamx_revision() >= 2) {
+			/* only one SD card slot on board 1.2 and above (SDHC1) */
+			rc = gpio_get_value(IOMUX_TO_GPIO(EFIKAMX_SDHC1_CD));
+		} else {
+			/* no card detect on SDHC1 (0) on 1.1 there as internal
+			   MicroSDHC carrier has no detect pin */
+			/* SDHC2 is fine though */
+			if (to_platform_device(dev)->id == 1)
+				rc = gpio_get_value(IOMUX_TO_GPIO(EFIKAMX_SDHC2_CD));
+		}
+	} else if (machine_is_mx51_efikasb()) {
+			if (to_platform_device(dev)->id == 0) {
+				rc = gpio_get_value(IOMUX_TO_GPIO(EFIKAMX_SDHC1_CD));
+			} else if (to_platform_device(dev)->id == 1) {
+				rc = gpio_get_value(IOMUX_TO_GPIO(EFIKAMX_SDHC2_CD));
+			}
 	}
 
 	return rc;
 }
 
 static struct mxc_mmc_platform_data mx51_efikamx_sdhc_data = {
-	.ocr_mask = MMC_VDD_31_32,
+	.ocr_mask = MMC_VDD_27_28 | MMC_VDD_28_29 | MMC_VDD_29_30 | MMC_VDD_31_32,
 	.caps = MMC_CAP_4_BIT_DATA,
 	.min_clk = 400000,
-	.max_clk = 52000000,
+	.max_clk = 50000000,
 	.card_inserted_state = 1,
 	.status = mx51_efikamx_sdhc_cd,
 	.wp_status = mx51_efikamx_sdhc_wp,
@@ -218,53 +241,68 @@ static struct mxc_mmc_platform_data mx51_efikamx_sdhc_data = {
 	.power_mmc = NULL,
 };
 
-void __init mx51_efikamx_init_sdhc(void)
+void __init mx51_efikamx_init_mmc(void)
 {
-	/*
-		On Revision 1.1 down: Internal MicroSD Carrier
-	*/
-	if (mx51_efikamx_revision() < 2)
-	{
-		DBG(("Initializing SD card IOMUX (internal, mmc0)\n"));
+	if (machine_is_mx51_efikamx()) {
+		if (mx51_efikamx_revision() < 2) {
+			/*
+			 * On Revision 1.1 down: Internal MicroSD Carrier
+			 */
+			DBG(("Initializing SD card IOMUX (internal, mmc0)\n"));
+			CONFIG_IOMUX(mx51_efikamx_internal_sdhc1_iomux_pins);
+		} else {
+			/*
+			 * On Revision 1.2 up: External SDHC slot has different IOMUX requirements
+			 */
+			DBG(("Initializing SD card IOMUX (external, mmc0)\n"));
+			CONFIG_IOMUX(mx51_efikamx_external_sdhc1_iomux_pins);
+			CONFIG_IOMUX(mx51_efikamx_sdhc1_wpcd_pins);
+		}
+
+		gpio_request(IOMUX_TO_GPIO(EFIKAMX_SDHC1_CD), "mmc0:cd");
+		gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_SDHC1_CD));
+
+		mxcsdhc1_device.resource[2].start = IOMUX_TO_IRQ(EFIKAMX_SDHC1_CD);
+		mxcsdhc1_device.resource[2].end = IOMUX_TO_IRQ(EFIKAMX_SDHC1_CD);
+
+	} else if (machine_is_mx51_efikasb()) {
+		/*
+		 * MicroSD behind battery
+		 */
+		DBG(("Initializing SD card IOMUX (MicroSD, mmc0)\n"));
 		CONFIG_IOMUX(mx51_efikamx_internal_sdhc1_iomux_pins);
-	}
-	/*
-		On Revision 1.2 up: External SDHC slot has different IOMUX requirements
-	*/
-	else
-	{
-		DBG(("Initializing SD card IOMUX (external, mmc0)\n"));
-		CONFIG_IOMUX(mx51_efikamx_external_sdhc1_iomux_pins);
+		CONFIG_IOMUX(mx51_efikasb_sdhc1_wpcd_pins);
+
+		gpio_request(IOMUX_TO_GPIO(EFIKASB_SDHC1_CD), "mmc0:cd");
+		gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_SDHC1_CD));
+
+		mxcsdhc1_device.resource[2].start = IOMUX_TO_IRQ(EFIKASB_SDHC1_CD);
+		mxcsdhc1_device.resource[2].end = IOMUX_TO_IRQ(EFIKASB_SDHC1_CD);
 	}
 
-	gpio_request(IOMUX_TO_GPIO(EFIKAMX_SDHC1_CD), "sdhc1_cd");
-	gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_SDHC1_CD));		/* SD1 CD */
-	gpio_request(IOMUX_TO_GPIO(EFIKAMX_SDHC1_WP), "sdhc1_wp");
-	gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_SDHC1_WP));		/* SD1 WP */
+	gpio_request(IOMUX_TO_GPIO(EFIKAMX_SDHC1_WP), "mmc0:wp");
+	gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_SDHC1_WP));
 
 	/* include CD flag bit (insertion detection) in the resources */
-	mxcsdhc1_device.resource[2].start = IOMUX_TO_IRQ(EFIKAMX_SDHC1_CD);
-	mxcsdhc1_device.resource[2].end = IOMUX_TO_IRQ(EFIKAMX_SDHC1_CD);
 	mxc_register_device(&mxcsdhc1_device, &mx51_efikamx_sdhc_data);
 
 	/*
-		On Revision 1.1 down: External SDHC slot
-		Not used on newer revisions.
+		On Revision 1.1 down and Smartbook: External SDHC slot
 	*/
-	if (mx51_efikamx_revision() < 2)
+	if ((machine_is_mx51_efikamx() && mx51_efikamx_revision() < 2) || machine_is_mx51_efikasb())
 	{
 		DBG(("Initializing SD card IOMUX (external, mmc1)\n"));
 		CONFIG_IOMUX(mx51_efikamx_sdhc2_iomux_pins);
+		CONFIG_IOMUX(mx51_efikamx_sdhc2_wpcd_pins);
 
-		gpio_request(IOMUX_TO_GPIO(EFIKAMX_SDHC2_CD), "sdhc2_wp");
-		gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_SDHC2_CD));		/*ron: SDHC2 WP*/
-		gpio_request(IOMUX_TO_GPIO(EFIKAMX_SDHC2_WP), "sdhc2_cd");
-		gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_SDHC2_WP));		/*ron: SDHC2 CD*/
+		gpio_request(IOMUX_TO_GPIO(EFIKAMX_SDHC2_CD), "mmc1:cd");
+		gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_SDHC2_CD));
+		gpio_request(IOMUX_TO_GPIO(EFIKAMX_SDHC2_WP), "mmc1:wp");
+		gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_SDHC2_WP));
 
 		/* include CD flag bit (insertion detection) in the resources */
 		mxcsdhc2_device.resource[2].start = IOMUX_TO_IRQ(EFIKAMX_SDHC2_CD);
 		mxcsdhc2_device.resource[2].end = IOMUX_TO_IRQ(EFIKAMX_SDHC2_CD);
-		DBG(("registering mxcsdhc2_device\n"));
 		mxc_register_device(&mxcsdhc2_device, &mx51_efikamx_sdhc_data);
 	}
 }

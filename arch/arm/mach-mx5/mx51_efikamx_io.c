@@ -127,7 +127,7 @@ void __init mx51_efikamx_io_init(void)
 
 	mx51_efikamx_board_id(); /* we do board id late because it takes time to settle */
 	mx51_efikamx_init_pata();
-	mx51_efikamx_init_sdhc(); /* depends on board id - do it last */
+	mx51_efikamx_init_mmc(); /* depends on board id - do it last */
 	mx51_efikamx_init_wdog(); /* depends on board id - do it last */
 	mx51_efikamx_init_leds(); /* mmc trigger depends on board id */
 

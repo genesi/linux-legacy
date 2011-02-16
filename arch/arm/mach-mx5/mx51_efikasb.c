@@ -45,7 +45,6 @@
 #include <asm/mach/keypad.h>
 #include <mach/i2c.h>
 #include <mach/gpio.h>
-#include <mach/mmc.h>
 #include <mach/mxc_dvfs.h>
 
 #include "devices.h"
@@ -439,56 +438,6 @@ static struct spi_board_info mxc_spi_board_info[] __initdata = {
 	},
 };
 
-static int sdhc_write_protect(struct device *dev)
-{
-	unsigned short rc = 0;
-
-	if (to_platform_device(dev)->id == 0)
-		rc = gpio_get_value(IOMUX_TO_GPIO(SDHC1_WP_PIN));
-	else
-		rc = gpio_get_value(IOMUX_TO_GPIO(SDHC2_WP_PIN));
-
-	return rc;
-}
-
-static unsigned int sdhc_get_card_det_status(struct device *dev)
-{
-	int ret;
-
-	if (to_platform_device(dev)->id == 0) {
-		ret = gpio_get_value(IOMUX_TO_GPIO(SDHC1_CD_PIN));
-		return ret;
-	} else {		/* config the det pin for SDHC2 */
-		//ron: SDHC2 CD gpio
-		ret = gpio_get_value(IOMUX_TO_GPIO(SDHC2_CD_PIN));
-		return ret;
-	}
-}
-
-static struct mxc_mmc_platform_data mmc1_data = {
-	.ocr_mask = MMC_VDD_31_32,
-	.caps = MMC_CAP_4_BIT_DATA,
-	.min_clk = 400000,
-	.max_clk = 52000000,
-	.card_inserted_state = 1,
-	.status = sdhc_get_card_det_status,
-	.wp_status = sdhc_write_protect,
-	.clock_mmc = "esdhc_clk",
-	.power_mmc = NULL,
-};
-
-static struct mxc_mmc_platform_data mmc2_data = {
-	.ocr_mask = MMC_VDD_27_28 | MMC_VDD_28_29 | MMC_VDD_29_30 |
-	    MMC_VDD_31_32,
-	.caps = MMC_CAP_4_BIT_DATA,
-	.min_clk = 150000,
-	.max_clk = 50000000,
-	.card_inserted_state = 0,
-	.status = sdhc_get_card_det_status,
-	.wp_status = sdhc_write_protect,
-	.clock_mmc = "esdhc_clk",
-};
-
 /*!
  * Board specific fixup function. It is called by \b setup_arch() in
  * setup.c file very early on during kernel starts. It allows the user to
@@ -644,15 +593,14 @@ static int __init mxc_init_wwan_wakeup(void)
 }
 late_initcall(mxc_init_wwan_wakeup);
 
+int mx51_efikamx_revision(void)
+{
+	return 0;
+}
+
 static void __init mxc_board_init(void)
 {
 	struct clk *clk;
-
-	/* SD card detect irqs */
-	mxcsdhc2_device.resource[2].start = IOMUX_TO_IRQ(SDHC2_CD_PIN);
-	mxcsdhc2_device.resource[2].end = IOMUX_TO_IRQ(SDHC2_CD_PIN);
-	mxcsdhc1_device.resource[2].start = IOMUX_TO_IRQ(SDHC1_CD_PIN);
-	mxcsdhc1_device.resource[2].end = IOMUX_TO_IRQ(SDHC1_CD_PIN);
 
 	mxc_cpu_common_init();
 
@@ -670,8 +618,6 @@ static void __init mxc_board_init(void)
 #elif defined(CONFIG_I2C_IMX) || defined(CONFIG_I2C_IMX_MODULE)
 	mxc_register_device(&imxi2c2_device, &mx51_efikasb_imxi2c2_data);
 #endif
-	mxc_register_device(&mxcsdhc1_device, &mmc1_data);
-	mxc_register_device(&mxcsdhc2_device, &mmc2_data);
 
 	mxc_register_device(&mxc_rtc_device, &srtc_data);
 
@@ -688,6 +634,7 @@ static void __init mxc_board_init(void)
 	mxc_register_device(&mxc_iim_device, NULL);
 	mxc_register_device(&mxc_pwm1_device, NULL);
 
+	mx51_efikamx_init_mmc();
 	mx51_efikamx_init_pata();
 	mx51_efikamx_init_audio();
 

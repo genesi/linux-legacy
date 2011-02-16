@@ -88,12 +88,6 @@
 #define MXC_LL_UART_PADDR	UART1_BASE_ADDR
 #define MXC_LL_UART_VADDR	AIPS1_IO_ADDRESS(UART1_BASE_ADDR)
 
-/* ron: Efikasb GPIO Pin Definition */
-#define SDHC1_CD_PIN           MX51_PIN_EIM_CS2  /* MX51_PIN_GPIO1_0 */
-#define SDHC1_WP_PIN           MX51_PIN_GPIO1_1
-#define SDHC2_CD_PIN           MX51_PIN_GPIO1_8
-#define SDHC2_WP_PIN           MX51_PIN_GPIO1_7
-
 #define HUB_RESET_PIN          MX51_PIN_GPIO1_5
 #define PMIC_INT_PIN           MX51_PIN_GPIO1_6
 #define USB_PHY_RESET_PIN      MX51_PIN_EIM_D27
@@ -144,6 +138,9 @@
 #define WDOG_PIN               MX51_PIN_GPIO1_4
 
 /* here today, gone tomorrow */
+extern int mx51_efikamx_revision(void);
+
+extern void __init mx51_efikamx_init_mmc(void);
 extern void __init mx51_efikamx_init_audio(void);
 extern void __init mx51_efikamx_init_pata(void);
 
