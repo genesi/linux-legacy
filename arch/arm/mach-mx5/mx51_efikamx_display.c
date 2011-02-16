@@ -40,8 +40,8 @@
 #include "mx51_efikamx.h"
 
 #define EFIKAMX_DISPLAY_RESET	MX51_PIN_DISPB2_SER_DIN
-#define EFIKAMX_HDMI_EN		MX51_PIN_DI1_D1_CS	/*active low*/
-#define EFIKAMX_VGA_EN		MX51_PIN_DISPB2_SER_CLK /*active low*/
+#define EFIKAMX_HDMI_EN		MX51_PIN_DI1_D1_CS	/* active low */
+#define EFIKAMX_VGA_EN		MX51_PIN_DISPB2_SER_CLK /* active low */
 #define EFIKAMX_HDMI_IRQ	MX51_PIN_DISPB2_SER_DIO
 
 static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_display_iomux_pins[] = {
@@ -51,7 +51,15 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_display_iomux_pins[] = {
 	{EFIKAMX_VGA_EN, IOMUX_CONFIG_GPIO, },
 };
 
-int mxcfb_initialized = 0;
+#define EFIKASB_LVDS_RESET	MX51_PIN_DISPB2_SER_DIN
+#define EFIKASB_LVDS_POR	MX51_PIN_DISPB2_SER_CLK /* active low */
+#define EFIKASB_NODISPLAY_EN	MX51_PIN_DI1_D1_CS	/* active low */
+
+static struct mxc_iomux_pin_cfg __initdata mx51_efikasb_display_iomux_pins[] = {
+	{EFIKASB_LVDS_RESET, IOMUX_CONFIG_GPIO, },
+	{EFIKASB_LVDS_POR, IOMUX_CONFIG_GPIO, },
+	{EFIKASB_NODISPLAY_EN, IOMUX_CONFIG_GPIO, },
+};
 
 void mx51_efikamx_display_reset(void)
 {
@@ -76,10 +84,21 @@ static struct resource mxcfb_resources[] = {
 		},
 };
 
+#define EFIKAMX_HDMI_DISPLAY_ID	0
+#define EFIKASB_LVDS_DISPLAY_ID	1
+
 static struct mxc_fb_platform_data mxcfb_data[] = {
-	{
-		.interface_pix_fmt = IPU_PIX_FMT_RGB24, /* physical pixel format (to transmitter */
+	[EFIKAMX_HDMI_DISPLAY_ID] = {
+		.interface_pix_fmt = IPU_PIX_FMT_RGB24,
 	},
+	[EFIKASB_LVDS_DISPLAY_ID] = { /* Smartbook LVDS (MTL017) */
+		.interface_pix_fmt = IPU_PIX_FMT_RGB565,
+	},
+};
+
+static char *mxcfb_clocks[] = {
+	[EFIKAMX_HDMI_DISPLAY_ID] = "ipu_di0_clk",
+	[EFIKASB_LVDS_DISPLAY_ID] = "ipu_di1_clk",
 };
 
 extern void mx5_ipu_reset(void);
@@ -95,57 +114,73 @@ static struct mxc_vpu_platform_data mxc_vpu_data = {
 
 void __init mx51_efikamx_init_display(void)
 {
-	CONFIG_IOMUX(mx51_efikamx_display_iomux_pins);
+	int display_id = 0;
 
-	/* DISP_EN# and DISP2_EN# go to a level shifter which we need to turn on */
-	gpio_free(IOMUX_TO_GPIO(EFIKAMX_HDMI_EN));
-	gpio_request(IOMUX_TO_GPIO(EFIKAMX_HDMI_EN), "hdmi:enable#");
-	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_HDMI_EN), 0);
+	if (machine_is_mx51_efikamx()) {
+		CONFIG_IOMUX(mx51_efikamx_display_iomux_pins);
 
-	gpio_free(IOMUX_TO_GPIO(EFIKAMX_VGA_EN));
-	gpio_request(IOMUX_TO_GPIO(EFIKAMX_VGA_EN), "vga:enable#");
-	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_VGA_EN), 1);
+		/* DISP_EN# and DISP2_EN# go to a level shifter which we need to turn on */
+		gpio_free(IOMUX_TO_GPIO(EFIKAMX_HDMI_EN));
+		gpio_request(IOMUX_TO_GPIO(EFIKAMX_HDMI_EN), "hdmi:enable#");
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_HDMI_EN), 0);
 
-	/* HDMI Reset - Assert for i2c disabled mode */
-	gpio_free(IOMUX_TO_GPIO(EFIKAMX_DISPLAY_RESET));
-	gpio_request(IOMUX_TO_GPIO(EFIKAMX_DISPLAY_RESET), "hdmi:reset");
-	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_DISPLAY_RESET), 0);
+		gpio_free(IOMUX_TO_GPIO(EFIKAMX_VGA_EN));
+		gpio_request(IOMUX_TO_GPIO(EFIKAMX_VGA_EN), "vga:enable#");
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_VGA_EN), 1);
 
-	/* HDMI Interrupt pin (plug detect etc.)  */
-	gpio_free(IOMUX_TO_GPIO(EFIKAMX_HDMI_IRQ));
-	gpio_request(IOMUX_TO_GPIO(EFIKAMX_HDMI_IRQ), "hdmi:irq");
-	gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_HDMI_IRQ));
+		/* HDMI Reset - Assert for i2c disabled mode */
+		gpio_free(IOMUX_TO_GPIO(EFIKAMX_DISPLAY_RESET));
+		gpio_request(IOMUX_TO_GPIO(EFIKAMX_DISPLAY_RESET), "hdmi:reset");
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_DISPLAY_RESET), 0);
 
-	mxc_ipu_data.di_clk[0] = clk_get(NULL, "ipu_di0_clk");
-	mxc_ipu_data.csi_clk[0] = clk_get(NULL, "csi_mclk1");
+		/* HDMI Interrupt pin (plug detect etc.)  */
+		gpio_free(IOMUX_TO_GPIO(EFIKAMX_HDMI_IRQ));
+		gpio_request(IOMUX_TO_GPIO(EFIKAMX_HDMI_IRQ), "hdmi:irq");
+		gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_HDMI_IRQ));
+
+		display_id = EFIKAMX_HDMI_DISPLAY_ID;
+	}
+	else if (machine_is_mx51_efikasb()) {
+		CONFIG_IOMUX(mx51_efikasb_display_iomux_pins);
+
+		/* empty display controller, deactivate */
+		gpio_free(IOMUX_TO_GPIO(EFIKASB_NODISPLAY_EN));
+		gpio_request(IOMUX_TO_GPIO(EFIKASB_NODISPLAY_EN), "di0:enable#");
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_NODISPLAY_EN), 1);
+
+		/* connected to MTL017 "power on reset" pin */
+		gpio_free(IOMUX_TO_GPIO(EFIKASB_LVDS_POR));
+		gpio_request(IOMUX_TO_GPIO(EFIKASB_LVDS_POR), "lvds:enable#");
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_LVDS_POR), 1);
+
+		/* LVDS Reset - Assert for i2c disabled mode */
+		gpio_free(IOMUX_TO_GPIO(EFIKASB_LVDS_RESET));
+		gpio_request(IOMUX_TO_GPIO(EFIKASB_LVDS_RESET), "lvds:reset");
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_LVDS_RESET), 0);
+
+		display_id = EFIKASB_LVDS_DISPLAY_ID;
+	}
 
 	mxc_register_device(&mxc_ipu_device, &mxc_ipu_data);
 	mxc_register_device(&mxcvpu_device, &mxc_vpu_data);
 	mxc_register_device(&gpu_device, NULL);
 	mxc_register_device(&mxc_v4l2out_device, NULL);
+
+	/* display_id is specific to the board, and configures the single controller
+	 * we have on each board except for errant, weirdo VGA systems (which are not
+	 * supported)
+	 */
+	mxc_ipu_data.di_clk[display_id] = clk_get(NULL, mxcfb_clocks[display_id]);
+	mxc_fb_devices[display_id].num_resources = ARRAY_SIZE(mxcfb_resources);
+	mxc_fb_devices[display_id].resource = mxcfb_resources;
+	mxc_register_device(&mxc_fb_devices[display_id], &mxcfb_data[display_id]);
+
+	/* video overlay */
+	mxc_register_device(&mxc_fb_devices[2], NULL);
+
 }
 
-/* name is not my choice but.... */
-int mxc_init_fb(void)
-{
-	if ( mxcfb_initialized )
-		return 0;
-
-	mxcfb_initialized = 1;
-
-	mxc_fb_devices[0].num_resources = ARRAY_SIZE(mxcfb_resources);
-	mxc_fb_devices[0].resource = mxcfb_resources;
-	printk(KERN_INFO "registering framebuffer for HDMI\n");
-	mxc_register_device(&mxc_fb_devices[0], &mxcfb_data[0]);	// HDMI
-
-	printk(KERN_INFO "registering framebuffer for VPU overlay\n");
-	mxc_register_device(&mxc_fb_devices[2], NULL);		// Overlay for VPU
-
-	return 0;
-}
-device_initcall(mxc_init_fb);
-
-void mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_mem)
+void __init mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_mem)
 {
 		/*reserve memory for gpu*/
 		gpu_device.resource[5].start = gpu_start;
