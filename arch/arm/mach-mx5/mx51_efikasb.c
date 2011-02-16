@@ -70,9 +70,6 @@
  * @ingroup MSL_MX51
  */
 extern void __init mx51_efikasb_io_init(void);
-extern struct cpu_wp *(*get_cpu_wp)(int *wp);
-extern void (*set_num_cpu_wp)(int num);
-static int num_cpu_wp = 3;
 static int lvds_en_dir = 0;
 
 extern int mxc_get_battery_insertion_status(void);
@@ -82,51 +79,6 @@ extern int mxc_get_batt_low_status(void);
 
 extern int mxc_get_memory_id(void);
 extern unsigned int mxc_get_pcb_id(void);
-
-/* working point(wp): 0 - 800MHz; 1 - 166.25MHz; */
-static struct cpu_wp cpu_wp_auto[] = {
-	{
-	 .pll_rate = 1000000000,
-	 .cpu_rate = 1000000000,
-	 .pdf = 0,
-	 .mfi = 10,
-	 .mfd = 11,
-	 .mfn = 5,
-	 .cpu_podf = 0,
-	 .cpu_voltage = 1175000,},
-	{
-	 .pll_rate = 800000000,
-	 .cpu_rate = 800000000,
-	 .pdf = 0,
-	 .mfi = 8,
-	 .mfd = 2,
-	 .mfn = 1,
-	 .cpu_podf = 0,
-	 .cpu_voltage = 1100000,},
-	{
-	 .pll_rate = 800000000,
-	 .cpu_rate = 166250000,
-	 .pdf = 4,
-	 .mfi = 8,
-	 .mfd = 2,
-	 .mfn = 1,
-	 .cpu_podf = 4,
-	 .cpu_voltage = 850000,
-	},
-};
-
-struct cpu_wp *mx51_efikasb_get_cpu_wp(int *wp)
-{
-	*wp = num_cpu_wp;
-	return cpu_wp_auto;
-}
-
-void mx51_efikasb_set_num_cpu_wp(int num)
-{
-	num_cpu_wp = num;
-	return;
-}
-
 
 extern void mx5_ipu_reset(void); /*  eric 20100521 */
 static struct mxc_ipu_config mxc_ipu_data = {
@@ -185,52 +137,6 @@ static struct mxc_srtc_platform_data srtc_data = {
 	.srtc_sec_mode_addr = 0x83F98840,
 };
 
-static struct mxc_dvfs_platform_data dvfs_core_data = {
-	.reg_id = "SW1",
-	.clk1_id = "cpu_clk",
-	.clk2_id = "gpc_dvfs_clk",
-	.gpc_cntr_reg_addr = MXC_GPC_CNTR,
-	.gpc_vcr_reg_addr = MXC_GPC_VCR,
-	.ccm_cdcr_reg_addr = MXC_CCM_CDCR,
-	.ccm_cacrr_reg_addr = MXC_CCM_CACRR,
-	.ccm_cdhipr_reg_addr = MXC_CCM_CDHIPR,
-	//	.dvfs_thrs_reg_addr = MXC_DVFSTHRS,
-	//.dvfs_coun_reg_addr = MXC_DVFSCOUN,
-	//.dvfs_emac_reg_addr = MXC_DVFSEMAC,
-	//.dvfs_cntr_reg_addr = MXC_DVFSCNTR,
-	.prediv_mask = 0x1F800,
-	.prediv_offset = 11,
-	.prediv_val = 3,
-	.div3ck_mask = 0xE0000000,
-	.div3ck_offset = 29,
-	.div3ck_val = 2,
-	.emac_val = 0x08,
-	.upthr_val = 25,
-	.dnthr_val = 9,
-	.pncthr_val = 33,
-	.upcnt_val = 10,
-	.dncnt_val = 10,
-	.delay_time = 30,
-	.num_wp = 3,
-};
-
-static struct mxc_dvfsper_data dvfs_per_data = {
-	.reg_id = "SW2",
-	.clk_id = "gpc_dvfs_clk",
-	.gpc_cntr_reg_addr = MXC_GPC_CNTR,
-	.gpc_vcr_reg_addr = MXC_GPC_VCR,
-	.gpc_adu = 0x0,
-	.vai_mask = MXC_DVFSPMCR0_FSVAI_MASK,
-	.vai_offset = MXC_DVFSPMCR0_FSVAI_OFFSET,
-	.dvfs_enable_bit = MXC_DVFSPMCR0_DVFEN,
-	.irq_mask = MXC_DVFSPMCR0_FSVAIM,
-	.div3_offset = 0,
-	.div3_mask = 0x7,
-	.div3_div = 2,
-	.lp_high = 1250000,
-	.lp_low = 1250000,
-};
-
 static struct resource mxcfb_resources[] = {
 	[0] = {
 	       .flags = IORESOURCE_MEM,
@@ -244,8 +150,16 @@ static struct mxc_fb_platform_data fb_data[] = {
 
 };
 
-static void __init mxc_init_fb(void)
+static void __init mx51_efikasb_init_display(void)
 {
+	/* what in the hell does this do? */
+	clk_set_rate(clk_get(&(mxc_fb_devices[0].dev), "axi_b_clk"), 133000000);
+
+	mxc_ipu_data.di_clk[1] = clk_get(NULL, "ipu_di1_clk");
+	mxc_register_device(&mxc_ipu_device, &mxc_ipu_data);
+	mxc_register_device(&mxcvpu_device, &mxc_vpu_data);
+	mxc_register_device(&gpu_device, NULL);
+
 	mxc_fb_devices[1].num_resources = ARRAY_SIZE(mxcfb_resources);
 	mxc_fb_devices[1].resource = mxcfb_resources;
 	mxc_register_device(&mxc_fb_devices[1], &fb_data[1]);	/* ron: LVDS LCD */
@@ -462,8 +376,8 @@ static void __init mx51_efikasb_fixup(struct machine_desc *desc, struct tag *tag
 
 	mxc_set_cpu_type(MXC_CPU_MX51);
 
-	get_cpu_wp = mx51_efikasb_get_cpu_wp;
-	set_num_cpu_wp = mx51_efikasb_set_num_cpu_wp;
+	get_cpu_wp = mx51_efikamx_get_cpu_wp;
+	set_num_cpu_wp = mx51_efikamx_set_num_cpu_wp;
 
 	for_each_tag(mem_tag, tags) {
 		if (mem_tag->hdr.tag == ATAG_MEM) {
@@ -600,20 +514,14 @@ int mx51_efikamx_revision(void)
 
 static void __init mx51_efikasb_board_init(void)
 {
-	struct clk *clk;
-
 	mxc_cpu_common_init();
 
 	mxc_register_gpios();
 	mx51_efikasb_io_init();
 
-	clk = clk_get(&(mxc_fb_devices[0].dev), "axi_b_clk");
-	clk_set_rate(clk, 133000000);
-
 	mx51_efikamx_init_uart();
+	mx51_efikamx_init_soc();
 
-	mxc_register_device(&mxc_dma_device, NULL);
-	mxc_register_device(&mxc_wdt_device, NULL);
 	mxc_register_device(&mxcspi1_device, &mxcspi1_data);
 #if defined(CONFIG_I2C_MXC) || defined(CONFIG_I2C_MXC_MODULE)
 	mxc_register_device(&mxci2c_devices[1], &mx51_efikasb_i2c2_data);
@@ -623,26 +531,17 @@ static void __init mx51_efikasb_board_init(void)
 
 	mxc_register_device(&mxc_rtc_device, &srtc_data);
 
-	mxc_ipu_data.di_clk[1] = clk_get(NULL, "ipu_di1_clk");
-	mxc_register_device(&mxc_ipu_device, &mxc_ipu_data);
-	mxc_register_device(&mxcvpu_device, &mxc_vpu_data);
-	mxc_register_device(&gpu_device, NULL);
-	mxc_register_device(&mxcscc_device, NULL);	/* eric 20100521: SCC support */
-	mxc_register_device(&mx51_lpmode_device, NULL);
-	mxc_register_device(&busfreq_device, NULL);
-	mxc_register_device(&sdram_autogating_device, NULL);
-	mxc_register_device(&mxc_dvfs_core_device, &dvfs_core_data);
-	mxc_register_device(&mxc_dvfs_per_device, &dvfs_per_data);
-	mxc_register_device(&mxc_iim_device, NULL);
-	mxc_register_device(&mxc_pwm1_device, NULL);
-
 	mx51_efikamx_init_mmc();
 	mx51_efikamx_init_pata();
 	mx51_efikamx_init_audio();
 
-	mxc_init_fb();
+	mxc_register_device(&mxc_pwm1_device, NULL);
 	mxc_register_device(&mxc_pwm_backlight_device, &mxc_pwm_backlight_data);
+
+	mx51_efikasb_init_display();
+
 	mxc_register_device(&mxc_led_device, NULL);
+
 	mx51_efikasb_init_mc13892();
 
 	spi_register_board_info(mxc_spi_board_info,
@@ -660,25 +559,8 @@ static void __init mx51_efikasb_board_init(void)
 	mx51_usbh2_init();
 }
 
-static void __init mx51_efikasb_timer_init(void)
-{
-	struct clk *uart_clk;
-
-	/* Change the CPU voltages for TO2*/
-	if (cpu_is_mx51_rev(CHIP_REV_2_0) <= 1) {
-		cpu_wp_auto[0].cpu_voltage = 1175000;
-		cpu_wp_auto[1].cpu_voltage = 1100000;
-		cpu_wp_auto[2].cpu_voltage = 1000000;
-	}
-
-	mx51_clocks_init(32768, 24000000, 22579200, 24576000);
-
-	uart_clk = clk_get(NULL, "uart_clk.0");
-	early_console_setup(UART1_BASE_ADDR, uart_clk);
-}
-
 static struct sys_timer mx51_efikasb_timer = {
-	.init	= mx51_efikasb_timer_init,
+	.init	= mx51_efikamx_timer_init,
 };
 
 MACHINE_START(MX51_EFIKASB, "Genesi Efika MX (Smartbook)")

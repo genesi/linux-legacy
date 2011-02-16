@@ -34,56 +34,11 @@
  */
 #include <mach/mxc_uart.h>
 
-/*!
- * @name MXC UART board level configurations
- */
-/*! @{ */
-/*!
- * Specifies if the Irda transmit path is inverting
- */
 #define MXC_IRDA_TX_INV	0
-/*!
- * Specifies if the Irda receive path is inverting
- */
 #define MXC_IRDA_RX_INV	0
-
-/* UART 1 configuration */
-/*!
- * This define specifies if the UART port is configured to be in DTE or
- * DCE mode. There exists a define like this for each UART port. Valid
- * values that can be used are \b MODE_DTE or \b MODE_DCE.
- */
 #define UART1_MODE		MODE_DCE
-/*!
- * This define specifies if the UART is to be used for IRDA. There exists a
- * define like this for each UART port. Valid values that can be used are
- * \b IRDA or \b NO_IRDA.
- */
 #define UART1_IR		NO_IRDA
-/*!
- * This define is used to enable or disable a particular UART port. If
- * disabled, the UART will not be registered in the file system and the user
- * will not be able to access it. There exists a define like this for each UART
- * port. Specify a value of 1 to enable the UART and 0 to disable it.
- */
 #define UART1_ENABLED		1
-/*! @} */
-/* UART 2 configuration */
-#define UART2_MODE		MODE_DCE
-#define UART2_IR		NO_IRDA
-#define UART2_ENABLED		1
-/* UART 3 configuration */
-#define UART3_MODE		MODE_DTE
-#define UART3_IR		NO_IRDA
-#define UART3_ENABLED		1
-/* UART 4 configuration */
-#define UART4_MODE		MODE_DCE
-#define UART4_IR		NO_IRDA
-#define UART4_ENABLED		0
-/* UART 5 configuration */
-#define UART5_MODE		MODE_DCE
-#define UART5_IR		NO_IRDA
-#define UART5_ENABLED		0
 
 #define MXC_LL_UART_PADDR	UART1_BASE_ADDR
 #define MXC_LL_UART_VADDR	AIPS1_IO_ADDRESS(UART1_BASE_ADDR)
@@ -138,9 +93,18 @@
 #define WDOG_PIN               MX51_PIN_GPIO1_4
 
 /* here today, gone tomorrow */
+/* cpu */
+extern struct cpu_wp *(*get_cpu_wp)(int *wp);
+extern void (*set_num_cpu_wp)(int num);
+extern struct cpu_wp *mx51_efikamx_get_cpu_wp(int *wp);
+extern void mx51_efikamx_set_num_cpu_wp(int num);
+
+extern void __init mx51_efikamx_timer_init(void);
+
 extern int mx51_efikamx_revision(void);
 
 extern void __init mx51_efikamx_init_uart(void);
+extern void __init mx51_efikamx_init_soc(void);
 extern void __init mx51_efikamx_init_mmc(void);
 extern void __init mx51_efikamx_init_audio(void);
 extern void __init mx51_efikamx_init_pata(void);
