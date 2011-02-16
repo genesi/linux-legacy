@@ -62,15 +62,7 @@ static void __init mx51_efikamx_board_init(void)
 	mxc_cpu_common_init();
 	mxc_register_gpios();
 
-	/* calls io.c */
 	mx51_efikamx_io_init();
-
-	DBG(("AIPS1_BASE_ADDR = 0x%x\n", AIPS1_BASE_ADDR));
-	DBG(("AIPS1_BASE_ADDR_VIRT = 0x%x, io_pg_offst = 0x%x\n", 
-		AIPS1_BASE_ADDR_VIRT, 
-		((AIPS1_BASE_ADDR_VIRT) >> 18) & 0xfffc)
-		);
-	DBG(("PHYS_OFFSET = 0x%lx\n", PHYS_OFFSET));
 
 	pm_power_off = mx51_efikamx_power_off;
 
@@ -147,35 +139,10 @@ static void __init mx51_efikamx_fixup(struct machine_desc *desc, struct tag *tag
 
 
 MACHINE_START(MX51_EFIKAMX, "Genesi Efika MX (Smarttop)")
-	/* these next three should be patched into U-Boot and
-	 * CONFIG_RUNTIME_PHYS_OFFSET supported properly
-	 */
-	.phys_io = AIPS1_BASE_ADDR,
-	.io_pg_offst = ((AIPS1_BASE_ADDR_VIRT) >> 18) & 0xfffc,
-	.boot_params = PHYS_OFFSET + 0x100,
-	/* Maintainer: Genesi USA, Inc., Pegatron Corporation */
+	/* Maintainer: Genesi USA, Inc. */
 	.fixup = mx51_efikamx_fixup,
 	.map_io = mx5_map_io,
 	.init_irq = mx5_init_irq,
 	.init_machine =  mx51_efikamx_board_init,
 	.timer = &mx51_efikamx_timer,
 MACHINE_END
-
-
-
-
-
-
-
-#if 0
-
-MACHINE_START(MX51_EFIKASB, "Genesi Efika MX (Smartbook)")
-	/* Maintainer: Genesi USA, Inc., Pegatron Corporation */
-	.fixup = mx5_efikasb_fixup,
-	.map_io = mx5_map_io,
-	.init_irq = mx5_init_irq,
-	.init_machine =  mx5_efikasb_board_init,
-	.timer = &mx5_efikasb_timer,
-MACHINE_END
-
-#endif
