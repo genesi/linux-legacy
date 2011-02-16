@@ -31,10 +31,6 @@
  * @ingroup GPIO
  */
 
-void mxc_turn_on_caps_led(int);
-void mxc_turn_on_num_led(int);
-void mxc_turn_on_alarm_led(int);
-
 void mxc_power_on_wlan(int);
 void mxc_power_on_wwan(int);
 void mxc_power_on_bt(int);
@@ -367,14 +363,6 @@ void __init mx51_efikasb_io_init(void)
 	mxc_request_iomux(CAM_PWRON_PIN, IOMUX_CONFIG_GPIO);
 	mxc_power_on_camera(1);
 
-        /* LED */
-	mxc_request_iomux(ALARM_LED_PIN, IOMUX_CONFIG_GPIO);
-        gpio_request(IOMUX_TO_GPIO(ALARM_LED_PIN), "alarm_led");
-        mxc_request_iomux(CAPS_LED_PIN, IOMUX_CONFIG_GPIO);
-        gpio_request(IOMUX_TO_GPIO(CAPS_LED_PIN), "caps_led");
-	mxc_turn_on_caps_led(0);
-	mxc_turn_on_alarm_led(0);
-
 	/* LVDS & LCD Panel */
 	mxc_iomux_set_pad(MX51_PIN_DI2_DISP_CLK, /* ron: set driver strength to low to avoid EMI */
 			  PAD_CTL_PKE_ENABLE |
@@ -448,38 +436,6 @@ void __init mx51_efikasb_io_init(void)
         gpio_direction_input(IOMUX_TO_GPIO(PCB_ID1_PIN));
 
 }
-
-void mxc_turn_on_caps_led(int on)
-{
-	gpio_direction_output(IOMUX_TO_GPIO(CAPS_LED_PIN), 0);
-	if(on)
-		gpio_set_value(IOMUX_TO_GPIO(CAPS_LED_PIN), 1);
-	else
-		gpio_set_value(IOMUX_TO_GPIO(CAPS_LED_PIN), 0);
-
-}
-EXPORT_SYMBOL(mxc_turn_on_caps_led);
-
-void mxc_turn_on_alarm_led(int on)
-{
-	gpio_direction_output(IOMUX_TO_GPIO(ALARM_LED_PIN), 0);
-	if(on)
-		gpio_set_value(IOMUX_TO_GPIO(ALARM_LED_PIN), 0);
-	else
-		gpio_set_value(IOMUX_TO_GPIO(ALARM_LED_PIN), 1);
-
-}
-EXPORT_SYMBOL(mxc_turn_on_alarm_led);
-
-/* void mxc_turn_on_batt_low_led(int on) */
-/* { */
-/*         gpio_direction_output(IOMUX_TO_GPIO(BATT_LOW_LED_PIN), 0); */
-/*         if(on) */
-/*                 gpio_set_value(IOMUX_TO_GPIO(BATT_LOW_LED_PIN), 1); */
-/*         else */
-/*                 gpio_set_value(IOMUX_TO_GPIO(BATT_LOW_LED_PIN), 0); */
-/* } */
-/* EXPORT_SYMBOL(mxc_turn_on_batt_low_led); */
 
 struct mxc_power_switch_status {
 	int wlan_pwr_status;
