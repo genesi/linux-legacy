@@ -220,7 +220,7 @@ static unsigned int mx51_efikamx_sdhc_cd(struct device *dev)
 		}
 	} else if (machine_is_mx51_efikasb()) {
 			if (to_platform_device(dev)->id == 0) {
-				rc = gpio_get_value(IOMUX_TO_GPIO(EFIKAMX_SDHC1_CD));
+				rc = gpio_get_value(IOMUX_TO_GPIO(EFIKASB_SDHC1_CD));
 			} else if (to_platform_device(dev)->id == 1) {
 				rc = gpio_get_value(IOMUX_TO_GPIO(EFIKAMX_SDHC2_CD));
 			}
