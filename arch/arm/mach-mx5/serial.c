@@ -22,6 +22,8 @@
 #include <linux/serial.h>
 #include <mach/hardware.h>
 #include <mach/mxc_uart.h>
+#include <asm/mach-types.h>
+
 #include "serial.h"
 
 #if defined(CONFIG_SERIAL_MXC) || defined(CONFIG_SERIAL_MXC_MODULE)
@@ -259,8 +261,11 @@ static int __init mxc_init_uart(void)
 
 	/* Register all the MXC UART platform device structures */
 	platform_device_register(&mxc_uart_device1);
-//	platform_device_register(&mxc_uart_device2);
-//	platform_device_register(&mxc_uart_device3);
+
+	if ( !(machine_is_mx51_efikamx() || machine_is_mx51_efikasb()) ) {
+		platform_device_register(&mxc_uart_device2);
+		platform_device_register(&mxc_uart_device3);
+	}
 	if (cpu_is_mx53()) {
 		platform_device_register(&mxc_uart_device4);
 		platform_device_register(&mxc_uart_device5);
