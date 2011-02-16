@@ -36,15 +36,6 @@ config LEDS_MC13892
 	tristate "LED Support for mc13892 pmic"
 	depends on LEDS_CLASS && MXC_MC13892_LIGHT
 
-
-config LEDS_EFIKASB
-        tristate "LED Support for Efika MX Smartbook"
-        depends on LEDS_CLASS && MACH_MX51_EFIKASB
-        help
-          This option enable support for the LEDs on Efika MX Smartbook.
-
-
-
 config LEDS_LOCOMO
 	tristate "LED Support for Locomo device"
 	depends on LEDS_CLASS && SHARP_LOCOMO
@@ -314,6 +305,13 @@ config LEDS_TRIGGER_DEFAULT_ON
 	help
 	  This allows LEDs to be initialised in the ON state.
 	  If unsure, say Y.
+
+config LEDS_TRIGGER_INPUT
+	tristate "Input subsystem LEDs Trigger"
+	depends on LEDS_TRIGGERS && INPUT
+	help
+	  This allows LEDs to be controlled by input subsystem LED
+	  state (capslock/numlock/scrollock)
 
 comment "iptables trigger is under Netfilter config (LED target)"
 	depends on LEDS_TRIGGERS
