@@ -91,8 +91,6 @@ void mx51_efikamx_set_num_cpu_wp(int num)
 	return;
 }
 
-
-
 static struct mxc_dvfs_platform_data dvfs_core_data = {
 	.reg_id = "SW1",
 	.clk1_id = "cpu_clk",
@@ -115,11 +113,7 @@ static struct mxc_dvfs_platform_data dvfs_core_data = {
 	.upcnt_val = 10,
 	.dncnt_val = 10,
 	.delay_time = 30,
-#if defined(CONFIG_MX51_GIGAHERTZ)
-	.num_wp = 3,
-#else
 	.num_wp = 2,
-#endif
 };
 
 static struct mxc_dvfsper_data dvfs_per_data = {
