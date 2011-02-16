@@ -233,17 +233,6 @@ static struct mxc_dvfsper_data dvfs_per_data = {
 	.lp_low = 1250000,
 };
 
-static struct mxc_spdif_platform_data mxc_spdif_data = {
-	.spdif_tx = 1,
-	.spdif_rx = 0,
-	.spdif_clk_44100 = 0,	/* spdif_ext_clk source for 44.1KHz */
-	.spdif_clk_48000 = 7,	/* audio osc source */
-	.spdif_clkid = 0,
-	.spdif_clk = NULL,	/* spdif bus clk */
-};
-
-#if defined(CONFIG_FB_MXC_SYNC_PANEL) || \
-	defined(CONFIG_FB_MXC_SYNC_PANEL_MODULE)
 static struct resource mxcfb_resources[] = {
 	[0] = {
 	       .flags = IORESOURCE_MEM,
@@ -264,11 +253,9 @@ static void __init mxc_init_fb(void)
 	mxc_register_device(&mxc_fb_devices[1], &fb_data[1]);	/* ron: LVDS LCD */
 	mxc_register_device(&mxc_fb_devices[2], NULL);		// Overlay for VPU
 }
-#endif
 
 
-static void mxc_power_on_lcd(int on)
-{
+static void mxc_power_on_lcd(int on) {
         if(on) {
                 gpio_set_value(IOMUX_TO_GPIO(LCD_PWRON_PIN), 1);        /* LCD Power On */
         } else {
@@ -401,7 +388,6 @@ static struct sbs_platform_data sbs_platform_data = {
 	.battery_presence_changed = &mxc_power_resources[BATTERY_INSERTION_STATUS],
 };
 
-#if defined(CONFIG_I2C_MXC) || defined(CONFIG_I2C_MXC_MODULE) || defined(CONFIG_I2C_IMX) || defined(CONFIG_I2C_IMX_MODULE)
 static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
 	{
 		.type = "sgtl5000-i2c",
@@ -418,9 +404,6 @@ static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
 		.platform_data = &sbs_platform_data,
 	},
 };
-#endif
-
-#if defined(CONFIG_MTD) || defined(CONFIG_MTD_MODULE)
 
 static struct mtd_partition mxc_spi_flash_partitions[] = {
 	{
@@ -444,23 +427,19 @@ static struct flash_platform_data mxc_spi_flash_data = {
 	.name = "mxc_spi_nor",
 	.parts = mxc_spi_flash_partitions,
 	.nr_parts = ARRAY_SIZE(mxc_spi_flash_partitions),
-/* 	.type = "sst25vf032b", */
-	/* ron: also support MXIC MX25L3205D, use jedec_probe to detect */
-	.type = NULL,
+	.type = "sst25vf032b",	/* also consider MXIC MX25L3205D later */
 };
 
 static struct spi_board_info mxc_spi_board_info[] __initdata = {
 	{
-	 .modalias = "sst25vf",
-	 .max_speed_hz = 25000000, /* max spi clock (SCK) speed in HZ */
+	 .modalias = "m25p80",
+	 .max_speed_hz = 25000000,
 	 .bus_num = 1,
 	 .chip_select = 1,
 	 .platform_data = &mxc_spi_flash_data,
 	},
 };
-#endif
 
-#if defined(CONFIG_MMC_IMX_ESDHCI) || defined(CONFIG_MMC_IMX_ESDHCI_MODULE)
 static int sdhc_write_protect(struct device *dev)
 {
 	unsigned short rc = 0;
@@ -510,10 +489,7 @@ static struct mxc_mmc_platform_data mmc2_data = {
 	.wp_status = sdhc_write_protect,
 	.clock_mmc = "esdhc_clk",
 };
-#endif
 
-#if defined(CONFIG_SND_SOC_IMX_3STACK_SGTL5000) \
-	|| defined(CONFIG_SND_SOC_IMX_3STACK_SGTL5000_MODULE)
 static int mxc_sgtl5000_amp_enable(int enable)
 {
 	gpio_set_value(IOMUX_TO_GPIO(AUD_MUTE_PIN), enable ? 1 : 0);
@@ -538,7 +514,6 @@ static struct mxc_audio_platform_data sgtl5000_data = {
 static struct platform_device mxc_sgtl5000_device = {
 	.name = "imx-3stack-sgtl5000",
 };
-#endif
 
 /*!
  * Board specific fixup function. It is called by \b setup_arch() in
@@ -610,8 +585,7 @@ static void __init fixup_mxc_board(struct machine_desc *desc, struct tag *tags,
 				mem_tag->u.mem.start + left_mem;
 		gpu_device.resource[5].end =
 				gpu_device.resource[5].start + gpu_mem - 1;
-#if defined(CONFIG_FB_MXC_SYNC_PANEL) || \
-	defined(CONFIG_FB_MXC_SYNC_PANEL_MODULE)
+
 		if (fb_mem) {
 			mxcfb_resources[0].start =
 				gpu_device.resource[5].end + 1;
@@ -621,7 +595,6 @@ static void __init fixup_mxc_board(struct machine_desc *desc, struct tag *tags,
 			mxcfb_resources[0].start = 0;
 			mxcfb_resources[0].end = 0;
 		}
-#endif
 	}
 }
 
@@ -709,53 +682,16 @@ static struct fsl_ata_platform_data ata_data = {
 	.io_reg = NULL,
 };
 
-#if defined(CONFIG_GPS_IOCTRL) || defined(CONFIG_GPS_IOCTRL_MODULE)
-static struct mxc_gps_platform_data gps_data = {
-	.core_reg = "VIOHI",
-	.analog_reg = "SW4",
-};
-
-static struct platform_device mxc_gps_device = {
-	.name = "gps_ioctrl",
-	.id = -1,
-	.dev = {
-		.platform_data = &gps_data,
-	},
-};
-
-int gpio_gps_access(int para)
-{
-	iomux_pin_name_t pin;
-	pin = (para & 0x1) ? AGPS_PWRON_PIN : AGPS_RESET_PIN;
-
-	if (para & 0x4) /* Read GPIO */
-		return gpio_get_value(IOMUX_TO_GPIO(pin));
-	else if (para & 0x2) /* Write GPIO */
-		gpio_set_value(IOMUX_TO_GPIO(pin), 1);
-	else
-		gpio_set_value(IOMUX_TO_GPIO(pin), 0);
-	return 0;
-}
-EXPORT_SYMBOL(gpio_gps_access);
-#endif
-
 static void __init mxc_board_init(void)
 {
 	struct clk *clk, *ssi_ext1;
 	int rate;
 
-//	printk(" [VV] mxc_board_init.\n");
-
-	mxc_ipu_data.di_clk[0] = clk_get(NULL, "ipu_di0_clk");
-	mxc_ipu_data.di_clk[1] = clk_get(NULL, "ipu_di1_clk");
-
-#if defined(CONFIG_MMC_IMX_ESDHCI) || defined(CONFIG_MMC_IMX_ESDHCI_MODULE)
 	/* SD card detect irqs */
 	mxcsdhc2_device.resource[2].start = IOMUX_TO_IRQ(SDHC2_CD_PIN);
 	mxcsdhc2_device.resource[2].end = IOMUX_TO_IRQ(SDHC2_CD_PIN);
 	mxcsdhc1_device.resource[2].start = IOMUX_TO_IRQ(SDHC1_CD_PIN);
 	mxcsdhc1_device.resource[2].end = IOMUX_TO_IRQ(SDHC1_CD_PIN);
-#endif
 
 	mxc_cpu_common_init();
 
@@ -773,11 +709,12 @@ static void __init mxc_board_init(void)
 #elif defined(CONFIG_I2C_IMX) || defined(CONFIG_I2C_IMX_MODULE)
 	mxc_register_device(&imxi2c2_device, &mx51_efikasb_imxi2c2_data);
 #endif
-#if defined(CONFIG_MMC_IMX_ESDHCI) || defined(CONFIG_MMC_IMX_ESDHCI_MODULE)
 	mxc_register_device(&mxcsdhc1_device, &mmc1_data);
 	mxc_register_device(&mxcsdhc2_device, &mmc2_data);
-#endif
+
 	mxc_register_device(&mxc_rtc_device, &srtc_data);
+
+	mxc_ipu_data.di_clk[1] = clk_get(NULL, "ipu_di1_clk");
 	mxc_register_device(&mxc_ipu_device, &mxc_ipu_data);
 	mxc_register_device(&mxcvpu_device, &mxc_vpu_data);
 	mxc_register_device(&gpu_device, NULL);
@@ -793,27 +730,19 @@ static void __init mxc_board_init(void)
 	mxc_register_device(&mxc_ssi2_device, NULL);
 
 	mxc_register_device(&pata_fsl_device, &ata_data);
-	mxc_register_device(&mxc_alsa_spdif_device, &mxc_spdif_data);
 
 	mxc_init_fb();
 	mxc_register_device(&mxc_pwm_backlight_device, &mxc_pwm_backlight_data);
 	mxc_register_device(&mxc_led_device, NULL);
 	mx51_efikasb_init_mc13892();
 
-#if defined(CONFIG_MTD) || defined(CONFIG_MTD_MODULE)
 	spi_register_board_info(mxc_spi_board_info,
 				ARRAY_SIZE(mxc_spi_board_info));
-#endif
 
-#if defined(CONFIG_I2C_MXC) || defined(CONFIG_I2C_MXC_MODULE) || defined(CONFIG_I2C_IMX) || defined(CONFIG_I2C_IMX_MODULE)
 	i2c_register_board_info(1, mxc_i2c1_board_info,
 				ARRAY_SIZE(mxc_i2c1_board_info));
-#endif
 
 	pm_power_off = mxc_power_off;
-
-#if defined(CONFIG_SND_SOC_IMX_3STACK_SGTL5000) \
-	|| defined(CONFIG_SND_SOC_IMX_3STACK_SGTL5000_MODULE)
 
 	ssi_ext1 = clk_get(NULL, "ssi_ext1_clk");
 	rate = clk_round_rate(ssi_ext1, 24000000);
@@ -821,18 +750,12 @@ static void __init mxc_board_init(void)
 	clk_enable(ssi_ext1);
 	sgtl5000_data.sysclk = rate;
 
-
 	gpio_direction_output(IOMUX_TO_GPIO(AUD_MUTE_PIN), 0);
 	mxc_register_device(&mxc_sgtl5000_device, &sgtl5000_data);
-#endif
 
 	mx5_usb_dr_init();
 	mx5_usbh1_init();
 	mx51_usbh2_init();
-
-#if defined(CONFIG_GPS_IOCTRL) || defined(CONFIG_GPS_IOCTRL_MODULE)
-	mxc_register_device(&mxc_gps_device, NULL);
-#endif
 }
 
 static void __init mx51_efikasb_timer_init(void)
