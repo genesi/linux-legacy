@@ -526,7 +526,6 @@ static void __init mx51_efikasb_board_init(void)
 
 	mx51_efikamx_init_mmc();
 	mx51_efikamx_init_pata();
-	mx51_efikamx_init_audio();
 
 	mxc_register_device(&mxc_pwm1_device, NULL);
 	mxc_register_device(&mxc_pwm_backlight_device, &mxc_pwm_backlight_data);
