@@ -46,27 +46,6 @@
 #define EDID_LENGTH	128
 #define DEBUG_MTL017	1
 
-extern int register_backlight_notifier(struct notifier_block *nb);
-extern int unregister_backlight_notifier(struct notifier_block *nb);
-
-#if 0 //vv
-struct mtl017_dev_data {
-	struct i2c_client *client;
-	u8 edid[EDID_LENGTH];
-	struct fb_videomode *mode;
-	u8 *regs;
-	int suspending;
-        int disp_on;
-
-        struct semaphore sem;
-
-	void (*reset)(void);
-	void (*power_on_lcd) (int);
-        void (*power_on_lvds) (int);
-        void (*turn_on_backlight) (int);
-        void (*lvds_enable) (int);
-};
-#else
 typedef struct mtl017_dev_data_tag {
 	struct i2c_client *client;
 	u8 edid[EDID_LENGTH];
@@ -80,10 +59,8 @@ typedef struct mtl017_dev_data_tag {
 	void (*reset)(void);
 	void (*power_on_lcd) (int);
         void (*power_on_lvds) (int);
-        void (*turn_on_backlight) (int);
         void (*lvds_enable) (int);
 } mtl017_dev_data;
-#endif
 
 //vv static struct mtl017_dev_data *mtl017 = NULL;
 static mtl017_dev_data * mtl017 = NULL; //vv
@@ -674,43 +651,12 @@ static int lcd_fb_event(struct notifier_block *nb, unsigned long val, void *v)
 	case FB_EVENT_FB_REGISTERED:
 		lcd_init_fb(event->info);
 		break;
-	case FB_EVENT_BLANK:
-		if (*((int *)event->data) == FB_BLANK_UNBLANK) {
-                        disp_power_on();
-		} else {
-                        disp_power_off();
-		}
-		break;
 	}
 	return 0;
 }
 
-#define BL_BRIGHTNESS   0x01
-
-static int lcd_bl_event(struct notifier_block *nb, unsigned long val, void *v)
-{
-        int brightness = v; /* ugh? */
-
-        switch (val) {
-        case BL_BRIGHTNESS:
-                if(brightness == 0) {
-                        disp_power_off();
-                } else {
-                        disp_power_on();
-                }
-                break;
-
-        }
-
-        return 0;
-}
-
 static struct notifier_block fb_nb = {
 	.notifier_call = lcd_fb_event,
-};
-
-static struct notifier_block bl_nb = {
-        .notifier_call = lcd_bl_event,
 };
 
 /*!
@@ -745,8 +691,6 @@ static int __devinit mtl017_probe(struct i2c_client *client, const struct i2c_de
 				plat->power_on_lcd;
                 mtl017->power_on_lvds =
 				plat->power_on_lvds;
-                mtl017->turn_on_backlight =
-				plat->turn_on_backlight;
                 mtl017->lvds_enable =
 				plat->lvds_enable;
 	}
@@ -768,7 +712,6 @@ static int __devinit mtl017_probe(struct i2c_client *client, const struct i2c_de
 	}
 
 	fb_register_client(&fb_nb);
-        register_backlight_notifier(&bl_nb);
 
         /* disp_power_on(); */
         schedule_work(&disp_on_work);
@@ -779,7 +722,6 @@ static int __devinit mtl017_probe(struct i2c_client *client, const struct i2c_de
 
 static int __devexit mtl017_remove(struct i2c_client *client)
 {
-        unregister_backlight_notifier(&bl_nb);
 	fb_unregister_client(&fb_nb);
         disp_power_off();
 
@@ -836,47 +778,23 @@ static void disp_power_on(void)
         if (down_interruptible(&mtl017->sem))
 		return;
 
-        if(mtl017->mode == &auo_mode) {
+	if(mtl017->power_on_lcd) {
+		mtl017->power_on_lcd(1);
+		msleep(10);
+	}
 
+	if(mtl017->lvds_enable) {
+		mtl017->lvds_enable(1);
+		msleep(5);
+	}
 
-                if(mtl017->power_on_lcd)
-                        mtl017->power_on_lcd(1);
+	if(mtl017->power_on_lvds) {
+		mtl017->power_on_lvds(1);
+		msleep(5);
+	}
 
-                msleep(10);
-
-                if(mtl017->lvds_enable)
-                        mtl017->lvds_enable(1);
-
-                msleep(5);
-
-                if(mtl017->power_on_lvds)
-                        mtl017->power_on_lvds(1);
-
-                msleep(5);
-
-                mtl017_conf(mtl017->regs);
-
-                msleep(200);
-
-                if(mtl017->turn_on_backlight)
-                        mtl017->turn_on_backlight(1);
-        } else {
-                if(mtl017->lvds_enable)
-                        mtl017->lvds_enable(-1);
-
-                if(mtl017->power_on_lcd)
-                        mtl017->power_on_lcd(1);
-
-                if(mtl017->power_on_lvds)
-                        mtl017->power_on_lvds(1);
-
-                mtl017_conf(mtl017->regs);
-
-                msleep(200);
-
-                if(mtl017->turn_on_backlight)
-                        mtl017->turn_on_backlight(1);
-        }
+	mtl017_conf(mtl017->regs);
+	msleep(200);
 
         mtl017->disp_on = 1;
 
@@ -885,35 +803,30 @@ static void disp_power_on(void)
 
 static void disp_power_off(void)
 {
-        if(mtl017->disp_on == 0)
-                return;
+	if(mtl017->disp_on == 0)
+		return;
 
 	if (down_interruptible(&mtl017->sem))
 		return;
 
-        if(mtl017->turn_on_backlight)
-                mtl017->turn_on_backlight(0);
+	msleep(200);
 
-        msleep(200);
+	if(mtl017->lvds_enable) {
+		mtl017->lvds_enable(0);
+	}
 
-        if(mtl017->mode == &auo_mode) {
-                if(mtl017->lvds_enable)
-                        mtl017->lvds_enable(0);
-        }
+	if(mtl017->power_on_lvds) {
+		mtl017->power_on_lvds(0);
+		msleep(5);
+	}
 
-        if(mtl017->power_on_lvds)
-                mtl017->power_on_lvds(0);
+        if(mtl017->power_on_lcd) {
+		mtl017->power_on_lcd(0);
+	}
 
-        msleep(5);
+	mtl017->disp_on = 0;
 
-        if(mtl017->power_on_lcd)
-                mtl017->power_on_lcd(0);
-
-
-        mtl017->disp_on = 0;
-
-        up(&mtl017->sem);
-
+	up(&mtl017->sem);
 }
 
 static const struct i2c_device_id mtl017_id[] = {

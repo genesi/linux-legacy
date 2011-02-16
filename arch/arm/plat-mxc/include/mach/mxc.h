@@ -338,7 +338,6 @@ struct mxc_lcd_platform_data {
 	/* Efika MX Additions */
         void (*power_on_lcd) (int);
         void (*power_on_lvds) (int);
-        void (*turn_on_backlight) (int);
         void (*lvds_enable) (int);
 	void (*reset) (void);
 
