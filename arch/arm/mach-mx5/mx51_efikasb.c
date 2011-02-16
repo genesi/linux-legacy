@@ -449,7 +449,7 @@ static struct spi_board_info mxc_spi_board_info[] __initdata = {
  * @param  cmdline      pointer to the command line
  * @param  mi           pointer to \b struct \b meminfo
  */
-static void __init fixup_mxc_board(struct machine_desc *desc, struct tag *tags,
+static void __init mx51_efikasb_fixup(struct machine_desc *desc, struct tag *tags,
 				   char **cmdline, struct meminfo *mi)
 {
 	char *str;
@@ -598,7 +598,7 @@ int mx51_efikamx_revision(void)
 	return 0;
 }
 
-static void __init mxc_board_init(void)
+static void __init mx51_efikasb_board_init(void)
 {
 	struct clk *clk;
 
@@ -675,20 +675,15 @@ static void __init mx51_efikasb_timer_init(void)
 	early_console_setup(UART1_BASE_ADDR, uart_clk);
 }
 
-static struct sys_timer mxc_timer = {
+static struct sys_timer mx51_efikasb_timer = {
 	.init	= mx51_efikasb_timer_init,
 };
 
-/*
- * The following uses standard kernel macros define in arch.h in order to
- * initialize __mach_desc_MX51_EFIKASB data structure.
- */
-/* *INDENT-OFF* */
 MACHINE_START(MX51_EFIKASB, "Genesi Efika MX (Smartbook)")
 	/* Maintainer: Genesi, Inc. */
-	.fixup = fixup_mxc_board,
+	.fixup = mx51_efikasb_fixup,
 	.map_io = mx5_map_io,
 	.init_irq = mx5_init_irq,
-	.init_machine = mxc_board_init,
-	.timer = &mxc_timer,
+	.init_machine = mx51_efikasb_board_init,
+	.timer = &mx51_efikasb_timer,
 MACHINE_END
