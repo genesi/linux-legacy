@@ -36,7 +36,6 @@
 #include <linux/pwm_backlight.h>
 #include <linux/pci_ids.h>
 #include <linux/suspend.h>
-#include <linux/ata.h>
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <asm/setup.h>
@@ -645,18 +644,6 @@ static int __init mxc_init_wwan_wakeup(void)
 }
 late_initcall(mxc_init_wwan_wakeup);
 
-static struct fsl_ata_platform_data ata_data = {
-	.udma_mask = ATA_UDMA3,
-	.mwdma_mask = ATA_MWDMA2,
-	.pio_mask = ATA_PIO4,
-	.fifo_alarm = MXC_IDE_DMA_WATERMARK / 2,
-	.max_sg = MXC_IDE_DMA_BD_NR,
-	.init = NULL,
-	.exit = NULL,
-	.core_reg = NULL,
-	.io_reg = NULL,
-};
-
 static void __init mxc_board_init(void)
 {
 	struct clk *clk;
@@ -701,8 +688,7 @@ static void __init mxc_board_init(void)
 	mxc_register_device(&mxc_iim_device, NULL);
 	mxc_register_device(&mxc_pwm1_device, NULL);
 
-	mxc_register_device(&pata_fsl_device, &ata_data);
-
+	mx51_efikamx_init_pata();
 	mx51_efikamx_init_audio();
 
 	mxc_init_fb();

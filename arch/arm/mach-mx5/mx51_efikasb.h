@@ -144,7 +144,8 @@
 #define WDOG_PIN               MX51_PIN_GPIO1_4
 
 /* here today, gone tomorrow */
-extern void mx51_efikamx_init_audio(void);
+extern void __init mx51_efikamx_init_audio(void);
+extern void __init mx51_efikamx_init_pata(void);
 
 extern int __init mx51_efikasb_init_mc13892(void);
 

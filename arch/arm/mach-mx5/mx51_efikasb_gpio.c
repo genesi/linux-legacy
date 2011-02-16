@@ -31,8 +31,6 @@
  * @ingroup GPIO
  */
 
-#define ATA_PAD_CONFIG (PAD_CTL_DRV_HIGH | PAD_CTL_DRV_VOT_HIGH)
-
 void mxc_turn_on_caps_led(int);
 void mxc_turn_on_num_led(int);
 void mxc_turn_on_alarm_led(int);
@@ -385,131 +383,6 @@ static struct mxc_iomux_pin_cfg __initdata mxc_iomux_pins[] = {
         },
 };
 
-static struct mxc_iomux_pin_cfg __initdata ata_iomux_pins[] = {
-	{
-	 MX51_PIN_NANDF_ALE, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_CS2, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_CS3, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_CS4, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_CS5, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_CS6, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_RE_B, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_WE_B, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_CLE, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_RB0, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_WP_B, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	/* TO 2.0 */
-	{
-	 MX51_PIN_GPIO_NAND, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	/* TO 1.0 */
-	//{
-	// MX51_PIN_NANDF_RB5, IOMUX_CONFIG_ALT1,
-	// ATA_PAD_CONFIG,
-	// },
-	{
-	 MX51_PIN_NANDF_RB1, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D0, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D1, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D2, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D3, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D4, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D5, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D6, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D7, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D8, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D9, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D10, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D11, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D12, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D13, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D14, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-	{
-	 MX51_PIN_NANDF_D15, IOMUX_CONFIG_ALT1,
-	 ATA_PAD_CONFIG,
-	 },
-};
-
 static void power_on_bt_handler(struct work_struct *work)
 {
         mxc_power_on_bt(1);
@@ -519,8 +392,7 @@ static DECLARE_DELAYED_WORK(power_on_bt_work, power_on_bt_handler);
 
 void __init mx51_efikasb_io_init(void)
 {
-	int i, num;
-	struct mxc_iomux_pin_cfg *pin_ptr;
+	int i;
 
 	for (i = 0; i < ARRAY_SIZE(mxc_iomux_pins); i++) {
 		mxc_request_iomux(mxc_iomux_pins[i].pin,
@@ -531,21 +403,6 @@ void __init mx51_efikasb_io_init(void)
 		if (mxc_iomux_pins[i].in_select)
 			mxc_iomux_set_input(mxc_iomux_pins[i].in_select,
 					    mxc_iomux_pins[i].in_mode);
-	}
-
-	// enable PATA
-	pin_ptr = ata_iomux_pins;
-	num = ARRAY_SIZE(ata_iomux_pins);
-
-	for (i = 0; i < num; i++) {
-		mxc_request_iomux(pin_ptr[i].pin,
-				  pin_ptr[i].mux_mode);
-		if (pin_ptr[i].pad_cfg)
-			mxc_iomux_set_pad(pin_ptr[i].pin,
-					  pin_ptr[i].pad_cfg);
-		if (pin_ptr[i].in_select)
-			mxc_iomux_set_input(pin_ptr[i].in_select,
-					    pin_ptr[i].in_mode);
 	}
 
 	/* ron: USB Hub Reset*/
