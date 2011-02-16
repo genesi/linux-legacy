@@ -75,7 +75,6 @@ static int lvds_en_dir = 0;
 extern int mxc_get_battery_insertion_status(void);
 extern int mxc_get_ac_adapter_insertion_status(void);
 extern int mxc_get_batt_low_status(void);
-/* extern void mxc_turn_on_batt_low_led(int); */
 
 extern int mxc_get_memory_id(void);
 extern unsigned int mxc_get_pcb_id(void);
@@ -167,7 +166,8 @@ static void __init mx51_efikasb_init_display(void)
 }
 
 
-static void mxc_power_on_lcd(int on) {
+static void mxc_power_on_lcd(int on)
+{
         if(on) {
                 gpio_set_value(IOMUX_TO_GPIO(LCD_PWRON_PIN), 1);        /* LCD Power On */
         } else {
@@ -175,7 +175,6 @@ static void mxc_power_on_lcd(int on) {
         }
 
 }
-
 
 static void mxc_lvds_enable(int on)
 {
@@ -250,12 +249,6 @@ static struct mxc_lcd_platform_data lvds_data = {
         .power_on_lvds = mxc_power_on_lvds,
         .lvds_enable = mxc_lvds_enable,
 };
-
-static struct platform_device mxc_led_device = {
-	.name = "efikasb_leds",
-	.id = 1,
-};
-
 
 enum mxc_power_resource {
 	MAINS_INSERTION_STATUS,
@@ -540,7 +533,7 @@ static void __init mx51_efikasb_board_init(void)
 
 	mx51_efikasb_init_display();
 
-	mxc_register_device(&mxc_led_device, NULL);
+	mx51_efikasb_init_leds();
 
 	mx51_efikasb_init_mc13892();
 

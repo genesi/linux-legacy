@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.31.14.17
-# Sat Feb 12 04:06:59 2011
+# Wed Feb 16 00:51:28 2011
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1403,7 +1403,6 @@ CONFIG_POWER_SUPPLY=y
 # CONFIG_BATTERY_BQ27x00 is not set
 # CONFIG_BATTERY_MAX17040 is not set
 CONFIG_BATTERY_SBS=y
-# CONFIG_BATTERY_EFIKASB is not set
 # CONFIG_HWMON is not set
 # CONFIG_THERMAL is not set
 # CONFIG_THERMAL_HWMON is not set
@@ -2110,7 +2109,6 @@ CONFIG_LEDS_CLASS=y
 #
 # LED drivers
 #
-CONFIG_LEDS_EFIKASB=y
 # CONFIG_LEDS_PCA9532 is not set
 CONFIG_LEDS_GPIO=y
 CONFIG_LEDS_GPIO_PLATFORM=y
@@ -2130,6 +2128,7 @@ CONFIG_LEDS_TRIGGER_IDE_DISK=y
 # CONFIG_LEDS_TRIGGER_BACKLIGHT is not set
 CONFIG_LEDS_TRIGGER_GPIO=y
 CONFIG_LEDS_TRIGGER_DEFAULT_ON=y
+CONFIG_LEDS_TRIGGER_INPUT=y
 
 #
 # iptables trigger is under Netfilter config (LED target)

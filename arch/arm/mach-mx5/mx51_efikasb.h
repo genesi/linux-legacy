@@ -108,6 +108,7 @@ extern void __init mx51_efikamx_init_soc(void);
 extern void __init mx51_efikamx_init_mmc(void);
 extern void __init mx51_efikamx_init_audio(void);
 extern void __init mx51_efikamx_init_pata(void);
+extern void __init mx51_efikasb_init_leds(void);
 
 extern int __init mx51_efikasb_init_mc13892(void);
 
