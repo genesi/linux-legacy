@@ -52,26 +52,10 @@
 
 #include "mx51_efikamx.h"
 
-#if defined(CONFIG_MX51_GIGAHERTZ)
-static int num_cpu_wp = 3;
-#else
 static int num_cpu_wp = 2;
-#endif
 
 /* working point(wp): 0 - 800MHz; 1 - 166.25MHz; */
 static struct cpu_wp cpu_wp_auto[] = {
-#if defined(CONFIG_MX51_GIGAHERTZ) /* no such thing as a production 1GHz iMX515 CPU */
-	{
-	 .pll_rate = 1000000000,
-	 .cpu_rate = 1000000000,
-	 .pdf = 0,
-	 .mfi = 10,
-	 .mfd = 11,
-	 .mfn = 5,
-	 .cpu_podf = 0,
-	 .cpu_voltage = 1175000,
-	},
-#endif
 	{
 	 .pll_rate = 800000000,
 	 .cpu_rate = 800000000,
@@ -160,11 +144,7 @@ void __init mx51_efikamx_timer_init(void)
 {
 	/* Change the CPU voltages for TO2*/
 	if (cpu_is_mx51_rev(CHIP_REV_2_0) <= 1) {
-#if defined(CONFIG_MX51_GIGAHERTZ)
-		cpu_wp_auto[2].cpu_voltage = 1000000;
-#else
 		cpu_wp_auto[1].cpu_voltage = 1000000;
-#endif
 	}
 
 	mx51_clocks_init(32768, 24000000, 22579200, 24576000);
