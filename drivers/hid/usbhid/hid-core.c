@@ -552,12 +552,6 @@ void usbhid_submit_report(struct hid_device *hid, struct hid_report *report, uns
 }
 EXPORT_SYMBOL_GPL(usbhid_submit_report);
 
-
-#ifdef CONFIG_MACH_MX51_EFIKASB
-extern void mxc_turn_on_caps_led(int on);
-#endif
-
-
 static int usb_hidinput_input_event(struct input_dev *dev, unsigned int type, unsigned int code, int value)
 {
 	struct hid_device *hid = input_get_drvdata(dev);
@@ -588,14 +582,6 @@ static int usb_hidinput_input_event(struct input_dev *dev, unsigned int type, un
 		spin_unlock_irqrestore(&usbhid->lock, flags);
 	}
 	usbhid_submit_report(hid, field->report, USB_DIR_OUT);
-
-#ifdef CONFIG_MACH_MX51_EFIKASB
-        /* ron: Caps Lock LED */
-        if(code == 0x01) {
-	  mxc_turn_on_caps_led(value);
-        }
-#endif
-
 
 	return 0;
 }
