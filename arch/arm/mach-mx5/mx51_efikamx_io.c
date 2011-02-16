@@ -112,6 +112,7 @@ void __init mx51_efikamx_io_init(void)
 	DBG(("IOMUX for General GPIO Stuff (%u pins)\n", ARRAY_SIZE(mx51_efikamx_general_iomux_pins)));
 	CONFIG_IOMUX(mx51_efikamx_general_iomux_pins);
 
+	mx51_efikamx_init_uart();
 	mx51_efikamx_init_soc();
 
 	mx51_efikamx_init_pmic();

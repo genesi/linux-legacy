@@ -140,6 +140,7 @@
 /* here today, gone tomorrow */
 extern int mx51_efikamx_revision(void);
 
+extern void __init mx51_efikamx_init_uart(void);
 extern void __init mx51_efikamx_init_mmc(void);
 extern void __init mx51_efikamx_init_audio(void);
 extern void __init mx51_efikamx_init_pata(void);

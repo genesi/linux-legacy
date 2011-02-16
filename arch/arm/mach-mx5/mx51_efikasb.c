@@ -610,6 +610,8 @@ static void __init mx51_efikasb_board_init(void)
 	clk = clk_get(&(mxc_fb_devices[0].dev), "axi_b_clk");
 	clk_set_rate(clk, 133000000);
 
+	mx51_efikamx_init_uart();
+
 	mxc_register_device(&mxc_dma_device, NULL);
 	mxc_register_device(&mxc_wdt_device, NULL);
 	mxc_register_device(&mxcspi1_device, &mxcspi1_data);
