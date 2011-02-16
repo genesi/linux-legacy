@@ -257,14 +257,13 @@ void __init mx51_efikamx_init_mmc(void)
 			DBG(("Initializing SD card IOMUX (external, mmc0)\n"));
 			CONFIG_IOMUX(mx51_efikamx_external_sdhc1_iomux_pins);
 			CONFIG_IOMUX(mx51_efikamx_sdhc1_wpcd_pins);
+
+			gpio_request(IOMUX_TO_GPIO(EFIKAMX_SDHC1_CD), "mmc0:cd");
+			gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_SDHC1_CD));
+
+			mxcsdhc1_device.resource[2].start = IOMUX_TO_IRQ(EFIKAMX_SDHC1_CD);
+			mxcsdhc1_device.resource[2].end = IOMUX_TO_IRQ(EFIKAMX_SDHC1_CD);
 		}
-
-		gpio_request(IOMUX_TO_GPIO(EFIKAMX_SDHC1_CD), "mmc0:cd");
-		gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_SDHC1_CD));
-
-		mxcsdhc1_device.resource[2].start = IOMUX_TO_IRQ(EFIKAMX_SDHC1_CD);
-		mxcsdhc1_device.resource[2].end = IOMUX_TO_IRQ(EFIKAMX_SDHC1_CD);
-
 	} else if (machine_is_mx51_efikasb()) {
 		/*
 		 * MicroSD behind battery
