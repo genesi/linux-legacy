@@ -117,9 +117,6 @@
 #define BATT_INS_PIN           MX51_PIN_DISPB2_SER_DIO
 #define AC_ADAP_INS_PIN        MX51_PIN_DI1_D0_CS /* MX51_PIN_CSI1_D8 */
 
-#define AUD_MUTE_PIN           MX51_PIN_EIM_A23
-#define HPJACK_INS_PIN         MX51_PIN_DISPB2_SER_RS
-
 #define LID_SW_PIN             MX51_PIN_CSI1_VSYNC /* Low: close, High: open */
 
 #define POWER_BTN_PIN          MX51_PIN_EIM_DTACK
@@ -146,10 +143,9 @@
 
 #define WDOG_PIN               MX51_PIN_GPIO1_4
 
-/* #define BATT_LOW_LED_PIN       MX51_PIN_DI1_PIN13 */
+/* here today, gone tomorrow */
+extern void mx51_efikamx_init_audio(void);
 
 extern int __init mx51_efikasb_init_mc13892(void);
-
-#define MXCFB_DEFAULT_BPP	16 /* 16 because the panel is */
 
 #endif				/* __ASM_ARCH_MXC_BOARD_MX51_LANGE51_H__ */

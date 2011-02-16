@@ -22,6 +22,7 @@
 #include <mach/mxc.h>
 #include <mach/common.h>
 #include <mach/irqs.h>
+#include <asm/mach-types.h>
 
 #include "devices.h"
 #include "mx51_pins.h"
@@ -62,6 +63,9 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_audio_iomux_pins[] = {
 	{ EFIKAMX_AUDIO_CLOCK_ENABLE, IOMUX_CONFIG_GPIO, }, /* ALT4? */
 	{ EFIKAMX_AMP_ENABLE, IOMUX_CONFIG_GPIO, PAD_CTL_100K_PU, },
 	{ EFIKAMX_HP_DETECT, IOMUX_CONFIG_GPIO, PAD_CTL_100K_PU, },
+};
+
+static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_spdif_iomux_pins[] = {
 	{ EFIKAMX_SPDIF_OUT, IOMUX_CONFIG_ALT6, },
 };
 
@@ -106,8 +110,6 @@ static struct mxc_spdif_platform_data mx51_efikamx_spdif_data = {
 	.spdif_clk = NULL,	/* spdif bus clk */
 };
 
-
-
 void mx51_efikamx_init_audio(void)
 {
 	struct clk *ssi_ext1;
@@ -132,8 +134,12 @@ void mx51_efikamx_init_audio(void)
 
 	mxc_register_device(&mx51_efikamx_audio_device, &mx51_efikamx_audio_data);
 
-	mx51_efikamx_spdif_data.spdif_core_clk = clk_get(NULL, "spdif_xtal_clk");
-	clk_put(mx51_efikamx_spdif_data.spdif_core_clk);
+	if (machine_is_mx51_efikamx()) {
+		CONFIG_IOMUX(mx51_efikamx_spdif_iomux_pins);
 
-	mxc_register_device(&mxc_alsa_spdif_device, &mx51_efikamx_spdif_data);
+		mx51_efikamx_spdif_data.spdif_core_clk = clk_get(NULL, "spdif_xtal_clk");
+		clk_put(mx51_efikamx_spdif_data.spdif_core_clk);
+
+		mxc_register_device(&mxc_alsa_spdif_device, &mx51_efikamx_spdif_data);
+	}
 };

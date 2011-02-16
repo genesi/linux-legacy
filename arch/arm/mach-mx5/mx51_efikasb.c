@@ -490,31 +490,6 @@ static struct mxc_mmc_platform_data mmc2_data = {
 	.clock_mmc = "esdhc_clk",
 };
 
-static int mxc_sgtl5000_amp_enable(int enable)
-{
-	gpio_set_value(IOMUX_TO_GPIO(AUD_MUTE_PIN), enable ? 1 : 0);
-	return 0;
-}
-
-static int headphone_det_status(void)
-{
-	return gpio_get_value(IOMUX_TO_GPIO(HPJACK_INS_PIN));
-}
-
-static struct mxc_audio_platform_data sgtl5000_data = {
-	.ssi_num = 1,
-	.src_port = 2,
-	.ext_port = 3,
-	.hp_irq = IOMUX_TO_IRQ(HPJACK_INS_PIN),
-	.hp_status = headphone_det_status,
-	.amp_enable = mxc_sgtl5000_amp_enable,
-	.sysclk = 12288000,
-};
-
-static struct platform_device mxc_sgtl5000_device = {
-	.name = "imx-3stack-sgtl5000",
-};
-
 /*!
  * Board specific fixup function. It is called by \b setup_arch() in
  * setup.c file very early on during kernel starts. It allows the user to
@@ -684,8 +659,7 @@ static struct fsl_ata_platform_data ata_data = {
 
 static void __init mxc_board_init(void)
 {
-	struct clk *clk, *ssi_ext1;
-	int rate;
+	struct clk *clk;
 
 	/* SD card detect irqs */
 	mxcsdhc2_device.resource[2].start = IOMUX_TO_IRQ(SDHC2_CD_PIN);
@@ -726,10 +700,10 @@ static void __init mxc_board_init(void)
 	mxc_register_device(&mxc_dvfs_per_device, &dvfs_per_data);
 	mxc_register_device(&mxc_iim_device, NULL);
 	mxc_register_device(&mxc_pwm1_device, NULL);
-	mxc_register_device(&mxc_ssi1_device, NULL);
-	mxc_register_device(&mxc_ssi2_device, NULL);
 
 	mxc_register_device(&pata_fsl_device, &ata_data);
+
+	mx51_efikamx_init_audio();
 
 	mxc_init_fb();
 	mxc_register_device(&mxc_pwm_backlight_device, &mxc_pwm_backlight_data);
@@ -744,14 +718,7 @@ static void __init mxc_board_init(void)
 
 	pm_power_off = mxc_power_off;
 
-	ssi_ext1 = clk_get(NULL, "ssi_ext1_clk");
-	rate = clk_round_rate(ssi_ext1, 24000000);
-	clk_set_rate(ssi_ext1, rate);
-	clk_enable(ssi_ext1);
-	sgtl5000_data.sysclk = rate;
-
-	gpio_direction_output(IOMUX_TO_GPIO(AUD_MUTE_PIN), 0);
-	mxc_register_device(&mxc_sgtl5000_device, &sgtl5000_data);
+	mx51_efikamx_init_audio();
 
 	mx5_usb_dr_init();
 	mx5_usbh1_init();

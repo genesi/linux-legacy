@@ -120,9 +120,6 @@ static struct mxc_iomux_pin_cfg __initdata mxc_iomux_pins[] = {
 	{                       /* ron: GPIO2_16 WLAN Power On */
 	 MX51_PIN_EIM_A22, IOMUX_CONFIG_GPIO,
         },
-	{                       /* ron: GPIO2_17 Audio AMP mute */
-	 MX51_PIN_EIM_A23, IOMUX_CONFIG_GPIO,
-        },
 	/* USBH2_CLK */
 	{
 	 MX51_PIN_EIM_A24, IOMUX_CONFIG_ALT2,
@@ -141,7 +138,7 @@ static struct mxc_iomux_pin_cfg __initdata mxc_iomux_pins[] = {
 	 (PAD_CTL_SRE_FAST | PAD_CTL_DRV_HIGH | PAD_CTL_100K_PU |
 	  PAD_CTL_PUE_KEEPER | PAD_CTL_PKE_ENABLE | PAD_CTL_HYS_ENABLE),
         },
-	/* USBH2_NXT */          
+	/* USBH2_NXT */
 	{
 	  MX51_PIN_EIM_A27, IOMUX_CONFIG_ALT2,
 	  (PAD_CTL_SRE_FAST | PAD_CTL_DRV_HIGH | PAD_CTL_100K_PU |
@@ -162,10 +159,10 @@ static struct mxc_iomux_pin_cfg __initdata mxc_iomux_pins[] = {
 	 MX51_PIN_I2C1_CLK, IOMUX_CONFIG_ALT0 | IOMUX_CONFIG_SION,
 	 0x1E4,
         },
-	{                     
+	{
 	 MX51_PIN_I2C1_DAT, IOMUX_CONFIG_ALT0 | IOMUX_CONFIG_SION,
 	 0x1E4,
-        },                     
+        },
 	{                       /* USBH1_STP */
 	 MX51_PIN_USBH1_STP, IOMUX_CONFIG_ALT0,
 	 (PAD_CTL_SRE_FAST | PAD_CTL_DRV_HIGH | PAD_CTL_PUE_KEEPER |
@@ -356,30 +353,6 @@ static struct mxc_iomux_pin_cfg __initdata mxc_iomux_pins[] = {
 	 (PAD_CTL_HYS_NONE | PAD_CTL_PKE_ENABLE | PAD_CTL_PUE_KEEPER |
 	  PAD_CTL_DRV_HIGH | PAD_CTL_SRE_FAST),
         },
-	{                       /* ron: AUD3 */
-	 MX51_PIN_AUD3_BB_TXD, IOMUX_CONFIG_ALT0,
-	 (PAD_CTL_SRE_FAST | PAD_CTL_DRV_HIGH | PAD_CTL_ODE_OPENDRAIN_NONE |
-	  PAD_CTL_100K_PU | PAD_CTL_HYS_NONE | PAD_CTL_DDR_INPUT_CMOS |
-	  PAD_CTL_DRV_VOT_LOW),
-        },
-	{
-	 MX51_PIN_AUD3_BB_RXD, IOMUX_CONFIG_ALT0,
-	 (PAD_CTL_SRE_FAST | PAD_CTL_DRV_HIGH | PAD_CTL_ODE_OPENDRAIN_NONE |
-	  PAD_CTL_100K_PU | PAD_CTL_HYS_NONE | PAD_CTL_DDR_INPUT_CMOS |
-	  PAD_CTL_DRV_VOT_LOW),
-        },
-	{
-	 MX51_PIN_AUD3_BB_CK, IOMUX_CONFIG_ALT0,
-	 (PAD_CTL_SRE_FAST | PAD_CTL_DRV_HIGH | PAD_CTL_ODE_OPENDRAIN_NONE |
-	  PAD_CTL_100K_PU | PAD_CTL_HYS_NONE | PAD_CTL_DDR_INPUT_CMOS |
-	  PAD_CTL_DRV_VOT_LOW),
-        },
-	{
-	 MX51_PIN_AUD3_BB_FS, IOMUX_CONFIG_ALT0,
-	 (PAD_CTL_SRE_FAST | PAD_CTL_DRV_HIGH | PAD_CTL_ODE_OPENDRAIN_NONE |
-	  PAD_CTL_100K_PU | PAD_CTL_HYS_NONE | PAD_CTL_DDR_INPUT_CMOS |
-	  PAD_CTL_DRV_VOT_LOW),
-        },
 	{			/* ron: eCSPI1 */
 	 MX51_PIN_CSPI1_MISO, IOMUX_CONFIG_ALT0,
 	 (PAD_CTL_HYS_ENABLE | PAD_CTL_PKE_ENABLE | PAD_CTL_DRV_HIGH |
@@ -402,20 +375,20 @@ static struct mxc_iomux_pin_cfg __initdata mxc_iomux_pins[] = {
         },
 	{
 	 MX51_PIN_CSPI1_SS0, IOMUX_CONFIG_ALT0,
-         (PAD_CTL_HYS_ENABLE | PAD_CTL_PKE_ENABLE | PAD_CTL_DRV_HIGH | 
+         (PAD_CTL_HYS_ENABLE | PAD_CTL_PKE_ENABLE | PAD_CTL_DRV_HIGH |
           PAD_CTL_SRE_FAST ),
         },
 	{
 	 MX51_PIN_CSPI1_SS1, IOMUX_CONFIG_ALT0,
-         (PAD_CTL_HYS_ENABLE | PAD_CTL_PKE_ENABLE | PAD_CTL_DRV_HIGH | 
+         (PAD_CTL_HYS_ENABLE | PAD_CTL_PKE_ENABLE | PAD_CTL_DRV_HIGH |
           PAD_CTL_SRE_FAST ),
         },
         {                       /* ron: GPIO3_0 Battery Low */
-         MX51_PIN_DI1_PIN11, IOMUX_CONFIG_ALT4, 
-        },        
+         MX51_PIN_DI1_PIN11, IOMUX_CONFIG_ALT4,
+        },
         {                       /* ron: GPIO3_1 Wireless SW */
-         MX51_PIN_DI1_PIN12, IOMUX_CONFIG_ALT4, 
-        },        
+         MX51_PIN_DI1_PIN12, IOMUX_CONFIG_ALT4,
+        },
         {                       /* ron: GPIO3_2 Watchdog ? GPIO conflict with EIM_CRE*/
          MX51_PIN_DI1_PIN13, IOMUX_CONFIG_ALT4,
         },
@@ -425,7 +398,6 @@ static struct mxc_iomux_pin_cfg __initdata mxc_iomux_pins[] = {
         {                       /* ron: GPIO4_15 Power Good */
          MX51_PIN_CSI2_PIXCLK, IOMUX_CONFIG_ALT3,
         },
-        
 };
 
 static struct mxc_iomux_pin_cfg __initdata ata_iomux_pins[] = {
@@ -611,7 +583,7 @@ void __init mx51_efikasb_io_init(void)
 	/* ron: PMIC interrupt*/
 	gpio_request(IOMUX_TO_GPIO(PMIC_INT_PIN), "pmic_int");
 	gpio_direction_input(IOMUX_TO_GPIO(PMIC_INT_PIN));
-	
+
         /* ron: SDHC CD & WP */
         mxc_request_iomux(SDHC1_CD_PIN, IOMUX_CONFIG_GPIO | IOMUX_CONFIG_SION);
 	gpio_request(IOMUX_TO_GPIO(SDHC1_CD_PIN), "sdhc1_cd");
@@ -646,13 +618,6 @@ void __init mx51_efikasb_io_init(void)
 			  PAD_CTL_DRV_HIGH | PAD_CTL_100K_PU |
 			  PAD_CTL_HYS_ENABLE);
 
-	/* hphone_det_b */
-	mxc_request_iomux(HPJACK_INS_PIN, IOMUX_CONFIG_ALT4);
-	mxc_iomux_set_pad(HPJACK_INS_PIN, PAD_CTL_100K_PU);
-	gpio_request(IOMUX_TO_GPIO(HPJACK_INS_PIN), "hpjack_ins");
-	gpio_direction_input(IOMUX_TO_GPIO(HPJACK_INS_PIN));
-
-	/* audio_clk_en_b */
 	mxc_request_iomux(MX51_PIN_CSPI1_RDY, IOMUX_CONFIG_ALT3);
 	mxc_iomux_set_pad(MX51_PIN_CSPI1_RDY, PAD_CTL_DRV_HIGH |
 			  PAD_CTL_HYS_NONE | PAD_CTL_PUE_KEEPER |
@@ -692,7 +657,7 @@ void __init mx51_efikasb_io_init(void)
 			  PAD_CTL_PKE_ENABLE |
 			  PAD_CTL_DRV_LOW |
 			  PAD_CTL_SRE_FAST);
-			  
+
 	mxc_request_iomux(LVDS_RESET_PIN, IOMUX_CONFIG_GPIO);
         mxc_request_iomux(LVDS_PWRCTL_PIN, IOMUX_CONFIG_GPIO);
 	mxc_request_iomux(LCD_PWRON_PIN, IOMUX_CONFIG_GPIO); /* ron: LCD Power On */
@@ -727,7 +692,7 @@ void __init mx51_efikasb_io_init(void)
         __raw_writel(0x01, IO_ADDRESS(IOMUXC_BASE_ADDR) + 0x980);
 	gpio_request(IOMUX_TO_GPIO(AC_ADAP_INS_PIN), "ac_adap_ins");
 	gpio_direction_input(IOMUX_TO_GPIO(AC_ADAP_INS_PIN));
-        
+
 	/* ron: for R12 borad gpio */
 	/* Memory ID pin */
 	mxc_request_iomux(MEM_ID0_PIN, IOMUX_CONFIG_GPIO);
@@ -736,13 +701,13 @@ void __init mx51_efikasb_io_init(void)
 	mxc_request_iomux(MEM_ID1_PIN, IOMUX_CONFIG_GPIO);
 	gpio_request(IOMUX_TO_GPIO(MEM_ID1_PIN), "mem_id");
 	gpio_direction_input(IOMUX_TO_GPIO(MEM_ID1_PIN));
-        
+
 	/* SIM CD pin */
 	mxc_request_iomux(SIM_CD_PIN, IOMUX_CONFIG_GPIO | IOMUX_CONFIG_SION);
         mxc_iomux_set_pad(SIM_CD_PIN, PAD_CTL_PKE_NONE);
 	gpio_request(IOMUX_TO_GPIO(SIM_CD_PIN), "sim_cd");
 	gpio_direction_input(IOMUX_TO_GPIO(SIM_CD_PIN));
-	
+
 	/* WWAN Wakeup event pin */
 	mxc_request_iomux(WWAN_WAKEUP_PIN, IOMUX_CONFIG_GPIO);
 	gpio_request(IOMUX_TO_GPIO(WWAN_WAKEUP_PIN), "wwan_wakeup");
@@ -755,7 +720,7 @@ void __init mx51_efikasb_io_init(void)
         mxc_request_iomux(AGPS_PWRSW_PIN, IOMUX_CONFIG_GPIO);
         gpio_request(IOMUX_TO_GPIO(AGPS_PWRSW_PIN), "agps_pwrsw");
         gpio_direction_output(IOMUX_TO_GPIO(AGPS_PWRSW_PIN), 0);
-                     
+
 	mxc_request_iomux(AGPS_RESET_PIN, IOMUX_CONFIG_GPIO);
 	gpio_request(IOMUX_TO_GPIO(AGPS_RESET_PIN), "agps_reset");
         gpio_direction_output(IOMUX_TO_GPIO(AGPS_RESET_PIN), 0);
@@ -764,7 +729,7 @@ void __init mx51_efikasb_io_init(void)
 
         /* Watchdog */
         mxc_request_iomux(WDOG_PIN, IOMUX_CONFIG_ALT2);
- 
+
         /* PCB ID */
         mxc_request_iomux(PCB_ID0_PIN, IOMUX_CONFIG_GPIO);
         mxc_request_iomux(PCB_ID1_PIN, IOMUX_CONFIG_GPIO);
@@ -773,13 +738,6 @@ void __init mx51_efikasb_io_init(void)
         gpio_direction_input(IOMUX_TO_GPIO(PCB_ID0_PIN));
         gpio_direction_input(IOMUX_TO_GPIO(PCB_ID1_PIN));
 
-        /* microSD CD */
-
-        /* Battery Low LED */
-/*         mxc_request_iomux(BATT_LOW_LED_PIN, IOMUX_CONFIG_GPIO); */
-/*         gpio_request(IOMUX_TO_GPIO(BATT_LOW_LED_PIN), "batt_low_led"); */
-/*         gpio_direction_output(IOMUX_TO_GPIO(BATT_LOW_LED_PIN), 0); */
-      
 }
 
 void mxc_turn_on_caps_led(int on)
@@ -871,7 +829,6 @@ void mxc_power_on_wwan(int on)
 		gpio_set_value(IOMUX_TO_GPIO(WWAN_PWRON_PIN), 1);
 
 	pwr_sw_status.wwan_pwr_status = on;
-	
 }
 EXPORT_SYMBOL(mxc_power_on_wwan);
 
@@ -891,13 +848,12 @@ EXPORT_SYMBOL(mxc_power_on_bt);
 void mxc_power_on_camera(int on)
 {
 	gpio_direction_output(IOMUX_TO_GPIO(CAM_PWRON_PIN), 0);
-	if(on) 
+	if(on)
 		gpio_set_value(IOMUX_TO_GPIO(CAM_PWRON_PIN), 0); /* low active */
 	else
 		gpio_set_value(IOMUX_TO_GPIO(CAM_PWRON_PIN), 1);
-	
+
 	pwr_sw_status.camera_pwr_status = on;
-	
 }
 EXPORT_SYMBOL(mxc_power_on_camera);
 
@@ -908,11 +864,9 @@ void mxc_power_on_agps(int on)
                 gpio_set_value(IOMUX_TO_GPIO(AGPS_RESET_PIN), 1);
                 msleep(1);
 		gpio_set_value(IOMUX_TO_GPIO(AGPS_PWRON_PIN), 1);
-                
 	} else {
                 gpio_set_value(IOMUX_TO_GPIO(AGPS_PWRON_PIN), 0);
                 gpio_set_value(IOMUX_TO_GPIO(AGPS_PWRSW_PIN), 1);
-                
         }
 	pwr_sw_status.agps_pwr_status = on;
 
@@ -994,7 +948,7 @@ int mxc_get_memory_id(void)
 
 	id = gpio_get_value(IOMUX_TO_GPIO(MEM_ID0_PIN));
         id |= gpio_get_value(IOMUX_TO_GPIO(MEM_ID1_PIN)) << 1;
-        
+
         return id;
 }
 EXPORT_SYMBOL(mxc_get_memory_id);
