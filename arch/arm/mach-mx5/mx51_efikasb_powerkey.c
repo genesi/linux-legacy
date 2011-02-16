@@ -16,8 +16,6 @@ extern void mxc_power_on_wlan(int on);
 extern void mxc_power_on_wwan(int on);
 extern void mxc_power_on_bt(int on);
 extern void mxc_power_on_camera(int on);
-extern void mxc_power_on_agps(int on);
-extern void mxc_reset_agps(void);
 
 extern int suspend_device_by_name(char *dev_name, pm_message_t state);
 extern int resume_device_by_name(char *dev_name, pm_message_t state);
@@ -29,7 +27,7 @@ static DECLARE_DELAYED_WORK(suspend_usbh2_work, suspend_usbh2_wq_handler);
 
 #define BIT_BT_PWRON       1
 #define BIT_WWAN_PWRON     2
-#define BIT_CAM_PWRON      3 
+#define BIT_CAM_PWRON      3
 
 extern int wireless_sw_state;
 
@@ -54,7 +52,7 @@ static void suspend_usbh2_wq_handler(struct work_struct *work)
 static ssize_t wlan_pwr_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
 	int val;
-	
+
 	val = mxc_get_power_status(WLAN_PWRON_PIN);
 	return sprintf(buf, "%s\n", val ? "on" : "off");
 }
@@ -79,7 +77,7 @@ static ssize_t wlan_pwr_store(struct kobject *kobj, struct kobj_attribute *attr,
 static ssize_t wwan_pwr_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
 	int val;
-	
+
 	val = mxc_get_power_status(WWAN_PWRON_PIN);
 	return sprintf(buf, "%s\n", val ? "on" : "off");
 }
@@ -126,7 +124,7 @@ static ssize_t wwan_pwr_store(struct kobject *kobj, struct kobj_attribute *attr,
 static ssize_t bt_pwr_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
 	int val;
-	
+
 	val = mxc_get_power_status(BT_PWRON_PIN);
 	return sprintf(buf, "%s\n", val ? "on" : "off");
 }
@@ -173,7 +171,7 @@ static ssize_t bt_pwr_store(struct kobject *kobj, struct kobj_attribute *attr,
 static ssize_t camera_pwr_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
 	int val;
-	
+
 	val = mxc_get_power_status(CAM_PWRON_PIN);
 	return sprintf(buf, "%s\n", val ? "on" : "off");
 }
@@ -217,33 +215,6 @@ static ssize_t camera_pwr_store(struct kobject *kobj, struct kobj_attribute *att
 	return count;
 }
 
-static ssize_t agps_pwr_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
-{
-	int val;
-	
-	val = mxc_get_power_status(AGPS_PWRON_PIN);
-	return sprintf(buf, "%s\n", val ? "on" : "off");
-}
-
-static ssize_t agps_pwr_store(struct kobject *kobj, struct kobj_attribute *attr,
-			      const char *buf, size_t count)
-{
-	int val;
-
-	if (strncmp(buf, "on", 2) == 0)
-		val = 1;
-	else if (strncmp(buf, "off", 3) == 0)
-		val = 0;
-	else
-		return -EINVAL;
-
-	mxc_power_on_agps(val);
-	if (val == 1)
-		mxc_reset_agps();
-
-	return count;
-}
-
 #define DISABLE_POWER_DOWN        0
 #define PRECHARGE_POWER_DOWN      1
 #define ACTIVE_POWER_DOWN_64      2
@@ -268,7 +239,7 @@ static ssize_t ddr2_pd_show(struct kobject *kobj, struct kobj_attribute *attr, c
 
 	value = __raw_readl(IO_ADDRESS(ESDCTL_BASE_ADDR + 0x08));
 	value = (value & 0x3000) >> 12;
-	
+
 	return sprintf(buf, "%d\n", value);
 }
 static ssize_t ddr2_pd_store(struct kobject *kobj, struct kobj_attribute *attr,
@@ -276,7 +247,7 @@ static ssize_t ddr2_pd_store(struct kobject *kobj, struct kobj_attribute *attr,
 {
 	char *end;
 	int arg;
-	
+
 	arg = simple_strtoul(buf, &end, 10);
 	if (arg >= 4 || arg < 0) {
 		return -EINVAL;
@@ -295,8 +266,6 @@ static struct kobj_attribute bt_pwr_attribute =
 	__ATTR(bt_power, 0666, bt_pwr_show, bt_pwr_store);
 static struct kobj_attribute camera_pwr_attribute =
 	__ATTR(camera_power, 0666, camera_pwr_show, camera_pwr_store);
-static struct kobj_attribute agps_pwr_attribute =
-	__ATTR(agps_power, 0666, agps_pwr_show, agps_pwr_store);
 static struct kobj_attribute ddr2_pd_attribute =
 	__ATTR(ddr2_pd, 0666, ddr2_pd_show, ddr2_pd_store);
 
@@ -305,7 +274,6 @@ static struct attribute *pwr_attrs[] = {
 	&wwan_pwr_attribute.attr,
 	&bt_pwr_attribute.attr,
 	&camera_pwr_attribute.attr,
-	&agps_pwr_attribute.attr,
 	&ddr2_pd_attribute.attr,
 	NULL,
 };
@@ -345,7 +313,7 @@ static int __init mxc_init_pwr_sw(void)
 		kobject_put(pwr_sw_kobj);
 		return retval;
 	}
-	
+
 	return 0;
 }
 

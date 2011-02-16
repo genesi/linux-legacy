@@ -41,9 +41,7 @@ void mxc_power_on_wlan(int);
 void mxc_power_on_wwan(int);
 void mxc_power_on_bt(int);
 void mxc_power_on_camera(int);
-void mxc_power_on_agps(int);
 void mxc_reset_wlan(void);
-void mxc_reset_agps(void);
 void mxc_reset_usb_hub(void);
 void mxc_reset_usb_phy(void);
 
@@ -327,19 +325,6 @@ static struct mxc_iomux_pin_cfg __initdata mxc_iomux_pins[] = {
 	 MX51_PIN_UART1_CTS, IOMUX_CONFIG_ALT0,
 	 (PAD_CTL_HYS_ENABLE | PAD_CTL_PKE_ENABLE | PAD_CTL_PUE_PULL |
 	  PAD_CTL_DRV_HIGH),
-        },
-	/* ron: UART 2 for AGPS */
-	{
-	 MX51_PIN_UART2_RXD, IOMUX_CONFIG_ALT0,
-	 (PAD_CTL_HYS_NONE | PAD_CTL_PKE_ENABLE | PAD_CTL_PUE_PULL |
-	  PAD_CTL_DRV_HIGH | PAD_CTL_SRE_FAST),
-	 MUX_IN_UART2_IPP_UART_RXD_MUX_SELECT_INPUT,
-	 INPUT_CTL_PATH2,
-        },
-	{
-	 MX51_PIN_UART2_TXD, IOMUX_CONFIG_ALT0,
-	 (PAD_CTL_HYS_NONE | PAD_CTL_PKE_ENABLE | PAD_CTL_PUE_PULL |
-	  PAD_CTL_DRV_HIGH | PAD_CTL_SRE_FAST),
         },
 	{
 	 MX51_PIN_EIM_D26, IOMUX_CONFIG_ALT4,
@@ -713,20 +698,6 @@ void __init mx51_efikasb_io_init(void)
 	gpio_request(IOMUX_TO_GPIO(WWAN_WAKEUP_PIN), "wwan_wakeup");
 	gpio_direction_input(IOMUX_TO_GPIO(WWAN_WAKEUP_PIN));
 
-	/* AGPS Power & Reset */
-	mxc_request_iomux(AGPS_PWRON_PIN, IOMUX_CONFIG_GPIO);
-	gpio_request(IOMUX_TO_GPIO(AGPS_PWRON_PIN), "agps_pwron");
-	gpio_direction_output(IOMUX_TO_GPIO(AGPS_PWRON_PIN), 0);
-        mxc_request_iomux(AGPS_PWRSW_PIN, IOMUX_CONFIG_GPIO);
-        gpio_request(IOMUX_TO_GPIO(AGPS_PWRSW_PIN), "agps_pwrsw");
-        gpio_direction_output(IOMUX_TO_GPIO(AGPS_PWRSW_PIN), 0);
-
-	mxc_request_iomux(AGPS_RESET_PIN, IOMUX_CONFIG_GPIO);
-	gpio_request(IOMUX_TO_GPIO(AGPS_RESET_PIN), "agps_reset");
-        gpio_direction_output(IOMUX_TO_GPIO(AGPS_RESET_PIN), 0);
-	mxc_power_on_agps(1);
-/* 	mxc_reset_agps(); */
-
         /* Watchdog */
         mxc_request_iomux(WDOG_PIN, IOMUX_CONFIG_ALT2);
 
@@ -777,7 +748,6 @@ struct mxc_power_switch_status {
 	int wwan_pwr_status;
 	int bt_pwr_status;
 	int camera_pwr_status;
-	int agps_pwr_status;
 };
 
 static struct mxc_power_switch_status pwr_sw_status = {
@@ -785,7 +755,6 @@ static struct mxc_power_switch_status pwr_sw_status = {
 	.wwan_pwr_status = 0,
 	.bt_pwr_status = 0,
 	.camera_pwr_status = 0,
-	.agps_pwr_status = 0,
 };
 
 int mxc_get_power_status(iomux_pin_name_t pin)
@@ -799,8 +768,6 @@ int mxc_get_power_status(iomux_pin_name_t pin)
 		return pwr_sw_status.bt_pwr_status;
 	case CAM_PWRON_PIN:
 		return pwr_sw_status.camera_pwr_status;
-	case AGPS_PWRON_PIN:
-		return pwr_sw_status.agps_pwr_status;
 	default:
 		return -EINVAL;
 	}
@@ -857,22 +824,6 @@ void mxc_power_on_camera(int on)
 }
 EXPORT_SYMBOL(mxc_power_on_camera);
 
-void mxc_power_on_agps(int on)
-{
-	if(on) {
-                gpio_set_value(IOMUX_TO_GPIO(AGPS_PWRSW_PIN), 0); /* active low */
-                gpio_set_value(IOMUX_TO_GPIO(AGPS_RESET_PIN), 1);
-                msleep(1);
-		gpio_set_value(IOMUX_TO_GPIO(AGPS_PWRON_PIN), 1);
-	} else {
-                gpio_set_value(IOMUX_TO_GPIO(AGPS_PWRON_PIN), 0);
-                gpio_set_value(IOMUX_TO_GPIO(AGPS_PWRSW_PIN), 1);
-        }
-	pwr_sw_status.agps_pwr_status = on;
-
-}
-EXPORT_SYMBOL(mxc_power_on_agps);
-
 void mxc_reset_wlan(void)
 {
 	gpio_direction_output(IOMUX_TO_GPIO(WLAN_RESET_PIN), 1);
@@ -902,17 +853,6 @@ void mxc_reset_usb_phy(void)
 
 }
 EXPORT_SYMBOL(mxc_reset_usb_phy);
-
-void mxc_reset_agps(void)
-{
-	gpio_direction_output(IOMUX_TO_GPIO(AGPS_RESET_PIN), 1);
-	msleep(1);
-	gpio_set_value(IOMUX_TO_GPIO(AGPS_RESET_PIN), 0);
-	msleep(1);
-	gpio_set_value(IOMUX_TO_GPIO(AGPS_RESET_PIN), 1);
-
-}
-EXPORT_SYMBOL(mxc_reset_agps);
 
 int mxc_get_battery_insertion_status(void)
 {
