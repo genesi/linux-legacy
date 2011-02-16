@@ -245,7 +245,6 @@ static struct mxc_lcd_platform_data lvds_data = {
         .analog_reg = "VAUDIO",
         .reset = mxc_reset_lvds,
 	.power_on_lcd = mxc_power_on_lcd,
-	.turn_on_backlight = mxc_turn_on_lcd_backlight,
         .power_on_lvds = mxc_power_on_lvds,
         .lvds_enable = mxc_lvds_enable,
 };
