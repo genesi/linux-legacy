@@ -17,9 +17,6 @@
 #include <linux/leds.h>
 #include "leds.h"
 
-#define BLANK		1
-#define UNBLANK		0
-
 struct bl_trig_notifier {
 	struct led_classdev *led;
 	int brightness;
@@ -27,25 +24,47 @@ struct bl_trig_notifier {
 	struct notifier_block notifier;
 };
 
+static void bl_blank(struct bl_trig_notifier *n, int type)
+{
+	struct led_classdev *led = n->led;
+
+	switch (type) {
+		case FB_BLANK_UNBLANK:
+			if (n->old_status != FB_BLANK_UNBLANK) {
+				led_set_brightness(led, n->brightness);
+				n->old_status = type;
+			}
+		break;
+		case FB_BLANK_NORMAL:
+		case FB_BLANK_POWERDOWN:
+		case FB_BLANK_VSYNC_SUSPEND:
+		case FB_BLANK_HSYNC_SUSPEND:
+			if (n->old_status == FB_BLANK_UNBLANK) {
+				n->brightness = led->brightness;
+				led_set_brightness(led, LED_OFF);
+				n->old_status = type;
+			}
+		break;
+	}
+}
+
 static int fb_notifier_callback(struct notifier_block *p,
 				unsigned long event, void *data)
 {
 	struct bl_trig_notifier *n = container_of(p,
 					struct bl_trig_notifier, notifier);
-	struct led_classdev *led = n->led;
 	struct fb_event *fb_event = data;
 	int *blank = fb_event->data;
 
 	switch (event) {
-	case FB_EVENT_BLANK :
-		if (*blank && n->old_status == UNBLANK) {
-			n->brightness = led->brightness;
-			led_set_brightness(led, LED_OFF);
-			n->old_status = BLANK;
-		} else if (!*blank && n->old_status == BLANK) {
-			led_set_brightness(led, n->brightness);
-			n->old_status = UNBLANK;
-		}
+	case FB_EVENT_BLANK:
+		bl_blank(n, *blank);
+		break;
+	case FB_EVENT_FB_REGISTERED:
+		bl_blank(n, FB_BLANK_UNBLANK);
+		break;
+	case FB_EVENT_FB_UNREGISTERED:
+		bl_blank(n, FB_BLANK_NORMAL);
 		break;
 	}
 
@@ -67,7 +86,7 @@ static void bl_trig_activate(struct led_classdev *led)
 
 	n->led = led;
 	n->brightness = led->brightness;
-	n->old_status = UNBLANK;
+	n->old_status = FB_BLANK_UNBLANK;
 	n->notifier.notifier_call = fb_notifier_callback;
 
 	ret = fb_register_client(&n->notifier);
