@@ -147,14 +147,6 @@ static struct mxc_iomux_pin_cfg __initdata mxc_iomux_pins[] = {
 	{
 	 MX51_PIN_DI_GP4, IOMUX_CONFIG_ALT4,
         },
-	{                       /* ron: I2C1 */
-	 MX51_PIN_I2C1_CLK, IOMUX_CONFIG_ALT0 | IOMUX_CONFIG_SION,
-	 0x1E4,
-        },
-	{
-	 MX51_PIN_I2C1_DAT, IOMUX_CONFIG_ALT0 | IOMUX_CONFIG_SION,
-	 0x1E4,
-        },
 	{                       /* USBH1_STP */
 	 MX51_PIN_USBH1_STP, IOMUX_CONFIG_ALT0,
 	 (PAD_CTL_SRE_FAST | PAD_CTL_DRV_HIGH | PAD_CTL_PUE_KEEPER |
@@ -264,14 +256,6 @@ void __init mx51_efikasb_io_init(void)
 					    mxc_iomux_pins[i].in_mode);
 	}
 
-	/* ron: USB Hub Reset*/
-/* 	mxc_request_iomux(HUB_RESET_PIN, IOMUX_CONFIG_ALT0); */
-/* 	mxc_iomux_set_pad(HUB_RESET_PIN, PAD_CTL_DRV_HIGH | */
-/* 			  PAD_CTL_PKE_ENABLE | PAD_CTL_SRE_FAST); */
-/* 	gpio_request(IOMUX_TO_GPIO(HUB_RESET_PIN), "hub_reset"); */
-/* 	gpio_direction_output(IOMUX_TO_GPIO(HUB_RESET_PIN), 0); */
-/* 	mxc_reset_usb_hub(); */
-
 	/* ron: USB Phy Reset */
 	mxc_request_iomux(USB_PHY_RESET_PIN, IOMUX_CONFIG_ALT1);
 	mxc_iomux_set_pad(USB_PHY_RESET_PIN, PAD_CTL_DRV_HIGH |
@@ -284,28 +268,6 @@ void __init mx51_efikasb_io_init(void)
 	/* ron: PMIC interrupt*/
 	gpio_request(IOMUX_TO_GPIO(PMIC_INT_PIN), "pmic_int");
 	gpio_direction_input(IOMUX_TO_GPIO(PMIC_INT_PIN));
-
-	/* i2c2 SDA */
-	mxc_request_iomux(MX51_PIN_KEY_COL5,
-			  IOMUX_CONFIG_ALT3 | IOMUX_CONFIG_SION);
-	mxc_iomux_set_input(MUX_IN_I2C2_IPP_SDA_IN_SELECT_INPUT,
-			    INPUT_CTL_PATH1);
-	mxc_iomux_set_pad(MX51_PIN_KEY_COL5,
-			  PAD_CTL_SRE_FAST |
-			  PAD_CTL_ODE_OPENDRAIN_ENABLE |
-			  PAD_CTL_DRV_HIGH | PAD_CTL_100K_PU |
-			  PAD_CTL_HYS_ENABLE);
-
-	/* i2c2 SCL */
-	mxc_request_iomux(MX51_PIN_KEY_COL4,
-			  IOMUX_CONFIG_ALT3 | IOMUX_CONFIG_SION);
-	mxc_iomux_set_input(MUX_IN_I2C2_IPP_SCL_IN_SELECT_INPUT,
-			    INPUT_CTL_PATH1);
-	mxc_iomux_set_pad(MX51_PIN_KEY_COL4,
-			  PAD_CTL_SRE_FAST |
-			  PAD_CTL_ODE_OPENDRAIN_ENABLE |
-			  PAD_CTL_DRV_HIGH | PAD_CTL_100K_PU |
-			  PAD_CTL_HYS_ENABLE);
 
         /* Lid Switch */
 	mxc_request_iomux(LID_SW_PIN, IOMUX_CONFIG_GPIO /* | IOMUX_CONFIG_SION */);
@@ -323,26 +285,6 @@ void __init mx51_efikasb_io_init(void)
         /* Camera */
 	mxc_request_iomux(CAM_PWRON_PIN, IOMUX_CONFIG_GPIO);
 	mxc_power_on_camera(1);
-
-	/* LVDS & LCD Panel */
-	mxc_iomux_set_pad(MX51_PIN_DI2_DISP_CLK, /* ron: set driver strength to low to avoid EMI */
-			  PAD_CTL_PKE_ENABLE |
-			  PAD_CTL_DRV_LOW |
-			  PAD_CTL_SRE_FAST);
-
-	mxc_request_iomux(LVDS_RESET_PIN, IOMUX_CONFIG_GPIO);
-        mxc_request_iomux(LVDS_PWRCTL_PIN, IOMUX_CONFIG_GPIO);
-	mxc_request_iomux(LCD_PWRON_PIN, IOMUX_CONFIG_GPIO); /* ron: LCD Power On */
-	gpio_request(IOMUX_TO_GPIO(LVDS_RESET_PIN), "lvds_reset");
-        gpio_request(IOMUX_TO_GPIO(LVDS_PWRCTL_PIN), "lvds_pwrctl");
-	gpio_request(IOMUX_TO_GPIO(LCD_PWRON_PIN), "lcd_pwron");
-        gpio_direction_output(IOMUX_TO_GPIO(LVDS_RESET_PIN), 0);
-        gpio_direction_output(IOMUX_TO_GPIO(LVDS_PWRCTL_PIN), 0);
-        gpio_direction_output(IOMUX_TO_GPIO(LCD_PWRON_PIN), 0);
-
-        mxc_request_iomux(LCD_LVDS_EN_PIN, IOMUX_CONFIG_GPIO);
-        gpio_request(IOMUX_TO_GPIO(LCD_LVDS_EN_PIN), "lcd_en");
-        gpio_direction_output(IOMUX_TO_GPIO(LCD_LVDS_EN_PIN), 0);
 
 	/* Battery & AC Adapter Insertion */
 	mxc_request_iomux(BATT_INS_PIN, IOMUX_CONFIG_GPIO);

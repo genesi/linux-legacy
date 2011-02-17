@@ -26,6 +26,7 @@
 #include <linux/i2c.h>
 #include <linux/ipu.h>
 #include <linux/mxcfb.h>
+#include <linux/i2c/siihdmi.h>
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <asm/setup.h>
@@ -39,6 +40,22 @@
 
 #include "mx51_efikamx.h"
 
+
+
+extern void mx5_ipu_reset(void);
+static struct mxc_ipu_config mxc_ipu_data = {
+	.rev = 2,
+	.reset = mx5_ipu_reset,
+};
+
+extern void mx5_vpu_reset(void);
+static struct mxc_vpu_platform_data mxc_vpu_data = {
+	.reset = mx5_vpu_reset,
+};
+
+
+
+
 #define EFIKAMX_DISPLAY_RESET	MX51_PIN_DISPB2_SER_DIN
 #define EFIKAMX_HDMI_EN		MX51_PIN_DI1_D1_CS	/* active low */
 #define EFIKAMX_VGA_EN		MX51_PIN_DISPB2_SER_CLK /* active low */
@@ -49,16 +66,6 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_display_iomux_pins[] = {
 	{EFIKAMX_HDMI_EN, IOMUX_CONFIG_GPIO, },
 	{EFIKAMX_HDMI_IRQ, IOMUX_CONFIG_GPIO, },
 	{EFIKAMX_VGA_EN, IOMUX_CONFIG_GPIO, },
-};
-
-#define EFIKASB_LVDS_RESET	MX51_PIN_DISPB2_SER_DIN
-#define EFIKASB_LVDS_POR	MX51_PIN_DISPB2_SER_CLK /* active low */
-#define EFIKASB_NODISPLAY_EN	MX51_PIN_DI1_D1_CS	/* active low */
-
-static struct mxc_iomux_pin_cfg __initdata mx51_efikasb_display_iomux_pins[] = {
-	{EFIKASB_LVDS_RESET, IOMUX_CONFIG_GPIO, },
-	{EFIKASB_LVDS_POR, IOMUX_CONFIG_GPIO, },
-	{EFIKASB_NODISPLAY_EN, IOMUX_CONFIG_GPIO, },
 };
 
 void mx51_efikamx_display_reset(void)
@@ -78,20 +85,110 @@ void mx51_efikamx_display_reset(void)
 }
 
 
+
+
+#define EFIKASB_LCD_POWER	MX51_PIN_CSI1_D9
+#define EFIKASB_LVDS_RESET	MX51_PIN_DISPB2_SER_DIN
+#define EFIKASB_LVDS_POR	MX51_PIN_DISPB2_SER_CLK /* active low */
+#define EFIKASB_LVDS_EN		MX51_PIN_CSI1_D8
+#define EFIKASB_NODISPLAY_EN	MX51_PIN_DI1_D1_CS	/* active low */
+
+static struct mxc_iomux_pin_cfg __initdata mx51_efikasb_display_iomux_pins[] = {
+	{EFIKASB_LCD_POWER, IOMUX_CONFIG_GPIO, },
+	{EFIKASB_LVDS_RESET, IOMUX_CONFIG_GPIO, },
+	{EFIKASB_LVDS_POR, IOMUX_CONFIG_GPIO, },
+	{EFIKASB_NODISPLAY_EN, IOMUX_CONFIG_GPIO, },
+
+        {MX51_PIN_DI2_DISP_CLK, IOMUX_CONFIG_ALT0, /* drive strength low to avoid EMI */
+		(PAD_CTL_PKE_ENABLE | PAD_CTL_DRV_LOW | PAD_CTL_SRE_FAST)
+	},
+};
+
+static void mx51_efikasb_lcd_power(int state)
+{
+	gpio_set_value(IOMUX_TO_GPIO(EFIKASB_LCD_POWER), state);
+}
+
+static void mx51_efikasb_lvds_power(int state)
+{
+	gpio_set_value(IOMUX_TO_GPIO(EFIKASB_LVDS_POR), state);
+}
+
+static void mx51_efikasb_lvds_enable(int state)
+{
+	gpio_set_value(IOMUX_TO_GPIO(EFIKASB_LVDS_EN), state);
+}
+
+static void mx51_efikasb_lvds_reset(void)
+{
+        gpio_set_value(IOMUX_TO_GPIO(EFIKASB_LVDS_RESET), 0);
+        msleep(50);
+        gpio_set_value(IOMUX_TO_GPIO(EFIKASB_LVDS_RESET), 1);
+        msleep(10);
+        gpio_set_value(IOMUX_TO_GPIO(EFIKASB_LVDS_RESET), 0);
+
+}
+
+
+
+
+static struct siihdmi_platform_data mx51_efikamx_sii9022_data = {
+	.reset       = mx51_efikamx_display_reset,
+
+	.vendor      = "Genesi",
+	.description = "Efika MX",
+
+	.framebuffer = "DISP3 BG",
+
+	.hotplug     = {
+		.start = IOMUX_TO_IRQ(MX51_PIN_DISPB2_SER_DIO),
+		.end   = IOMUX_TO_IRQ(MX51_PIN_DISPB2_SER_DIO),
+		.name  = "video-hotplug",
+		.flags = IORESOURCE_IRQ | IORESOURCE_IRQ_LOWEDGE,
+	},
+
+	.pixclock    = KHZ2PICOS(133000L),
+};
+
+static struct mxc_lcd_platform_data mx51_efikasb_mtl017_data = {
+	.core_reg = "VCAM",
+	.io_reg = "VGEN3",
+	.analog_reg = "VAUDIO",
+	.lcd_power = mx51_efikasb_lcd_power,
+	.lvds_power = mx51_efikasb_lvds_power,
+	.lvds_enable = mx51_efikasb_lvds_enable,
+	.reset = mx51_efikasb_lvds_reset,
+};
+
+#define EFIKAMX_HDMI_DISPLAY_ID	0
+#define EFIKASB_LVDS_DISPLAY_ID	1
+
+
+static struct i2c_board_info mx51_efikamx_i2c_display[] __initdata = {
+	[EFIKAMX_HDMI_DISPLAY_ID] = {
+	.type = "sii9022",
+	.addr = 0x39,
+	.platform_data = &mx51_efikamx_sii9022_data,
+	},
+	[EFIKASB_LVDS_DISPLAY_ID] = {
+	.type = "mtl017",
+	.addr = 0x3a,
+	.platform_data = &mx51_efikasb_mtl017_data,
+	},
+};
+
+
 static struct resource mxcfb_resources[] = {
 	[0] = {
 		.flags = IORESOURCE_MEM,
 		},
 };
 
-#define EFIKAMX_HDMI_DISPLAY_ID	0
-#define EFIKASB_LVDS_DISPLAY_ID	1
-
-static struct mxc_fb_platform_data mxcfb_data[] = {
+static struct mxc_fb_platform_data mx51_efikamx_display_data[] = {
 	[EFIKAMX_HDMI_DISPLAY_ID] = {
 		.interface_pix_fmt = IPU_PIX_FMT_RGB24,
 	},
-	[EFIKASB_LVDS_DISPLAY_ID] = { /* Smartbook LVDS (MTL017) */
+	[EFIKASB_LVDS_DISPLAY_ID] = {
 		.interface_pix_fmt = IPU_PIX_FMT_RGB565,
 	},
 };
@@ -101,20 +198,15 @@ static char *mxcfb_clocks[] = {
 	[EFIKASB_LVDS_DISPLAY_ID] = "ipu_di1_clk",
 };
 
-extern void mx5_ipu_reset(void);
-static struct mxc_ipu_config mxc_ipu_data = {
-	.rev = 2,
-	.reset = mx5_ipu_reset,
-};
 
-extern void mx5_vpu_reset(void);
-static struct mxc_vpu_platform_data mxc_vpu_data = {
-	.reset = mx5_vpu_reset,
-};
+
 
 void __init mx51_efikamx_init_display(void)
 {
 	int display_id = 0;
+
+	/* what is this in aid of? */
+	clk_set_rate(clk_get(&(mxc_fb_devices[0].dev), "axi_b_clk"), 133000000);
 
 	if (machine_is_mx51_efikamx()) {
 		CONFIG_IOMUX(mx51_efikamx_display_iomux_pins);
@@ -158,6 +250,10 @@ void __init mx51_efikamx_init_display(void)
 		gpio_request(IOMUX_TO_GPIO(EFIKASB_LVDS_RESET), "lvds:reset");
 		gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_LVDS_RESET), 0);
 
+		gpio_free(IOMUX_TO_GPIO(EFIKASB_LCD_POWER));
+		gpio_request(IOMUX_TO_GPIO(EFIKASB_LCD_POWER), "lcd:power");
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_LCD_POWER), 1);
+
 		display_id = EFIKASB_LVDS_DISPLAY_ID;
 	}
 
@@ -173,11 +269,12 @@ void __init mx51_efikamx_init_display(void)
 	mxc_ipu_data.di_clk[display_id] = clk_get(NULL, mxcfb_clocks[display_id]);
 	mxc_fb_devices[display_id].num_resources = ARRAY_SIZE(mxcfb_resources);
 	mxc_fb_devices[display_id].resource = mxcfb_resources;
-	mxc_register_device(&mxc_fb_devices[display_id], &mxcfb_data[display_id]);
+	mxc_register_device(&mxc_fb_devices[display_id], &mx51_efikamx_display_data[display_id]);
+
+	i2c_register_board_info(1, &mx51_efikamx_i2c_display[display_id], 1);
 
 	/* video overlay */
 	mxc_register_device(&mxc_fb_devices[2], NULL);
-
 }
 
 void __init mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_mem)

@@ -53,13 +53,6 @@
 #define BT_PWRON_PIN           MX51_PIN_EIM_A17
 #define WWAN_PWRON_PIN         MX51_PIN_CSI2_D13
 
-#define LCD_LVDS_EN_PIN        MX51_PIN_CSI1_D8
-#define LCD_PWRON_PIN          MX51_PIN_CSI1_D9
-#define LCD_BL_PWM_PIN         MX51_PIN_GPIO1_2
-#define LCD_BL_PWRON_PIN       MX51_PIN_CSI2_D19
-#define LVDS_RESET_PIN         MX51_PIN_DISPB2_SER_DIN
-#define LVDS_PWRCTL_PIN        MX51_PIN_DISPB2_SER_CLK
-
 #define CAM_PWRON_PIN          MX51_PIN_NANDF_CS0
 
 #define BATT_LOW_PIN           MX51_PIN_DI1_PIN11
@@ -71,10 +64,6 @@
 #define POWER_BTN_PIN          MX51_PIN_EIM_DTACK
 #define SYS_PWROFF_PIN         MX51_PIN_CSI2_VSYNC
 #define SYS_PWRGD_PIN          MX51_PIN_CSI2_PIXCLK
-
-/* ron: Efikasb LED Pin Definition */
-#define CAPS_LED_PIN           MX51_PIN_EIM_CS0
-#define ALARM_LED_PIN          MX51_PIN_GPIO1_3
 
 /* ron: R1.2 borad GPIO definition */
 #define MEM_ID0_PIN            MX51_PIN_EIM_LBA /* MX51_PIN_GPIO1_4 */
@@ -111,6 +100,10 @@ extern void __init mx51_efikamx_init_pata(void);
 extern void __init mx51_efikasb_init_leds(void);
 extern void __init mx51_efikamx_init_spi(void);
 extern void __init mx51_efikamx_init_nor(void);
+extern void __init mx51_efikamx_init_display(void);
+extern void __init mx51_efikamx_init_i2c(void);
 extern int  __init mx51_efikasb_init_pmic(void);
+
+extern void mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_mem);
 
 #endif

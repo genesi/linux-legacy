@@ -677,6 +677,15 @@ struct input_absinfo {
 #define SW_LINEOUT_INSERT	0x06  /* set = inserted */
 #define SW_JACK_PHYSICAL_INSERT 0x07  /* set = mechanical switch set */
 #define SW_VIDEOOUT_INSERT	0x08  /* set = inserted */
+
+/*
+ * Battery and Power insertion events
+ */
+
+#define SW_AC_INSERT		SW_DOCK /* set = inserted */
+#define SW_BATTERY_INSERT	0x09  /* set = inserted */
+#define SW_BATTERY_LOW		0x0a  /* set = battery is low */
+
 #define SW_MAX			0x0f
 #define SW_CNT			(SW_MAX+1)
 

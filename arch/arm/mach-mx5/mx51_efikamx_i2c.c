@@ -24,7 +24,6 @@
 #include <mach/irqs.h>
 
 #include <linux/fb.h>
-#include <linux/i2c/siihdmi.h>
 
 #include "devices.h"
 #include "mx51_pins.h"

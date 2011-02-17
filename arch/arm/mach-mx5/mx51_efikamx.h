@@ -68,7 +68,6 @@ extern void mx51_efikamx_power_off(void);
 extern int mx51_efikamx_reboot(void);
 extern void mx51_efikamx_power_off(void);
 
-extern int mxc_init_fb(void);
 extern void mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_mem);
 #define DBG(x) { printk(KERN_INFO "Efika MX: "); printk x ; }
 
