@@ -307,15 +307,6 @@ void __init mx51_efikasb_io_init(void)
 			  PAD_CTL_DRV_HIGH | PAD_CTL_100K_PU |
 			  PAD_CTL_HYS_ENABLE);
 
-	mxc_request_iomux(MX51_PIN_CSPI1_RDY, IOMUX_CONFIG_ALT3);
-	mxc_iomux_set_pad(MX51_PIN_CSPI1_RDY, PAD_CTL_DRV_HIGH |
-			  PAD_CTL_HYS_NONE | PAD_CTL_PUE_KEEPER |
-			  PAD_CTL_100K_PU | PAD_CTL_ODE_OPENDRAIN_NONE |
-			  PAD_CTL_PKE_ENABLE | PAD_CTL_SRE_FAST);
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_CSPI1_RDY), "cspi1_rdy");
-	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_CSPI1_RDY), 0);
-	gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_CSPI1_RDY), 0);
-
         /* Lid Switch */
 	mxc_request_iomux(LID_SW_PIN, IOMUX_CONFIG_GPIO /* | IOMUX_CONFIG_SION */);
 	gpio_request(IOMUX_TO_GPIO(LID_SW_PIN), "lid_sw");
@@ -582,84 +573,3 @@ int mxc_get_pcb_id(void)
         return id;
 }
 EXPORT_SYMBOL(mxc_get_pcb_id);
-
-/* workaround for ecspi chipselect pin may not keep correct level when idle */
-void mx51_efikasb_gpio_spi_chipselect_active(int cspi_mode, int status,
-					    int chipselect)
-{
-	switch (cspi_mode) {
-	case 1:
-		switch (chipselect) {
-		case 0x1:
-			mxc_request_iomux(MX51_PIN_CSPI1_SS0,
-					  IOMUX_CONFIG_ALT0);
-			mxc_iomux_set_pad(MX51_PIN_CSPI1_SS0,
-					  PAD_CTL_HYS_ENABLE |
-					  PAD_CTL_PKE_ENABLE |
-					  PAD_CTL_DRV_HIGH | PAD_CTL_SRE_FAST);
-			mxc_request_iomux(MX51_PIN_CSPI1_SS1,
-					  IOMUX_CONFIG_GPIO);
-			gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_CSPI1_SS1), 0);
-/* 			gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_CSPI1_SS1), 2 & (~status)); */
-                        gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_CSPI1_SS1), !(status & 0x02));
-			break;
-		case 0x2:
-			mxc_request_iomux(MX51_PIN_CSPI1_SS1,
-					  IOMUX_CONFIG_ALT0);
-			mxc_iomux_set_pad(MX51_PIN_CSPI1_SS1,
-					  PAD_CTL_HYS_ENABLE |
-					  PAD_CTL_PKE_ENABLE |
-					  PAD_CTL_DRV_HIGH | PAD_CTL_SRE_FAST);
-			mxc_request_iomux(MX51_PIN_CSPI1_SS0,
-					  IOMUX_CONFIG_GPIO);
-			gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_CSPI1_SS0), 0);
-/* 			gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_CSPI1_SS0), 1 & (~status)); */
-                        gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_CSPI1_SS0), !(status & 0x01));
-			break;
-		default:
-			break;
-		}
-		break;
-	case 2:
-		break;
-	case 3:
-		break;
-	default:
-		break;
-	}
-}
-EXPORT_SYMBOL(mx51_efikasb_gpio_spi_chipselect_active);
-
-void mx51_efikasb_gpio_spi_chipselect_inactive(int cspi_mode, int status,
-					      int chipselect)
-{
-	switch (cspi_mode) {
-	case 1:
-		switch (chipselect) {
-		case 0x1:
-			mxc_free_iomux(MX51_PIN_CSPI1_SS0, IOMUX_CONFIG_ALT0);
-			mxc_free_iomux(MX51_PIN_CSPI1_SS1, IOMUX_CONFIG_GPIO);
-			mxc_request_iomux(MX51_PIN_CSPI1_SS0,
-					  IOMUX_CONFIG_GPIO);
-			mxc_free_iomux(MX51_PIN_CSPI1_SS0, IOMUX_CONFIG_GPIO);
-
-			break;
-		case 0x2:
-			mxc_free_iomux(MX51_PIN_CSPI1_SS0, IOMUX_CONFIG_GPIO);
-			mxc_free_iomux(MX51_PIN_CSPI1_SS1, IOMUX_CONFIG_ALT0);
-			break;
-		default:
-			break;
-		}
-		break;
-	case 2:
-		break;
-	case 3:
-		break;
-	default:
-		break;
-	}
-
-}
-EXPORT_SYMBOL(mx51_efikasb_gpio_spi_chipselect_inactive);
-
