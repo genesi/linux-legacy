@@ -333,19 +333,12 @@ void __init mx51_efikasb_io_init(void)
 	mxc_request_iomux(LVDS_RESET_PIN, IOMUX_CONFIG_GPIO);
         mxc_request_iomux(LVDS_PWRCTL_PIN, IOMUX_CONFIG_GPIO);
 	mxc_request_iomux(LCD_PWRON_PIN, IOMUX_CONFIG_GPIO); /* ron: LCD Power On */
-	mxc_request_iomux(LCD_BL_PWRON_PIN, IOMUX_CONFIG_GPIO); /* ron: LCD Backlight Power On */
 	gpio_request(IOMUX_TO_GPIO(LVDS_RESET_PIN), "lvds_reset");
         gpio_request(IOMUX_TO_GPIO(LVDS_PWRCTL_PIN), "lvds_pwrctl");
 	gpio_request(IOMUX_TO_GPIO(LCD_PWRON_PIN), "lcd_pwron");
-	gpio_request(IOMUX_TO_GPIO(LCD_BL_PWRON_PIN), "lcd_bl_pwron");
         gpio_direction_output(IOMUX_TO_GPIO(LVDS_RESET_PIN), 0);
         gpio_direction_output(IOMUX_TO_GPIO(LVDS_PWRCTL_PIN), 0);
         gpio_direction_output(IOMUX_TO_GPIO(LCD_PWRON_PIN), 0);
-        gpio_direction_output(IOMUX_TO_GPIO(LCD_BL_PWRON_PIN), 1); /* low active */
-
-        mxc_request_iomux(LCD_BL_PWM_PIN, IOMUX_CONFIG_GPIO);
-        gpio_request(IOMUX_TO_GPIO(LCD_BL_PWM_PIN), "lcd_bl_pwm");
-        gpio_direction_output(IOMUX_TO_GPIO(LCD_BL_PWM_PIN), 0);
 
         mxc_request_iomux(LCD_LVDS_EN_PIN, IOMUX_CONFIG_GPIO);
         gpio_request(IOMUX_TO_GPIO(LCD_LVDS_EN_PIN), "lcd_en");

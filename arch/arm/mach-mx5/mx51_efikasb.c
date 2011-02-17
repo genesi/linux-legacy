@@ -28,7 +28,6 @@
 #include <linux/pmic_status.h>
 #include <linux/ipu.h>
 #include <linux/mxcfb.h>
-#include <linux/pwm_backlight.h>
 #include <linux/pci_ids.h>
 #include <linux/suspend.h>
 #include <mach/common.h>
@@ -175,35 +174,6 @@ static void mxc_lvds_enable(int on)
                 gpio_set_value(IOMUX_TO_GPIO(LCD_LVDS_EN_PIN), 0);        /* LVDS_EN Off */
         }
 }
-
-static void mxc_turn_on_lcd_backlight(int on)
-{
-        if(on) {
-                mxc_free_iomux(LCD_BL_PWM_PIN, IOMUX_CONFIG_GPIO);
-                mxc_request_iomux(LCD_BL_PWM_PIN, IOMUX_CONFIG_ALT1);
-
-                msleep(10);
-
-                gpio_set_value(IOMUX_TO_GPIO(LCD_BL_PWRON_PIN), 0);     /* Backlight Power On */
-        } else {
-                gpio_set_value(IOMUX_TO_GPIO(LCD_BL_PWRON_PIN), 1);     /* Backlight Power Off */
-
-                msleep(10);
-
-                mxc_free_iomux(LCD_BL_PWM_PIN, IOMUX_CONFIG_ALT1);
-                mxc_request_iomux(LCD_BL_PWM_PIN, IOMUX_CONFIG_GPIO);
-                gpio_direction_output(IOMUX_TO_GPIO(LCD_BL_PWM_PIN), 0);
-        }
-}
-
-static struct platform_pwm_backlight_data mxc_pwm_backlight_data = {
-	.pwm_id = 0,
-	.max_brightness = 64,
-	.dft_brightness = 32,
-	.pwm_period_ns = 78770,
-	.power = mxc_turn_on_lcd_backlight,
-};
-
 
 static void mxc_reset_lvds(void)
 {
@@ -382,10 +352,6 @@ static void __init mx51_efikasb_fixup(struct machine_desc *desc, struct tag *tag
 
 static void mxc_power_off(void)
 {
-        mxc_turn_on_lcd_backlight(0);
-
-        msleep(200);
-
         if(lvds_en_dir == 0) {
                 mxc_lvds_enable(0);
         }
@@ -477,9 +443,6 @@ static void __init mx51_efikasb_board_init(void)
 
 	mx51_efikamx_init_mmc();
 	mx51_efikamx_init_pata();
-
-	mxc_register_device(&mxc_pwm1_device, NULL);
-	mxc_register_device(&mxc_pwm_backlight_device, &mxc_pwm_backlight_data);
 
 	mx51_efikasb_init_display();
 
