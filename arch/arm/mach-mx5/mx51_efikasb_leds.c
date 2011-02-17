@@ -78,7 +78,7 @@ void __init mx51_efikasb_init_leds(void)
 	gpio_free(IOMUX_TO_GPIO(EFIKASB_CAPSLOCK_LED));
 
 	gpio_request(IOMUX_TO_GPIO(EFIKASB_ALARM_LED), "led:alarm");
-	gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_ALARM_LED), 1);
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_ALARM_LED), 0);
 	gpio_free(IOMUX_TO_GPIO(EFIKASB_ALARM_LED));
 
 	(void)platform_device_register(&mx51_efikasb_leds_device);
