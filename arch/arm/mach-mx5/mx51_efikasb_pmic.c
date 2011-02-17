@@ -412,10 +412,9 @@ static struct spi_board_info __initdata mc13892_spi_device = {
 };
 
 
-int __init mx51_efikasb_init_mc13892(void)
+int __init mx51_efikasb_init_pmic(void)
 {
         /* ron: disable power gate */
-	printk(" [VV] mx51_efikasb_init_mc13892.\n");
 	pmic_write_reg(REG_POWER_MISC, ~(PWGT1SPIEN|PWGT2SPIEN),
                        (PWGT1SPIEN|PWGT2SPIEN));
 

@@ -11,8 +11,8 @@
  * http://www.gnu.org/copyleft/gpl.html
  */
 
-#ifndef __ASM_ARCH_MXC_BOARD_MX51_EFIKASB_H__
-#define __ASM_ARCH_MXC_BOARD_MX51_EFIKASB_H__
+#ifndef MX51_EFIKASB_H
+#define MX51_EFIKASB_H
 
 /*!
  * @defgroup BRDCFG_MX51 Board Configuration Options
@@ -109,7 +109,8 @@ extern void __init mx51_efikamx_init_mmc(void);
 extern void __init mx51_efikamx_init_audio(void);
 extern void __init mx51_efikamx_init_pata(void);
 extern void __init mx51_efikasb_init_leds(void);
+extern void __init mx51_efikamx_init_spi(void);
+extern void __init mx51_efikamx_init_nor(void);
+extern int  __init mx51_efikasb_init_pmic(void);
 
-extern int __init mx51_efikasb_init_mc13892(void);
-
-#endif				/* __ASM_ARCH_MXC_BOARD_MX51_LANGE51_H__ */
+#endif

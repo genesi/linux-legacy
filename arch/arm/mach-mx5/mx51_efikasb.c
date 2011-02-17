@@ -22,12 +22,7 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/fsl_devices.h>
-#include <linux/spi/spi.h>
 #include <linux/i2c.h>
-#include <linux/mtd/mtd.h>
-#include <linux/mtd/map.h>
-#include <linux/mtd/partitions.h>
-#include <linux/spi/flash.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pmic_external.h>
 #include <linux/pmic_status.h>
@@ -88,17 +83,6 @@ static struct mxc_ipu_config mxc_ipu_data = {
 extern void mx5_vpu_reset(void);
 static struct mxc_vpu_platform_data mxc_vpu_data = {
 	.reset = mx5_vpu_reset,
-};
-
-extern void mx51_efikasb_gpio_spi_chipselect_active(int cspi_mode, int status,
-						    int chipselect);
-extern void mx51_efikasb_gpio_spi_chipselect_inactive(int cspi_mode, int status,
-						      int chipselect);
-static struct mxc_spi_master mxcspi1_data = {
-	.maxchipselect = 4,
-	.spi_version = 23,
-	.chipselect_active = mx51_efikasb_gpio_spi_chipselect_active,
-	.chipselect_inactive = mx51_efikasb_gpio_spi_chipselect_inactive,
 };
 
 #if defined(CONFIG_I2C_MXC)
@@ -309,41 +293,6 @@ static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
 	},
 };
 
-static struct mtd_partition mxc_spi_flash_partitions[] = {
-	{
-	 .name = "u-boot",
-	 .offset = 0x0,
-	 .size = SZ_256K,
-	},
-	{
-	  .name = "config",
-	  .offset = MTDPART_OFS_APPEND,
-	  .size = SZ_64K,
-	},
-	{
-	  .name = "spare",
-	  .offset = MTDPART_OFS_APPEND,
-	  .size = MTDPART_SIZ_FULL,
-	},
-};
-
-static struct flash_platform_data mxc_spi_flash_data = {
-	.name = "mxc_spi_nor",
-	.parts = mxc_spi_flash_partitions,
-	.nr_parts = ARRAY_SIZE(mxc_spi_flash_partitions),
-	.type = "sst25vf032b",	/* also consider MXIC MX25L3205D later */
-};
-
-static struct spi_board_info mxc_spi_board_info[] __initdata = {
-	{
-	 .modalias = "m25p80",
-	 .max_speed_hz = 25000000,
-	 .bus_num = 1,
-	 .chip_select = 1,
-	 .platform_data = &mxc_spi_flash_data,
-	},
-};
-
 /*!
  * Board specific fixup function. It is called by \b setup_arch() in
  * setup.c file very early on during kernel starts. It allows the user to
@@ -514,7 +463,10 @@ static void __init mx51_efikasb_board_init(void)
 	mx51_efikamx_init_uart();
 	mx51_efikamx_init_soc();
 
-	mxc_register_device(&mxcspi1_device, &mxcspi1_data);
+	mx51_efikasb_init_pmic();
+	mx51_efikamx_init_nor();
+	mx51_efikamx_init_spi();
+
 #if defined(CONFIG_I2C_MXC) || defined(CONFIG_I2C_MXC_MODULE)
 	mxc_register_device(&mxci2c_devices[1], &mx51_efikasb_i2c2_data);
 #elif defined(CONFIG_I2C_IMX) || defined(CONFIG_I2C_IMX_MODULE)
@@ -532,11 +484,6 @@ static void __init mx51_efikasb_board_init(void)
 	mx51_efikasb_init_display();
 
 	mx51_efikasb_init_leds();
-
-	mx51_efikasb_init_mc13892();
-
-	spi_register_board_info(mxc_spi_board_info,
-				ARRAY_SIZE(mxc_spi_board_info));
 
 	i2c_register_board_info(1, mxc_i2c1_board_info,
 				ARRAY_SIZE(mxc_i2c1_board_info));
