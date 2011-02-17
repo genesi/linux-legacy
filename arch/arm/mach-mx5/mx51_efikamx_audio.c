@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
+#include <linux/i2c.h>
 #include <mach/hardware.h>
 #include <mach/gpio.h>
 #include <mach/mxc.h>
@@ -101,6 +102,11 @@ static struct platform_device mx51_efikamx_audio_device = {
 	.name = "imx-3stack-sgtl5000",
 };
 
+static struct i2c_board_info mx51_efikamx_i2c_audio __initdata = {
+	.type = "sgtl5000-i2c",
+	.addr = 0x0a,
+};
+
 static struct mxc_spdif_platform_data mx51_efikamx_spdif_data = {
 	.spdif_tx = 1,
 	.spdif_rx = 0,
@@ -119,10 +125,8 @@ void mx51_efikamx_init_audio(void)
 
 	/* turn the SGTL5000 off to start */
 	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_AUDIO_CLOCK_ENABLE), 1);
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_AMP_ENABLE), 0);
 	gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_HP_DETECT));
-
-	mxc_register_device(&mxc_ssi1_device, NULL);
-	mxc_register_device(&mxc_ssi2_device, NULL);
 
 	ssi_ext1 = clk_get(NULL, "ssi_ext1_clk");
 	rate = clk_round_rate(ssi_ext1, 24000000);
@@ -130,7 +134,8 @@ void mx51_efikamx_init_audio(void)
 	clk_enable(ssi_ext1);
 	mx51_efikamx_audio_data.sysclk = rate;
 
-	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_AMP_ENABLE), 0);
+	mxc_register_device(&mxc_ssi1_device, NULL);
+	mxc_register_device(&mxc_ssi2_device, NULL);
 
 	mxc_register_device(&mx51_efikamx_audio_device, &mx51_efikamx_audio_data);
 
@@ -142,4 +147,6 @@ void mx51_efikamx_init_audio(void)
 
 		mxc_register_device(&mxc_alsa_spdif_device, &mx51_efikamx_spdif_data);
 	}
+
+	i2c_register_board_info(1, &mx51_efikamx_i2c_audio, 1);
 };
