@@ -55,10 +55,6 @@
 
 #define CAM_PWRON_PIN          MX51_PIN_NANDF_CS0
 
-#define BATT_LOW_PIN           MX51_PIN_DI1_PIN11
-#define BATT_INS_PIN           MX51_PIN_DISPB2_SER_DIO
-#define AC_ADAP_INS_PIN        MX51_PIN_DI1_D0_CS /* MX51_PIN_CSI1_D8 */
-
 #define LID_SW_PIN             MX51_PIN_CSI1_VSYNC /* Low: close, High: open */
 
 #define POWER_BTN_PIN          MX51_PIN_EIM_DTACK
@@ -102,8 +98,24 @@ extern void __init mx51_efikamx_init_spi(void);
 extern void __init mx51_efikamx_init_nor(void);
 extern void __init mx51_efikamx_init_display(void);
 extern void __init mx51_efikamx_init_i2c(void);
+extern void __init mx51_efikasb_init_battery(void);
 extern int  __init mx51_efikasb_init_pmic(void);
 
 extern void mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_mem);
+
+// DBG(("iomux [%u] %u,%u,%u,%u,%u\n", i, pins[i].pin, pins[i].mux_mode, pins[i].pad_cfg, pins[i].in_select, pins[i].in_mode));
+
+#define CONFIG_IOMUX(pins) \
+{\
+	int i = 0; \
+	for (i = 0; i < ARRAY_SIZE(pins); i++) { \
+		mxc_request_iomux(pins[i].pin, pins[i].mux_mode); \
+		if (pins[i].pad_cfg) \
+			mxc_iomux_set_pad(pins[i].pin, pins[i].pad_cfg); \
+		if (pins[i].in_select) \
+			mxc_iomux_set_input(pins[i].in_select, pins[i].in_mode); \
+	} \
+}
+
 
 #endif

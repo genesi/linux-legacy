@@ -50,8 +50,7 @@ extern void mx51_efikamx_set_num_cpu_wp(int num);
 /* hmm? */
 extern void mx51_efikamx_power_off(void);
 
-
-// DBG(("iomux [%u] %u,%u,%u,%u,%u\n", i, pins[i].pin, pins[i].mux_mode, pins[i].pad_cfg, pins[i].in_select, pins[i].in_mode)); 
+// DBG(("iomux [%u] %u,%u,%u,%u,%u\n", i, pins[i].pin, pins[i].mux_mode, pins[i].pad_cfg, pins[i].in_select, pins[i].in_mode));
 
 #define CONFIG_IOMUX(pins) \
 {\

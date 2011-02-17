@@ -49,8 +49,6 @@
 #include "usb.h"
 #include <mach/clock.h>
 
-#include <linux/sbs.h>
-
 /*!
  * @file mach-mx51/mx51_efikasb.c
  *
@@ -59,10 +57,6 @@
  * @ingroup MSL_MX51
  */
 extern void __init mx51_efikasb_io_init(void);
-
-extern int mxc_get_battery_insertion_status(void);
-extern int mxc_get_ac_adapter_insertion_status(void);
-extern int mxc_get_batt_low_status(void);
 
 extern int mxc_get_memory_id(void);
 extern unsigned int mxc_get_pcb_id(void);
@@ -229,6 +223,7 @@ static void __init mx51_efikasb_board_init(void)
 	pm_power_off = mxc_power_off;
 
 	mx51_efikamx_init_audio();
+	mx51_efikasb_init_battery();
 
 	mx5_usb_dr_init();
 	mx5_usbh1_init();

@@ -286,20 +286,6 @@ void __init mx51_efikasb_io_init(void)
 	mxc_request_iomux(CAM_PWRON_PIN, IOMUX_CONFIG_GPIO);
 	mxc_power_on_camera(1);
 
-	/* Battery & AC Adapter Insertion */
-	mxc_request_iomux(BATT_INS_PIN, IOMUX_CONFIG_GPIO);
-	gpio_request(IOMUX_TO_GPIO(BATT_INS_PIN), "batt_ins");
-	gpio_direction_input(IOMUX_TO_GPIO(BATT_INS_PIN));
-        mxc_request_iomux(BATT_LOW_PIN, IOMUX_CONFIG_GPIO | IOMUX_CONFIG_SION);
-        gpio_request(IOMUX_TO_GPIO(BATT_LOW_PIN), "batt_low");
-        gpio_direction_input(IOMUX_TO_GPIO(BATT_LOW_PIN));
-
-	mxc_request_iomux(AC_ADAP_INS_PIN, IOMUX_CONFIG_GPIO | IOMUX_CONFIG_SION);
-        /* ron: IOMUXC_GPIO3_IPP_IND_G_IN_3_SELECT_INPUT: 1: Selecting Pad DI1_D0_CS for Mode:ALT4 */
-        __raw_writel(0x01, IO_ADDRESS(IOMUXC_BASE_ADDR) + 0x980);
-	gpio_request(IOMUX_TO_GPIO(AC_ADAP_INS_PIN), "ac_adap_ins");
-	gpio_direction_input(IOMUX_TO_GPIO(AC_ADAP_INS_PIN));
-
 	/* ron: for R12 borad gpio */
 	/* Memory ID pin */
 	mxc_request_iomux(MEM_ID0_PIN, IOMUX_CONFIG_GPIO);
@@ -443,24 +429,6 @@ void mxc_reset_usb_phy(void)
 
 }
 EXPORT_SYMBOL(mxc_reset_usb_phy);
-
-int mxc_get_battery_insertion_status(void)
-{
-	return !gpio_get_value(IOMUX_TO_GPIO(BATT_INS_PIN));
-}
-EXPORT_SYMBOL(mxc_get_battery_insertion_status);
-
-int mxc_get_batt_low_status(void)
-{
-        return !gpio_get_value(IOMUX_TO_GPIO(BATT_LOW_PIN));
-}
-EXPORT_SYMBOL(mxc_get_batt_low_status);
-
-int mxc_get_ac_adapter_insertion_status(void)
-{
-	return !gpio_get_value(IOMUX_TO_GPIO(AC_ADAP_INS_PIN));
-}
-EXPORT_SYMBOL(mxc_get_ac_adapter_insertion_status);
 
 int mxc_get_sim_card_status(void)
 {
