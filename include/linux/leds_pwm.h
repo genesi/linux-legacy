@@ -10,6 +10,7 @@ struct led_pwm {
 	unsigned	pwm_id;
 	u8 		active_low;
 	unsigned 	max_brightness;
+	unsigned	default_brightness;
 	unsigned	pwm_period_ns;
 };
 

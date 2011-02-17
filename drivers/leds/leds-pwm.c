@@ -80,7 +80,7 @@ static int led_pwm_probe(struct platform_device *pdev)
 		led_dat->max_brightness = cur_led->max_brightness;
 		led_dat->period = cur_led->pwm_period_ns;
 		led_dat->cdev.brightness_set = led_pwm_set;
-		led_dat->cdev.brightness = LED_OFF;
+		led_dat->cdev.brightness = cur_led->default_brightness;
 		led_dat->cdev.flags |= LED_CORE_SUSPENDRESUME;
 
 		ret = led_classdev_register(&pdev->dev, &led_dat->cdev);
