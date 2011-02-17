@@ -336,8 +336,8 @@ struct mxc_lcd_platform_data {
 	char *analog_reg;
 
 	/* Efika MX Additions */
-        void (*power_on_lcd) (int);
-        void (*power_on_lvds) (int);
+        void (*lcd_power) (int);
+        void (*lvds_power) (int);
         void (*lvds_enable) (int);
 	void (*reset) (void);
 

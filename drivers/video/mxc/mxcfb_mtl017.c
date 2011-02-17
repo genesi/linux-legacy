@@ -57,8 +57,8 @@ typedef struct mtl017_dev_data_tag {
         struct semaphore sem;
 
 	void (*reset)(void);
-	void (*power_on_lcd) (int);
-        void (*power_on_lvds) (int);
+	void (*lcd_power) (int);
+        void (*lvds_power) (int);
         void (*lvds_enable) (int);
 } mtl017_dev_data;
 
@@ -685,14 +685,10 @@ static int __devinit mtl017_probe(struct i2c_client *client, const struct i2c_de
 	mtl017->suspending = 0;
 	mtl017->client = client;
 	if(plat) {
-		mtl017->reset =
-				plat->reset;
-		mtl017->power_on_lcd =
-				plat->power_on_lcd;
-                mtl017->power_on_lvds =
-				plat->power_on_lvds;
-                mtl017->lvds_enable =
-				plat->lvds_enable;
+		mtl017->reset = plat->reset;
+		mtl017->lcd_power = plat->lcd_power;
+                mtl017->lvds_power = plat->lvds_power;
+                mtl017->lvds_enable = plat->lvds_enable;
 	}
 
 /*         mtl017->lock = SPIN_LOCK_UNLOCKED; */
@@ -778,8 +774,8 @@ static void disp_power_on(void)
         if (down_interruptible(&mtl017->sem))
 		return;
 
-	if(mtl017->power_on_lcd) {
-		mtl017->power_on_lcd(1);
+	if(mtl017->lcd_power) {
+		mtl017->lcd_power(1);
 		msleep(10);
 	}
 
@@ -788,8 +784,8 @@ static void disp_power_on(void)
 		msleep(5);
 	}
 
-	if(mtl017->power_on_lvds) {
-		mtl017->power_on_lvds(1);
+	if(mtl017->lvds_power) {
+		mtl017->lvds_power(1);
 		msleep(5);
 	}
 
@@ -815,13 +811,13 @@ static void disp_power_off(void)
 		mtl017->lvds_enable(0);
 	}
 
-	if(mtl017->power_on_lvds) {
-		mtl017->power_on_lvds(0);
+	if(mtl017->lvds_power) {
+		mtl017->lvds_power(0);
 		msleep(5);
 	}
 
-        if(mtl017->power_on_lcd) {
-		mtl017->power_on_lcd(0);
+        if(mtl017->lcd_power) {
+		mtl017->lcd_power(0);
 	}
 
 	mtl017->disp_on = 0;
