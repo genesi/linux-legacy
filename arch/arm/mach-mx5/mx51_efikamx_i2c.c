@@ -57,39 +57,6 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_i2c_iomux_pins[] = {
 	},
 };
 
-/* FYI VGA core_reg was VCAM, does that mean we can power the regulator off ? */
-extern void mx51_efikamx_display_reset(void);
-
-static struct siihdmi_platform_data mx51_efikamx_sii9022_data = {
-	.reset       = mx51_efikamx_display_reset,
-
-	.vendor      = "Genesi",
-	.description = "Efika MX",
-
-	.framebuffer = "DISP3 BG",
-
-	.hotplug     = {
-		.start = IOMUX_TO_IRQ(MX51_PIN_DISPB2_SER_DIO),
-		.end   = IOMUX_TO_IRQ(MX51_PIN_DISPB2_SER_DIO),
-		.name  = "video-hotplug",
-		.flags = IORESOURCE_IRQ | IORESOURCE_IRQ_LOWEDGE,
-	},
-
-	.pixclock    = KHZ2PICOS(133000L),
-};
-
-static struct i2c_board_info mx51_efikamx_i2c_board_info[] __initdata = {
-	{
-	 .type = "sgtl5000-i2c",
-	 .addr = 0x0a,
-	 },
-	{
-	 .type = "sii9022",
-	 .addr = 0x39,
-	 .platform_data = &mx51_efikamx_sii9022_data,
-	 },
-};
-
 
 #if defined(CONFIG_I2C_MXC)
 static struct mxc_i2c_platform_data mx51_efikamx_i2c2_data = {
@@ -127,8 +94,6 @@ static struct platform_device imxi2c2_device = {
 
 void __init mx51_efikamx_init_i2c(void)
 {
-	DBG(("IOMUX for I2C (%d pins)", ARRAY_SIZE(mx51_efikamx_i2c_iomux_pins)));
-
 	CONFIG_IOMUX(mx51_efikamx_i2c_iomux_pins);
 
 #if defined(CONFIG_I2C_MXC)
@@ -139,6 +104,4 @@ void __init mx51_efikamx_init_i2c(void)
 	#error Please pick at least one of CONFIG_I2C_MXC or CONFIG_I2C_IMX
 #endif
 
-	i2c_register_board_info(1, mx51_efikamx_i2c_board_info,
-					ARRAY_SIZE(mx51_efikamx_i2c_board_info));
 };
