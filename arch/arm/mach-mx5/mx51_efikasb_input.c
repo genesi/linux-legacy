@@ -22,9 +22,6 @@
 
 int wireless_sw_state;
 
-extern int mxc_get_battery_insertion_status(void);
-extern int mxc_get_batt_low_status(void);
-extern int mxc_get_ac_adapter_insertion_status(void);
 extern int mxc_get_wireless_sw_status(void);
 extern int mxc_get_sim_card_status(void);
 
@@ -40,10 +37,6 @@ extern void kernel_power_off(void);
 static struct input_dev *efikasb_inputdev;
 static int system_is_resuming = 0;
 
-#ifdef CONFIG_EFIKASB_EXPERIMENTAL_OS
-static void power_off_worker(struct work_struct *work);
-static DECLARE_DELAYED_WORK(power_off_work, power_off_worker);
-#endif
 
 /*!
  * Power Key interrupt handler.
@@ -141,17 +134,17 @@ static irqreturn_t wireless_sw_int(int irq, void *dev_id)
 
 	if (wireless_sw_state) {
 		pr_info("Wireless SW Off\n");
-		set_irq_type(irq, IRQF_TRIGGER_FALLING); 
+		set_irq_type(irq, IRQF_TRIGGER_FALLING);
 		input_report_switch(efikasb_inputdev, SW_RFKILL_ALL, 0);
 		input_sync(efikasb_inputdev);
 		// power off WLAN, WWAN and BT by H/W
 	} else {
 		pr_info("Wireless SW On\n");
-		set_irq_type(irq, IRQF_TRIGGER_RISING); 
+		set_irq_type(irq, IRQF_TRIGGER_RISING);
 		input_report_switch(efikasb_inputdev, SW_RFKILL_ALL, 1);
 		input_sync(efikasb_inputdev);
 	}
-	
+
 	return IRQ_HANDLED;
 }
 
@@ -195,9 +188,9 @@ static irqreturn_t sim_detect_int(int irq, void *dev_id)
 static int mxc_init_sim_detect(void)
 {
 	int irq, ret;
-	
+
 	irq = IOMUX_TO_IRQ(SIM_CD_PIN);
-	
+
 	if(mxc_get_sim_card_status()) /* ron: low active */
 		set_irq_type(irq, IRQF_TRIGGER_RISING);
 	else
@@ -209,128 +202,6 @@ static int mxc_init_sim_detect(void)
 
 	return ret;
 }
-/* late_initcall(mxc_init_sim_detect); */
-
-#ifdef CONFIG_EFIKASB_EXPERIMENTAL_OS
-static irqreturn_t efikasb_battery_detect_handler(int irq, void *data)
-{
-        int batt_in;
-	
-	batt_in = mxc_get_battery_insertion_status();
-	printk("efikasb_battery: Battery %s\n",
-	       batt_in ? "Inserted" : "Removed");
-
-	input_report_switch(efikasb_inputdev, SW_BATT_IN, batt_in);
-        input_sync(efikasb_inputdev);
-
-	if (batt_in)
-		set_irq_type(irq, IRQ_TYPE_EDGE_RISING);
-	else
-		set_irq_type(irq, IRQ_TYPE_EDGE_FALLING);
-
-	return IRQ_HANDLED;
-}
-
-
-static irqreturn_t efikasb_ac_charger_detect_handler(int irq, void *data)
-{
-        int ac_in;
-	
-	ac_in = mxc_get_ac_adapter_insertion_status();
-	printk("efikasb_ac_charger: AC %s\n",
-	       ac_in ? "Inserted" : "Removed");
-        
-        input_report_switch(efikasb_inputdev, SW_AC_INSERT, ac_in);
-        input_sync(efikasb_inputdev);
-
-	if (ac_in)
-		set_irq_type(irq, IRQ_TYPE_EDGE_RISING);
-	else
-		set_irq_type(irq, IRQ_TYPE_EDGE_FALLING);
-
-	return IRQ_HANDLED;
-}
-
-static void power_off_worker(struct work_struct *work)
-{
-        if(!mxc_get_ac_adapter_insertion_status() && 
-           mxc_get_batt_low_status()) {
-                sys_sync();
-                kernel_power_off();
-        }
-}
-
-static irqreturn_t efikasb_batt_low_handler(int irq, void *data)
-{
-        int batt_low;
-        
-        batt_low = mxc_get_batt_low_status();
-        printk("efikasb_batter: Battery %s\n",
-               batt_low ? "Low" : "Normal");
-
-        input_event(efikasb_inputdev, EV_PWR, KEY_BATTERY, batt_low);
-        input_sync(efikasb_inputdev);
-
-        if (batt_low) {
-                set_irq_type(irq, IRQ_TYPE_LEVEL_HIGH/* IRQ_TYPE_EDGE_RISING */);
-                printk("Battery critical low, shutdown now....\n");
-                schedule_delayed_work(&power_off_work, msecs_to_jiffies(1000));
-        } else {
-                set_irq_type(irq, IRQ_TYPE_LEVEL_LOW/* IRQ_TYPE_EDGE_FALLING */);
-        }
-
-        return IRQ_HANDLED;
-}
-
-static int mxc_init_battery(void)
-{
-        int ret; 
-        int batt_low;
-        int batt_in, ac_in;
-        batt_in = mxc_get_battery_insertion_status();
-	if(batt_in) {
-		ret = request_irq(IOMUX_TO_IRQ(BATT_INS_PIN),
-                                  efikasb_battery_detect_handler,
-                                  IRQ_TYPE_EDGE_RISING, "efikasb_battery", NULL);
-	} else {
-		ret = request_irq(IOMUX_TO_IRQ(BATT_INS_PIN),
-                                  efikasb_battery_detect_handler,
-                                  IRQ_TYPE_EDGE_FALLING, "efikasb_battery", NULL);
-	}
-
-        ac_in = mxc_get_ac_adapter_insertion_status();
-	if(ac_in) {
-		ret = request_irq(IOMUX_TO_IRQ(AC_ADAP_INS_PIN),
-                                  efikasb_ac_charger_detect_handler,
-                                  IRQ_TYPE_EDGE_RISING, "efikasb_ac_charger", NULL);
-	} else {
-		ret = request_irq(IOMUX_TO_IRQ(AC_ADAP_INS_PIN),
-                                  efikasb_ac_charger_detect_handler,
-                                  IRQ_TYPE_EDGE_FALLING, "efikasb_ac_charger", NULL);
-	}
-
-
-        batt_low = mxc_get_batt_low_status();
-        if(batt_low) {
-                ret = request_irq(IOMUX_TO_IRQ(BATT_LOW_PIN),
-                                  efikasb_batt_low_handler,
-                                  IRQ_TYPE_LEVEL_HIGH, "efikasb_batt_low", NULL);
-        } else {
-                ret = request_irq(IOMUX_TO_IRQ(BATT_LOW_PIN),
-                                  efikasb_batt_low_handler,
-                                  IRQ_TYPE_LEVEL_LOW, "efikasb_batt_low", NULL);
-        }
-        enable_irq_wake(IOMUX_TO_IRQ(BATT_LOW_PIN));
-
-        /* ron: if battery critical low, shutdown immediately */
-        if(!mxc_get_ac_adapter_insertion_status() && batt_low) {
-                printk("Battery critical low, shutdown now....\n");
-                schedule_delayed_work(&power_off_work, msecs_to_jiffies(1000));
-        }
- 
-        return ret;
-}
-#endif  /* CONFIG_EFIKASB_EXPERIMENTAL_OS */
 
 static ssize_t sim_status_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
@@ -342,22 +213,14 @@ static ssize_t wireless_sw_status_show(struct kobject *kobj, struct kobj_attribu
         return sprintf(buf, "%d\n", mxc_get_wireless_sw_status());
 }
 
-static ssize_t batt_low_status_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
-{
-        return sprintf(buf, "%d\n", mxc_get_batt_low_status());
-}
-
 static struct kobj_attribute sim_status_attribute =
         __ATTR(sim, S_IFREG | S_IRUGO, sim_status_show, NULL);
-static struct kobj_attribute wireless_sw_status_attribute = 
+static struct kobj_attribute wireless_sw_status_attribute =
         __ATTR(wireless_sw, S_IFREG | S_IRUGO, wireless_sw_status_show, NULL);
-static struct kobj_attribute batt_low_status_attribute = 
-        __ATTR(battery_low, S_IFREG | S_IRUGO, batt_low_status_show, NULL);
 
 static struct attribute *status_attrs[] = {
         &sim_status_attribute.attr,
         &wireless_sw_status_attribute.attr,
-        &batt_low_status_attribute.attr,
         NULL,
 };
 
@@ -406,18 +269,6 @@ static int __init mxc_init_efikasb_inputdev(void)
         if(mxc_get_wireless_sw_status())
                 set_bit(SW_RFKILL_ALL, efikasb_inputdev->sw);
 
-        /* ron: I known this is not a regular approach, 
-           but Lenovo requests, I can't resist*/
-#ifdef CONFIG_EFIKASB_EXPERIMENTAL_OS
-        set_bit(SW_AC_INSERT, efikasb_inputdev->swbit);
-        if(mxc_get_ac_adapter_insertion_status())
-                set_bit(SW_AC_INSERT, efikasb_inputdev->sw);
-
-        set_bit(SW_BATT_IN, efikasb_inputdev->swbit);
-        if(mxc_get_battery_insertion_status())
-                set_bit(SW_BATT_IN, efikasb_inputdev->sw);
-#endif
-
  	ret = input_register_device(efikasb_inputdev);
 	if (ret) {
 		input_free_device(efikasb_inputdev);
@@ -429,9 +280,6 @@ static int __init mxc_init_efikasb_inputdev(void)
 
         mxc_init_power_key();
 
-#ifdef CONFIG_EFIKASB_EXPERIMENTAL_OS
-        mxc_init_battery();
-#endif
         mxc_init_sim_detect();
         mxc_init_wireless_sw();
 
