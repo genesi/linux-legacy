@@ -27,19 +27,23 @@ extern void __init mx51_efikamx_init_leds(void);
 extern void __init mx51_efikamx_init_power_key(void);
 extern void __init mx51_efikamx_init_spi(void);
 extern void __init mx51_efikamx_init_i2c(void);
-extern void __init mx51_efikamx_init_i2c2(void);
 extern void __init mx51_efikamx_init_nor(void);
 extern void __init mx51_efikamx_init_display(void);
 extern void __init mx51_efikamx_init_audio(void);
 extern void __init mx51_efikamx_init_usb(void);
 extern void __init mx51_efikamx_init_pata(void);
 extern void __init mx51_efikamx_init_usb(void);
+extern void __init mx51_efikamx_init_input(void);
+extern void __init mx51_efikamx_init_leds(void);
+extern void __init mx51_efikamx_init_wwan(void);
 extern int __init mx51_efikamx_init_pmic(void);
 extern void __init mx51_efikamx_init_soc(void);
+extern void __init mx51_efikamx_init_battery(void);
 
 /* io */
 extern void mx51_efikamx_board_id(void);
 extern int mx51_efikamx_revision(void);
+extern char *mx51_efikamx_memory(void);
 
 /* cpu */
 extern struct cpu_wp *(*get_cpu_wp)(int *wp);
@@ -70,10 +74,11 @@ extern void mx51_efikamx_power_off(void);
 extern void mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_mem);
 #define DBG(x) { printk(KERN_INFO "Efika MX: "); printk x ; }
 
-// also valid values: 125000 (leaves some bandwdith), 133333 (IPU max on MX51)
-// arbitrarily chosen to be 117MHz just because I heard someone at Freescale
-// mention this as the best value to leave enough for the VPU and so on..
-#define PIXCLK_LIMIT KHZ2PICOS(117000)
-#define MXCFB_DEFAULT_BPP 16
+extern void mx51_efikamx_wifi_power(int state);
+extern void mx51_efikamx_wifi_reset(void);
+extern void mx51_efikamx_bluetooth_power(int state);
+extern void mx51_efikamx_camera_power(int state);
+extern void mx51_efikamx_wwan_power(int state);
+
 
 #endif /* __MX51_EFIKAMX_H__ */

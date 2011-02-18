@@ -1,9 +1,7 @@
 /*
  * Copyright 2009-2010 Pegatron Corporation. All Rights Reserved.
- * Copyright 2009-2010 Genesi USA, Inc. All Rights Reserved.
+ * Copyright 2009-2011 Genesi USA, Inc. All Rights Reserved.
  */
-
-
 
 
 #include <linux/init.h>
@@ -14,17 +12,19 @@
 #include <linux/i2c.h>
 #include <linux/sbs.h>
 #include <mach/gpio.h>
+#include <asm/io.h>
+#include <asm/mach-types.h>
 
-#include "mx51_efikasb.h"
 #include "mx51_pins.h"
 #include "iomux.h"
 
+#include "mx51_efikamx.h"
 
 #define EFIKASB_BATTERY_LOW	MX51_PIN_DI1_PIN11
 #define EFIKASB_BATTERY_INSERT	MX51_PIN_DISPB2_SER_DIO
 #define EFIKASB_AC_INSERT	MX51_PIN_DI1_D0_CS
 
-static struct mxc_iomux_pin_cfg mx51_efikasb_battery_pins[] = {
+static struct mxc_iomux_pin_cfg mx51_efikamx_battery_pins[] = {
 	{ EFIKASB_BATTERY_INSERT, IOMUX_CONFIG_GPIO, },
 	{ EFIKASB_BATTERY_LOW, IOMUX_CONFIG_GPIO | IOMUX_CONFIG_SION, },
 	{ EFIKASB_AC_INSERT, IOMUX_CONFIG_GPIO | IOMUX_CONFIG_SION,
@@ -34,13 +34,13 @@ static struct mxc_iomux_pin_cfg mx51_efikasb_battery_pins[] = {
 
 
 
-enum mxc_power_resource {
+enum power_resource_index {
 	MAINS_INSERTION_STATUS,
 	BATTERY_INSERTION_STATUS,
 	BATTERY_ALERT,
 };
 
-static struct resource mxc_power_resources[] = {
+static struct resource mx51_efikamx_power_resources[] = {
 	[MAINS_INSERTION_STATUS] = {
 		.start = IOMUX_TO_IRQ(EFIKASB_AC_INSERT),
 		.end   = IOMUX_TO_IRQ(EFIKASB_AC_INSERT),
@@ -61,51 +61,53 @@ static struct resource mxc_power_resources[] = {
 	},
 };
 
-int mx51_efikasb_battery_status(void)
+int mx51_efikamx_battery_status(void)
 {
 	return !gpio_get_value(IOMUX_TO_GPIO(EFIKASB_BATTERY_INSERT));
 }
 
-int mx51_efikasb_battery_alarm(void)
+int mx51_efikamx_battery_alarm(void)
 {
         return !gpio_get_value(IOMUX_TO_GPIO(EFIKASB_BATTERY_LOW));
 }
 
-int mx51_efikasb_ac_status(void)
+int mx51_efikamx_ac_status(void)
 {
 	return !gpio_get_value(IOMUX_TO_GPIO(EFIKASB_AC_INSERT));
 }
 
-static struct sbs_platform_data mx51_efikasb_sbs_platform_data = {
-	.mains_insertion_status   = mx51_efikasb_ac_status,
-	.battery_insertion_status = mx51_efikasb_battery_status,
+static struct sbs_platform_data mx51_efikamx_sbs_platform_data = {
+	.mains_insertion_status   = mx51_efikamx_ac_status,
+	.battery_insertion_status = mx51_efikamx_battery_status,
 
-	.battery_alert            = &mxc_power_resources[BATTERY_ALERT],
+	.battery_alert            = &mx51_efikamx_power_resources[BATTERY_ALERT],
 
-	.mains_presence_changed   = &mxc_power_resources[MAINS_INSERTION_STATUS],
-	.battery_presence_changed = &mxc_power_resources[BATTERY_INSERTION_STATUS],
+	.mains_presence_changed   = &mx51_efikamx_power_resources[MAINS_INSERTION_STATUS],
+	.battery_presence_changed = &mx51_efikamx_power_resources[BATTERY_INSERTION_STATUS],
 };
 
-static struct i2c_board_info mx51_efikasb_i2c_battery __initdata = {
+static struct i2c_board_info mx51_efikamx_i2c_battery __initdata = {
 	.type          = "smart-battery",
 	.addr          = 0x0b,
-	.platform_data = &mx51_efikasb_sbs_platform_data,
+	.platform_data = &mx51_efikamx_sbs_platform_data,
 };
 
-void __init mx51_efikasb_init_battery(void)
+void __init mx51_efikamx_init_battery(void)
 {
-	CONFIG_IOMUX(mx51_efikasb_battery_pins);
+	if (machine_is_mx51_efikasb()) {
+		CONFIG_IOMUX(mx51_efikamx_battery_pins);
 
-	gpio_request(IOMUX_TO_GPIO(EFIKASB_BATTERY_INSERT), "battery:insert");
-	gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_BATTERY_INSERT));
+		gpio_request(IOMUX_TO_GPIO(EFIKASB_BATTERY_INSERT), "battery:insert");
+		gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_BATTERY_INSERT));
 
-        gpio_request(IOMUX_TO_GPIO(EFIKASB_BATTERY_LOW), "battery:alarm");
-        gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_BATTERY_LOW));
+	        gpio_request(IOMUX_TO_GPIO(EFIKASB_BATTERY_LOW), "battery:alarm");
+        	gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_BATTERY_LOW));
 
-        /* ron: IOMUXC_GPIO3_IPP_IND_G_IN_3_SELECT_INPUT: 1: Selecting Pad DI1_D0_CS for Mode:ALT4 */
-        __raw_writel(0x01, IO_ADDRESS(IOMUXC_BASE_ADDR) + 0x980);
-	gpio_request(IOMUX_TO_GPIO(EFIKASB_AC_INSERT), "battery:ac");
-	gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_AC_INSERT));
+	        /* ron: IOMUXC_GPIO3_IPP_IND_G_IN_3_SELECT_INPUT: 1: Selecting Pad DI1_D0_CS for Mode:ALT4 */
+        	__raw_writel(0x01, IO_ADDRESS(IOMUXC_BASE_ADDR) + 0x980);
+		gpio_request(IOMUX_TO_GPIO(EFIKASB_AC_INSERT), "battery:ac");
+		gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_AC_INSERT));
 
-	i2c_register_board_info(1, &mx51_efikasb_i2c_battery, 1);
+		i2c_register_board_info(1, &mx51_efikamx_i2c_battery, 1);
+	}
 }

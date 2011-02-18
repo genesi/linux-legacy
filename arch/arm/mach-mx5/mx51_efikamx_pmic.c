@@ -1,8 +1,9 @@
 /*
- * mx51-efikamx-pmic-mc13892.c  --  i.MX51 Efika MX Driver for Atlas MC13892 PMIC
+ * mx51_efikamx_pmic.c  --  Efika MX Driver for Atlas MC13892 PMIC
  */
  /*
   * Copyright 2009 Pegatron Corporation. All Rights Reserved.
+  * Copyright 2009-2011 Genesi USA, Inc. All Rights Reserved.
   */
 
  /*
@@ -23,6 +24,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/mfd/mc13892/core.h>
 #include <mach/irqs.h>
+#include <asm/mach-types.h>
 
 #include "devices.h"
 #include "mx51_pins.h"
@@ -90,6 +92,11 @@
 
 #define	SWMODE_MASK	0xF
 #define SWMODE_AUTO	0x8
+
+#define PWGT1SPIEN (1 << 15)
+#define PWGT2SPIEN (1 << 16)
+#define USEROFFSPI (1 << 3)
+
 
 /* CPU */
 static struct regulator_consumer_supply sw1_consumers[] = {
@@ -293,6 +300,7 @@ static struct regulator_init_data vgen2_init = {
 		.min_uV = mV_to_uV(1200),
 		.max_uV = mV_to_uV(3150),
 		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
+		.always_on = 1,
 	}
 };
 
@@ -302,6 +310,7 @@ static struct regulator_init_data vgen3_init = {
 		.min_uV = mV_to_uV(1800),
 		.max_uV = mV_to_uV(2900),
 		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
+		.always_on = 1,
 	}
 };
 
@@ -371,10 +380,12 @@ static int mc13892_regulator_init(struct mc13892 *mc13892)
 		pmic_write_reg(REG_SW_5, value, 0xffffff);
 	}
 
-	/* Enable coin cell charger */
-	value = BITFVAL(COINCHEN, 1) | BITFVAL(VCOIN, VCOIN_3_0V);
-	register_mask = BITFMASK(COINCHEN) | BITFMASK(VCOIN);
-	pmic_write_reg(REG_POWER_CTL0, value, register_mask);
+	if (machine_is_mx51_efikamx()) {
+		/* Enable coin cell charger */
+		value = BITFVAL(COINCHEN, 1) | BITFVAL(VCOIN, VCOIN_3_0V);
+		register_mask = BITFMASK(COINCHEN) | BITFMASK(VCOIN);
+		pmic_write_reg(REG_POWER_CTL0, value, register_mask);
+	}
 
 #if defined(CONFIG_RTC_DRV_MXC_V2) || defined(CONFIG_RTC_DRV_MXC_V2_MODULE)
 	value = BITFVAL(DRM, 1);
@@ -413,11 +424,12 @@ static struct mc13892_platform_data mc13892_plat = {
 	.init = mc13892_regulator_init,
 };
 
+#define EFIKAMX_PMIC_INTERRUPT	MX51_PIN_GPIO1_6
+
 static struct spi_board_info __initdata mc13892_spi_device[] = {
 	{
 	.modalias = "pmic_spi",
-	.irq = IOMUX_TO_IRQ(MX51_PIN_GPIO1_6),
-	.max_speed_hz = 6000000,	/* max spi SCK clock speed in HZ */
+	.irq = IOMUX_TO_IRQ(EFIKAMX_PMIC_INTERRUPT),
 	.platform_data = &mc13892_plat,
 	.chip_select = 0,
 #if defined(CONFIG_SPI_GPIO)
@@ -430,60 +442,88 @@ static struct spi_board_info __initdata mc13892_spi_device[] = {
 #elif defined(CONFIG_SPI_MXC)
 	.bus_num = 1,
 #endif
+	.max_speed_hz = 1000000,	/* max spi SCK clock speed in HZ */
 	},
 };
 
 
 static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_pmic_iomux_pins[] = {
-	/* PMIC interrupt */
 	{
-	 MX51_PIN_GPIO1_6, IOMUX_CONFIG_GPIO | IOMUX_CONFIG_SION,
+	 EFIKAMX_PMIC_INTERRUPT, IOMUX_CONFIG_GPIO | IOMUX_CONFIG_SION,
 	  (PAD_CTL_SRE_SLOW | PAD_CTL_DRV_MEDIUM | PAD_CTL_100K_PU |
 	  PAD_CTL_HYS_ENABLE | PAD_CTL_DRV_VOT_HIGH),
 	 },
 };
 
+#define EFIKAMX_WATCHDOG_REBOOT	MX51_PIN_DI1_PIN13
+#define EFIKASB_WATCHDOG_REBOOT MX51_PIN_GPIO1_4
+
+static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_watchdog_pins[] = {
+	{ EFIKAMX_WATCHDOG_REBOOT, IOMUX_CONFIG_GPIO, },
+};
+
+static struct mxc_iomux_pin_cfg __initdata mx51_efikasb_watchdog_pins[] = {
+	{ EFIKASB_WATCHDOG_REBOOT, IOMUX_CONFIG_GPIO, },
+};
+
+#define EFIKASB_POWERGOOD	MX51_PIN_CSI2_PIXCLK
+static struct mxc_iomux_pin_cfg __initdata mx51_efikasb_power_pins[] = {
+	{ EFIKASB_POWERGOOD, IOMUX_CONFIG_GPIO, },
+};
+
 int __init mx51_efikamx_init_pmic(void)
 {
-	DBG(("IOMUX for PMIC (%d pins)\n", ARRAY_SIZE(mx51_efikamx_pmic_iomux_pins)));
 	CONFIG_IOMUX(mx51_efikamx_pmic_iomux_pins);
 
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_GPIO1_6), "pmic_intr");
-	gpio_direction_input(IOMUX_TO_GPIO(MX51_PIN_GPIO1_6));
+	/* disable power gating for some reason */
+	pmic_write_reg(REG_POWER_MISC, ~(PWGT1SPIEN|PWGT2SPIEN), (PWGT1SPIEN|PWGT2SPIEN));
+
+	if (machine_is_mx51_efikamx() && (mx51_efikamx_revision() == 1)) {
+		CONFIG_IOMUX(mx51_efikamx_watchdog_pins);
+
+		gpio_free(IOMUX_TO_GPIO(EFIKAMX_WATCHDOG_REBOOT));
+		gpio_request(IOMUX_TO_GPIO(EFIKAMX_WATCHDOG_REBOOT), "sys:reboot");
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_WATCHDOG_REBOOT), 1);
+	} else {
+		CONFIG_IOMUX(mx51_efikasb_watchdog_pins);
+
+		gpio_free(IOMUX_TO_GPIO(EFIKASB_WATCHDOG_REBOOT));
+		gpio_request(IOMUX_TO_GPIO(EFIKASB_WATCHDOG_REBOOT), "sys:reboot");
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_WATCHDOG_REBOOT), 1);
+
+		if (machine_is_mx51_efikasb()) {
+			CONFIG_IOMUX(mx51_efikasb_power_pins);
+
+			gpio_free(IOMUX_TO_GPIO(EFIKASB_POWERGOOD));
+			gpio_request(IOMUX_TO_GPIO(EFIKASB_POWERGOOD), "sys:powergood");
+			gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_POWERGOOD));
+		}
+	}
 
 	return spi_register_board_info(mc13892_spi_device, ARRAY_SIZE(mc13892_spi_device));
 }
 
 int mx51_efikamx_reboot(void)
 {
-	/* wdog reset workaround, result power reset! */
-	printk(KERN_INFO "%s\n", __func__ );
-
-	if ( mx51_efikamx_revision() == 1 ) /* board rev1.1 */
-		gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_DI1_PIN13), 0);
+	if ( machine_is_mx51_efikamx() && (mx51_efikamx_revision() == 1) ) /* board rev1.1 */
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_WATCHDOG_REBOOT), 0);
 	else
-		gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_GPIO1_4), 0);
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_WATCHDOG_REBOOT), 0);
 
 	return 0;
 }
 
-#define PWGT1SPIEN (1<<15)
-#define PWGT2SPIEN (1<<16)
-#define USEROFFSPI (1<<3)
+#define EFIKAMX_POWEROFF MX51_PIN_CSI2_VSYNC
 
 void mx51_efikamx_power_off(void)
 {
-	/* We can do power down one of two ways:
-	   Set the power gating
-	   Set USEROFFSPI */
-	printk(KERN_CRIT "%s\n", __func__);
-
 	/* Set the power gate bits to power down */
-	pmic_write_reg(REG_POWER_MISC, (PWGT1SPIEN|PWGT2SPIEN),
-		(PWGT1SPIEN|PWGT2SPIEN));
+	pmic_write_reg(REG_POWER_MISC, (PWGT1SPIEN|PWGT2SPIEN), (PWGT1SPIEN|PWGT2SPIEN));
 
-	mxc_request_iomux(MX51_PIN_CSI2_VSYNC, IOMUX_CONFIG_GPIO);
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_CSI2_VSYNC), "poweroff");
-	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_CSI2_VSYNC), 1);
+	mxc_wd_reset();
+
+	mxc_request_iomux(EFIKAMX_POWEROFF, IOMUX_CONFIG_GPIO);
+	gpio_request(IOMUX_TO_GPIO(EFIKAMX_POWEROFF), "sys:poweroff");
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_POWEROFF), 1);
 
 }

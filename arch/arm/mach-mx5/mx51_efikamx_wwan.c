@@ -26,6 +26,7 @@
 #include <mach/hardware.h>
 #include <mach/gpio.h>
 #include <mach/common.h>
+#include <asm/mach-types.h>
 
 #include "devices.h"
 #include "mx51_pins.h"
@@ -38,7 +39,7 @@
 #define EFIKASB_WWAN_POWER	MX51_PIN_CSI2_D13
 #define EFIKASB_WWAN_SIM	MX51_PIN_EIM_CS1
 
-static struct mxc_iomux_pin_cfg __initdata mx51_efikasb_wwan_iomux_pins[] = {
+static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_wwan_iomux_pins[] = {
 	{ EFIKASB_WWAN_WAKEUP, IOMUX_CONFIG_GPIO, },
 	{ EFIKASB_WWAN_POWER, IOMUX_CONFIG_GPIO, },
 	{ EFIKASB_WWAN_SIM, IOMUX_CONFIG_GPIO | IOMUX_CONFIG_SION, PAD_CTL_PKE_NONE },
@@ -46,7 +47,7 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikasb_wwan_iomux_pins[] = {
 
 
 
-void mx51_efikasb_wwan_power(int state)
+void mx51_efikamx_wwan_power(int state)
 {
 	gpio_set_value(IOMUX_TO_GPIO(EFIKASB_WWAN_POWER), !state);
 }
@@ -54,14 +55,14 @@ void mx51_efikasb_wwan_power(int state)
 
 
 
-int mx51_efikasb_wwan_sim_status(void)
+int mx51_efikamx_wwan_sim_status(void)
 {
 	return !gpio_get_value(IOMUX_TO_GPIO(EFIKASB_WWAN_SIM));
 }
 
-static irqreturn_t mx51_efikasb_sim_handler(int irq, void *dev_id)
+static irqreturn_t mx51_efikamx_sim_handler(int irq, void *dev_id)
 {
-	if(mx51_efikasb_wwan_sim_status()) {
+	if(mx51_efikamx_wwan_sim_status()) {
 		set_irq_type(irq, IRQF_TRIGGER_RISING);
 	} else {
 		set_irq_type(irq, IRQF_TRIGGER_FALLING);
@@ -73,14 +74,14 @@ static irqreturn_t mx51_efikasb_sim_handler(int irq, void *dev_id)
 
 
 
-int mx51_efikasb_wwan_wakeup_status(void)
+int mx51_efikamx_wwan_wakeup_status(void)
 {
 	return gpio_get_value(IOMUX_TO_GPIO(EFIKASB_WWAN_WAKEUP));
 }
 
-static irqreturn_t mx51_efikasb_wwan_wakeup(int irq, void *dev_id)
+static irqreturn_t mx51_efikamx_wwan_wakeup(int irq, void *dev_id)
 {
-	if(mx51_efikasb_wwan_wakeup_status())
+	if(mx51_efikamx_wwan_wakeup_status())
 		set_irq_type(irq, IRQF_TRIGGER_FALLING);
 	else
 		set_irq_type(irq, IRQF_TRIGGER_RISING);
@@ -90,39 +91,41 @@ static irqreturn_t mx51_efikasb_wwan_wakeup(int irq, void *dev_id)
 
 
 
-void __init mx51_efikasb_init_wwan(void)
+void __init mx51_efikamx_init_wwan(void)
 {
 	int irq, ret;
 
-	CONFIG_IOMUX(mx51_efikasb_wwan_iomux_pins);
+	if (machine_is_mx51_efikasb()) {
 
-	gpio_request(IOMUX_TO_GPIO(EFIKASB_WWAN_WAKEUP), "wwan:wakeup");
-	gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_WWAN_WAKEUP));
+		CONFIG_IOMUX(mx51_efikamx_wwan_iomux_pins);
 
-	gpio_request(IOMUX_TO_GPIO(EFIKASB_WWAN_POWER), "wwan:power");
-	gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_WWAN_POWER), 0);
+		gpio_request(IOMUX_TO_GPIO(EFIKASB_WWAN_WAKEUP), "wwan:wakeup");
+		gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_WWAN_WAKEUP));
 
-	gpio_request(IOMUX_TO_GPIO(EFIKASB_WWAN_SIM), "wwan:simcard");
-	gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_WWAN_SIM));
+		gpio_request(IOMUX_TO_GPIO(EFIKASB_WWAN_POWER), "wwan:power");
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_WWAN_POWER), 0);
 
-	irq = IOMUX_TO_IRQ(EFIKASB_WWAN_WAKEUP);
+		gpio_request(IOMUX_TO_GPIO(EFIKASB_WWAN_SIM), "wwan:simcard");
+		gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_WWAN_SIM));
 
-	if (mx51_efikasb_wwan_wakeup_status())
-		set_irq_type(irq, IRQF_TRIGGER_FALLING);
-	else
-		set_irq_type(irq, IRQF_TRIGGER_RISING);
+		irq = IOMUX_TO_IRQ(EFIKASB_WWAN_WAKEUP);
 
-	ret = request_irq(irq, mx51_efikasb_wwan_wakeup, 0, "wwan-wakeup", 0);
-	if(!ret)
-		enable_irq_wake(irq);
+		if (mx51_efikamx_wwan_wakeup_status())
+			set_irq_type(irq, IRQF_TRIGGER_FALLING);
+		else
+			set_irq_type(irq, IRQF_TRIGGER_RISING);
 
-	irq = IOMUX_TO_IRQ(EFIKASB_WWAN_SIM);
+		ret = request_irq(irq, mx51_efikamx_wwan_wakeup, 0, "wwan-wakeup", 0);
+		if(!ret)
+			enable_irq_wake(irq);
 
-	if (mx51_efikasb_wwan_sim_status()) /* ron: low active */
-		set_irq_type(irq, IRQF_TRIGGER_RISING);
-	else
-		set_irq_type(irq, IRQF_TRIGGER_FALLING);
+		irq = IOMUX_TO_IRQ(EFIKASB_WWAN_SIM);
 
-	ret = request_irq(irq, mx51_efikasb_sim_handler, 0, "sim-detect", 0);
+		if (mx51_efikamx_wwan_sim_status()) /* ron: low active */
+			set_irq_type(irq, IRQF_TRIGGER_RISING);
+		else
+			set_irq_type(irq, IRQF_TRIGGER_FALLING);
 
+		ret = request_irq(irq, mx51_efikamx_sim_handler, 0, "sim-detect", 0);
+	}
 }

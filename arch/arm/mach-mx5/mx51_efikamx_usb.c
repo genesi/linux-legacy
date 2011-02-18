@@ -20,6 +20,7 @@
 #include <mach/hardware.h>
 #include <mach/gpio.h>
 #include <mach/common.h>
+#include <asm/mach-types.h>
 
 #include "devices.h"
 #include "mx51_pins.h"
@@ -28,6 +29,8 @@
 
 #include "mx51_efikamx.h"
 
+#define POWER_ON	1
+#define POWER_OFF	0
 
 #define USB_PAD_CONFIG \
 			(PAD_CTL_SRE_FAST | PAD_CTL_DRV_HIGH | PAD_CTL_100K_PU |	\
@@ -91,60 +94,67 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_usb_iomux_pins[] = {
 	{	MX51_PIN_USBH1_DATA5, IOMUX_CONFIG_ALT0, USB_PAD_CONFIG, },
 	{	MX51_PIN_USBH1_DATA6, IOMUX_CONFIG_ALT0, USB_PAD_CONFIG, },
 	{	MX51_PIN_USBH1_DATA7, IOMUX_CONFIG_ALT0, USB_PAD_CONFIG, },
+};
 
-	/* USB HUB RESET  */
-	{	MX51_PIN_GPIO1_5, IOMUX_CONFIG_ALT0,
-		(PAD_CTL_DRV_HIGH | PAD_CTL_PKE_ENABLE | PAD_CTL_SRE_FAST),
-	},
+#define EFIKAMX_USB_HUB_RESET	MX51_PIN_GPIO1_5
+#define EFIKAMX_USB_PHY_RESET	MX51_PIN_EIM_D27
 
-	/* Wireless enable (active low) */
-	{ MX51_PIN_EIM_A22, IOMUX_CONFIG_GPIO, },
-	/* Wireless reset */
-	{ MX51_PIN_EIM_A16, IOMUX_CONFIG_GPIO, },
-	/* Bluetooth enable (active low) */
-	{ MX51_PIN_EIM_A17, IOMUX_CONFIG_GPIO, },
-	/* USB PHY reset */
+struct mxc_iomux_pin_cfg mx51_efikamx_usb_control_pins[] = {
 	{
-	 MX51_PIN_EIM_D27, IOMUX_CONFIG_ALT1,
+	 EFIKAMX_USB_HUB_RESET, IOMUX_CONFIG_ALT0,
+	 (PAD_CTL_DRV_HIGH | PAD_CTL_PKE_ENABLE | PAD_CTL_SRE_FAST),
+	},
+	{
+	 EFIKAMX_USB_PHY_RESET, IOMUX_CONFIG_ALT1,
 	 (PAD_CTL_DRV_HIGH | PAD_CTL_HYS_NONE | PAD_CTL_PUE_KEEPER |
 	  PAD_CTL_100K_PU | PAD_CTL_ODE_OPENDRAIN_NONE |
 	  PAD_CTL_PKE_ENABLE | PAD_CTL_SRE_FAST),
 	},
 };
 
+void mx51_efikamx_usb_hub_reset(void)
+{
+	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_USB_HUB_RESET), 1);
+	msleep(1);
+	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_USB_HUB_RESET), 0);
+	msleep(1);
+	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_USB_HUB_RESET), 1);
+}
+
+void mx51_efikamx_usb_phy_reset(void)
+{
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_USB_PHY_RESET), 1);
+}
+
 void __init mx51_efikamx_init_usb(void)
 {
-	DBG(("IOMUX for USB (%d pins)\n", ARRAY_SIZE(mx51_efikamx_usb_iomux_pins)));
 	CONFIG_IOMUX(mx51_efikamx_usb_iomux_pins);
+	CONFIG_IOMUX(mx51_efikamx_usb_control_pins);
 
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_GPIO1_5), "usb_hub_reset");
-	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_GPIO1_5), 1);
-	msleep(1);
-	gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_GPIO1_5), 0);
-	msleep(1);
-	gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_GPIO1_5), 1);
+	gpio_request(IOMUX_TO_GPIO(EFIKAMX_USB_HUB_RESET), "usb:hub_reset");
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_USB_HUB_RESET), 1);
 
-	/* enable BlueTooth */
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_EIM_A17), "bluetooth_enable");
-	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_EIM_A17), 0);
-	msleep(10);
-	gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_EIM_A17), 1);
+	gpio_request(IOMUX_TO_GPIO(EFIKAMX_USB_PHY_RESET), "usb:phy_reset");
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_USB_PHY_RESET), 0);
 
-	/* pull low wlan_on# */
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_EIM_A22), "wlan_on");
-	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_EIM_A22), 0);
-	msleep(10);
+	mx51_efikamx_usb_hub_reset();
 
-	/* pull low-high pulse wlan_rst# */
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_EIM_A16), "wlan_rst");
-	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_EIM_A16), 0);
-	msleep(10);
-	gpio_set_value(IOMUX_TO_GPIO(MX51_PIN_EIM_A16), 1);
+	mx51_efikamx_bluetooth_power(POWER_ON);
+	mx51_efikamx_wifi_power(POWER_ON);
+	mx51_efikamx_wifi_reset();
 
-	/* De-assert USB PHY RESETB */
-	gpio_request(IOMUX_TO_GPIO(MX51_PIN_EIM_D27), "usb_phy_resetb");
-	gpio_direction_output(IOMUX_TO_GPIO(MX51_PIN_EIM_D27), 1);
+	mx51_efikamx_usb_phy_reset();
+
+	if (machine_is_mx51_efikasb()) {
+		mx51_efikamx_wwan_power(POWER_ON);
+		mx51_efikamx_camera_power(POWER_ON);
+	}
 
 	mx5_usb_dr_init();
 	mx5_usbh1_init();
+
+	if (machine_is_mx51_efikasb()) {
+		mx51_usbh2_init();
+	}
 }
+

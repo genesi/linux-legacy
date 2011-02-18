@@ -17,14 +17,13 @@ obj-$(CONFIG_MACH_MX51_BABBAGE) += mx51_babbage.o mx51_babbage_gpio.o mx51_babba
 obj-$(CONFIG_MACH_MX53_EVK) += mx53_evk.o mx53_evk_gpio.o mx53_evk_pmic_mc13892.o
 obj-$(CONFIG_MACH_MX50_ARM2) += mx50_arm2.o mx50_arm2_gpio.o mx50_arm2_pmic_mc13892.o
 
-obj-$(CONFIG_MACH_MX51_EFIKAMX) += mx51_efikamx.o mx51_efikamx_io.o mx51_efikamx_cpu.o \
-				   mx51_efikamx_uart.o mx51_efikamx_usb.o mx51_efikamx_i2c.o \
-				   mx51_efikamx_spi.o mx51_efikamx_nor.o mx51_efikamx_pmic.o \
-				   mx51_efikamx_mmc.o mx51_efikamx_ata.o mx51_efikamx_powerkey.o \
-				   mx51_efikamx_audio.o mx51_efikamx_display.o early_setup.o
-obj-$(CONFIG_MACH_MX51_EFIKASB) += mx51_efikasb.o mx51_efikasb_gpio.o mx51_efikamx_cpu.o mx51_efikasb_pmic.o \
-                                   mx51_efikasb_switch.o mx51_efikasb_lid.o  \
-				   mx51_efikamx_audio.o mx51_efikamx_ata.o mx51_efikamx_mmc.o \
-				   mx51_efikamx_uart.o mx51_efikasb_leds.o mx51_efikamx_spi.o \
-				   mx51_efikamx_nor.o mx51_efikamx_display.o mx51_efikamx_i2c.o \
-				   mx51_efikasb_battery.o mx51_efikasb_wwan.o early_setup.o
+obj-$(CONFIG_MACH_MX51_EFIKAMX) += mx51_efikamx.o \
+				   mx51_efikamx_cpu.o mx51_efikamx_uart.o \
+				   mx51_efikamx_i2c.o mx51_efikamx_spi.o \
+				   mx51_efikamx_nor.o mx51_efikamx_pmic.o \
+				   mx51_efikamx_mmc.o mx51_efikamx_ata.o \
+				   mx51_efikamx_input.o mx51_efikamx_leds.o \
+                                   mx51_efikamx_audio.o	mx51_efikamx_display.o \
+				   mx51_efikamx_wwan.o mx51_efikamx_usb.o \
+				   mx51_efikamx_battery.o \
+				   early_setup.o

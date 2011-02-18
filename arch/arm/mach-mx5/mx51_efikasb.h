@@ -43,37 +43,6 @@
 #define MXC_LL_UART_PADDR	UART1_BASE_ADDR
 #define MXC_LL_UART_VADDR	AIPS1_IO_ADDRESS(UART1_BASE_ADDR)
 
-#define HUB_RESET_PIN          MX51_PIN_GPIO1_5
-#define PMIC_INT_PIN           MX51_PIN_GPIO1_6
-#define USB_PHY_RESET_PIN      MX51_PIN_EIM_D27
-
-#define WIRELESS_SW_PIN        MX51_PIN_DI1_PIN12
-#define WLAN_PWRON_PIN         MX51_PIN_EIM_A22
-#define WLAN_RESET_PIN         MX51_PIN_EIM_A16
-#define BT_PWRON_PIN           MX51_PIN_EIM_A17
-
-#define CAM_PWRON_PIN          MX51_PIN_NANDF_CS0
-
-#define LID_SW_PIN             MX51_PIN_CSI1_VSYNC /* Low: close, High: open */
-
-#define POWER_BTN_PIN          MX51_PIN_EIM_DTACK
-#define SYS_PWROFF_PIN         MX51_PIN_CSI2_VSYNC
-#define SYS_PWRGD_PIN          MX51_PIN_CSI2_PIXCLK
-
-/* ron: R1.2 borad GPIO definition */
-#define MEM_ID0_PIN            MX51_PIN_EIM_LBA /* MX51_PIN_GPIO1_4 */
-#define MEM_ID1_PIN            MX51_PIN_EIM_CRE
-
-#define AGPS_PWRON_PIN         MX51_PIN_CSI2_D12
-#define AGPS_RESET_PIN         MX51_PIN_CSI2_D18
-#define AGPS_PWRSW_PIN         MX51_PIN_NANDF_CS1 /* ron: R1.3 add AGPS_PWRSW */
-
-/* ron: R1.3 board GPIO definition */
-#define PCB_ID0_PIN            MX51_PIN_EIM_CS3
-#define PCB_ID1_PIN            MX51_PIN_EIM_CS4
-
-#define WDOG_PIN               MX51_PIN_GPIO1_4
-
 /* here today, gone tomorrow */
 /* cpu */
 extern struct cpu_wp *(*get_cpu_wp)(int *wp);
@@ -83,23 +52,34 @@ extern void mx51_efikamx_set_num_cpu_wp(int num);
 
 extern void __init mx51_efikamx_timer_init(void);
 
-extern int mx51_efikamx_revision(void);
+extern void __init mx51_efikasb_io_init(void);
+extern void __init mx51_efikasb_init_battery(void);
 
 extern void __init mx51_efikamx_init_uart(void);
 extern void __init mx51_efikamx_init_soc(void);
 extern void __init mx51_efikamx_init_mmc(void);
 extern void __init mx51_efikamx_init_audio(void);
 extern void __init mx51_efikamx_init_pata(void);
-extern void __init mx51_efikasb_init_leds(void);
+extern void __init mx51_efikamx_init_leds(void);
 extern void __init mx51_efikamx_init_spi(void);
 extern void __init mx51_efikamx_init_nor(void);
 extern void __init mx51_efikamx_init_display(void);
 extern void __init mx51_efikamx_init_i2c(void);
-extern void __init mx51_efikasb_init_battery(void);
-extern void __init mx51_efikasb_init_wwan(void);
-extern int  __init mx51_efikasb_init_pmic(void);
+extern void __init mx51_efikamx_init_wwan(void);
+extern void __init mx51_efikamx_init_input(void);
+extern int  __init mx51_efikamx_init_pmic(void);
+extern int  __init mx51_efikamx_init_usb(void);
+
+/* io */
+extern void mx51_efikamx_board_id(void);
+extern int mx51_efikamx_revision(void);
+extern char *mx51_efikamx_memory(void);
+
+extern void mx51_efikamx_power_off(void);
+
 
 extern void mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_mem);
+#define DBG(x) { printk(KERN_INFO "Efika MX: "); printk x ; }
 
 // DBG(("iomux [%u] %u,%u,%u,%u,%u\n", i, pins[i].pin, pins[i].mux_mode, pins[i].pad_cfg, pins[i].in_select, pins[i].in_mode));
 
@@ -115,5 +95,10 @@ extern void mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_m
 	} \
 }
 
+extern void mx51_efikamx_wifi_power(int state);
+extern void mx51_efikamx_wifi_reset(void);
+extern void mx51_efikamx_bluetooth_power(int state);
+extern void mx51_efikamx_camera_power(int state);
+extern void mx51_efikamx_wwan_power(int state);
 
 #endif

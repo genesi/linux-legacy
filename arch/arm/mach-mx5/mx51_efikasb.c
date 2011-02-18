@@ -49,32 +49,6 @@
 #include "usb.h"
 #include <mach/clock.h>
 
-/*!
- * @file mach-mx51/mx51_efikasb.c
- *
- * @brief This file contains the board specific initialization routines.
- *
- * @ingroup MSL_MX51
- */
-extern void __init mx51_efikasb_io_init(void);
-
-extern int mxc_get_memory_id(void);
-extern unsigned int mxc_get_pcb_id(void);
-
-
-
-
-/*!
- * Board specific fixup function. It is called by \b setup_arch() in
- * setup.c file very early on during kernel starts. It allows the user to
- * statically fill in the proper values for the passed-in parameters. None of
- * the parameters is used currently.
- *
- * @param  desc         pointer to \b struct \b machine_desc
- * @param  tags         pointer to \b struct \b tag
- * @param  cmdline      pointer to the command line
- * @param  mi           pointer to \b struct \b meminfo
- */
 static void __init mx51_efikasb_fixup(struct machine_desc *desc, struct tag *tags,
 				   char **cmdline, struct meminfo *mi)
 {
@@ -135,47 +109,18 @@ static void __init mx51_efikasb_fixup(struct machine_desc *desc, struct tag *tag
 	}
 }
 
-#define PWGT1SPIEN (1<<15)
-#define PWGT2SPIEN (1<<16)
-#define USEROFFSPI (1<<3)
-
-static void mxc_power_off(void)
-{
-	/* We can do power down one of two ways:
-	   Set the power gating
-	   Set USEROFFSPI */
-        gpio_set_value(IOMUX_TO_GPIO(USB_PHY_RESET_PIN), 0);
-        msleep(10);
-	/* Set the power gate bits to power down */
-	pmic_write_reg(REG_POWER_MISC, (PWGT1SPIEN|PWGT2SPIEN),
-		(PWGT1SPIEN|PWGT2SPIEN));
-
-        mxc_wd_reset();
-
-	//robin: CLR_DFF
-	mxc_request_iomux(SYS_PWROFF_PIN, IOMUX_CONFIG_GPIO);
-	gpio_direction_output(IOMUX_TO_GPIO(SYS_PWROFF_PIN), 0);
-	gpio_set_value(IOMUX_TO_GPIO(SYS_PWROFF_PIN), 0);
-	msleep(10);
-	gpio_set_value(IOMUX_TO_GPIO(SYS_PWROFF_PIN), 1);
-}
-
-int mx51_efikamx_revision(void)
-{
-	return 0;
-}
-
 static void __init mx51_efikasb_board_init(void)
 {
 	mxc_cpu_common_init();
 
 	mxc_register_gpios();
 	mx51_efikasb_io_init();
+	mx51_efikamx_board_id();
 
 	mx51_efikamx_init_uart();
 	mx51_efikamx_init_soc();
 
-	mx51_efikasb_init_pmic();
+	mx51_efikamx_init_pmic();
 	mx51_efikamx_init_nor();
 	mx51_efikamx_init_spi();
 	mx51_efikamx_init_i2c();
@@ -185,18 +130,21 @@ static void __init mx51_efikasb_board_init(void)
 
 	mx51_efikamx_init_display();
 
-	mx51_efikasb_init_leds();
-
-	pm_power_off = mxc_power_off;
+	mx51_efikamx_init_input();
+	mx51_efikamx_init_usb();
+	mx51_efikamx_init_wwan();
+	mx51_efikamx_init_leds();
 
 	mx51_efikamx_init_audio();
 	mx51_efikasb_init_battery();
 
-	mx51_efikasb_init_wwan();
+	pm_power_off = mx51_efikamx_power_off;
 
-	mx5_usb_dr_init();
-	mx5_usbh1_init();
-	mx51_usbh2_init();
+	/* dastardly code to give us 1.3 or 2.0 out of "1" or "2" */
+	DBG(("Smartbook Revision %u.%u\n",
+					mx51_efikamx_revision(),
+					((mx51_efikamx_revision() == 1) ? 3 : 0)  ));
+	DBG(("Memory type %s\n", mx51_efikamx_memory() ));
 }
 
 static struct sys_timer mx51_efikasb_timer = {
