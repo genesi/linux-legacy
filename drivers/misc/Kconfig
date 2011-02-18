@@ -238,15 +238,6 @@ config MXS_PERSISTENT
 	depends on ARCH_MXS
 	default y
 
-
-config MX51_EFIKASB_DEBUG
-        tristate "MX51 Efikasb Debug Driver"
-        depends on MACH_MX51_EFIKASB
-        default n
-        ---help---
-        MX51 debug driver of Efikasb board for Engineer.
-
-
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
