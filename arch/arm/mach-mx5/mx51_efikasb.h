@@ -64,7 +64,6 @@
 #define MEM_ID0_PIN            MX51_PIN_EIM_LBA /* MX51_PIN_GPIO1_4 */
 #define MEM_ID1_PIN            MX51_PIN_EIM_CRE
 
-#define SIM_CD_PIN             MX51_PIN_EIM_CS1
 #define AGPS_PWRON_PIN         MX51_PIN_CSI2_D12
 #define AGPS_RESET_PIN         MX51_PIN_CSI2_D18
 #define AGPS_PWRSW_PIN         MX51_PIN_NANDF_CS1 /* ron: R1.3 add AGPS_PWRSW */
