@@ -18,6 +18,7 @@
 #include <linux/delay.h>
 #include <linux/leds.h>
 #include <linux/leds_pwm.h>
+#include <linux/pwm_backlight.h>
 #include <linux/input.h>
 #include <linux/gpio_keys.h>
 #include <mach/hardware.h>
@@ -29,6 +30,14 @@
 #include "iomux.h"
 
 #include "mx51_efikamx.h"
+
+#if defined(CONFIG_BACKLIGHT_PWM) && defined(CONFIG_LEDS_PWM)
+#error pick CONFIG_BACKLIGHT_PWM or CONFIG_LEDS_PWM but not both, please..
+#endif
+
+#if defined(CONFIG_LEDS_PWM) && !defined(CONFIG_LEDS_TRIGGER_BACKLIGHT)
+#warning using the PWM led driver but not the backlight trigger, backlight control will be manual!!
+#endif
 
 #define EFIKASB_CAPSLOCK_LED		MX51_PIN_EIM_CS0
 #define EFIKASB_ALARM_LED		MX51_PIN_GPIO1_3
@@ -57,6 +66,36 @@ static struct gpio_led mx51_efikasb_leds[] = {
 	},
 };
 
+#if defined(CONFIG_BACKLIGHT_PWM)
+static void mx51_efikasb_backlight_power(int on)
+{
+        if (on) {
+                mxc_free_iomux(EFIKASB_PWM_BACKLIGHT, IOMUX_CONFIG_GPIO);
+                mxc_request_iomux(EFIKASB_PWM_BACKLIGHT, IOMUX_CONFIG_ALT1);
+
+                msleep(10);
+
+                gpio_set_value(IOMUX_TO_GPIO(EFIKASB_PWM_BACKLIGHT_EN), 0);     /* Backlight Power On */
+        } else {
+                gpio_set_value(IOMUX_TO_GPIO(EFIKASB_PWM_BACKLIGHT_EN), 1);     /* Backlight Power Off */
+
+                msleep(10);
+
+                mxc_free_iomux(EFIKASB_PWM_BACKLIGHT, IOMUX_CONFIG_ALT1);
+                mxc_request_iomux(EFIKASB_PWM_BACKLIGHT, IOMUX_CONFIG_GPIO);
+                gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_PWM_BACKLIGHT), 0);
+        }
+}
+
+static struct platform_pwm_backlight_data mx51_efikasb_backlight_data = {
+	.pwm_id = 0,
+	.max_brightness = 64,
+	.dft_brightness = 32,
+	.pwm_period_ns = 78770,
+	.power = mx51_efikasb_backlight_power,
+};
+
+#elif defined(CONFIG_LEDS_PWM)
 static struct led_pwm mx51_efikasb_pwm_backlight[] = {
 	{
 	.name = "backlight",
@@ -80,6 +119,7 @@ static struct platform_device mx51_efikasb_backlight_device = {
 		.platform_data = &mx51_efikasb_backlight_data,
 	},
 };
+#endif
 
 static struct gpio_led_platform_data mx51_efikasb_leds_data = {
 	.leds = mx51_efikasb_leds,
@@ -115,6 +155,10 @@ void __init mx51_efikasb_init_leds(void)
 	gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_PWM_BACKLIGHT_EN), 0);
 
 	mxc_register_device(&mxc_pwm1_device, NULL);
+#if defined(CONFIG_BACKLIGHT_PWM)
+	mxc_register_device(&mxc_pwm_backlight_device, &mx51_efikasb_backlight_data);
+#elif defined(CONFIG_LEDS_PWM)
 	(void)platform_device_register(&mx51_efikasb_backlight_device);
+#endif
 	(void)platform_device_register(&mx51_efikasb_leds_device);
 }

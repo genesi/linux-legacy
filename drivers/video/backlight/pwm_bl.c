@@ -20,23 +20,6 @@
 #include <linux/pwm.h>
 #include <linux/pwm_backlight.h>
 
-
-#if defined(CONFIG_FB_MXC_MTL017)
-static BLOCKING_NOTIFIER_HEAD(backlight_notifier_list);
-
-int register_backlight_notifier(struct notifier_block *nb)
-{
-        return blocking_notifier_chain_register(&backlight_notifier_list, nb);
-}
-EXPORT_SYMBOL_GPL(register_backlight_notifier);
-
-int unregister_backlight_notifier(struct notifier_block *nb)
-{
-        return blocking_notifier_chain_unregister(&backlight_notifier_list, nb);
-}
-EXPORT_SYMBOL_GPL(unregister_backlight_notifier);
-#endif
-
 struct pwm_bl_data {
 	struct pwm_device	*pwm;
 	unsigned int		period;
