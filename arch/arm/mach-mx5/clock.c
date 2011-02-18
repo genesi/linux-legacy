@@ -4660,21 +4660,6 @@ int __init mx51_clocks_init(unsigned long ckil, unsigned long osc, unsigned long
 	clk_set_parent(&arm_axi_clk, &axi_a_clk);
 	clk_set_parent(&ipu_clk[0], &axi_b_clk);
 
-#if 0
-	if (machine_is_mx51_efikamx())
-	{
-		/* after change reference parent clock from pll3 to pll2
-		* (in order to let pll2 adjustable for various screen resolution),
-		* need to adjust original children clock to approximate original clock rate.
-		*/
-
-		clk_set_parent(&csi0_clk, &pll2_sw_clk);
-		clk_set_parent(&csi1_clk, &pll2_sw_clk);
-		clk_set_rate(&csi0_clk, clk_get_rate(&pll2_sw_clk)/12);
-		clk_set_rate(&csi1_clk, clk_get_rate(&pll2_sw_clk)/12);
-	}
-#endif
-
 	if (uart_at_24) {
 		/* Move UART to run from lp_apm */
 		clk_set_parent(&uart_main_clk, &lp_apm_clk);
