@@ -228,7 +228,6 @@ static struct spi_gpio_platform_data mx51_efikamx_spi_data = {
 
 void mx51_efikamx_init_spi(void)
 {
-	DBG(("IOMUX for SPI (%u pins)\n", ARRAY_SIZE(mx51_efikamx_spi_iomux_pins)));
 	CONFIG_IOMUX(mx51_efikamx_spi_iomux_pins);
 
 	/* SPI peripheral init is in flash.c and pmic.c */

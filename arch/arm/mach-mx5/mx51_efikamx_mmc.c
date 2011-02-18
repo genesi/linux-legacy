@@ -248,13 +248,13 @@ void __init mx51_efikamx_init_mmc(void)
 			/*
 			 * On Revision 1.1 down: Internal MicroSD Carrier
 			 */
-			DBG(("Initializing SD card IOMUX (internal, mmc0)\n"));
+			DBG(("mmc0 configured as internal MicroSD carrier\n"));
 			CONFIG_IOMUX(mx51_efikamx_internal_sdhc1_iomux_pins);
 		} else {
 			/*
 			 * On Revision 1.2 up: External SDHC slot has different IOMUX requirements
 			 */
-			DBG(("Initializing SD card IOMUX (external, mmc0)\n"));
+			DBG(("mmc0 configured as external SDHC\n"));
 			CONFIG_IOMUX(mx51_efikamx_external_sdhc1_iomux_pins);
 			CONFIG_IOMUX(mx51_efikamx_sdhc1_wpcd_pins);
 
@@ -268,7 +268,7 @@ void __init mx51_efikamx_init_mmc(void)
 		/*
 		 * MicroSD behind battery
 		 */
-		DBG(("Initializing SD card IOMUX (MicroSD, mmc0)\n"));
+		DBG(("mmc0 configured as MicroSD\n"));
 		CONFIG_IOMUX(mx51_efikamx_internal_sdhc1_iomux_pins);
 		CONFIG_IOMUX(mx51_efikasb_sdhc1_wpcd_pins);
 
@@ -290,7 +290,7 @@ void __init mx51_efikamx_init_mmc(void)
 	*/
 	if ((machine_is_mx51_efikamx() && mx51_efikamx_revision() < 2) || machine_is_mx51_efikasb())
 	{
-		DBG(("Initializing SD card IOMUX (external, mmc1)\n"));
+		DBG(("mmc1 configured as external SDHC\n"));
 		CONFIG_IOMUX(mx51_efikamx_sdhc2_iomux_pins);
 		CONFIG_IOMUX(mx51_efikamx_sdhc2_wpcd_pins);
 

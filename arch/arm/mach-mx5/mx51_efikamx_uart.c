@@ -52,6 +52,5 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_uart_iomux_pins[] = {
 
 void __init mx51_efikamx_init_uart(void)
 {
-	DBG(("IOMUX for UART (%d pins)\n", ARRAY_SIZE(mx51_efikamx_uart_iomux_pins)));
 	CONFIG_IOMUX(mx51_efikamx_uart_iomux_pins);
 }

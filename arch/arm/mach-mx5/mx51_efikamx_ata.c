@@ -118,7 +118,6 @@ static struct pata_platform_info mx51_efikamx_ata_data = {
 
 void __init mx51_efikamx_init_pata(void)
 {
-	DBG(("IOMUX for ATA (%d pins)\n", ARRAY_SIZE(mx51_efikamx_ata_iomux_pins)));
 	CONFIG_IOMUX(mx51_efikamx_ata_iomux_pins);
 
 #if defined(CONFIG_PATA_FSL) || defined(CONFIG_PATA_FSL_MODULE)
