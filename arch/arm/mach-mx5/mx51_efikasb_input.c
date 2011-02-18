@@ -172,62 +172,6 @@ static int mxc_init_wireless_sw(void)
 
 }
 
-static irqreturn_t sim_detect_int(int irq, void *dev_id)
-{
-	if(mxc_get_sim_card_status()) { /* ron: low active */
-		set_irq_type(irq, IRQF_TRIGGER_RISING);
-		pr_info("SIM card inserted\n");
-	} else {
-		set_irq_type(irq, IRQF_TRIGGER_FALLING);
-		pr_info("SIM card removed\n");
-	}
-
-	return IRQ_HANDLED;
-}
-
-static int mxc_init_sim_detect(void)
-{
-	int irq, ret;
-
-	irq = IOMUX_TO_IRQ(SIM_CD_PIN);
-
-	if(mxc_get_sim_card_status()) /* ron: low active */
-		set_irq_type(irq, IRQF_TRIGGER_RISING);
-	else
-		set_irq_type(irq, IRQF_TRIGGER_FALLING);
-
-	ret = request_irq(irq, sim_detect_int, 0, "sim-detect", 0);
-	if(ret)
-		pr_info("register SIM card detect interrupt failed\n");
-
-	return ret;
-}
-
-static ssize_t sim_status_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
-{
-        return sprintf(buf, "%d\n", mxc_get_sim_card_status());
-}
-
-static ssize_t wireless_sw_status_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
-{
-        return sprintf(buf, "%d\n", mxc_get_wireless_sw_status());
-}
-
-static struct kobj_attribute sim_status_attribute =
-        __ATTR(sim, S_IFREG | S_IRUGO, sim_status_show, NULL);
-static struct kobj_attribute wireless_sw_status_attribute =
-        __ATTR(wireless_sw, S_IFREG | S_IRUGO, wireless_sw_status_show, NULL);
-
-static struct attribute *status_attrs[] = {
-        &sim_status_attribute.attr,
-        &wireless_sw_status_attribute.attr,
-        NULL,
-};
-
-static struct attribute_group status_attr_group = {
-        .attrs = status_attrs,
-};
-
 static struct platform_device mxc_efikasb_input_dev = {
         .name = "efikasb_input",
 };
@@ -242,12 +186,6 @@ static int __init mxc_init_efikasb_inputdev(void)
         efikasb_input_kobj = kobject_create_and_add("status", &mxc_efikasb_input_dev.dev.kobj);
         if(!efikasb_input_kobj)
                 return -ENOMEM;
-
-        ret = sysfs_create_group(efikasb_input_kobj, &status_attr_group);
-        if(ret) {
-                kobject_put(efikasb_input_kobj);
-                return ret;
-        }
 
 	efikasb_inputdev = input_allocate_device();
 	if (!efikasb_inputdev) {
@@ -273,14 +211,12 @@ static int __init mxc_init_efikasb_inputdev(void)
 	if (ret) {
 		input_free_device(efikasb_inputdev);
 		pr_err("Failed to register hotkey input device\n");
-                sysfs_remove_group(efikasb_input_kobj, &status_attr_group);
                 kobject_put(efikasb_input_kobj);
 		return -ENODEV;
 	}
 
         mxc_init_power_key();
 
-        mxc_init_sim_detect();
         mxc_init_wireless_sw();
 
         register_pm_notifier(&pm_nb);

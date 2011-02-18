@@ -32,7 +32,6 @@
  */
 
 void mxc_power_on_wlan(int);
-void mxc_power_on_wwan(int);
 void mxc_power_on_bt(int);
 void mxc_power_on_camera(int);
 void mxc_reset_wlan(void);
@@ -226,9 +225,6 @@ static struct mxc_iomux_pin_cfg __initdata mxc_iomux_pins[] = {
         {                       /* ron: GPIO3_2 Watchdog ? GPIO conflict with EIM_CRE*/
          MX51_PIN_DI1_PIN13, IOMUX_CONFIG_ALT4,
         },
-        {                       /* ron: GPIO4_10 WWAN Power On */
-         MX51_PIN_CSI2_D13, IOMUX_CONFIG_ALT3,
-        },
         {                       /* ron: GPIO4_15 Power Good */
          MX51_PIN_CSI2_PIXCLK, IOMUX_CONFIG_ALT3,
         },
@@ -280,7 +276,6 @@ void __init mx51_efikasb_io_init(void)
 /* 	mxc_power_on_bt(1); */
         /* ron: workaround the bluetooth detect fail */
         schedule_delayed_work(&power_on_bt_work, msecs_to_jiffies(500));
-	mxc_power_on_wwan(1);
 
         /* Camera */
 	mxc_request_iomux(CAM_PWRON_PIN, IOMUX_CONFIG_GPIO);
@@ -295,17 +290,6 @@ void __init mx51_efikasb_io_init(void)
 	gpio_request(IOMUX_TO_GPIO(MEM_ID1_PIN), "mem_id");
 	gpio_direction_input(IOMUX_TO_GPIO(MEM_ID1_PIN));
 
-	/* SIM CD pin */
-	mxc_request_iomux(SIM_CD_PIN, IOMUX_CONFIG_GPIO | IOMUX_CONFIG_SION);
-        mxc_iomux_set_pad(SIM_CD_PIN, PAD_CTL_PKE_NONE);
-	gpio_request(IOMUX_TO_GPIO(SIM_CD_PIN), "sim_cd");
-	gpio_direction_input(IOMUX_TO_GPIO(SIM_CD_PIN));
-
-	/* WWAN Wakeup event pin */
-	mxc_request_iomux(WWAN_WAKEUP_PIN, IOMUX_CONFIG_GPIO);
-	gpio_request(IOMUX_TO_GPIO(WWAN_WAKEUP_PIN), "wwan_wakeup");
-	gpio_direction_input(IOMUX_TO_GPIO(WWAN_WAKEUP_PIN));
-
         /* Watchdog */
         mxc_request_iomux(WDOG_PIN, IOMUX_CONFIG_ALT2);
 
@@ -319,37 +303,6 @@ void __init mx51_efikasb_io_init(void)
 
 }
 
-struct mxc_power_switch_status {
-	int wlan_pwr_status;
-	int wwan_pwr_status;
-	int bt_pwr_status;
-	int camera_pwr_status;
-};
-
-static struct mxc_power_switch_status pwr_sw_status = {
-	.wlan_pwr_status = 0,
-	.wwan_pwr_status = 0,
-	.bt_pwr_status = 0,
-	.camera_pwr_status = 0,
-};
-
-int mxc_get_power_status(iomux_pin_name_t pin)
-{
-	switch(pin) {
-	case WLAN_PWRON_PIN:
-		return pwr_sw_status.wlan_pwr_status;
-	case WWAN_PWRON_PIN:
-		return pwr_sw_status.wwan_pwr_status;
-	case BT_PWRON_PIN:
-		return pwr_sw_status.bt_pwr_status;
-	case CAM_PWRON_PIN:
-		return pwr_sw_status.camera_pwr_status;
-	default:
-		return -EINVAL;
-	}
-}
-EXPORT_SYMBOL(mxc_get_power_status);
-
 void mxc_power_on_wlan(int on)
 {
 	gpio_direction_output(IOMUX_TO_GPIO(WLAN_PWRON_PIN), 0);
@@ -358,22 +311,8 @@ void mxc_power_on_wlan(int on)
 	else
 		gpio_set_value(IOMUX_TO_GPIO(WLAN_PWRON_PIN), 0);
 
-	pwr_sw_status.wlan_pwr_status = on;
-
 }
 EXPORT_SYMBOL(mxc_power_on_wlan);
-
-void mxc_power_on_wwan(int on)
-{
-	gpio_direction_output(IOMUX_TO_GPIO(WWAN_PWRON_PIN), 0);
-	if (on)
-		gpio_set_value(IOMUX_TO_GPIO(WWAN_PWRON_PIN), 0); /* low active */
-	else
-		gpio_set_value(IOMUX_TO_GPIO(WWAN_PWRON_PIN), 1);
-
-	pwr_sw_status.wwan_pwr_status = on;
-}
-EXPORT_SYMBOL(mxc_power_on_wwan);
 
 void mxc_power_on_bt(int on)
 {
@@ -382,8 +321,6 @@ void mxc_power_on_bt(int on)
 		gpio_set_value(IOMUX_TO_GPIO(BT_PWRON_PIN), 1);
 	else
 		gpio_set_value(IOMUX_TO_GPIO(BT_PWRON_PIN), 0);
-
-	pwr_sw_status.bt_pwr_status = on;
 
 }
 EXPORT_SYMBOL(mxc_power_on_bt);
@@ -395,8 +332,6 @@ void mxc_power_on_camera(int on)
 		gpio_set_value(IOMUX_TO_GPIO(CAM_PWRON_PIN), 0); /* low active */
 	else
 		gpio_set_value(IOMUX_TO_GPIO(CAM_PWRON_PIN), 1);
-
-	pwr_sw_status.camera_pwr_status = on;
 }
 EXPORT_SYMBOL(mxc_power_on_camera);
 

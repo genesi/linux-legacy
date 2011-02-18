@@ -51,7 +51,6 @@
 #define WLAN_PWRON_PIN         MX51_PIN_EIM_A22
 #define WLAN_RESET_PIN         MX51_PIN_EIM_A16
 #define BT_PWRON_PIN           MX51_PIN_EIM_A17
-#define WWAN_PWRON_PIN         MX51_PIN_CSI2_D13
 
 #define CAM_PWRON_PIN          MX51_PIN_NANDF_CS0
 
@@ -66,7 +65,6 @@
 #define MEM_ID1_PIN            MX51_PIN_EIM_CRE
 
 #define SIM_CD_PIN             MX51_PIN_EIM_CS1
-#define WWAN_WAKEUP_PIN        MX51_PIN_CSI1_HSYNC
 #define AGPS_PWRON_PIN         MX51_PIN_CSI2_D12
 #define AGPS_RESET_PIN         MX51_PIN_CSI2_D18
 #define AGPS_PWRSW_PIN         MX51_PIN_NANDF_CS1 /* ron: R1.3 add AGPS_PWRSW */
@@ -99,6 +97,7 @@ extern void __init mx51_efikamx_init_nor(void);
 extern void __init mx51_efikamx_init_display(void);
 extern void __init mx51_efikamx_init_i2c(void);
 extern void __init mx51_efikasb_init_battery(void);
+extern void __init mx51_efikasb_init_wwan(void);
 extern int  __init mx51_efikasb_init_pmic(void);
 
 extern void mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_mem);

@@ -160,39 +160,6 @@ static void mxc_power_off(void)
 	gpio_set_value(IOMUX_TO_GPIO(SYS_PWROFF_PIN), 1);
 }
 
-static irqreturn_t wwan_wakeup_int(int irq, void *dev_id)
-{
-	if(gpio_get_value(IOMUX_TO_GPIO(WWAN_WAKEUP_PIN)))
-		set_irq_type(irq, IRQF_TRIGGER_FALLING);
-	else
-		set_irq_type(irq, IRQF_TRIGGER_RISING);
-
-	pr_info("WWAN wakeup event\n");
-	return IRQ_HANDLED;
-}
-
-static int __init mxc_init_wwan_wakeup(void)
-{
-	int irq, ret;
-
-	irq = IOMUX_TO_IRQ(WWAN_WAKEUP_PIN);
-
-	if(gpio_get_value(IOMUX_TO_GPIO(WWAN_WAKEUP_PIN)))
-		set_irq_type(irq, IRQF_TRIGGER_FALLING);
-	else
-		set_irq_type(irq, IRQF_TRIGGER_RISING);
-
-	ret = request_irq(irq, wwan_wakeup_int, 0, "wwan-wakeup", 0);
-	if(ret)
-		pr_info("register WWAN wakeup interrupt failed\n");
-	else
-		enable_irq_wake(irq);
-
-	return ret;
-
-}
-late_initcall(mxc_init_wwan_wakeup);
-
 int mx51_efikamx_revision(void)
 {
 	return 0;
@@ -224,6 +191,8 @@ static void __init mx51_efikasb_board_init(void)
 
 	mx51_efikamx_init_audio();
 	mx51_efikasb_init_battery();
+
+	mx51_efikasb_init_wwan();
 
 	mx5_usb_dr_init();
 	mx5_usbh1_init();
