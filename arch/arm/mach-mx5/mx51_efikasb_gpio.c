@@ -365,13 +365,6 @@ void mxc_reset_usb_phy(void)
 }
 EXPORT_SYMBOL(mxc_reset_usb_phy);
 
-int mxc_get_sim_card_status(void)
-{
-	return !gpio_get_value(IOMUX_TO_GPIO(SIM_CD_PIN));
-}
-EXPORT_SYMBOL(mxc_get_sim_card_status);
-
-
 /* ron: 00    Nanya DDR2
         10    Micron DDR2
         01    Hynix DDR2  */
