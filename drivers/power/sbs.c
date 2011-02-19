@@ -365,8 +365,10 @@ static inline int __chem_to_tech(const char * const chem)
 		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
 	if (!strcasecmp(chem, "SOFC")) /* Solid Oxide Fuel Cell */
 		return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
+#if defined(CONFIG_MACH_MX51_EFIKASB)
 	if (!strcasecmp(chem, "LGC0")) /* Lithium Ion */
 		return POWER_SUPPLY_TECHNOLOGY_LION;
+#endif
 
 	DEBUG("Unknown Device Chemistry: %s", chem);
 	return POWER_SUPPLY_TECHNOLOGY_UNKNOWN;
