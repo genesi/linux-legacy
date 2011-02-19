@@ -775,8 +775,8 @@ irq_request_failure:
 	power_supply_unregister(&batt->battery);
 
 error:
-	kfree(batt);
 	i2c_set_clientdata(client, NULL);
+	kfree(batt);
 	return ret;
 }
 
@@ -803,8 +803,8 @@ static int __devexit sbs_remove(struct i2c_client *client)
 
 		sbs_free_irqs(batt);
 
-		kfree(batt);
 		i2c_set_clientdata(client, NULL);
+		kfree(batt);
 	}
 
 	return 0;
