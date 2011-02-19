@@ -64,6 +64,12 @@ struct __packed cea861_data_block_header {
 	unsigned tag    : 3;
 };
 
+/* if header->tag is not 0x7 this will work without any definition */
+struct __packed cea861_data_block_generic {
+	struct cea861_data_block_header header;
+	u8 data[31];
+};
+
 struct __packed cea861_vendor_specific_data_block {
 	struct cea861_data_block_header header;
 
@@ -116,7 +122,7 @@ struct __packed cea861_timing_block {
 struct __packed hdmi_vsdb {
 	struct cea861_data_block_header header;
 
-	u8       ieee_registration_id[3];
+	u8       ieee_registration[3];
 	unsigned port_configuration_b            : 4;
 	unsigned port_configuration_a            : 4;
 	unsigned port_configuration_d            : 4;
@@ -150,6 +156,35 @@ struct __packed hdmi_vsdb {
 
 	u8       reserved[];
 };
+
+
+
+
+/* if header->tag == 0x7 then extended_tag is valid so we can cast the header to this,
+ * find the tag and then recast it to the appropriate structure (ugh!)
+ */
+struct __packed cea861_data_block_extended {
+	struct cea861_data_block_header header;
+	u8 extension_tag;
+};
+
+/* we're missing a few.. */
+enum cea861_data_block_extension_type {
+	CEA861_DATA_BLOCK_EXTENSION_VIDEO_CAPABILITY,
+	CEA861_DATA_BLOCK_EXTENSION_COLORIMETRY = 5,
+	CEA861_DATA_BLOCK_EXTENSION_CEA_MISC_AUDIO = 16,
+};
+
+struct __packed cea861_video_capability_block {
+	struct cea861_data_block_extended header;
+	unsigned ce_overunder_behavior	: 2;
+	unsigned it_overunder_behavior	: 2;
+	unsigned pt_overunder_behavior	: 2;
+	unsigned quant_range_rgb	: 1;
+	unsigned quant_range_ycc	: 1;
+};
+
+
 
 /* InfoFrame type constants */
 enum info_frame_type {
