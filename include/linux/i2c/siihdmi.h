@@ -375,6 +375,10 @@ struct siihdmi_tx {
 		PIXEL_MAPPING_OVERSCANNED,
 	} pixel_mapping;
 
+        int pt_overunder_behavior;
+        int ce_overunder_behavior;
+        int it_overunder_behavior;
+
 	/* preferred video mode (based on EDID) */
 	struct fb_videomode preferred;
 };
