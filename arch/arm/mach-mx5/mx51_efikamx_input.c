@@ -145,11 +145,9 @@ static struct platform_device mx51_efikasb_input_device = {
 
 void mx51_efikamx_wifi_power(int state)
 {
-	if (state)
-		gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_WIFI_POWER), 1);
-	else
-		gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_WIFI_POWER), 0);
-
+	if (machine_is_mx51_efikamx())
+		state = !state;
+	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_WIFI_POWER), state);
 }
 
 void mx51_efikamx_wifi_reset(void)
