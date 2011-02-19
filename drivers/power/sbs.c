@@ -658,6 +658,8 @@ static int sbs_request_irqs(struct sbs_battery * const batt)
 		if (!request->irq)
 			continue;
 
+		BUG_ON(~request->irq->flags & IORESOURCE_IRQ);
+
 		ret = request_irq(request->irq->start, request->handler,
 				  __irq_flags(request->irq),
 				  request->irq->name,
