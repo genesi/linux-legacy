@@ -234,7 +234,7 @@ static inline int read_battery_register(struct sbs_battery * const batt,
 			if (ret < 0)
 				return ret;
 
-			BUG_ON(buffer.length > sizeof(buffer.data));
+			WARN_ON(buffer.length > sizeof(buffer.data));
 			buffer.length = min(buffer.length,
 					    (u8) (sizeof(buffer.data) - 1));
 			buffer.data[buffer.length] = '\0';
