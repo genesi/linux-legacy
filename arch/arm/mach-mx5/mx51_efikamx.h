@@ -21,6 +21,7 @@ extern int __init mx51_efikamx_init_mc13892(void);
 extern void __init mx51_efikamx_timer_init(void);
 
 /* peripheral inits */
+extern void __init mx51_efikamx_init_soc(void);
 extern void __init mx51_efikamx_init_uart(void);
 extern void __init mx51_efikamx_init_mmc(void);
 extern void __init mx51_efikamx_init_leds(void);
@@ -35,9 +36,8 @@ extern void __init mx51_efikamx_init_pata(void);
 extern void __init mx51_efikamx_init_usb(void);
 extern void __init mx51_efikamx_init_input(void);
 extern void __init mx51_efikamx_init_leds(void);
-extern void __init mx51_efikamx_init_wwan(void);
+extern void __init mx51_efikamx_init_periph(void);
 extern int __init mx51_efikamx_init_pmic(void);
-extern void __init mx51_efikamx_init_soc(void);
 extern void __init mx51_efikamx_init_battery(void);
 
 /* io */

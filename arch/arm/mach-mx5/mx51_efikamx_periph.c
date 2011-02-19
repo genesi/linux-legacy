@@ -35,17 +35,54 @@
 #include "mx51_efikamx.h"
 
 
+#define EFIKAMX_WIFI_POWER	MX51_PIN_EIM_A22
+#define EFIKAMX_WIFI_RESET	MX51_PIN_EIM_A16
+#define EFIKAMX_BT_POWER	MX51_PIN_EIM_A17
+
+struct mxc_iomux_pin_cfg __initdata mx51_efikamx_periph_iomux_pins[] = {
+	{ EFIKAMX_WIFI_POWER, IOMUX_CONFIG_GPIO, },
+	{ EFIKAMX_WIFI_RESET, IOMUX_CONFIG_GPIO, },
+	{ EFIKAMX_BT_POWER, IOMUX_CONFIG_GPIO, },
+};
+
 #define EFIKASB_WWAN_WAKEUP	MX51_PIN_CSI1_HSYNC
 #define EFIKASB_WWAN_POWER	MX51_PIN_CSI2_D13
 #define EFIKASB_WWAN_SIM	MX51_PIN_EIM_CS1
+#define EFIKASB_CAMERA_POWER	MX51_PIN_NANDF_CS0
 
-static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_wwan_iomux_pins[] = {
+static struct mxc_iomux_pin_cfg __initdata mx51_efikasb_periph_iomux_pins[] = {
 	{ EFIKASB_WWAN_WAKEUP, IOMUX_CONFIG_GPIO, },
 	{ EFIKASB_WWAN_POWER, IOMUX_CONFIG_GPIO, },
 	{ EFIKASB_WWAN_SIM, IOMUX_CONFIG_GPIO | IOMUX_CONFIG_SION, PAD_CTL_PKE_NONE },
+	{ EFIKASB_CAMERA_POWER, IOMUX_CONFIG_GPIO, },
 };
 
 
+void mx51_efikamx_wifi_power(int state)
+{
+	if (machine_is_mx51_efikamx())
+		state = !state;
+	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_WIFI_POWER), state);
+}
+
+void mx51_efikamx_wifi_reset(void)
+{
+        msleep(1);
+        gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_WIFI_RESET), 0);
+        msleep(1);
+        gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_WIFI_RESET), 1);
+}
+
+void mx51_efikamx_bluetooth_power(int state)
+{
+	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_BT_POWER), state);
+	msleep(250);
+}
+
+void mx51_efikamx_camera_power(int state)
+{
+	gpio_set_value(IOMUX_TO_GPIO(EFIKASB_CAMERA_POWER), !state);
+}
 
 void mx51_efikamx_wwan_power(int state)
 {
@@ -91,13 +128,31 @@ static irqreturn_t mx51_efikamx_wwan_wakeup(int irq, void *dev_id)
 
 
 
-void __init mx51_efikamx_init_wwan(void)
+void __init mx51_efikamx_init_periph(void)
 {
 	int irq, ret;
 
+	CONFIG_IOMUX(mx51_efikamx_periph_iomux_pins);
+
+	gpio_free(IOMUX_TO_GPIO(EFIKAMX_WIFI_POWER));
+	gpio_request(IOMUX_TO_GPIO(EFIKAMX_WIFI_POWER), "wifi:power");
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_WIFI_POWER), 0);
+
+	gpio_free(IOMUX_TO_GPIO(EFIKAMX_WIFI_RESET));
+	gpio_request(IOMUX_TO_GPIO(EFIKAMX_WIFI_RESET), "wifi:reset");
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_WIFI_RESET), 0);
+
+	gpio_free(IOMUX_TO_GPIO(EFIKAMX_BT_POWER));
+	gpio_request(IOMUX_TO_GPIO(EFIKAMX_BT_POWER), "bluetooth:power");
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_BT_POWER), 1);
+
 	if (machine_is_mx51_efikasb()) {
 
-		CONFIG_IOMUX(mx51_efikamx_wwan_iomux_pins);
+		CONFIG_IOMUX(mx51_efikasb_periph_iomux_pins);
+
+		gpio_free(IOMUX_TO_GPIO(EFIKASB_CAMERA_POWER));
+		gpio_request(IOMUX_TO_GPIO(EFIKASB_CAMERA_POWER), "camera:power");
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_CAMERA_POWER), 1);
 
 		gpio_request(IOMUX_TO_GPIO(EFIKASB_WWAN_WAKEUP), "wwan:wakeup");
 		gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_WWAN_WAKEUP));

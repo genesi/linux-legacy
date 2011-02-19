@@ -259,6 +259,7 @@ static void __init mx51_efikamx_board_init(void)
 	mx51_efikamx_init_mmc();
 	mx51_efikamx_init_input();
 	mx51_efikamx_init_leds();
+	mx51_efikamx_init_periph();
 	mx51_efikamx_init_usb();
 
 	pm_power_off = mx51_efikamx_power_off;
@@ -270,7 +271,6 @@ static void __init mx51_efikamx_board_init(void)
 
 		DBG(("Smarttop Revision 1.%u", mx51_efikamx_revision() ));
 	} else if (machine_is_mx51_efikasb()) {
-		mx51_efikamx_init_wwan();
 		mx51_efikamx_init_battery();
 
 		/* dastardly code to give us 1.3 or 2.0 out of "1" or "2" */
