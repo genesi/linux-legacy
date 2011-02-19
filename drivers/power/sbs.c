@@ -194,17 +194,23 @@ struct sbs_battery_register {
 };
 
 
-static inline void read_battery_register(struct sbs_battery * const batt,
-					 const struct sbs_battery_register *reg)
+static inline int read_battery_register(struct sbs_battery * const batt,
+					const struct sbs_battery_register *reg)
 {
 	u8 * const cache = (u8 *) batt;
+	int ret;
 
 	switch (reg->type) {
 	case SBS_REGISTER_INT:
 		{
 			u16 *data = (u16 *)(cache + reg->offset);
-			*data = i2c_smbus_read_word_data(batt->client,
-							 reg->address);
+
+			ret = i2c_smbus_read_word_data(batt->client,
+						       reg->address);
+			if (ret < 0)
+				return ret;
+
+			*data = (u16) ret;
 		}
 		break;
 	case SBS_REGISTER_STRING:
@@ -219,10 +225,12 @@ static inline void read_battery_register(struct sbs_battery * const batt,
 			BUILD_BUG_ON(sizeof(buffer) != SBS_STRING_REGISTER_LEN);
 			BUILD_BUG_ON(sizeof(buffer) > I2C_SMBUS_BLOCK_MAX);
 
-			i2c_smbus_read_i2c_block_data(batt->client,
-						      reg->address,
-						      sizeof(buffer),
-						      (u8 *) &buffer);
+			ret = i2c_smbus_read_i2c_block_data(batt->client,
+							    reg->address,
+							    sizeof(buffer),
+							    (u8 *) &buffer);
+			if (ret < 0)
+				return ret;
 
 			BUG_ON(buffer.length > sizeof(buffer.data));
 			buffer.length = min(buffer.length,
@@ -237,6 +245,8 @@ static inline void read_battery_register(struct sbs_battery * const batt,
 		}
 		break;
 	}
+
+	return 0;
 }
 
 
@@ -283,14 +293,15 @@ static inline unsigned int ipow(const int base, int exp)
 static void sbs_get_battery_info(struct sbs_battery *batt)
 {
 	unsigned int i;
+	int ret = 0;
 
 	for (i = 0; i < ARRAY_SIZE(sbs_info_registers); i++)
-		read_battery_register(batt, &sbs_info_registers[i]);
+		ret = ret || read_battery_register(batt, &sbs_info_registers[i]);
 
 	batt->vscale = ipow(10, (batt->cache.specification_info >> 8) & 0xf);
 	batt->ipscale = ipow(10, (batt->cache.specification_info >> 12) & 0xf);
 
-	batt->cache.flags.info_valid = true;
+	batt->cache.flags.info_valid = (ret == 0);
 }
 
 /* Battery State */
