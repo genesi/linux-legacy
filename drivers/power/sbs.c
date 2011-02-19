@@ -251,6 +251,20 @@ static inline int read_battery_register(struct sbs_battery * const batt,
 	return 0;
 }
 
+static inline bool battery_present(const struct sbs_battery * const batt)
+{
+	/* BUG_ON(!mutex_is_locked(&batt->lock)); */
+	return (!batt->platform->battery_insertion_status ||
+		batt->platform->battery_insertion_status());
+}
+
+static inline bool mains_present(const struct sbs_battery * const batt)
+{
+	/* BUG_ON(!mutex_is_locked(&batt->lock)); */
+	return (!batt->platform->mains_insertion_status ||
+		batt->platform->mains_insertion_status());
+}
+
 
 /* Battery Information */
 static const struct sbs_battery_register sbs_info_registers[] = {
@@ -555,8 +569,7 @@ static int sbs_get_battery_property(struct power_supply *psy,
 			val->intval = POWER_SUPPLY_STATUS_FULL;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
-		if (batt->platform->battery_insertion_status)
-			val->intval = batt->platform->battery_insertion_status();
+		val->intval = battery_present(batt);
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:                          /* uV */
 		val->intval = __mV_2_uV(batt, batt->cache.voltage);
@@ -645,8 +658,7 @@ static int sbs_get_mains_property(struct power_supply *psy,
 	mutex_lock(&batt->lock);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		if (batt->platform->mains_insertion_status)
-			val->intval = batt->platform->mains_insertion_status();
+		val->intval = mains_present(batt);
 		break;
 	default:
 		retval = -EINVAL;
@@ -753,12 +765,8 @@ static void sbs_refresh_battery_info(struct work_struct *work)
 {
 	struct sbs_battery * const batt =
 		container_of(work, struct sbs_battery, refresh.work);
-	bool inserted = true;
 
-	if (batt->platform->battery_insertion_status)
-		inserted = batt->platform->battery_insertion_status();
-
-	if (inserted)
+	if (battery_present(batt))
 		sbs_get_battery_info(batt);
 
 	power_supply_changed(&batt->battery);
