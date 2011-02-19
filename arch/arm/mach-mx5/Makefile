@@ -24,6 +24,6 @@ obj-$(CONFIG_MACH_MX51_EFIKAMX) += mx51_efikamx.o \
 				   mx51_efikamx_mmc.o mx51_efikamx_ata.o \
 				   mx51_efikamx_input.o mx51_efikamx_leds.o \
                                    mx51_efikamx_audio.o	mx51_efikamx_display.o \
-				   mx51_efikamx_wwan.o mx51_efikamx_usb.o \
+				   mx51_efikamx_periph.o mx51_efikamx_usb.o \
 				   mx51_efikamx_battery.o \
 				   early_setup.o
