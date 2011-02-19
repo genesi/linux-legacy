@@ -30,6 +30,7 @@
 
 #include <linux/i2c.h>
 #include <linux/sbs.h>
+#include <linux/mutex.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/jiffies.h>
@@ -181,6 +182,7 @@ struct sbs_battery {
 
 	struct sbs_irq_request irq_requests[SBS_IRQS];
 
+	struct mutex lock;
 	struct delayed_work refresh;
 };
 
@@ -290,10 +292,15 @@ static inline unsigned int ipow(const int base, int exp)
 	return value;
 }
 
-static void sbs_get_battery_info(struct sbs_battery *batt)
+static void sbs_get_battery_info_locked(struct sbs_battery *batt)
 {
 	unsigned int i;
 	int ret = 0;
+
+	BUG_ON(!mutex_is_locked(&batt->lock));
+
+	if (batt->cache.flags.info_valid)
+		return;
 
 	for (i = 0; i < ARRAY_SIZE(sbs_info_registers); i++)
 		ret = ret || read_battery_register(batt, &sbs_info_registers[i]);
@@ -302,6 +309,13 @@ static void sbs_get_battery_info(struct sbs_battery *batt)
 	batt->ipscale = ipow(10, (batt->cache.specification_info >> 12) & 0xf);
 
 	batt->cache.flags.info_valid = (ret == 0);
+}
+
+static void inline sbs_get_battery_info(struct sbs_battery *batt)
+{
+	mutex_lock(&batt->lock);
+	sbs_get_battery_info_locked(batt);
+	mutex_unlock(&batt->lock);
 }
 
 /* Battery State */
@@ -446,6 +460,8 @@ static void sbs_get_battery_state(struct sbs_battery *batt)
 {
 	unsigned int i;
 
+	BUG_ON(!mutex_is_locked(&batt->lock));
+
 	if (likely(batt->cache.timestamp))
 		if (time_before(jiffies,
 				batt->cache.timestamp + msecs_to_jiffies(cache_time)))
@@ -494,36 +510,39 @@ static int sbs_get_battery_property(struct power_supply *psy,
 {
 	struct sbs_battery *batt =
 		container_of(psy, struct sbs_battery, battery);
+	int retval = 0;
 
-	if (!batt->cache.flags.info_valid)
-		sbs_get_battery_info(batt);
+	val->intval = 0;
+
+	mutex_lock(&batt->lock);
+
+	sbs_get_battery_info_locked(batt);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
 		val->intval = __chem_to_tech(batt->cache.device_chemistry);
-		return 0;
+		goto out;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34)
 	case POWER_SUPPLY_PROP_CYCLE_COUNT:
 		val->intval = batt->cache.battery_cycle_count;
-		return 0;
+		goto out;
 #endif
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:                   /* uV */
 		val->intval = __mV_2_uV(batt, batt->cache.design_voltage);
-		return 0;
+		goto out;
 	case POWER_SUPPLY_PROP_MODEL_NAME:
 		val->strval = batt->cache.device_name;
-		return 0;
+		goto out;
 	case POWER_SUPPLY_PROP_MANUFACTURER:
 		val->strval = batt->cache.manufacturer_name;
-		return 0;
+		goto out;
 	case POWER_SUPPLY_PROP_SERIAL_NUMBER:
 		val->strval = batt->cache.serial_number;
-		return 0;
+		goto out;
 	default:
 		break;
 	}
 
-	val->intval = 0;
 	sbs_get_battery_state(batt);
 
 	switch (psp) {
@@ -590,10 +609,13 @@ static int sbs_get_battery_property(struct power_supply *psy,
 		break;
 
 	default:
-		return -EINVAL;
+		retval = -EINVAL;
+		break;
 	}
 
-	return 0;
+out:
+	mutex_unlock(&batt->lock);
+	return retval;
 }
 
 static struct power_supply sbs_battery = {
@@ -616,19 +638,23 @@ static int sbs_get_mains_property(struct power_supply *psy,
 {
 	struct sbs_battery *batt =
 		container_of(psy, struct sbs_battery, mains);
+	int retval = 0;
 
 	val->intval = 0;
 
+	mutex_lock(&batt->lock);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		if (batt->platform->mains_insertion_status)
 			val->intval = batt->platform->mains_insertion_status();
 		break;
 	default:
-		return -EINVAL;
+		retval = -EINVAL;
+		break;
 	}
+	mutex_unlock(&batt->lock);
 
-	return 0;
+	return retval;
 }
 
 static struct power_supply sbs_mains = {
@@ -638,6 +664,7 @@ static struct power_supply sbs_mains = {
 	.num_properties = ARRAY_SIZE(sbs_mains_properties),
 	.get_property   = sbs_get_mains_property,
 };
+
 
 static inline unsigned long __irq_flags(const struct resource * const res)
 {
@@ -742,11 +769,14 @@ static int __devinit sbs_probe(struct i2c_client *client,
 {
 	struct sbs_irq_request *request;
 	struct sbs_battery *batt;
-	int ret;
+	int ret = 0;
 
 	batt = kzalloc(sizeof(*batt), GFP_KERNEL);
 	if (!batt)
 		return -ENOMEM;
+	mutex_init(&batt->lock);
+
+	mutex_lock(&batt->lock);
 
 	batt->client = client;
 	batt->platform = client->dev.platform_data;
@@ -771,7 +801,7 @@ static int __devinit sbs_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, batt);
 
-	if (sbs_request_irqs(batt) < 0)
+	if ((ret = sbs_request_irqs(batt)) < 0)
 		goto error;
 
 	if ((ret = power_supply_register(&client->dev, &batt->battery)) < 0)
@@ -784,9 +814,12 @@ static int __devinit sbs_probe(struct i2c_client *client,
 
 	INIT_DELAYED_WORK(&batt->refresh, sbs_refresh_battery_info);
 
+	mutex_unlock(&batt->lock);
+
 	return 0;
 
 error:
+	mutex_unlock(&batt->lock);
 	i2c_set_clientdata(client, NULL);
 	kfree(batt);
 	return ret;
@@ -798,6 +831,8 @@ static int __devexit sbs_remove(struct i2c_client *client)
 
 	batt = i2c_get_clientdata(client);
 	if (batt) {
+		mutex_lock(&batt->lock);
+
 		power_supply_unregister(&batt->mains);
 		power_supply_unregister(&batt->battery);
 
@@ -814,6 +849,10 @@ static int __devexit sbs_remove(struct i2c_client *client)
 			kfree(batt->cache.serial_number);
 
 		sbs_free_irqs(batt);
+
+		mutex_unlock(&batt->lock);
+
+		mutex_destroy(&batt->lock);
 
 		i2c_set_clientdata(client, NULL);
 		kfree(batt);
