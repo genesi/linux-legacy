@@ -726,9 +726,12 @@ static void sbs_refresh_battery_info(struct work_struct *work)
 {
 	struct sbs_battery * const batt =
 		container_of(work, struct sbs_battery, refresh.work);
+	bool inserted = true;
 
-	if (!batt->platform->battery_insertion_status ||
-	    batt->platform->battery_insertion_status())
+	if (batt->platform->battery_insertion_status)
+		inserted = batt->platform->battery_insertion_status();
+
+	if (inserted)
 		sbs_get_battery_info(batt);
 
 	power_supply_changed(&batt->battery);
