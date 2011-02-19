@@ -68,9 +68,9 @@ struct mxc_iomux_pin_cfg __initdata mx51_efikamx_input_iomux_pins[] = {
 
 static struct gpio_keys_button mx51_efikamx_powerkey[] = {
 	{
-		.code	= KEY_POWER | KEY_SLEEP | KEY_WAKEUP,
+		.code	= KEY_POWER,
 		.gpio	= IOMUX_TO_GPIO(EFIKAMX_POWER_KEY),
-		.type	= EV_KEY | EV_PWR,
+		.type	= EV_KEY,
 		.desc	= "Power Button",
 		.wakeup = 1,
 		.debounce_interval = 10, /* ms */
@@ -100,9 +100,9 @@ int mx51_efikasb_rfkill_status(void)
 static struct gpio_keys_button mx51_efikasb_input[] = {
 	/* yes, this is duplicated! */
 	{
-		.code	= KEY_POWER | KEY_SLEEP | KEY_WAKEUP,
+		.code	= KEY_POWER,
 		.gpio	= IOMUX_TO_GPIO(EFIKAMX_POWER_KEY),
-		.type	= EV_KEY | EV_PWR,
+		.type	= EV_KEY,
 		.desc	= "Power Button",
 		.wakeup = 1,
 		.debounce_interval = 10, /* ms */
