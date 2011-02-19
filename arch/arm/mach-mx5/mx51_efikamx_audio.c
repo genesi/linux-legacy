@@ -84,7 +84,10 @@ static int mx51_efikamx_audio_clock_enable(int enable)
 
 static int mx51_efikamx_headphone_det_status(void)
 {
-	return gpio_get_value(IOMUX_TO_GPIO(EFIKAMX_HP_DETECT));
+	if (machine_is_mx51_efikamx())
+		return gpio_get_value(IOMUX_TO_GPIO(EFIKAMX_HP_DETECT));
+	else if (machine_is_mx51_efikasb())
+		return !gpio_get_value(IOMUX_TO_GPIO(EFIKAMX_HP_DETECT));
 }
 
 static struct mxc_audio_platform_data mx51_efikamx_audio_data = {
