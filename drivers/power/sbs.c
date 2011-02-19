@@ -306,14 +306,14 @@ static inline unsigned int ipow(const int base, int exp)
 	return value;
 }
 
-static void sbs_get_battery_info_locked(struct sbs_battery *batt)
+static void sbs_get_battery_info(struct sbs_battery *batt)
 {
 	unsigned int i;
 	int ret = 0;
 
 	BUG_ON(!mutex_is_locked(&batt->lock));
 
-	if (batt->cache.flags.info_valid)
+	if (!battery_present(batt) || batt->cache.flags.info_valid)
 		return;
 
 	for (i = 0; i < ARRAY_SIZE(sbs_info_registers); i++)
@@ -325,12 +325,6 @@ static void sbs_get_battery_info_locked(struct sbs_battery *batt)
 	batt->cache.flags.info_valid = (ret == 0);
 }
 
-static void inline sbs_get_battery_info(struct sbs_battery *batt)
-{
-	mutex_lock(&batt->lock);
-	sbs_get_battery_info_locked(batt);
-	mutex_unlock(&batt->lock);
-}
 
 /* Battery State */
 static enum power_supply_property sbs_battery_properties[] = {
@@ -481,6 +475,9 @@ static void sbs_get_battery_state(struct sbs_battery *batt)
 				batt->cache.timestamp + msecs_to_jiffies(cache_time)))
 			return;
 
+	if (!battery_present(batt))
+		return;
+
 	for (i = 0; i < ARRAY_SIZE(sbs_state_registers); i++)
 		read_battery_register(batt, &sbs_state_registers[i]);
 
@@ -530,7 +527,7 @@ static int sbs_get_battery_property(struct power_supply *psy,
 
 	mutex_lock(&batt->lock);
 
-	sbs_get_battery_info_locked(batt);
+	sbs_get_battery_info(batt);
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_TECHNOLOGY:
@@ -766,8 +763,9 @@ static void sbs_refresh_battery_info(struct work_struct *work)
 	struct sbs_battery * const batt =
 		container_of(work, struct sbs_battery, refresh.work);
 
-	if (battery_present(batt))
-		sbs_get_battery_info(batt);
+	mutex_lock(&batt->lock);
+	sbs_get_battery_info(batt);
+	mutex_unlock(&batt->lock);
 
 	power_supply_changed(&batt->battery);
 }
