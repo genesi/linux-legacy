@@ -273,16 +273,31 @@ static void siihdmi_parse_cea861_timing_block(struct siihdmi_tx *tx,
 
 		switch (header->tag) {
 		case CEA861_DATA_BLOCK_TYPE_VENDOR_SPECIFIC: {
-				const struct cea861_vendor_specific_data_block * const vsdb =
-					(struct cea861_vendor_specific_data_block *) header;
+				/* technically a bad thing to do but, fine for our purpose.. */
+				const struct hdmi_vsdb * const vsdb =
+					(struct hdmi_vsdb *) header;
 
 				if (!memcmp(vsdb->ieee_registration,
 					    CEA861_OUI_REGISTRATION_ID_HDMI_LSB,
 					    sizeof(vsdb->ieee_registration))) {
+
+					unsigned int max_tmds = KHZ2PICOS(vsdb->max_tmds_clock * 200);
+
 					DEBUG("HDMI sink verified %s\n",
 					tx->basic_audio ? "" : "but not enabled due to lack of audio support");
 					if (tx->basic_audio)
 						tx->connection_type = CONNECTION_TYPE_HDMI;
+
+					INFO("Port Config %u.%u.%u.%u\n", vsdb->port_configuration_a,
+									  vsdb->port_configuration_b,
+									  vsdb->port_configuration_c,
+									  vsdb->port_configuration_d);
+
+					if (max_tmds < tx->platform->pixclock) {
+						tx->platform->pixclock = max_tmds;
+						INFO("Maximum TMDS clock lower than platform restriction\n");
+					}
+
 				}
 			}
 			break;
@@ -304,6 +319,68 @@ static void siihdmi_parse_cea861_timing_block(struct siihdmi_tx *tx,
 				}
 				DEBUG("Added %u modes from CEA Video Data Block\n", added);
 			}
+			break;
+		case CEA861_DATA_BLOCK_TYPE_EXTENDED: {
+				const struct cea861_data_block_extended * const ext =
+					(struct cea861_data_block_extended *) header;
+
+				if (ext->extension_tag ==
+				    CEA861_DATA_BLOCK_EXTENSION_VIDEO_CAPABILITY) {
+					const struct cea861_video_capability_block * const vcb =
+						(struct cea861_video_capability_block *) header;
+
+					INFO("CEA Extension: Video Capability Data Data Block:\n");
+
+					if (vcb->pt_overunder_behavior) {
+						INFO("   Preferred Timing ");
+						switch (vcb->pt_overunder_behavior) {
+							case 0x1:
+								CONTINUE("Always Overscanned\n");
+								break;
+							case 0x2:
+								CONTINUE("Always Underscanned\n");
+								break;
+							case 0x3:
+								CONTINUE("Supports both Over- and Underscan\n");
+								break;
+						}
+						tx->pt_overunder_behavior = vcb->pt_overunder_behavior;
+					}
+
+					if (vcb->it_overunder_behavior) {
+						INFO("   VESA/PC Mode Timing ");
+						switch (vcb->pt_overunder_behavior) {
+							case 0x1:
+								CONTINUE("Always Overscanned\n");
+								break;
+							case 0x2:
+								CONTINUE("Always Underscanned\n");
+								break;
+							case 0x3:
+								CONTINUE("Supports both Over- and Underscan\n");
+								break;
+						}
+						tx->it_overunder_behavior = vcb->it_overunder_behavior;
+					}
+
+					if (vcb->ce_overunder_behavior) {
+						INFO("   CE/TV Mode Timing ");
+						switch (vcb->pt_overunder_behavior) {
+							case 0x1:
+								CONTINUE("Always Overscanned\n");
+								break;
+							case 0x2:
+								CONTINUE("Always Underscanned\n");
+								break;
+							case 0x3:
+								CONTINUE("Supports both Over- and Underscan\n");
+								break;
+						}
+						tx->ce_overunder_behavior = vcb->ce_overunder_behavior;
+					}
+
+				}/*if extended tag*/
+			}/* case extended */
 			break;
 		default:
 			break;
