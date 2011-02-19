@@ -755,6 +755,9 @@ static int __devinit sbs_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, batt);
 
+	if (sbs_request_irqs(batt) < 0)
+		goto error;
+
 	if ((ret = power_supply_register(&client->dev, &batt->battery)) < 0)
 		goto error;
 
@@ -763,16 +766,9 @@ static int __devinit sbs_probe(struct i2c_client *client,
 		goto error;
 	}
 
-	if (sbs_request_irqs(batt) < 0)
-		goto irq_request_failure;
-
 	INIT_DELAYED_WORK(&batt->refresh, sbs_refresh_battery_info);
 
 	return 0;
-
-irq_request_failure:
-	power_supply_unregister(&batt->mains);
-	power_supply_unregister(&batt->battery);
 
 error:
 	i2c_set_clientdata(client, NULL);
