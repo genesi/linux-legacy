@@ -22,7 +22,7 @@
 #include "crm_regs.h"
 
 #if defined(CONFIG_MACH_MX51_EFIKAMX)
-#include "mx51_efikamx.h"
+extern void mx51_efikamx_reboot(void);
 #endif
 
 /*!
