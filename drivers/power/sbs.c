@@ -107,9 +107,8 @@
 
 #define SBS_STRING_REGISTER_LEN				(32)
 
-
 /* module parameters */
-static unsigned int cache_time = 10000;
+static unsigned int cache_time = 2500;
 module_param(cache_time, uint, 0644);
 MODULE_PARM_DESC(cache_time, "cache time in milliseconds");
 
@@ -154,12 +153,6 @@ struct sbs_battery {
 			unsigned            : 7;
 		} flags;
 	} cache;
-
-	struct __packed {
-		unsigned capacity_relearn : 1;
-		unsigned uninitialized    : 1;
-		unsigned                  : 6;
-	} state;
 
 	unsigned int vscale;
 	unsigned int ipscale;
@@ -342,6 +335,8 @@ static enum power_supply_property sbs_battery_properties[] = {
 	POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN,
 	POWER_SUPPLY_PROP_ENERGY_FULL,
 	POWER_SUPPLY_PROP_ENERGY_NOW,
+
+	POWER_SUPPLY_PROP_HEALTH,
 };
 
 static inline int __chem_to_tech(const char * const chem)
@@ -478,30 +473,6 @@ static void sbs_get_battery_state(struct sbs_battery *batt)
 	batt->cache.serial_number = kasprintf(GFP_KERNEL,
 					      "%u", batt->cache._serial_number);
 
-	if (batt->cache.battery_mode & MODE_CAPACITY_RELEARN) {
-		if (!batt->state.capacity_relearn) {
-			INFO("conditioning cycle requested\n");
-			batt->state.capacity_relearn = true;
-		}
-	} else {
-		if (batt->state.capacity_relearn) {
-			INFO("conditioning cycle completed\n");
-			batt->state.capacity_relearn = false;
-		}
-	}
-
-	if (~batt->cache.battery_status & STATUS_INITIALIZED) {
-		if (!batt->state.uninitialized) {
-			WARNING("battery electronics have deteriorated; data "
-				"may be inaccurate or invalid!");
-			batt->state.uninitialized = true;
-		}
-	} else {
-		if (batt->state.uninitialized) {
-			INFO("battery initialisation state has returned to normal");
-			batt->state.uninitialized = false;
-		}
-	}
 }
 
 static int sbs_get_battery_property(struct power_supply *psy,
@@ -610,6 +581,17 @@ static int sbs_get_battery_property(struct power_supply *psy,
 						batt->cache.remaining_capacity);
 		break;
 
+	case POWER_SUPPLY_PROP_HEALTH:
+		if (batt->cache.battery_mode & MODE_CAPACITY_RELEARN)
+			val->intval = POWER_SUPPLY_HEALTH_RELEARN_REQUEST;
+
+		if (~batt->cache.battery_status & STATUS_INITIALIZED)
+			val->intval = POWER_SUPPLY_HEALTH_UNINITIALIZED;
+
+		if (val->intval == 0)
+			val->intval = POWER_SUPPLY_HEALTH_GOOD;
+		break;
+
 	default:
 		retval = -EINVAL;
 		break;
@@ -658,9 +640,16 @@ static int sbs_get_mains_property(struct power_supply *psy,
 	return retval;
 }
 
+
+static char *sbs_supplied_to[] = {
+	"battery",
+};
+
 static struct power_supply sbs_mains = {
 	.name           = "mains",
 	.type           = POWER_SUPPLY_TYPE_MAINS,
+	.supplied_to	= sbs_supplied_to,
+	.num_supplicants = ARRAY_SIZE(sbs_supplied_to),
 	.properties     = sbs_mains_properties,
 	.num_properties = ARRAY_SIZE(sbs_mains_properties),
 	.get_property   = sbs_get_mains_property,
@@ -684,7 +673,6 @@ static void sbs_battery_insert_handler(struct work_struct *work)
 		container_of(work, struct sbs_battery, insert_work);
 
 	memset(&batt->cache, 0, sizeof(batt->cache));
-	memset(&batt->state, 0, sizeof(batt->state));
 
 	schedule_delayed_work(&batt->refresh,
 		      msecs_to_jiffies(i2c_settle_time));
