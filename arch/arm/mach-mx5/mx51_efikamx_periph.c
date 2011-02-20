@@ -170,7 +170,7 @@ void __init mx51_efikamx_init_periph(void)
 		else
 			set_irq_type(irq, IRQF_TRIGGER_RISING);
 
-		ret = request_irq(irq, mx51_efikamx_wwan_wakeup, 0, "wwan-wakeup", 0);
+		ret = request_irq(irq, mx51_efikamx_wwan_wakeup, 0, "wwan:wakeup", 0);
 		if(!ret)
 			enable_irq_wake(irq);
 
@@ -181,6 +181,6 @@ void __init mx51_efikamx_init_periph(void)
 		else
 			set_irq_type(irq, IRQF_TRIGGER_FALLING);
 
-		ret = request_irq(irq, mx51_efikamx_sim_handler, 0, "sim-detect", 0);
+		ret = request_irq(irq, mx51_efikamx_sim_handler, 0, "wwan:simcard", 0);
 	}
 }
