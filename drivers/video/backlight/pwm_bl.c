@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
+#include <linux/notifier.h>
 #include <linux/fb.h>
 #include <linux/backlight.h>
 #include <linux/err.h>
@@ -24,6 +25,9 @@ struct pwm_bl_data {
 	struct pwm_device	*pwm;
 	unsigned int		period;
 	bool			power_state;
+	int			brightness;
+	int			max_brightness;
+	struct notifier_block	notifier;
 	int			(*notify)(int brightness);
 	void			(*power)(int state);
 };
@@ -31,8 +35,10 @@ struct pwm_bl_data {
 static int pwm_backlight_update_status(struct backlight_device *bl)
 {
 	struct pwm_bl_data *pb = dev_get_drvdata(&bl->dev);
-	int brightness = bl->props.brightness;
-	int max = bl->props.max_brightness;
+	int brightness, max;
+
+	brightness = pb->brightness = bl->props.brightness;
+	max = pb->max_brightness = bl->props.max_brightness;
 
 	if (bl->props.power != FB_BLANK_UNBLANK)
 		brightness = 0;
@@ -65,6 +71,55 @@ static int pwm_backlight_get_brightness(struct backlight_device *bl)
 {
 	return bl->props.brightness;
 }
+
+static void pwm_bl_blank(struct pwm_bl_data *pb, int type)
+{
+	switch (type) {
+		case FB_BLANK_UNBLANK:
+			pwm_config(pb->pwm, pb->brightness * pb->period / pb->max_brightness, pb->period);
+			pwm_enable(pb->pwm);
+			if (pb->power && !pb->power_state) {
+				pb->power(1);
+				pb->power_state = 1;
+			}
+		break;
+		case FB_BLANK_NORMAL:
+		case FB_BLANK_POWERDOWN:
+		case FB_BLANK_VSYNC_SUSPEND:
+		case FB_BLANK_HSYNC_SUSPEND:
+			pwm_config(pb->pwm, 0, pb->period);
+			pwm_disable(pb->pwm);
+			if (pb->power) {
+				pb->power(0);
+				pb->power_state = 0;
+			}
+		break;
+	}
+}
+
+static int pwm_bl_notifier_call(struct notifier_block *p,
+				unsigned long event, void *data)
+{
+	struct pwm_bl_data *pb = container_of(p,
+					struct pwm_bl_data, notifier);
+	struct fb_event *fb_event = data;
+	int *blank = fb_event->data;
+
+	switch (event) {
+	case FB_EVENT_BLANK:
+		pwm_bl_blank(pb, *blank);
+		break;
+	case FB_EVENT_FB_REGISTERED:
+		pwm_bl_blank(pb, FB_BLANK_UNBLANK);
+		break;
+	case FB_EVENT_FB_UNREGISTERED:
+		pwm_bl_blank(pb, FB_BLANK_NORMAL);
+		break;
+	}
+
+	return 0;
+}
+
 
 static int pwm_backlight_check_fb(struct fb_info *info)
 {
@@ -126,6 +181,10 @@ static int pwm_backlight_probe(struct platform_device *pdev)
 		goto err_bl;
 	}
 
+	pb->notifier.notifier_call = pwm_bl_notifier_call;
+
+	ret = fb_register_client(&pb->notifier);
+
 	bl->props.max_brightness = data->max_brightness;
 	bl->props.brightness = data->dft_brightness;
 	backlight_update_status(bl);
@@ -148,6 +207,8 @@ static int pwm_backlight_remove(struct platform_device *pdev)
 	struct platform_pwm_backlight_data *data = pdev->dev.platform_data;
 	struct backlight_device *bl = platform_get_drvdata(pdev);
 	struct pwm_bl_data *pb = dev_get_drvdata(&bl->dev);
+
+	fb_unregister_client(&pb->notifier);
 
 	backlight_device_unregister(bl);
 	pwm_config(pb->pwm, 0, pb->period);
