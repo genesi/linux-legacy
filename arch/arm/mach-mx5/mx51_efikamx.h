@@ -79,5 +79,8 @@ extern void mx51_efikamx_bluetooth_power(int state);
 extern void mx51_efikamx_camera_power(int state);
 extern void mx51_efikamx_wwan_power(int state);
 
+extern int mx51_efikasb_battery_status(void);
+extern int mx51_efikasb_battery_alarm(void);
+extern int mx51_efikasb_ac_status(void);
 
 #endif /* __MX51_EFIKAMX_H__ */

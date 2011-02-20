@@ -37,6 +37,7 @@
 #include <linux/version.h>
 #include <linux/interrupt.h>
 #include <linux/moduleparam.h>
+#include <linux/input.h>
 #include <linux/power_supply.h>
 
 /* logging helpers */
@@ -116,20 +117,6 @@ static unsigned int i2c_settle_time = 1500;
 module_param(i2c_settle_time, uint, 0644);
 MODULE_PARM_DESC(i2c_settle_time, "i2c settle time in milliseconds");
 
-
-enum sbs_irq {
-	SBS_IRQ_BATTERY_ALERT,
-	SBS_IRQ_MAINS_PRESENCE_CHANGED,
-	SBS_IRQ_BATTERY_PRESENCE_CHANGED,
-	SBS_IRQS,
-};
-
-struct sbs_irq_request {
-	const struct resource *irq;
-	irq_handler_t          handler;
-	bool                   requested;
-};
-
 struct sbs_battery {
 	struct i2c_client        *client;
 	struct sbs_platform_data *platform;
@@ -180,10 +167,16 @@ struct sbs_battery {
 	struct power_supply battery;
 	struct power_supply mains;
 
-	struct sbs_irq_request irq_requests[SBS_IRQS];
-
 	struct mutex lock;
 	struct delayed_work refresh;
+
+	int present;
+	int ac_present;
+	int alarming; /* it is, isn't it? :) */
+
+	struct work_struct insert_work;
+	struct work_struct ac_work;
+	struct work_struct alarm_work;
 };
 
 struct sbs_battery_register {
@@ -253,16 +246,12 @@ static inline int read_battery_register(struct sbs_battery * const batt,
 
 static inline bool battery_present(const struct sbs_battery * const batt)
 {
-	/* BUG_ON(!mutex_is_locked(&batt->lock)); */
-	return (!batt->platform->battery_insertion_status ||
-		batt->platform->battery_insertion_status());
+	return batt->present;
 }
 
 static inline bool mains_present(const struct sbs_battery * const batt)
 {
-	/* BUG_ON(!mutex_is_locked(&batt->lock)); */
-	return (!batt->platform->mains_insertion_status ||
-		batt->platform->mains_insertion_status());
+	return batt->ac_present;
 }
 
 
@@ -523,6 +512,9 @@ static int sbs_get_battery_property(struct power_supply *psy,
 		container_of(psy, struct sbs_battery, battery);
 	int retval = 0;
 
+	if (!battery_present(batt) && psp != POWER_SUPPLY_PROP_PRESENT)
+		return -ENODEV;
+
 	val->intval = 0;
 
 	mutex_lock(&batt->lock);
@@ -675,89 +667,6 @@ static struct power_supply sbs_mains = {
 };
 
 
-static inline unsigned long __irq_flags(const struct resource * const res)
-{
-	return IRQF_SAMPLE_RANDOM | IRQF_SHARED | (res->flags & IRQF_TRIGGER_MASK);
-}
-
-static void sbs_free_irqs(struct sbs_battery * const batt)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(batt->irq_requests); i++) {
-		struct sbs_irq_request * const request = &batt->irq_requests[i];
-
-		if (!request->irq || !request->requested)
-			continue;
-
-		free_irq(request->irq->start, NULL);
-		request->requested = false;
-	}
-}
-
-static int sbs_request_irqs(struct sbs_battery * const batt)
-{
-	int i, ret;
-
-	for (i = 0; i < ARRAY_SIZE(batt->irq_requests); i++) {
-		struct sbs_irq_request * const request = &batt->irq_requests[i];
-
-		if (!request->irq)
-			continue;
-
-		BUG_ON(~request->irq->flags & IORESOURCE_IRQ);
-
-		ret = request_irq(request->irq->start, request->handler,
-				  __irq_flags(request->irq),
-				  request->irq->name,
-				  batt);
-		if (ret < 0) {
-			sbs_free_irqs(batt);
-			return ret;
-		}
-
-		request->requested = true;
-	}
-
-	return 0;
-}
-
-static irqreturn_t sbs_battery_alert(int irq, void *data)
-{
-	INFO("battery is critically low\n");
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t sbs_mains_presence_changed(int irq, void *data)
-{
-	struct sbs_battery * const batt = (struct sbs_battery *) data;
-
-	if (batt->platform->mains_insertion_status)
-		DEBUG("mains %sconnected\n",
-		      batt->platform->mains_insertion_status() ? "" : "dis");
-
-	power_supply_changed(&batt->mains);
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t sbs_battery_presence_changed(int irq, void *data)
-{
-	struct sbs_battery * const batt = (struct sbs_battery *) data;
-
-	memset(&batt->cache, 0, sizeof(batt->cache));
-	memset(&batt->state, 0, sizeof(batt->state));
-
-	if (batt->platform->battery_insertion_status) {
-		const bool present = batt->platform->battery_insertion_status();
-		DEBUG("battery %s\n", present ? "inserted" : "removed");
-	}
-
-	schedule_delayed_work(&batt->refresh,
-			      msecs_to_jiffies(i2c_settle_time));
-
-	return IRQ_HANDLED;
-}
-
 static void sbs_refresh_battery_info(struct work_struct *work)
 {
 	struct sbs_battery * const batt =
@@ -766,14 +675,128 @@ static void sbs_refresh_battery_info(struct work_struct *work)
 	mutex_lock(&batt->lock);
 	sbs_get_battery_info(batt);
 	mutex_unlock(&batt->lock);
+}
+
+
+static void sbs_battery_insert_handler(struct work_struct *work)
+{
+	struct sbs_battery * const batt =
+		container_of(work, struct sbs_battery, insert_work);
+
+	memset(&batt->cache, 0, sizeof(batt->cache));
+	memset(&batt->state, 0, sizeof(batt->state));
+
+	schedule_delayed_work(&batt->refresh,
+		      msecs_to_jiffies(i2c_settle_time));
 
 	power_supply_changed(&batt->battery);
 }
 
+static void sbs_ac_insert_handler(struct work_struct *work)
+{
+	struct sbs_battery * const batt =
+		container_of(work, struct sbs_battery, ac_work);
+
+	power_supply_changed(&batt->mains);
+}
+
+static void sbs_battery_alarm_handler(struct work_struct *work)
+{
+	struct sbs_battery * const batt =
+		container_of(work, struct sbs_battery, alarm_work);
+
+	/* do nothing for now.. */
+	(void) batt;
+}
+
+static void sbs_event_handler(struct input_handle *handle, unsigned int type,
+		unsigned int code, int value)
+{
+	struct sbs_battery *batt = (struct sbs_battery *) handle->handler->private;
+
+	if (type == EV_SW) {
+		switch(code) {
+			case SW_BATTERY_INSERT:
+				batt->present = value;
+				schedule_work(&batt->insert_work);
+			break;
+			case SW_BATTERY_LOW:
+				batt->alarming = value;
+				schedule_work(&batt->alarm_work);
+			break;
+			case SW_AC_INSERT:
+				batt->ac_present = value;
+				schedule_work(&batt->ac_work);
+			break;
+		}
+	}
+}
+
+static int sbs_event_connect(struct input_handler *handler, struct input_dev *dev,
+			      const struct input_device_id *id)
+{
+	struct input_handle *handle;
+	int error;
+
+	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
+
+	if (!handle)
+		return -ENOMEM;
+
+	handle->dev = dev;
+	handle->handler = handler;
+	handle->name = "sbs";
+
+	DEBUG("Battery structure 0x%x\n", (unsigned int) handler->private);
+
+
+	error = input_register_handle(handle);
+	if (error)
+		goto err_free_handle;
+
+	error = input_open_device(handle);
+	if (error)
+		goto err_unregister_handle;
+
+	return 0;
+
+err_unregister_handle:
+	input_unregister_handle(handle);
+
+err_free_handle:
+	kfree(handle);
+	return error;
+}
+
+
+static void sbs_event_disconnect(struct input_handle *handle)
+{
+	input_close_device(handle);
+	input_unregister_handle(handle);
+	kfree(handle);
+}
+
+static const struct input_device_id sbs_events_table[] = {
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
+		.evbit = { BIT_MASK(EV_SW) },
+	},
+	{ },
+};
+MODULE_DEVICE_TABLE(input, sbs_events_table);
+
+static struct input_handler sbs_input_handler = {
+	.event = sbs_event_handler,
+	.connect = sbs_event_connect,
+	.disconnect = sbs_event_disconnect,
+	.name = "sbs",
+	.id_table = sbs_events_table,
+};
+
+
 static int __devinit sbs_probe(struct i2c_client *client,
 			       const struct i2c_device_id *id)
 {
-	struct sbs_irq_request *request;
 	struct sbs_battery *batt;
 	int ret = 0;
 
@@ -790,25 +813,32 @@ static int __devinit sbs_probe(struct i2c_client *client,
 	batt->mains = sbs_mains;
 	batt->battery = sbs_battery;
 
-	request = &batt->irq_requests[SBS_IRQ_BATTERY_ALERT];
-	request->irq       = batt->platform->battery_alert;
-	request->handler   = sbs_battery_alert;
-	request->requested = false;
+	/* NOTE: never use these ever again! */
+	if (batt->platform->mains_status)
+		batt->ac_present = batt->platform->mains_status();
 
-	request = &batt->irq_requests[SBS_IRQ_MAINS_PRESENCE_CHANGED];
-	request->irq       = batt->platform->mains_presence_changed;
-	request->handler   = sbs_mains_presence_changed;
-	request->requested = false;
+	if (batt->platform->battery_status)
+		batt->present = batt->platform->battery_status();
 
-	request = &batt->irq_requests[SBS_IRQ_BATTERY_PRESENCE_CHANGED];
-	request->irq       = batt->platform->battery_presence_changed;
-	request->handler   = sbs_battery_presence_changed;
-	request->requested = false;
+	if (batt->platform->alarm_status)
+		batt->alarming = batt->platform->alarm_status();
+
+	DEBUG("Initial State: %s%s%s\n",
+		batt->present ? "Present " : "",
+		batt->ac_present ? "Powered " : "",
+		batt->alarming ? "Low" : "");
+
+	INIT_WORK(&batt->insert_work, sbs_battery_insert_handler);
+	INIT_WORK(&batt->alarm_work, sbs_battery_alarm_handler);
+	INIT_WORK(&batt->ac_work, sbs_ac_insert_handler);
+
+	sbs_input_handler.private = (void *) batt;
+
+	if ((ret = input_register_handler(&sbs_input_handler)) < 0) {
+		DEBUG("Couldn't register input handler, battery/ac/alarm events will not be handled\n");
+	}
 
 	i2c_set_clientdata(client, batt);
-
-	if ((ret = sbs_request_irqs(batt)) < 0)
-		goto error;
 
 	if ((ret = power_supply_register(&client->dev, &batt->battery)) < 0)
 		goto error;
@@ -837,6 +867,8 @@ static int __devexit sbs_remove(struct i2c_client *client)
 
 	batt = i2c_get_clientdata(client);
 	if (batt) {
+		input_unregister_handler(&sbs_input_handler);
+
 		mutex_lock(&batt->lock);
 
 		power_supply_unregister(&batt->mains);
@@ -853,8 +885,6 @@ static int __devexit sbs_remove(struct i2c_client *client)
 
 		if (batt->cache.serial_number)
 			kfree(batt->cache.serial_number);
-
-		sbs_free_irqs(batt);
 
 		mutex_unlock(&batt->lock);
 

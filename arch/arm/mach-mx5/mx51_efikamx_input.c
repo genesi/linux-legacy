@@ -26,6 +26,7 @@
 #include <mach/gpio.h>
 #include <mach/common.h>
 #include <mach/irqs.h>
+#include <asm/io.h>
 #include <asm/mach-types.h>
 
 #include "devices.h"
@@ -36,9 +37,15 @@
 
 #define EFIKASB_LID_SWITCH	MX51_PIN_CSI1_VSYNC
 #define EFIKASB_RFKILL_SWITCH	MX51_PIN_DI1_PIN12
+#define EFIKASB_BATTERY_LOW	MX51_PIN_DI1_PIN11
+#define EFIKASB_BATTERY_INSERT	MX51_PIN_DISPB2_SER_DIO
+#define EFIKASB_AC_INSERT	MX51_PIN_DI1_D0_CS
 
 #define LID_CLOSED	0
 #define WIFI_ON		0
+#define BATTERY_IN	1
+#define BATTERY_LOW	1
+#define AC_IN		1
 
 #define POWER_ON	1
 #define POWER_OFF	0
@@ -46,17 +53,27 @@
 struct mxc_iomux_pin_cfg __initdata mx51_efikasb_input_iomux_pins[] = {
 	{ EFIKASB_LID_SWITCH, IOMUX_CONFIG_GPIO, },
 	{ EFIKASB_RFKILL_SWITCH, IOMUX_CONFIG_GPIO, },
-};
-
-
-#define EFIKAMX_POWER_KEY	MX51_PIN_EIM_DTACK
-
-struct mxc_iomux_pin_cfg __initdata mx51_efikamx_input_iomux_pins[] = {
-	{
-	 EFIKAMX_POWER_KEY, IOMUX_CONFIG_GPIO,
-	 (PAD_CTL_PKE_ENABLE | PAD_CTL_100K_PU),
+	{ EFIKASB_BATTERY_INSERT, IOMUX_CONFIG_GPIO, },
+	{ EFIKASB_BATTERY_LOW, IOMUX_CONFIG_GPIO | IOMUX_CONFIG_SION, },
+	{ EFIKASB_AC_INSERT, IOMUX_CONFIG_GPIO | IOMUX_CONFIG_SION,
+/*		IOMUXC_GPIO3_IPP_IND_G_3_SELECT_INPUT, INPUT_CTL_PATH1, */
 	},
 };
+
+int mx51_efikasb_battery_status(void)
+{
+	return !gpio_get_value(IOMUX_TO_GPIO(EFIKASB_BATTERY_INSERT));
+}
+
+int mx51_efikasb_battery_alarm(void)
+{
+        return !gpio_get_value(IOMUX_TO_GPIO(EFIKASB_BATTERY_LOW));
+}
+
+int mx51_efikasb_ac_status(void)
+{
+	return !gpio_get_value(IOMUX_TO_GPIO(EFIKASB_AC_INSERT));
+}
 
 int mx51_efikasb_rfkill_status(void)
 {
@@ -67,6 +84,17 @@ int mx51_efikasb_lid_status(void)
 {
 	return gpio_get_value(IOMUX_TO_GPIO(EFIKASB_LID_SWITCH));
 }
+
+
+
+#define EFIKAMX_POWER_KEY	MX51_PIN_EIM_DTACK
+
+struct mxc_iomux_pin_cfg __initdata mx51_efikamx_input_iomux_pins[] = {
+	{
+	 EFIKAMX_POWER_KEY, IOMUX_CONFIG_GPIO,
+	 (PAD_CTL_PKE_ENABLE | PAD_CTL_100K_PU),
+	},
+};
 
 int mx51_efikamx_powerkey_status(void)
 {
@@ -168,6 +196,61 @@ static irqreturn_t mx51_efikasb_lid_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t mx51_efikasb_battery_handler(int irq, void *dev_id)
+{
+	int battery = mx51_efikasb_battery_status();
+
+	if (battery == BATTERY_IN) {
+		set_irq_type(irq, IRQF_TRIGGER_RISING);
+	} else {
+		set_irq_type(irq, IRQF_TRIGGER_FALLING);
+	}
+
+	DBG(("Battery %s\n", battery ? "inserted" : "not present"));
+
+	input_event(input, EV_SW, SW_BATTERY_INSERT, (battery == BATTERY_IN));
+	input_sync(input);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t mx51_efikasb_alarm_handler(int irq, void *dev_id)
+{
+	int alarm = mx51_efikasb_battery_alarm();
+
+	if (alarm == BATTERY_LOW) {
+		set_irq_type(irq, IRQF_TRIGGER_RISING);
+		DBG(("Battery Low!"));
+	} else {
+		set_irq_type(irq, IRQF_TRIGGER_FALLING);
+	}
+
+	input_event(input, EV_SW, SW_BATTERY_LOW, (alarm == BATTERY_LOW));
+	input_sync(input);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t mx51_efikasb_ac_handler(int irq, void *dev_id)
+{
+	int ac = mx51_efikasb_ac_status();
+
+	if (ac == AC_IN) {
+		set_irq_type(irq, IRQF_TRIGGER_RISING);
+	} else {
+		set_irq_type(irq, IRQF_TRIGGER_FALLING);
+	}
+
+	DBG(("AC Adapter %s\n", ac ? "inserted" : "not present"));
+
+	input_event(input, EV_SW, SW_AC_INSERT, (ac == AC_IN));
+	input_sync(input);
+
+	return IRQ_HANDLED;
+}
+
+
+/* TODO: split this up, they shouldn't fail all as one big thing */
 static int __init mx51_efikamx_init_input(void)
 {
 	int ret, irq;
@@ -189,6 +272,17 @@ static int __init mx51_efikamx_init_input(void)
 		gpio_free(IOMUX_TO_GPIO(EFIKASB_RFKILL_SWITCH));
 		gpio_request(IOMUX_TO_GPIO(EFIKASB_RFKILL_SWITCH), "switch:rfkill");
 		gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_RFKILL_SWITCH));
+
+		gpio_request(IOMUX_TO_GPIO(EFIKASB_BATTERY_INSERT), "battery:insert");
+		gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_BATTERY_INSERT));
+
+		gpio_request(IOMUX_TO_GPIO(EFIKASB_BATTERY_LOW), "battery:alarm");
+		gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_BATTERY_LOW));
+
+		/* IOMUXC_GPIO3_IPP_IND_G_IN_3_SELECT_INPUT: 1: Selecting Pad DI1_D0_CS for Mode:ALT4 */
+		__raw_writel(0x01, IO_ADDRESS(IOMUXC_BASE_ADDR) + 0x980);
+		gpio_request(IOMUX_TO_GPIO(EFIKASB_AC_INSERT), "battery:ac");
+		gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_AC_INSERT));
 	}
 
 	input = input_allocate_device();
@@ -215,12 +309,24 @@ static int __init mx51_efikamx_init_input(void)
 
 		set_bit(SW_LID, input->swbit);
 		set_bit(SW_RFKILL_ALL, input->swbit);
+		set_bit(SW_BATTERY_INSERT, input->swbit);
+		set_bit(SW_BATTERY_LOW, input->swbit);
+		set_bit(SW_AC_INSERT, input->swbit);
 
 		if (mx51_efikasb_lid_status() == LID_CLOSED)
 			set_bit(SW_LID, input->sw);
 
 		if (mx51_efikasb_rfkill_status() == WIFI_ON)
 			set_bit(SW_RFKILL_ALL, input->sw);
+
+		if (mx51_efikasb_battery_status() == BATTERY_IN)
+			set_bit(SW_BATTERY_INSERT, input->sw);
+
+		if (mx51_efikasb_battery_alarm() == BATTERY_LOW)
+			set_bit(SW_BATTERY_LOW, input->sw);
+
+		if (mx51_efikasb_ac_status() == AC_IN)
+			set_bit(SW_AC_INSERT, input->sw);
 	}
 
 	ret = input_register_device(input);
@@ -266,12 +372,59 @@ static int __init mx51_efikamx_init_input(void)
 			DBG(("Failed to request Wireless Switch interrupt\n"));
 			goto fail_rfkill_irq;
 		}
+
+		irq = IOMUX_TO_IRQ(EFIKASB_BATTERY_INSERT);
+		if (mx51_efikasb_battery_status() == BATTERY_IN) {
+			set_irq_type(irq, IRQF_TRIGGER_RISING);
+		} else {
+			set_irq_type(irq, IRQF_TRIGGER_FALLING);
+		}
+
+		ret = request_irq(irq, mx51_efikasb_battery_handler, 0, "battery:insert", NULL);
+		if (ret) {
+			DBG(("Failed to request Battery Insertion interrupt\n"));
+			goto fail_batt_irq;
+		}
+
+		irq = IOMUX_TO_IRQ(EFIKASB_AC_INSERT);
+		if (mx51_efikasb_ac_status() == AC_IN) {
+			set_irq_type(irq, IRQF_TRIGGER_RISING);
+		} else {
+			set_irq_type(irq, IRQF_TRIGGER_FALLING);
+		}
+
+		ret = request_irq(irq, mx51_efikasb_ac_handler, 0, "battery:ac", NULL);
+		if (ret) {
+			DBG(("Failed to request AC Adapter Insertion interrupt\n"));
+			goto fail_ac_irq;
+		}
+
+		irq = IOMUX_TO_IRQ(EFIKASB_BATTERY_LOW);
+		if (mx51_efikasb_battery_alarm() == BATTERY_LOW) {
+			set_irq_type(irq, IRQF_TRIGGER_RISING);
+		} else {
+			set_irq_type(irq, IRQF_TRIGGER_FALLING);
+		}
+
+		ret = request_irq(irq, mx51_efikasb_alarm_handler, 0, "battery:alarm", NULL);
+		if (ret) {
+			DBG(("Failed to request Battery Low interrupt\n"));
+			goto fail_alarm_irq;
+		}
+
+
 	}
 
 	register_pm_notifier(&pm_notifier);
 
 	return 0;
 
+fail_alarm_irq:
+	free_irq(IOMUX_TO_IRQ(EFIKASB_AC_INSERT), NULL);
+fail_ac_irq:
+	free_irq(IOMUX_TO_IRQ(EFIKASB_BATTERY_INSERT), NULL);
+fail_batt_irq:
+	free_irq(IOMUX_TO_IRQ(EFIKASB_RFKILL_SWITCH), NULL);
 fail_rfkill_irq:
 	free_irq(IOMUX_TO_IRQ(EFIKASB_LID_SWITCH), NULL);
 fail_lid_irq:
