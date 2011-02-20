@@ -819,6 +819,7 @@ done:
 		pr_debug("gpio_request: gpio-%d (%s) status %d\n",
 			gpio, label ? : "?", status);
 	spin_unlock_irqrestore(&gpio_lock, flags);
+	gpio_export(gpio, true);
 	return status;
 }
 EXPORT_SYMBOL_GPL(gpio_request);
