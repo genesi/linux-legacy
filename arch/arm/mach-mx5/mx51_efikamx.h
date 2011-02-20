@@ -34,7 +34,6 @@ extern void __init mx51_efikamx_init_audio(void);
 extern void __init mx51_efikamx_init_usb(void);
 extern void __init mx51_efikamx_init_pata(void);
 extern void __init mx51_efikamx_init_usb(void);
-extern void __init mx51_efikamx_init_input(void);
 extern void __init mx51_efikamx_init_leds(void);
 extern void __init mx51_efikamx_init_periph(void);
 extern int __init mx51_efikamx_init_pmic(void);

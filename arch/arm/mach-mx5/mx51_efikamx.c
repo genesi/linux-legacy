@@ -257,7 +257,6 @@ static void __init mx51_efikamx_board_init(void)
 	mx51_efikamx_init_audio();
 	mx51_efikamx_init_pmic();
 	mx51_efikamx_init_mmc();
-	mx51_efikamx_init_input();
 	mx51_efikamx_init_leds();
 	mx51_efikamx_init_periph();
 	mx51_efikamx_init_usb();
