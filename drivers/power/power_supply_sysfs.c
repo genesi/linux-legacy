@@ -46,6 +46,8 @@ static ssize_t power_supply_show_property(struct device *dev,
 	static char *health_text[] = {
 		"Unknown", "Good", "Overheat", "Dead", "Over voltage",
 		"Unspecified failure", "Cold",
+		/* SBS 1.10a */
+		"Capacity Re-learn Cycle Requested", "Uninitialized",
 	};
 	static char *technology_text[] = {
 		"Unknown", "NiMH", "Li-ion", "Li-poly", "LiFe", "NiCd",
