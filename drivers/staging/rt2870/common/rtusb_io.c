@@ -900,7 +900,7 @@ int RTUSB_VendorRequest(struct rt_rtmp_adapter *pAd,
 
 			retryCount++;
 			if (ret < 0) {
-//				DBGPRINT(RT_DEBUG_OFF, ("#\n"));
+				//DBGPRINT(RT_DEBUG_OFF, ("#\n"));
 				RTMPusecDelay(5000);
 			}
 		} while ((ret < 0) && (retryCount < MAX_RETRY_COUNT));
@@ -1879,13 +1879,10 @@ void CMDHandler(struct rt_rtmp_adapter *pAd)
 					AsicUpdateRxWCIDTable(pAd, pEntry->Aid,
 							      pEntry->Addr);
 					DBGPRINT(RT_DEBUG_TRACE,
-						 ("UpdateRxWCIDTable(): Aid=%d, Addr=%02x:%02x:%02x:%02x:%02x:%02x!\n",
-						  pEntry->Aid, pEntry->Addr[0],
-						  pEntry->Addr[1],
-						  pEntry->Addr[2],
-						  pEntry->Addr[3],
-						  pEntry->Addr[4],
-						  pEntry->Addr[5]));
+						("UpdateRxWCIDTable(): Aid=%d, "
+							"Addr=%pM!\n",
+							pEntry->Aid,
+							pEntry->Addr));
 				}
 				break;
 
