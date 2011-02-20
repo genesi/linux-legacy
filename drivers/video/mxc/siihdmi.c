@@ -281,7 +281,7 @@ static void siihdmi_parse_cea861_timing_block(struct siihdmi_tx *tx,
 					    CEA861_OUI_REGISTRATION_ID_HDMI_LSB,
 					    sizeof(vsdb->ieee_registration))) {
 
-					unsigned int max_tmds = KHZ2PICOS(vsdb->max_tmds_clock * 200);
+					unsigned int max_tmds;
 
 					DEBUG("HDMI sink verified %s\n",
 					tx->basic_audio ? "" : "but not enabled due to lack of audio support");
@@ -293,9 +293,13 @@ static void siihdmi_parse_cea861_timing_block(struct siihdmi_tx *tx,
 									  vsdb->port_configuration_c,
 									  vsdb->port_configuration_d);
 
-					if (max_tmds < tx->platform->pixclock) {
-						tx->platform->pixclock = max_tmds;
-						INFO("Maximum TMDS clock lower than platform restriction\n");
+					if (vsdb->max_tmds_clock) {
+						max_tmds = KHZ2PICOS(vsdb->max_tmds_clock * 200);
+
+						if (max_tmds < tx->platform->pixclock) {
+							tx->platform->pixclock = max_tmds;
+							INFO("Maximum TMDS clock lower than platform restriction\n");
+						}
 					}
 
 				}
