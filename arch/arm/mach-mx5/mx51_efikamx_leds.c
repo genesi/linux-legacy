@@ -120,24 +120,10 @@ static struct gpio_led mx51_efikasb_leds[] = {
 };
 
 #if defined(CONFIG_BACKLIGHT_PWM)
-static void mx51_efikasb_backlight_power(int on)
+static void mx51_efikasb_backlight_power(int state)
 {
-        if (on) {
-                mxc_free_iomux(EFIKASB_PWM_BACKLIGHT, IOMUX_CONFIG_GPIO);
-                mxc_request_iomux(EFIKASB_PWM_BACKLIGHT, IOMUX_CONFIG_ALT1);
-
-                msleep(10);
-
-                gpio_set_value(IOMUX_TO_GPIO(EFIKASB_PWM_BACKLIGHT_EN), 0);     /* Backlight Power On */
-        } else {
-                gpio_set_value(IOMUX_TO_GPIO(EFIKASB_PWM_BACKLIGHT_EN), 1);     /* Backlight Power Off */
-
-                msleep(10);
-
-                mxc_free_iomux(EFIKASB_PWM_BACKLIGHT, IOMUX_CONFIG_ALT1);
-                mxc_request_iomux(EFIKASB_PWM_BACKLIGHT, IOMUX_CONFIG_GPIO);
-                gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_PWM_BACKLIGHT), 0);
-        }
+	msleep(10);
+	gpio_set_value(IOMUX_TO_GPIO(EFIKASB_PWM_BACKLIGHT_EN), !state);
 }
 
 static struct platform_pwm_backlight_data mx51_efikasb_backlight_data = {
