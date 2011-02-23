@@ -531,7 +531,4 @@ void mx51_efikamx_power_off(void)
 	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_POWEROFF), 0);
 	msleep(10);
 	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_POWEROFF), 1);
-
-	/* just in case */
-	mxc_wd_reset();
 }
