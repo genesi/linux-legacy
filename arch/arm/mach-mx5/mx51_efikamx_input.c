@@ -239,7 +239,7 @@ static irqreturn_t mx51_efikasb_ac_handler(int irq, void *dev_id)
 		set_irq_type(irq, IRQF_TRIGGER_FALLING);
 	}
 
-	DBG(("AC Adapter %s\n", ac ? "inserted" : "not present"));
+	DBG(("AC Adapter %s\n", (ac == AC_IN) ? "inserted" : "not present"));
 
 	input_event(input, EV_SW, SW_AC_INSERT, (ac == AC_IN));
 	input_sync(input);
