@@ -204,7 +204,7 @@ static irqreturn_t mx51_efikasb_battery_handler(int irq, void *dev_id)
 		set_irq_type(irq, IRQF_TRIGGER_FALLING);
 	}
 
-	DBG(("Battery %s\n", battery ? "inserted" : "not present"));
+	DBG(("Battery %s\n", (battery == BATTERY_IN) ? "inserted" : "not present"));
 
 	input_event(input, EV_SW, SW_BATTERY_INSERT, (battery == BATTERY_IN));
 	input_sync(input);
