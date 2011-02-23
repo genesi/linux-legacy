@@ -41,14 +41,12 @@
 #define EFIKASB_BATTERY_INSERT	MX51_PIN_DISPB2_SER_DIO
 #define EFIKASB_AC_INSERT	MX51_PIN_DI1_D0_CS
 
+/* active low just like on the board */
 #define LID_CLOSED	0
 #define WIFI_ON		0
-#define BATTERY_IN	1
-#define BATTERY_LOW	1
-#define AC_IN		1
-
-#define POWER_ON	1
-#define POWER_OFF	0
+#define BATTERY_IN	0
+#define BATTERY_LOW	0
+#define AC_IN		0
 
 struct mxc_iomux_pin_cfg __initdata mx51_efikasb_input_iomux_pins[] = {
 	{ EFIKASB_LID_SWITCH, IOMUX_CONFIG_GPIO, },
@@ -62,17 +60,17 @@ struct mxc_iomux_pin_cfg __initdata mx51_efikasb_input_iomux_pins[] = {
 
 int mx51_efikasb_battery_status(void)
 {
-	return !gpio_get_value(IOMUX_TO_GPIO(EFIKASB_BATTERY_INSERT));
+	return gpio_get_value(IOMUX_TO_GPIO(EFIKASB_BATTERY_INSERT));
 }
 
 int mx51_efikasb_battery_alarm(void)
 {
-        return !gpio_get_value(IOMUX_TO_GPIO(EFIKASB_BATTERY_LOW));
+        return gpio_get_value(IOMUX_TO_GPIO(EFIKASB_BATTERY_LOW));
 }
 
 int mx51_efikasb_ac_status(void)
 {
-	return !gpio_get_value(IOMUX_TO_GPIO(EFIKASB_AC_INSERT));
+	return gpio_get_value(IOMUX_TO_GPIO(EFIKASB_AC_INSERT));
 }
 
 int mx51_efikasb_rfkill_status(void)
