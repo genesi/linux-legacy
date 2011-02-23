@@ -477,7 +477,8 @@ int __init mx51_efikamx_init_pmic(void)
 	CONFIG_IOMUX(mx51_efikamx_pmic_iomux_pins);
 
 	/* disable power gating for some reason */
-	pmic_write_reg(REG_POWER_MISC, ~(PWGT1SPIEN|PWGT2SPIEN), (PWGT1SPIEN|PWGT2SPIEN));
+	if (machine_is_mx51_efikasb())
+		pmic_write_reg(REG_POWER_MISC, ~(PWGT1SPIEN|PWGT2SPIEN), (PWGT1SPIEN|PWGT2SPIEN));
 
 	if (machine_is_mx51_efikamx() && (mx51_efikamx_revision() == 1)) {
 		CONFIG_IOMUX(mx51_efikamx_watchdog_pins);
