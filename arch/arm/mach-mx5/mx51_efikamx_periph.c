@@ -39,6 +39,11 @@
 #define EFIKAMX_WIFI_RESET	MX51_PIN_EIM_A16
 #define EFIKAMX_BT_POWER	MX51_PIN_EIM_A17
 
+/* schematic confusion, these are defined twice */
+#define EFIKASB_BT_POWER	MX51_PIN_EIM_EB2
+#define EFIKASB_WIFI_RESET	MX51_PIN_EIM_D24
+#define EFIKASB_WIFI_POWER	MX51_PIN_EIM_EB3
+
 struct mxc_iomux_pin_cfg __initdata mx51_efikamx_periph_iomux_pins[] = {
 	{ EFIKAMX_WIFI_POWER, IOMUX_CONFIG_GPIO, },
 	{ EFIKAMX_WIFI_RESET, IOMUX_CONFIG_GPIO, },
@@ -50,6 +55,12 @@ struct mxc_iomux_pin_cfg __initdata mx51_efikamx_periph_iomux_pins[] = {
 #define EFIKASB_WWAN_SIM	MX51_PIN_EIM_CS1
 #define EFIKASB_CAMERA_POWER	MX51_PIN_NANDF_CS0
 
+#define SIM_INSERTED	0
+#define SIM_MISSING	1
+
+#define WWAN_WAKE	0
+#define WWAN_SLEEP	1
+
 static struct mxc_iomux_pin_cfg __initdata mx51_efikasb_periph_iomux_pins[] = {
 	{ EFIKASB_WWAN_WAKEUP, IOMUX_CONFIG_GPIO, },
 	{ EFIKASB_WWAN_POWER, IOMUX_CONFIG_GPIO, },
@@ -60,7 +71,8 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikasb_periph_iomux_pins[] = {
 
 void mx51_efikamx_wifi_power(int state)
 {
-	if (machine_is_mx51_efikamx())
+	/* active high on smartbook, active low on smarttop */
+	if (machine_is_mx51_efikasb())
 		state = !state;
 	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_WIFI_POWER), state);
 }
@@ -75,44 +87,48 @@ void mx51_efikamx_wifi_reset(void)
 
 void mx51_efikamx_bluetooth_power(int state)
 {
-	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_BT_POWER), state);
+	/* BT_PWRON is active high in the schematic (CARD_GPO_OUT on Smarttop) */
+	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_BT_POWER), !state);
 	msleep(250);
 }
 
 void mx51_efikamx_camera_power(int state)
 {
-	gpio_set_value(IOMUX_TO_GPIO(EFIKASB_CAMERA_POWER), !state);
+	/* CAM_POWER_ON is active low */
+	gpio_set_value(IOMUX_TO_GPIO(EFIKASB_CAMERA_POWER), state);
 }
 
 void mx51_efikamx_wwan_power(int state)
 {
-	gpio_set_value(IOMUX_TO_GPIO(EFIKASB_WWAN_POWER), !state);
+	/* WWAN_PWRON active low */
+	gpio_set_value(IOMUX_TO_GPIO(EFIKASB_WWAN_POWER), state);
 }
-
-
-
 
 int mx51_efikamx_wwan_sim_status(void)
 {
-	return !gpio_get_value(IOMUX_TO_GPIO(EFIKASB_WWAN_SIM));
+	/* SIM_CD active low */
+	return gpio_get_value(IOMUX_TO_GPIO(EFIKASB_WWAN_SIM));
 }
 
 static irqreturn_t mx51_efikamx_sim_handler(int irq, void *dev_id)
 {
-	if(mx51_efikamx_wwan_sim_status()) {
+	int sim = mx51_efikamx_wwan_sim_status();
+	if(sim == SIM_INSERTED) {
 		set_irq_type(irq, IRQF_TRIGGER_RISING);
+		mx51_efikamx_wwan_power(POWER_ON)
 	} else {
 		set_irq_type(irq, IRQF_TRIGGER_FALLING);
+		mx51_efikamx_wwan_power(POWER_OFF)
 	}
+
+	DBG(("SIM card %s\n", (sim == SIM_INSERTED) ? "inserted" : "removed");
 
 	return IRQ_HANDLED;
 }
 
-
-
-
 int mx51_efikamx_wwan_wakeup_status(void)
 {
+	/* active low */
 	return gpio_get_value(IOMUX_TO_GPIO(EFIKASB_WWAN_WAKEUP));
 }
 
@@ -134,9 +150,13 @@ void __init mx51_efikamx_init_periph(void)
 
 	CONFIG_IOMUX(mx51_efikamx_periph_iomux_pins);
 
+	/* active high on smartbook, low on smarttop. power off to start */
 	gpio_free(IOMUX_TO_GPIO(EFIKAMX_WIFI_POWER));
 	gpio_request(IOMUX_TO_GPIO(EFIKAMX_WIFI_POWER), "wifi:power");
-	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_WIFI_POWER), 0);
+	if (machine_is_mx51_efikasb())
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_WIFI_POWER), 1);
+	else
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_WIFI_POWER), 0);
 
 	gpio_free(IOMUX_TO_GPIO(EFIKAMX_WIFI_RESET));
 	gpio_request(IOMUX_TO_GPIO(EFIKAMX_WIFI_RESET), "wifi:reset");
@@ -158,7 +178,7 @@ void __init mx51_efikamx_init_periph(void)
 		gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_WWAN_WAKEUP));
 
 		gpio_request(IOMUX_TO_GPIO(EFIKASB_WWAN_POWER), "wwan:power");
-		gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_WWAN_POWER), 0);
+		gpio_direction_output(IOMUX_TO_GPIO(EFIKASB_WWAN_POWER), 1);
 
 		gpio_request(IOMUX_TO_GPIO(EFIKASB_WWAN_SIM), "wwan:simcard");
 		gpio_direction_input(IOMUX_TO_GPIO(EFIKASB_WWAN_SIM));

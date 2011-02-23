@@ -29,9 +29,6 @@
 
 #include "mx51_efikamx.h"
 
-#define POWER_ON	1
-#define POWER_OFF	0
-
 #define USB_PAD_CONFIG \
 			(PAD_CTL_SRE_FAST | PAD_CTL_DRV_HIGH | PAD_CTL_100K_PU |	\
 			PAD_CTL_PUE_KEEPER | PAD_CTL_PKE_ENABLE | PAD_CTL_HYS_ENABLE)

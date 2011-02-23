@@ -83,4 +83,8 @@ extern int mx51_efikasb_battery_status(void);
 extern int mx51_efikasb_battery_alarm(void);
 extern int mx51_efikasb_ac_status(void);
 
+/* assume everything is active low. Use functions for opposite behavior */
+#define POWER_ON	0
+#define POWER_OFF	1
+
 #endif /* __MX51_EFIKAMX_H__ */
