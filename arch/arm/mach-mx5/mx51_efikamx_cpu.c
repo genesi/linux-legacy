@@ -91,7 +91,7 @@ void mx51_efikamx_set_num_cpu_wp(int num)
 	return;
 }
 
-static struct mxc_dvfs_platform_data dvfs_core_data = {
+static struct mxc_dvfs_platform_data mx51_efikamx_dvfs_core_data = {
 	.reg_id = "SW1",
 	.clk1_id = "cpu_clk",
 	.clk2_id = "gpc_dvfs_clk",
@@ -116,7 +116,7 @@ static struct mxc_dvfs_platform_data dvfs_core_data = {
 	.num_wp = 2,
 };
 
-static struct mxc_dvfsper_data dvfs_per_data = {
+static struct mxc_dvfsper_data mx51_efikamx_dvfs_per_data = {
 	.reg_id = "SW2",
 	.clk_id = "gpc_dvfs_clk",
 	.gpc_cntr_reg_addr = MXC_GPC_CNTR,
@@ -131,6 +131,10 @@ static struct mxc_dvfsper_data dvfs_per_data = {
 	.div3_div = 2,
 	.lp_high = 1250000,
 	.lp_low = 1250000,
+};
+
+static struct mxc_srtc_platform_data mx51_efikamx_srtc_data = {
+	.srtc_sec_mode_addr = 0x83f98840,
 };
 
 /* external because the main init struct wants it */
@@ -150,6 +154,7 @@ void __init mx51_efikamx_init_soc(void)
 {
 	mxc_register_device(&mxc_dma_device, NULL);
 	mxc_register_device(&mxc_wdt_device, NULL);
+	mxc_register_device(&mxc_rtc_device, &mx51_efikamx_srtc_data);
 	mxc_register_device(&mx51_lpmode_device, NULL);
 	mxc_register_device(&busfreq_device, NULL);
 	mxc_register_device(&sdram_autogating_device, NULL);
@@ -161,9 +166,10 @@ void __init mx51_efikamx_init_soc(void)
 	 * activate them on TO3+
 	 */
 	if (cpu_is_mx51_rev(CHIP_REV_3_0) >= 1) {
-		mxc_register_device(&mxc_dvfs_core_device, &dvfs_core_data);
-		mxc_register_device(&mxc_dvfs_per_device, &dvfs_per_data);
+		mxc_register_device(&mxc_dvfs_core_device, &mx51_efikamx_dvfs_core_data);
+		mxc_register_device(&mxc_dvfs_per_device, &mx51_efikamx_dvfs_per_data);
 	}
 
 	mxc_register_device(&mxcscc_device, NULL);
 }
+
