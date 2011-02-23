@@ -17,6 +17,7 @@
 
 #include <linux/module.h>
 #include <linux/init.h>
+#include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/spi/spi.h>
 #include <linux/err.h>
@@ -514,15 +515,22 @@ int mx51_efikamx_reboot(void)
 }
 
 #define EFIKAMX_POWEROFF MX51_PIN_CSI2_VSYNC
+#define EFIKAMX_USB_PHY_RESET   MX51_PIN_EIM_D27
 
 void mx51_efikamx_power_off(void)
 {
+	/* hold USB phy to ransom */
+	/* TODO: put this back into _usb.c */
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_USB_PHY_RESET), 0);
+
 	/* Set the power gate bits to power down */
 	pmic_write_reg(REG_POWER_MISC, (PWGT1SPIEN|PWGT2SPIEN), (PWGT1SPIEN|PWGT2SPIEN));
 
-	mxc_request_iomux(EFIKAMX_POWEROFF, IOMUX_CONFIG_GPIO);
+	mxc_request_iomux(IOMUX_TO_GPIO(EFIKAMX_POWEROFF), IOMUX_CONFIG_GPIO);
 	gpio_request(IOMUX_TO_GPIO(EFIKAMX_POWEROFF), "sys:poweroff");
-	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_POWEROFF), 1);
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_POWEROFF), 0);
+	msleep(10);
+	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_POWEROFF), 1);
 
 	/* just in case */
 	mxc_wd_reset();
