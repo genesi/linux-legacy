@@ -142,8 +142,6 @@ static irqreturn_t mx51_efikamx_wwan_wakeup(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-
-
 void __init mx51_efikamx_init_periph(void)
 {
 	int irq, ret;
@@ -196,7 +194,7 @@ void __init mx51_efikamx_init_periph(void)
 
 		irq = IOMUX_TO_IRQ(EFIKASB_WWAN_SIM);
 
-		if (mx51_efikamx_wwan_sim_status()) /* ron: low active */
+		if (mx51_efikamx_wwan_sim_status() == SIM_INSERTED)
 			set_irq_type(irq, IRQF_TRIGGER_RISING);
 		else
 			set_irq_type(irq, IRQF_TRIGGER_FALLING);
