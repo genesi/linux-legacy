@@ -23,6 +23,7 @@
 #include <linux/gpio_keys.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
+#include <linux/workqueue.h>
 #include <mach/hardware.h>
 #include <mach/gpio.h>
 #include <mach/common.h>
@@ -98,30 +99,42 @@ void mx51_efikamx_camera_power(int state)
 	gpio_set_value(IOMUX_TO_GPIO(EFIKASB_CAMERA_POWER), state);
 }
 
-void mx51_efikamx_wwan_power(int state)
-{
-	/* WWAN_PWRON active low */
-	gpio_set_value(IOMUX_TO_GPIO(EFIKASB_WWAN_POWER), state);
-}
-
 int mx51_efikamx_wwan_sim_status(void)
 {
 	/* SIM_CD active low */
 	return gpio_get_value(IOMUX_TO_GPIO(EFIKASB_WWAN_SIM));
 }
 
-static irqreturn_t mx51_efikamx_sim_handler(int irq, void *dev_id)
+void mx51_efikamx_wwan_power(int state)
 {
+	/* WWAN_PWRON active low */
+	if (mx51_efikamx_wwan_sim_status() == SIM_INSERTED)
+		gpio_set_value(IOMUX_TO_GPIO(EFIKASB_WWAN_POWER), state);
+	else
+		gpio_set_value(IOMUX_TO_GPIO(EFIKASB_WWAN_POWER), 1);
+}
+
+struct delayed_work sim_work;
+
+static void sim_work_function(struct work_struct *work)
+{
+	int irq = IOMUX_TO_IRQ(EFIKASB_WWAN_SIM); /* ugh */
+
 	int sim = mx51_efikamx_wwan_sim_status();
 	if(sim == SIM_INSERTED) {
 		set_irq_type(irq, IRQF_TRIGGER_RISING);
-		mx51_efikamx_wwan_power(POWER_ON)
+		mx51_efikamx_wwan_power(POWER_ON);
 	} else {
 		set_irq_type(irq, IRQF_TRIGGER_FALLING);
-		mx51_efikamx_wwan_power(POWER_OFF)
+		mx51_efikamx_wwan_power(POWER_OFF);
 	}
 
-	DBG(("SIM card %s\n", (sim == SIM_INSERTED) ? "inserted" : "removed");
+	DBG(("SIM card %s\n", (sim == SIM_INSERTED) ? "inserted" : "removed"));
+}
+
+static irqreturn_t mx51_efikamx_sim_handler(int irq, void *dev_id)
+{
+	schedule_delayed_work(&sim_work, jiffies_to_msecs(250));
 
 	return IRQ_HANDLED;
 }
@@ -198,6 +211,8 @@ void __init mx51_efikamx_init_periph(void)
 			set_irq_type(irq, IRQF_TRIGGER_RISING);
 		else
 			set_irq_type(irq, IRQF_TRIGGER_FALLING);
+
+		INIT_DELAYED_WORK(&sim_work, sim_work_function);
 
 		ret = request_irq(irq, mx51_efikamx_sim_handler, 0, "wwan:simcard", 0);
 	}
