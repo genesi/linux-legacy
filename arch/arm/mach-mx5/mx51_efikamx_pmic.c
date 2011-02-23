@@ -520,10 +520,10 @@ void mx51_efikamx_power_off(void)
 	/* Set the power gate bits to power down */
 	pmic_write_reg(REG_POWER_MISC, (PWGT1SPIEN|PWGT2SPIEN), (PWGT1SPIEN|PWGT2SPIEN));
 
-	mxc_wd_reset();
-
 	mxc_request_iomux(EFIKAMX_POWEROFF, IOMUX_CONFIG_GPIO);
 	gpio_request(IOMUX_TO_GPIO(EFIKAMX_POWEROFF), "sys:poweroff");
 	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_POWEROFF), 1);
 
+	/* just in case */
+	mxc_wd_reset();
 }
