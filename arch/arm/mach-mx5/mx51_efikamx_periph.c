@@ -134,7 +134,7 @@ static void sim_work_function(struct work_struct *work)
 
 static irqreturn_t mx51_efikamx_sim_handler(int irq, void *dev_id)
 {
-	schedule_delayed_work(&sim_work, jiffies_to_msecs(250));
+	schedule_delayed_work(&sim_work, msecs_to_jiffies(1000));
 
 	return IRQ_HANDLED;
 }
