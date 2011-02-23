@@ -32,6 +32,7 @@
 #include "mx51_efikamx.h"
 
 #define EFIKAMX_AMP_ENABLE		MX51_PIN_EIM_A23
+#define EFIKASB_AMP_ENABLE		MX51_PIN_EIM_CS5 /* ?? */
 #define EFIKAMX_AUDIO_CLOCK_ENABLE	MX51_PIN_GPIO1_9
 #define EFIKAMX_HP_DETECT		MX51_PIN_DISPB2_SER_RS
 #define EFIKAMX_SPDIF_OUT		MX51_PIN_OWIRE_LINE
@@ -64,6 +65,11 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_audio_iomux_pins[] = {
 	{ EFIKAMX_AUDIO_CLOCK_ENABLE, IOMUX_CONFIG_GPIO, }, /* ALT4? */
 	{ EFIKAMX_AMP_ENABLE, IOMUX_CONFIG_GPIO, PAD_CTL_100K_PU, },
 	{ EFIKAMX_HP_DETECT, IOMUX_CONFIG_GPIO, PAD_CTL_100K_PU, },
+};
+
+/* schematic confusion here there are two AUD_AMP_MUTE# pins */
+static struct mxc_iomux_pin_cfg __initdata mx51_efikasb_audio_iomux_pins[] = {
+	{ EFIKASB_AMP_ENABLE, IOMUX_CONFIG_GPIO, PAD_CTL_100K_PU, },
 };
 
 static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_spdif_iomux_pins[] = {
