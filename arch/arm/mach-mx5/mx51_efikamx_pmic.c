@@ -514,7 +514,7 @@ int mx51_efikamx_reboot(void)
 	return 0;
 }
 
-#define EFIKAMX_POWEROFF MX51_PIN_CSI2_VSYNC
+#define EFIKAMX_POWEROFF	MX51_PIN_CSI2_VSYNC
 #define EFIKAMX_USB_PHY_RESET   MX51_PIN_EIM_D27
 
 void mx51_efikamx_power_off(void)
@@ -526,9 +526,9 @@ void mx51_efikamx_power_off(void)
 	/* Set the power gate bits to power down */
 	pmic_write_reg(REG_POWER_MISC, (PWGT1SPIEN|PWGT2SPIEN), (PWGT1SPIEN|PWGT2SPIEN));
 
-	mxc_request_iomux(IOMUX_TO_GPIO(EFIKAMX_POWEROFF), IOMUX_CONFIG_GPIO);
+	mxc_request_iomux(EFIKAMX_POWEROFF, IOMUX_CONFIG_GPIO);
 	gpio_request(IOMUX_TO_GPIO(EFIKAMX_POWEROFF), "sys:poweroff");
 	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_POWEROFF), 0);
-	msleep(10);
+	msleep(1);
 	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_POWEROFF), 1);
 }
