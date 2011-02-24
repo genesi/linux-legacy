@@ -801,15 +801,15 @@ static int __devinit sbs_probe(struct i2c_client *client,
 	batt->mains = sbs_mains;
 	batt->battery = sbs_battery;
 
-	/* NOTE: never use these ever again! */
+	/* NOTE: active low, never use these ever again! */
 	if (batt->platform->mains_status)
-		batt->ac_present = batt->platform->mains_status();
+		batt->ac_present = !batt->platform->mains_status();
 
 	if (batt->platform->battery_status)
-		batt->present = batt->platform->battery_status();
+		batt->present = !batt->platform->battery_status();
 
 	if (batt->platform->alarm_status)
-		batt->alarming = batt->platform->alarm_status();
+		batt->alarming = !batt->platform->alarm_status();
 
 	DEBUG("Initial State: %s%s%s\n",
 		batt->present ? "Present " : "",
