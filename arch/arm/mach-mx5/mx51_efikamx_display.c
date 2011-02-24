@@ -205,9 +205,6 @@ void __init mx51_efikamx_init_display(void)
 {
 	int display_id = 0;
 
-	/* what is this in aid of? */
-	clk_set_rate(clk_get(&(mxc_fb_devices[0].dev), "axi_b_clk"), 133000000);
-
 	if (machine_is_mx51_efikamx()) {
 		CONFIG_IOMUX(mx51_efikamx_display_iomux_pins);
 
