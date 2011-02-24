@@ -58,7 +58,7 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_i2c_iomux_pins[] = {
 
 
 #if defined(CONFIG_I2C_MXC)
-static struct mxc_i2c_platform_data mx51_efikamx_i2c2_data = {
+static struct mxc_i2c_platform_data mx51_efikamx_i2c_data = {
 	.i2c_clk = 100000,
 };
 #endif
