@@ -377,7 +377,7 @@ scc_return_t scc_diminish_permissions(void *part_base, uint32_t permissions)
 	return SCC_RET_FAIL;
 }
 
-extern scc_partition_status_t scc_partition_status(void *part_base)
+scc_partition_status_t scc_partition_status(void *part_base)
 {
 	uint32_t part_no;
 	uint32_t part_owner;
@@ -415,6 +415,7 @@ extern scc_partition_status_t scc_partition_status(void *part_base)
 		break;
 	}
 }
+EXPORT_SYMBOL(scc_partition_status);
 
 /**
  * Calculate the physical address from the kernel virtual address.
@@ -427,6 +428,7 @@ uint32_t scc_virt_to_phys(void *address)
 	return (uint32_t) address - (uint32_t) scm_ram_base
 	    + (uint32_t) scm_ram_phys_base;
 }
+EXPORT_SYMBOL(scc_virt_to_phys);
 
 /**
  * Engage partition of secure memory
