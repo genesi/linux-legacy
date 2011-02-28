@@ -895,7 +895,7 @@ siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 	const struct fb_videomode *mode = NULL;
 	const struct fb_videomode * const def = &cea_modes[19];
 
-	if (teneighty) {
+	if (teneighty && (tx->connection_type == CONNECTION_TYPE_HDMI)) {
 		int i;
 		/*
 		 * search the CEA modes 32, 33, 34 in the modelist, since they represent 1080p
@@ -909,7 +909,7 @@ siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 		}
 	}
 
-	if (seventwenty) {
+	if (seventwenty && (tx->connection_type == CONNECTION_TYPE_HDMI)) {
 		/* prefer default mode if the monitor supports that mode exactly */
 		mode = fb_find_nearest_mode(def, &tx->info->modelist);
 
