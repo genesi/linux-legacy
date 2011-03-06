@@ -72,7 +72,7 @@ static const REG_MH_ARBITER_CONFIG gsl_cfg_g12_mharb = {
     1,      /* PAGE_SIZE */
     1,      /* TC_REORDER_ENABLE */
     1,      /* TC_ARB_HOLD_ENABLE */
-    0,      /* IN_FLIGHT_LIMIT_ENABLE */
+    1,      /* IN_FLIGHT_LIMIT_ENABLE */
     0x8,    /* IN_FLIGHT_LIMIT */
     1,      /* CP_CLNT_ENABLE */
     1,      /* VGT_CLNT_ENABLE */
