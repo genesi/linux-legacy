@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.31.14.19
-# Sun Feb 20 04:47:16 2011
+# Linux kernel version: 2.6.31.14.20
+# Mon Mar  7 13:40:30 2011
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -2295,13 +2295,16 @@ CONFIG_MXC_MC13892_POWER=y
 # MXC Security Drivers
 #
 # CONFIG_MXC_SECURITY_SCC is not set
-# CONFIG_MXC_SECURITY_SCC2 is not set
+CONFIG_MXC_SECURITY_SCC2=m
+# CONFIG_SCC_DEBUG is not set
 # CONFIG_MXC_SECURITY_RNG is not set
 
 #
 # SAHARA2 Security Hardware Support
 #
-# CONFIG_MXC_SAHARA is not set
+CONFIG_MXC_SAHARA=m
+CONFIG_MXC_SAHARA_USER_MODE=m
+# CONFIG_MXC_SAHARA_POLL_MODE is not set
 
 #
 # MXC MPEG4 Encoder Kernel module support
