@@ -167,7 +167,16 @@ void __init mx51_efikamx_init_soc(void)
 	 */
 	if (cpu_is_mx51_rev(CHIP_REV_3_0) >= 1) {
 		mxc_register_device(&mxc_dvfs_core_device, &mx51_efikamx_dvfs_core_data);
-		mxc_register_device(&mxc_dvfs_per_device, &mx51_efikamx_dvfs_per_data);
+
+		/* only enable peripheral power management on the Smartbook. On the Smarttop
+		 * with very high resolution displays, power management causes serious performance
+		 * regressions which we cannot really accept when it comes to video playback
+		 * and other features. However, Smartbook display resolution is low enough and
+		 * power usage is important enough that we should leave it on for those systems
+		 */
+		if (machine_is_mx51_efikasb()) {
+			mxc_register_device(&mxc_dvfs_per_device, &mx51_efikamx_dvfs_per_data);
+		}
 	}
 
 	mxc_register_device(&mxcscc_device, NULL);
