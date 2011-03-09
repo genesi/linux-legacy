@@ -132,7 +132,7 @@ static void mx51_efikasb_lvds_reset(void)
 
 
 
-static struct siihdmi_platform_data mx51_efikamx_sii9022_data = {
+static struct siihdmi_platform_data mx51_efikamx_siihdmi_data = {
 	.reset       = mx51_efikamx_display_reset,
 
 	.vendor      = "Genesi",
@@ -166,9 +166,9 @@ static struct mxc_lcd_platform_data mx51_efikasb_mtl017_data = {
 
 static struct i2c_board_info mx51_efikamx_i2c_display[] __initdata = {
 	[EFIKAMX_HDMI_DISPLAY_ID] = {
-	.type = "sii9022",
+	.type = "siihdmi",
 	.addr = 0x39,
-	.platform_data = &mx51_efikamx_sii9022_data,
+	.platform_data = &mx51_efikamx_siihdmi_data,
 	},
 	[EFIKASB_LVDS_DISPLAY_ID] = {
 	.type = "mtl017",

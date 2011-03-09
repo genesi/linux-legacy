@@ -658,7 +658,7 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	vtotal = var->yres + var->upper_margin + var->vsync_len + var->lower_margin;
 	refresh = (pixclk * 100000ul) / (htotal * vtotal);
 
-	INFO("Setting Resolution: %ux%u@%u.%u\n", var->xres, var->yres, (refresh / 100), (refresh % 100));
+	INFO("Setting Resolution: %ux%u@%u\n", var->xres, var->yres, (refresh % 1000));
 
 	ctrl = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_SYS_CTRL);
 
@@ -1032,7 +1032,7 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 	return 0;
 }
 
-static int siihdmi_blank(struct siihdmi_tx *tx, struct fb_var_screeninfo *var, int powerdown)
+static int siihdmi_blank(struct siihdmi_tx *tx, int powerdown)
 {
 	u8 data;
 
@@ -1045,7 +1045,7 @@ static int siihdmi_blank(struct siihdmi_tx *tx, struct fb_var_screeninfo *var, i
 					 data | SIIHDMI_RQB_FORCE_VIDEO_BLANK);
 }
 
-static int siihdmi_unblank(struct siihdmi_tx *tx, struct fb_var_screeninfo *var)
+static int siihdmi_unblank(struct siihdmi_tx *tx)
 {
 	u8 data;
 
@@ -1075,22 +1075,22 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 
 		break;
 	case FB_EVENT_MODE_CHANGE:
-		fb_videomode_to_var(&var, event->info->mode);
-		return siihdmi_set_resolution(tx, &var);
+		if (event->info->mode) {
+			fb_videomode_to_var(&var, event->info->mode);
+			return siihdmi_set_resolution(tx, &var);
+		}
+		break;
 	case FB_EVENT_BLANK:
-		fb_videomode_to_var(&var, event->info->mode);
-
 		switch (*((int *) event->data)) {
 		case FB_BLANK_POWERDOWN:
-			return siihdmi_blank(tx, &var, 1);
+			return siihdmi_blank(tx, 1);
 		case FB_BLANK_VSYNC_SUSPEND:
 		case FB_BLANK_HSYNC_SUSPEND:
 		case FB_BLANK_NORMAL:
-			return siihdmi_blank(tx, &var, 0);
+			return siihdmi_blank(tx, 0);
 		case FB_BLANK_UNBLANK:
-			return siihdmi_unblank(tx, &var);
+			return siihdmi_unblank(tx);
 		}
-
 		break;
 	default:
 		DEBUG("unhandled fb event 0x%lx", val);
@@ -1228,7 +1228,14 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 				break;
 			}
 		}
-	} else {
+	}
+#if defined(CONFIG_FB_SIIHDMI_HOTPLUG)
+	/* only D3 the transmitter if we can be sure we can handle a hotplug event
+	 * later! Otherwise the driver can assume it's up and ready for writing
+	 * and hang in weird ways. This is technically a bug..
+	 */
+	else
+	{
 		/*
 		 * A sink is not currently present.  However, the device has
 		 * been initialised.  This includes setting up the crucial IER.
@@ -1241,7 +1248,7 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 		if (ret < 0)
 			WARNING("unable to change to a low power-state\n");
 	}
-
+#endif
 	/* register a notifier for future fb events */
 	tx->nb.notifier_call = siihdmi_fb_event_handler;
 	fb_register_client(&tx->nb);
@@ -1292,7 +1299,7 @@ static const struct i2c_device_id siihdmi_device_table[] = {
 };
 
 static struct i2c_driver siihdmi_driver = {
-	.driver   = { .name = "sii9022" },
+	.driver   = { .name = "siihdmi" },
 	.probe    = siihdmi_probe,
 	.remove   = siihdmi_remove,
 	.id_table = siihdmi_device_table,
