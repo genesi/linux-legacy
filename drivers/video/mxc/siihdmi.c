@@ -1294,7 +1294,7 @@ static int __devexit siihdmi_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id siihdmi_device_table[] = {
-	{ "sii9022", 0 },
+	{ "siihdmi", 0 },
 	{ },
 };
 
