@@ -383,6 +383,7 @@ unifdef-y += ipu.h
 unifdef-y += mxc_asrc.h
 unifdef-y += mxc_mlb.h
 unifdef-y += mxc_pf.h
+unifdef-y += mxc_sahara.h
 unifdef-y += mxc_scc2_driver.h
 unifdef-y += mxc_scc_driver.h
 unifdef-y += mxc_srtc.h
