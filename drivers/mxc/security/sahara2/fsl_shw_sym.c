@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2007 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright (C) 2004-2011 Freescale Semiconductor, Inc. All Rights Reserved.
  */
 
 /*
@@ -18,7 +18,7 @@
  * Sahara.  This does not include CCM.
  */
 
-#include "sahara.h"
+#include <linux/mxc_sahara.h>
 #include "fsl_platform.h"
 
 #include "sf_util.h"

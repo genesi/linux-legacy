@@ -1,5 +1,9 @@
 /*
+<<<<<<< HEAD
  * Copyright 2004-2008 Freescale Semiconductor, Inc. All Rights Reserved.
+=======
+ * Copyright (C) 2004-2011 Freescale Semiconductor, Inc. All Rights Reserved.
+>>>>>>> 0f39ed8... ENGR00141478-1 SAHARA: Move header file to include directory
  */
 
 /*
@@ -17,7 +21,7 @@
  * This file implements user and platform capabilities functions of the FSL SHW
  * API for Sahara
  */
-#include "sahara.h"
+#include <linux/mxc_sahara.h>
 #include <adaptor.h>
 #include <sf_util.h>
 
