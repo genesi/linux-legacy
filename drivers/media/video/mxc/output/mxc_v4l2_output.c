@@ -539,7 +539,7 @@ static void mxc_v4l2out_timer_handler(unsigned long arg)
 		ret += ipu_update_channel_buffer(MEM_VDI_PRP_VF_MEM_N,
 				IPU_INPUT_BUFFER,
 				vout->next_rdy_ipu_buf,
-				vout->v4l2_bufs[index_n].m.offset) + vout->bytesperline;
+				vout->v4l2_bufs[index_n].m.offset + vout->bytesperline);
 		last_index_n = index;
 	} else {
 		vout->ipu_buf[vout->next_rdy_ipu_buf] = index;
@@ -1242,6 +1242,7 @@ static int mxc_v4l2out_streamon(vout_data *vout)
 	u16 out_height;
 	mm_segment_t old_fs;
 	unsigned int ipu_ch = CHAN_NONE;
+	unsigned int fb_fmt;
 	int rc = 0;
 
 	dev_dbg(dev, "mxc_v4l2out_streamon: field format=%d\n",
@@ -1330,7 +1331,7 @@ static int mxc_v4l2out_streamon(vout_data *vout)
 	vout->yres = fbvar.yres;
 
 	if (vout->cur_disp_output == 3 || vout->cur_disp_output == 5) {
-		unsigned int fb_fmt = vout->v2f.fmt.pix.pixelformat;
+		fb_fmt = vout->v2f.fmt.pix.pixelformat;
 
 		/* DC channel can not use CSC */
 		if (vout->cur_disp_output == 5) {
@@ -1376,11 +1377,10 @@ static int mxc_v4l2out_streamon(vout_data *vout)
 	/* IPUv1 needs IC to do CSC */
 	if (format_is_yuv(vout->v2f.fmt.pix.pixelformat) !=
 	    format_is_yuv(bpp_to_fmt(fbi)))
-		vout->ic_bypass = 0;
 #else
 	/* DC channel needs IC to do CSC */
 	if ((format_is_yuv(vout->v2f.fmt.pix.pixelformat) !=
-		format_is_yuv(bpp_to_fmt(fbi))) &&
+		format_is_yuv(fb_fmt)) &&
 			(vout->cur_disp_output == 5))
 		vout->ic_bypass = 0;
 #endif
@@ -1420,6 +1420,7 @@ static int mxc_v4l2out_streamon(vout_data *vout)
 	}
 
 	/* Init display channel through fb API */
+	fbvar.yoffset = 0;
 	fbvar.activate |= FB_ACTIVATE_FORCE;
 	acquire_console_sem();
 	fbi->flags |= FBINFO_MISC_USEREVENT;
@@ -1556,6 +1557,13 @@ static int mxc_v4l2out_streamon(vout_data *vout)
 	} else {
 		ipu_enable_channel(vout->display_ch);
 	}
+
+	/* correct display ch buffer address */
+	ipu_update_channel_buffer(vout->display_ch, IPU_INPUT_BUFFER,
+					0, vout->display_bufs[0]);
+	ipu_update_channel_buffer(vout->display_ch, IPU_INPUT_BUFFER,
+					1, vout->display_bufs[1]);
+
 	if (!vout->ic_bypass) {
 #ifndef CONFIG_MXC_IPU_V1
 		ipu_enable_channel(vout->post_proc_ch);
@@ -1628,6 +1636,51 @@ static int mxc_v4l2out_streamoff(vout_data * vout)
 
 	if (vout->ic_bypass)
 		cancel_work_sync(&vout->icbypass_work);
+
+	/* fill black color for fb, we assume fb has double buffer*/
+	if (format_is_yuv(vout->v2f.fmt.pix.pixelformat)) {
+		int i;
+
+		if ((vout->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_UYVY) ||
+			(vout->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV) ||
+			(!vout->ic_bypass)) {
+			short * tmp = (short *) fbi->screen_base;
+			short color;
+			if (vout->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_YUYV)
+				color = 0x8000;
+			else
+				color = 0x80;
+			for (i = 0; i < (fbi->fix.line_length * fbi->var.yres_virtual)/2;
+					i++, tmp++)
+				*tmp = color;
+		} else if ((vout->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_YUV420) ||
+				(vout->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_YVU420) ||
+				(vout->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_NV12)) {
+			char * base = (char *)fbi->screen_base;
+			int j, screen_size = fbi->var.xres * fbi->var.yres;
+
+			for (j = 0; j < 2; j++) {
+				memset(base, 0, screen_size);
+				base += screen_size;
+				for (i = 0; i < screen_size/2; i++, base++)
+					*base = 0x80;
+			}
+		} else if (vout->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_YUV422P) {
+			char * base = (char *)fbi->screen_base;
+			int j, screen_size = fbi->var.xres * fbi->var.yres;
+
+			for (j = 0; j < 2; j++) {
+				memset(base, 0, screen_size);
+				base += screen_size;
+				for (i = 0; i < screen_size; i++, base++)
+					*base = 0x80;
+			}
+		}
+	} else
+		memset(fbi->screen_base, 0x0,
+				fbi->fix.line_length * fbi->var.yres_virtual);
+
+
 
 	spin_lock_irqsave(&g_lock, lockflag);
 
