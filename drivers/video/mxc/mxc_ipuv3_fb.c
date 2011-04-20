@@ -1731,8 +1731,8 @@ static int mxcfb_probe(struct platform_device *pdev)
 	}
 
 	/* Need dummy values until real panel is configured */
-	fbi->var.xres = 240;
-	fbi->var.yres = 320;
+	fbi->var.xres = 640;
+	fbi->var.yres = 480;
 
 	if (plat_data && !mxcfbi->ipu_di_pix_fmt) {
 		mxcfbi->ipu_di_pix_fmt = plat_data->interface_pix_fmt;
