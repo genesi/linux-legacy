@@ -881,6 +881,7 @@ spdif_configure_dma_channel(struct mxc_spdif_stream *s,
 	}
 
 	pr_debug("spdif_configure_dma_channel: %d\n", channel);
+	spdif_dma_enable(SCR_DMA_TX_EN, 1);
 
 	ret = mxc_dma_callback_set(channel,
 				   (mxc_dma_callback_t) callback, (void *)s);
@@ -889,6 +890,7 @@ spdif_configure_dma_channel(struct mxc_spdif_stream *s,
 		mxc_dma_free(channel);
 		return -1;
 	}
+
 	s->dma_wchannel = channel;
 	return 0;
 }
@@ -979,8 +981,15 @@ static void spdif_start_tx(struct mxc_spdif_stream *s)
 		dma_request.dst_addr = (dma_addr_t) (SPDIF_BASE_ADDR + 0x2c);
 
 		dma_request.num_of_bytes = dma_size;
-		mxc_dma_config(s->dma_wchannel, &dma_request, 1,
+		ret = mxc_dma_config(s->dma_wchannel, &dma_request, 1,
 			       MXC_DMA_MODE_WRITE);
+
+		if (ret) {
+			printk(KERN_ERR "%s %d config dma channel failed %d\n",
+				__func__, __LINE__, ret);
+			return;
+		}
+
 		ret = mxc_dma_enable(s->dma_wchannel);
 		spdif_dma_enable(SCR_DMA_TX_EN, 1);
 		if (ret) {
@@ -1034,6 +1043,8 @@ static void spdif_start_tx(struct mxc_spdif_stream *s)
 		s->period++;
 		s->period %= runtime->periods;
 
+	} else {
+		spdif_dma_enable(SCR_DMA_TX_EN, 0);
 	}
 	return;
 }
@@ -1638,6 +1649,7 @@ static int snd_mxc_spdif_hw_params(struct snd_pcm_substream
 	struct snd_pcm_runtime *runtime;
 	int ret = 0;
 	runtime = substream->runtime;
+
 	ret =
 	    snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(hw_params));
 	if (ret < 0) {
@@ -1645,6 +1657,7 @@ static int snd_mxc_spdif_hw_params(struct snd_pcm_substream
 		return ret;
 	}
 	runtime->dma_addr = virt_to_phys(runtime->dma_area);
+
 	return ret;
 }
 
