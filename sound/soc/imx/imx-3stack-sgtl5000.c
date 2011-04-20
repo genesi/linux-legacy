@@ -306,7 +306,7 @@ static void headphone_detect_handler(struct work_struct *work)
 	/* setup a message for userspace headphone in */
 	buf = kmalloc(32, GFP_ATOMIC);
 	if (!buf)
-		return -ENOMEM;
+		return /* -ENOMEM */;
 	envp[0] = "NAME=headphone";
 	snprintf(buf, 32, "STATE=%d", hp_status);
 	envp[1] = buf;
