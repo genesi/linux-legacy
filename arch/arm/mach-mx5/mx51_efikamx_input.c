@@ -90,7 +90,7 @@ int mx51_efikasb_lid_status(void)
 struct mxc_iomux_pin_cfg __initdata mx51_efikamx_input_iomux_pins[] = {
 	{
 	 EFIKAMX_POWER_KEY, IOMUX_CONFIG_GPIO,
-	 (PAD_CTL_PKE_ENABLE | PAD_CTL_100K_PU),
+	 (PAD_CTL_100K_PU),
 	},
 };
 
