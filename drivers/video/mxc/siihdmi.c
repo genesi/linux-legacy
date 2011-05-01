@@ -42,6 +42,7 @@
 #include <linux/cea861.h>
 #include <linux/cea861_modes.h>
 #include <linux/i2c/siihdmi.h>
+#include <linux/math64.h>
 
 /* logging helpers */
 #define CONTINUE(fmt, ...)	printk(KERN_CONT    fmt, ## __VA_ARGS__)
@@ -406,7 +407,7 @@ static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
 	};
 
 	u16 vmode[FIELDS];
-	u32 pixclk, htotal, vtotal, refresh;
+	u32 pixclk, htotal, vtotal, refresh, remainder;
 	u8 format;
 	int ret;
 
@@ -415,7 +416,8 @@ static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
 	pixclk = var->pixclock ? PICOS2KHZ(var->pixclock) : 0;
 	htotal = var->xres + var->left_margin + var->hsync_len + var->right_margin;
 	vtotal = var->yres + var->upper_margin + var->vsync_len + var->lower_margin;
-	refresh = (pixclk * 100000ul) / (htotal * vtotal);
+	refresh = /* ((u64) pixclk * 100000ul) / (htotal * vtotal); */
+            (u32) div_u64_rem((u64) pixclk * 100000ul, htotal * vtotal, &remainder);
 
 	BUG_ON(pixclk == 0);
 
@@ -651,14 +653,15 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	u8 ctrl;
 	int ret;
 
-	u32 pixclk, htotal, vtotal, refresh;
+	u32 pixclk, htotal, vtotal, refresh, remainder;
 
 	pixclk = var->pixclock ? PICOS2KHZ(var->pixclock) : 0;
 	htotal = var->xres + var->left_margin + var->hsync_len + var->right_margin;
 	vtotal = var->yres + var->upper_margin + var->vsync_len + var->lower_margin;
-	refresh = (pixclk * 100000ul) / (htotal * vtotal);
+	refresh = /* ((u64) pixclk * 100000ul) / (htotal * vtotal); */
+            (u32) div_u64_rem((u64) pixclk * 100000ul, htotal * vtotal, &remainder);
 
-	INFO("Setting Resolution: %ux%u@%u\n", var->xres, var->yres, (refresh % 1000));
+        INFO("Setting Resolution: %ux%u@%u.%.2u\n", var->xres, var->yres, refresh / 100ul, refresh % 100ul);
 
 	ctrl = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_SYS_CTRL);
 
