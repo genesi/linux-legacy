@@ -427,7 +427,7 @@ static int mxcfb_set_par(struct fb_info *fbi)
 					fbi->var.vsync_len,
 					fbi->var.lower_margin,
 					0, sig_cfg) != 0) {
-			dev_err(fbi->device,
+			dev_info(fbi->device,
 				"mxcfb: Error initializing panel.\n");
 			return -EINVAL;
 		}
