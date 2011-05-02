@@ -1078,21 +1078,24 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 
 		break;
 	case FB_EVENT_MODE_CHANGE:
-		if (event->info->mode) {
+		if (!strcmp(event->info->fix.id, tx->platform->framebuffer)
+		     && event->info->mode) {
 			fb_videomode_to_var(&var, event->info->mode);
 			return siihdmi_set_resolution(tx, &var);
 		}
 		break;
 	case FB_EVENT_BLANK:
-		switch (*((int *) event->data)) {
-		case FB_BLANK_POWERDOWN:
-			return siihdmi_blank(tx, 1);
-		case FB_BLANK_VSYNC_SUSPEND:
-		case FB_BLANK_HSYNC_SUSPEND:
-		case FB_BLANK_NORMAL:
-			return siihdmi_blank(tx, 0);
-		case FB_BLANK_UNBLANK:
-			return siihdmi_unblank(tx);
+		if (!strcmp(event->info->fix.id, tx->platform->framebuffer)) {
+			switch (*((int *) event->data)) {
+			case FB_BLANK_POWERDOWN:
+				return siihdmi_blank(tx, 1);
+			case FB_BLANK_VSYNC_SUSPEND:
+			case FB_BLANK_HSYNC_SUSPEND:
+			case FB_BLANK_NORMAL:
+				return siihdmi_blank(tx, 0);
+			case FB_BLANK_UNBLANK:
+				return siihdmi_unblank(tx);
+			}
 		}
 		break;
 	default:
