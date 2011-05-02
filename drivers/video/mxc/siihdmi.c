@@ -57,7 +57,7 @@ static unsigned int bus_timeout = 50;
 module_param(bus_timeout, uint, 0644);
 MODULE_PARM_DESC(bus_timeout, "bus timeout in milliseconds");
 
-static unsigned int teneighty = 1;
+static unsigned int teneighty = 0;
 module_param(teneighty, uint, 0644);
 MODULE_PARM_DESC(teneighty, "try 1080p low field-rate modes");
 
