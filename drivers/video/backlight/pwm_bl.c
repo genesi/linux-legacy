@@ -97,6 +97,15 @@ static void pwm_bl_blank(struct pwm_bl_data *pb, int type)
 	}
 }
 
+static int pwm_backlight_check_fb(struct fb_info *info)
+{
+	char *id = info->fix.id;
+	if (!strcmp(id, "DISP3 BG"))
+	    return 1;
+	else
+	return 0;
+}
+
 static int pwm_bl_notifier_call(struct notifier_block *p,
 				unsigned long event, void *data)
 {
@@ -104,6 +113,9 @@ static int pwm_bl_notifier_call(struct notifier_block *p,
 					struct pwm_bl_data, notifier);
 	struct fb_event *fb_event = data;
 	int *blank = fb_event->data;
+
+	if (!pwm_backlight_check_fb(fb_event->info))
+		return 0;
 
 	switch (event) {
 	case FB_EVENT_BLANK:
@@ -117,16 +129,6 @@ static int pwm_bl_notifier_call(struct notifier_block *p,
 		break;
 	}
 
-	return 0;
-}
-
-
-static int pwm_backlight_check_fb(struct fb_info *info)
-{
-	char *id = info->fix.id;
-	if (!strcmp(id, "DISP3 BG"))
-	    return 1;
-	else
 	return 0;
 }
 
