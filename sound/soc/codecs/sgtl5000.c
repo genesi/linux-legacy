@@ -167,8 +167,10 @@ static int sgtl5000_write(struct snd_soc_codec *codec, unsigned int reg,
 	sgtl5000->need_clk_for_access = 0;
 	sgtl5000_clock_gating(codec, 0);
 	if (i2c_ret < 0) {
+#if 0
 		pr_err("%s: write reg error : Reg 0x%02x = 0x%04x\n",
 		       __func__, reg, value);
+#endif
 		return -EIO;
 	}
 
