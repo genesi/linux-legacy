@@ -63,7 +63,11 @@ MODULE_PARM_DESC(teneighty, "try 1080p low field-rate modes");
 
 static unsigned int seventwenty = 1;
 module_param(seventwenty, uint, 0644);
-MODULE_PARM_DESC(seventwenty, "stick to 720p instead of using EDID modes");
+MODULE_PARM_DESC(seventwenty, "try 720p match before EDID preferred mode");
+
+static unsigned int useitmodes = 0;
+module_param(useitmodes, uint, 0644);
+MODULE_PARM_DESC(useitmodes, "prefer IT modes over CEA modes on HDMI sinks (to fix overscanning)");
 
 static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 {
@@ -818,10 +822,11 @@ _fb_match_resolution(const struct fb_videomode * const mode,
 #define REASON_MARGIN		4
 #define REASON_DETAILMATCH	5
 #define REASON_CEAMATCH		6
+#define REASON_ITMATCH		7
 
 static char removal_codes[] = {
 	/* lower case only please */
-	0, 'i', 'd', 'p', 'v', 'm', 'c',
+	0, 'i', 'd', 'p', 'v', 'm', 'c', 't',
 };
 
 static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
@@ -849,10 +854,13 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 			remove = REASON_DOUBLE;
 		} else if (mode->pixclock < tx->platform->pixclock) {
 			remove = REASON_PIXCLOCK;
-		} else if (mode->lower_margin < 2) {
+		} else if ((tx->connection_type == CONNECTION_TYPE_HDMI) && mode->lower_margin < 2) {
 			/*
 			 * HDMI specification requires at least 2 lines of
 			 * vertical sync (sect. 5.1.2).
+			 *
+			 * We do not care so much on DVI, although it may be that the SII9022 cannot
+			 * actually display this mode. Requires testing!!
 			 */
 			remove = REASON_MARGIN;
 		} else {
@@ -862,9 +870,39 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 			if (match && (~(mode->flag) & FB_MODE_IS_DETAILED) &&
 				     (match->flag & FB_MODE_IS_DETAILED)) {
 				remove = REASON_DETAILMATCH;
-			} else if (match && (~(mode->flag) & FB_MODE_IS_CEA) &&
-					    (match->flag & FB_MODE_IS_CEA)) {
-				remove = REASON_CEAMATCH;
+			} else {
+				if (match && (~(mode->flag) & FB_MODE_IS_CEA) &&
+				    (match->flag & FB_MODE_IS_CEA)) {
+
+					if ((tx->connection_type == CONNECTION_TYPE_HDMI) && !useitmodes) {
+						/*
+						 * for HDMI connections we want to remove any detailed timings
+						 * and leave in CEA mode timings. This is on the basis that you
+						 * would expect HDMI monitors to do better with CEA (TV) modes
+						 * than you would PC modes. No data is truly lost: these modes
+						 * are duplicated in terms of size and refresh but may have
+						 * subtle differences insofaras more compatible timings.
+						 *
+						 * That is, unless we want to prefer IT modes, since most TVs
+						 * will overscan CEA modes (720p, 1080p) by default, but display
+						 * IT (PC) modes to the edge of the screen.
+						 */
+						remove = REASON_CEAMATCH;
+					} else {
+						/*
+						 * DVI connections are the opposite to the above; remove CEA
+						 * modes which duplicate normal modes, on the basis that a
+						 * DVI sink will better display a standard EDID mode but may
+						 * not be fully compatible with CEA timings. This is the
+						 * behavior on HDMI sinks if we want to prefer IT modes.
+						 *
+						 * All we do is copy the matched mode into the mode value
+						 * such that we remove the correct mode below.
+						 */
+						mode = match;
+						remove = REASON_ITMATCH;
+					}
+				}
 			}
 		}
 
@@ -896,7 +934,8 @@ static const struct fb_videomode *
 siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 {
 	const struct fb_videomode *mode = NULL;
-	const struct fb_videomode * const def = &cea_modes[19];
+	/* useful default modes: 19 = 1280x720@50, 4 = 1280x720@60, 62,61,60 = low field 720p */
+	const struct fb_videomode * const def = &cea_modes[4];
 
 	if (teneighty && (tx->connection_type == CONNECTION_TYPE_HDMI)) {
 		int i;
@@ -928,18 +967,6 @@ siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 
 	/* if no mode was found push 1280x720 anyway */
 	mode = mode ? mode : &cea_modes[4];
-
-#if defined(CONFIG_MACH_MX51_EFIKAMX)
-	/*
-	 * At modes somewhat greater than 1280x720 (1280x768, 1280x800 may be
-	 * fine) doing heavy video work like playing a 720p movie may cause the
-	 * IPU to black the screen intermittently due to lack of IPU bandwidth.
-	 */
-	if ((mode->xres > 1024) && (mode->yres > 720))
-		WARNING("available video bandwidth may be very low at the "
-			"selected resolution (%ux%u@%u) and may cause IPU errors\n",
-			mode->xres, mode->yres, mode->refresh);
-#endif
 
 	return mode;
 }
