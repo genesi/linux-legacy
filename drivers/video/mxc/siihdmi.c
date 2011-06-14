@@ -929,45 +929,46 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 	}
 }
 
+static inline const struct fb_videomode *
+siihdmi_find_best_mode(const struct fb_videomode *match, struct list_head *modelist)
+{
+	const struct fb_videomode *mode = fb_find_best_nearest_mode(match, modelist);
+
+	if (mode && (mode->xres == match->xres) && (mode->yres == match->yres) ) {
+		return mode;
+	}
+
+	return(fb_find_nearest_mode(match, modelist));
+}
+
 static const struct fb_videomode *
 siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 {
-	const struct fb_videomode *mode = NULL;
-	/* useful default modes: 19 = 1280x720@50, 4 = 1280x720@60, 62,61,60 = low field 720p */
-	const struct fb_videomode * const def = &cea_modes[4];
+	const struct fb_videomode *mode = NULL, *match;
 
-	if (teneighty && (tx->connection_type == CONNECTION_TYPE_HDMI)) {
-		int i;
-		/*
-		 * search the CEA modes 32, 33, 34 in the modelist, since they represent 1080p
-		 * at 24, 25 and 30Hz respectively (with 74.250MHz clock rate). Do it backwards
-		 * do we pick the highest field rate first if possible.
-		 */
-		for (i = 34; i >= 32; i--) {
-			mode = fb_find_nearest_mode(&cea_modes[i], &tx->info->modelist);
-			if (mode && (mode->xres == cea_modes[i].xres) && (mode->yres == cea_modes[i].yres))
-				return mode;
-		}
+	if (teneighty) {
+		/* search for a 1080p mode still in the list */
+		match = &cea_modes[34];
+		mode = siihdmi_find_best_mode(match, &tx->info->modelist);
+		if (mode && (mode->xres == match->xres) && (mode->yres == match->yres))
+			return mode;
 	}
 
-	if (seventwenty && (tx->connection_type == CONNECTION_TYPE_HDMI)) {
-		/* prefer default mode if the monitor supports that mode exactly */
-		mode = fb_find_nearest_mode(def, &tx->info->modelist);
-
-		if (mode && (mode->xres == def->xres) && (mode->yres == def->yres)) {
+	if (seventwenty) {
+		/* search for a 720p mode still in the list */
+		match = &cea_modes[4];
+		mode = siihdmi_find_best_mode(match, &tx->info->modelist);
+		if (mode && (mode->xres == match->xres) && (mode->yres == match->yres))
 			return mode;
-		}
 	}
 
 	if (tx->preferred.xres && tx->preferred.yres) {
 		/* otherwise, use the closest to the monitor preferred mode */
-		mode = fb_find_nearest_mode(&tx->preferred, &tx->info->modelist);
+		mode = siihdmi_find_best_mode(&tx->preferred, &tx->info->modelist);
 	}
 
-	/* if no mode was found push 1280x720 anyway */
-	mode = mode ? mode : &cea_modes[4];
-
-	return mode;
+	/* if no mode was found push 1280x720@60 anyway */
+	return mode ? mode : &cea_modes[4];
 }
 
 static int siihdmi_setup_display(struct siihdmi_tx *tx)
