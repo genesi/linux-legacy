@@ -938,15 +938,15 @@ const struct fb_videomode *fb_find_best_nearest_mode(const struct fb_videomode *
 		/* the calculations here assume that every other mode than the one
 		   passed is somewhat smaller :) */
 		if (mode->xres >= cmode->xres && mode->yres >= cmode->yres) {
-			d = abs(mode->xres - cmode->xres) +
-			    abs(mode->yres - cmode->yres);
+			d = (mode->xres - cmode->xres) +
+			    (mode->yres - cmode->yres);
 			if (diff > d) {
 				/* as d grows smaller, best gets closer to the
 				 * passed mode */
 				diff = d;
 				best = cmode;
 			} else if (diff == d && best &&
-				   mode->refresh > best->refresh) {
+				   cmode->refresh > best->refresh) {
 				best = cmode;
 			}
 		}
