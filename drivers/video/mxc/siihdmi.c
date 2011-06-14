@@ -934,9 +934,8 @@ siihdmi_find_best_mode(const struct fb_videomode *match, struct list_head *model
 {
 	const struct fb_videomode *mode = fb_find_best_nearest_mode(match, modelist);
 
-	if (mode && (mode->xres == match->xres) && (mode->yres == match->yres) ) {
+	if (mode)
 		return mode;
-	}
 
 	return(fb_find_nearest_mode(match, modelist));
 }
