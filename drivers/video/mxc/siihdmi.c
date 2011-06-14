@@ -400,7 +400,7 @@ static void siihdmi_parse_cea861_timing_block(struct siihdmi_tx *tx,
 }
 
 static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
-					struct fb_var_screeninfo *var)
+					const struct fb_videomode *mode)
 {
 	enum basic_video_mode_fields {
 		PIXEL_CLOCK,
@@ -417,15 +417,21 @@ static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
 
 	BUILD_BUG_ON(sizeof(vmode) != 8);
 
-	pixclk = var->pixclock ? PICOS2KHZ(var->pixclock) : 0;
-	htotal = var->xres + var->left_margin + var->hsync_len + var->right_margin;
-	vtotal = var->yres + var->upper_margin + var->vsync_len + var->lower_margin;
-	/* note this is NOT the same math as used in set_resolution */
+	pixclk = mode->pixclock ? PICOS2KHZ(mode->pixclock) : 0;
+	htotal = mode->xres + mode->left_margin + mode->hsync_len + mode->right_margin;
+	vtotal = mode->yres + mode->upper_margin + mode->vsync_len + mode->lower_margin;
+
+	/* note: refresh is (pixclock MHz) / (total pixels)
+	 * therefore, KHz * 1000 = MHz.
+	 */
 	refresh = (u32) div_u64((u64) pixclk * 1000ul, htotal * vtotal);
 
 	BUG_ON(pixclk == 0);
 
-	/* basic video mode data */
+	/* basic video mode data
+	 * pixclk is specified in 10KHz steps
+	 * we already converted it to KHz so just divide it by 10
+	 */
 	pixclk /= 10;
 	vmode[PIXEL_CLOCK]  = (u16) pixclk;
 	vmode[REFRESH_RATE] = (u16) refresh;
@@ -651,97 +657,6 @@ static int siihdmi_set_spd_info_frame(struct siihdmi_tx *tx)
 	return ret;
 }
 
-static int siihdmi_set_resolution(struct siihdmi_tx *tx,
-				  struct fb_var_screeninfo *var)
-{
-	u8 ctrl;
-	int ret;
-
-	u32 pixclk, htotal, vtotal, refresh;
-
-	pixclk = var->pixclock ? PICOS2KHZ(var->pixclock) : 0;
-	htotal = var->xres + var->left_margin + var->hsync_len + var->right_margin;
-	vtotal = var->yres + var->upper_margin + var->vsync_len + var->lower_margin;
-	refresh = (u32) div_u64((u64) pixclk * 100000ul, htotal * vtotal);
-
-        INFO("Setting Resolution: %ux%u@%lu.%.2lu\n", var->xres, var->yres, refresh / 100ul, refresh % 100ul);
-
-	ctrl = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_SYS_CTRL);
-
-	/* setup the sink type */
-	if (tx->connection_type == CONNECTION_TYPE_DVI)
-		ctrl &= ~SIIHDMI_SYS_CTRL_OUTPUT_MODE_SELECT_HDMI;
-	else
-		ctrl |= SIIHDMI_SYS_CTRL_OUTPUT_MODE_SELECT_HDMI;
-
-	/* step 1: (potentially) disable HDCP */
-
-	/* step 2: (optionally) blank the display */
-	/*
-	 * Note that if we set the AV Mute, switching to DVI could result in a
-	 * permanently muted display until a hardware reset.  Thus only do this
-	 * if the sink is a HDMI connection
-	 */
-	if (tx->connection_type == CONNECTION_TYPE_HDMI)
-		ctrl |= SIIHDMI_SYS_CTRL_AV_MUTE_HDMI;
-	/* optimisation: merge the write into the next one */
-
-	/* step 3: prepare for resolution change */
-	ctrl |= SIIHDMI_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN;
-	ret = i2c_smbus_write_byte_data(tx->client,
-					SIIHDMI_TPI_REG_SYS_CTRL,
-					ctrl);
-	if (ret < 0)
-		DEBUG("unable to prepare for resolution change\n");
-
-	tx->tmds_enabled = false;
-
-	msleep(SIIHDMI_CTRL_INFO_FRAME_DRAIN_TIME);
-
-	/* step 4: change video resolution */
-
-	/* step 5: set the vmode registers */
-	siihdmi_set_vmode_registers(tx, var);
-
-	/*
-	 * step 6:
-	 *      [DVI]  clear AVI InfoFrame
-	 *      [HDMI] set AVI InfoFrame
-	 */
-	if (tx->connection_type == CONNECTION_TYPE_HDMI)
-		siihdmi_set_avi_info_frame(tx);
-	else
-		siihdmi_clear_avi_info_frame(tx);
-
-	/* step 7: [HDMI] set new audio information */
-	if (tx->connection_type == CONNECTION_TYPE_HDMI) {
-		if (tx->basic_audio) {
-			siihdmi_audio_setup(tx, SIIHDMI_AUDIO_SPDIF_ENABLE);
-			siihdmi_set_audio_info_frame(tx);
-			siihdmi_audio_mute(tx, SIIHDMI_AUDIO_UNMUTE);
-		}
-		siihdmi_set_spd_info_frame(tx);
-	}
-
-	/* step 8: enable display */
-	ctrl &= ~SIIHDMI_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN;
-	/* optimisation: merge the write into the next one */
-
-	/* step 9: (optionally) un-blank the display */
-	ctrl &= ~SIIHDMI_SYS_CTRL_AV_MUTE_HDMI;
-	ret = i2c_smbus_write_byte_data(tx->client,
-					SIIHDMI_TPI_REG_SYS_CTRL,
-					ctrl);
-	if (ret < 0)
-		DEBUG("unable to enable the display\n");
-
-	/* step 10: (potentially) enable HDCP */
-
-	tx->tmds_enabled = true;
-
-	return ret;
-}
-
 static void siihdmi_dump_single_modeline(const struct siihdmi_tx *tx, const struct fb_videomode *mode, char flag)
 {
 	const bool interlaced = (mode->vmode & FB_VMODE_INTERLACED);
@@ -799,6 +714,91 @@ static void siihdmi_dump_modelines(struct siihdmi_tx *tx)
 
 		siihdmi_dump_single_modeline(tx, &entry->mode, flag);
 	}
+}
+
+static int siihdmi_set_resolution(struct siihdmi_tx *tx,
+				  const struct fb_videomode *mode)
+{
+	u8 ctrl;
+	int ret;
+
+        INFO("Setting Resolution:\n");
+	siihdmi_dump_single_modeline(tx, mode, '=');
+
+	ctrl = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_SYS_CTRL);
+
+	/* setup the sink type */
+	if (tx->connection_type == CONNECTION_TYPE_DVI)
+		ctrl &= ~SIIHDMI_SYS_CTRL_OUTPUT_MODE_SELECT_HDMI;
+	else
+		ctrl |= SIIHDMI_SYS_CTRL_OUTPUT_MODE_SELECT_HDMI;
+
+	/* step 1: (potentially) disable HDCP */
+
+	/* step 2: (optionally) blank the display */
+	/*
+	 * Note that if we set the AV Mute, switching to DVI could result in a
+	 * permanently muted display until a hardware reset.  Thus only do this
+	 * if the sink is a HDMI connection
+	 */
+	if (tx->connection_type == CONNECTION_TYPE_HDMI)
+		ctrl |= SIIHDMI_SYS_CTRL_AV_MUTE_HDMI;
+	/* optimisation: merge the write into the next one */
+
+	/* step 3: prepare for resolution change */
+	ctrl |= SIIHDMI_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN;
+	ret = i2c_smbus_write_byte_data(tx->client,
+					SIIHDMI_TPI_REG_SYS_CTRL,
+					ctrl);
+	if (ret < 0)
+		DEBUG("unable to prepare for resolution change\n");
+
+	tx->tmds_enabled = false;
+
+	msleep(SIIHDMI_CTRL_INFO_FRAME_DRAIN_TIME);
+
+	/* step 4: change video resolution */
+
+	/* step 5: set the vmode registers */
+	siihdmi_set_vmode_registers(tx, mode);
+
+	/*
+	 * step 6:
+	 *      [DVI]  clear AVI InfoFrame
+	 *      [HDMI] set AVI InfoFrame
+	 */
+	if (tx->connection_type == CONNECTION_TYPE_HDMI)
+		siihdmi_set_avi_info_frame(tx);
+	else
+		siihdmi_clear_avi_info_frame(tx);
+
+	/* step 7: [HDMI] set new audio information */
+	if (tx->connection_type == CONNECTION_TYPE_HDMI) {
+		if (tx->basic_audio) {
+			siihdmi_audio_setup(tx, SIIHDMI_AUDIO_SPDIF_ENABLE);
+			siihdmi_set_audio_info_frame(tx);
+			siihdmi_audio_mute(tx, SIIHDMI_AUDIO_UNMUTE);
+		}
+		siihdmi_set_spd_info_frame(tx);
+	}
+
+	/* step 8: enable display */
+	ctrl &= ~SIIHDMI_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN;
+	/* optimisation: merge the write into the next one */
+
+	/* step 9: (optionally) un-blank the display */
+	ctrl &= ~SIIHDMI_SYS_CTRL_AV_MUTE_HDMI;
+	ret = i2c_smbus_write_byte_data(tx->client,
+					SIIHDMI_TPI_REG_SYS_CTRL,
+					ctrl);
+	if (ret < 0)
+		DEBUG("unable to enable the display\n");
+
+	/* step 10: (potentially) enable HDCP */
+
+	tx->tmds_enabled = true;
+
+	return ret;
 }
 
 static const struct fb_videomode *
@@ -973,6 +973,7 @@ siihdmi_select_video_mode(const struct siihdmi_tx * const tx)
 static int siihdmi_setup_display(struct siihdmi_tx *tx)
 {
 	struct fb_var_screeninfo var = {0};
+	const struct fb_videomode *mode = NULL;
 	struct edid_block0 block0;
 	int ret;
 
@@ -1040,16 +1041,16 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 		}
 	}
 
-
 	siihdmi_sanitize_modelist(tx);
 	siihdmi_dump_modelines(tx);
 
-	fb_videomode_to_var(&var, siihdmi_select_video_mode(tx));
+	mode = siihdmi_select_video_mode(tx);
 
-	if ((ret = siihdmi_set_resolution(tx, &var)) < 0)
+	if ((ret = siihdmi_set_resolution(tx, mode)) < 0)
 		return ret;
 
 	/* activate the framebuffer */
+	fb_videomode_to_var(&var, mode);
 	var.activate = FB_ACTIVATE_ALL;
 
 	acquire_console_sem();
@@ -1093,7 +1094,6 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 {
 	const struct fb_event * const event = v;
 	struct siihdmi_tx * const tx = container_of(nb, struct siihdmi_tx, nb);
-	struct fb_var_screeninfo var = {0};
 
 	switch (val) {
 	case FB_EVENT_FB_REGISTERED:
@@ -1106,8 +1106,7 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 	case FB_EVENT_MODE_CHANGE:
 		if (!strcmp(event->info->fix.id, tx->platform->framebuffer)
 		     && event->info->mode) {
-			fb_videomode_to_var(&var, event->info->mode);
-			return siihdmi_set_resolution(tx, &var);
+			return siihdmi_set_resolution(tx, event->info->mode);
 		}
 		break;
 	case FB_EVENT_BLANK:
