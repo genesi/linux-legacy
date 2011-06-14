@@ -901,6 +901,61 @@ const struct fb_videomode *fb_find_nearest_mode(const struct fb_videomode *mode,
 }
 
 /**
+ * fb_find_best_nearest_mode - find closest videomode a different way
+ *
+ * @mode: pointer to struct fb_videomode
+ * @head: pointer to modelist
+ *
+ * Finds best matching videomode, smaller or equal in dimension, with the
+ * highest refresh rate (specifically designed to service LCD panels with
+ * a maximum screen size == native panel size, and all other modes being
+ * smaller, or at least the same but with a lower refresh for pixelclock
+ * limited devices. e.g. 1080p24 instead of 1080p60, or 1440x900@60 instead
+ * of 1680x1050@72 - proper selection of mode is dependent on a properly
+ * sanitized modelist with any invalid/undisplayable modes removed.)
+ *
+ * This is a kind of works-best amalgam of find_best_mode (which operates on
+ * fb_var_screeninfo which is silly, but is concerned about the highest and
+ * therefore least flickery refresh rate) and find_nearest_mode (which is
+ * also looking for a mode bigger than the passed one, and seems not to pick
+ * the greatest mode in the vast majority of cases)
+ *
+ */
+const struct fb_videomode *fb_find_best_nearest_mode(const struct fb_videomode *mode,
+					        struct list_head *head)
+{
+	struct list_head *pos;
+	struct fb_modelist *modelist;
+	struct fb_videomode *cmode, *best = NULL;
+	u32 diff = -1;
+
+	list_for_each(pos, head) {
+		u32 d;
+
+		modelist = list_entry(pos, struct fb_modelist, list);
+		cmode = &modelist->mode;
+
+		/* the calculations here assume that every other mode than the one
+		   passed is somewhat smaller :) */
+		if (mode->xres >= cmode->xres && mode->yres >= cmode->yres) {
+			d = abs(mode->xres - cmode->xres) +
+			    abs(mode->yres - cmode->yres);
+			if (diff > d) {
+				/* as d grows smaller, best gets closer to the
+				 * passed mode */
+				diff = d;
+				best = cmode;
+			} else if (diff == d && best &&
+				   mode->refresh > best->refresh) {
+				best = cmode;
+			}
+		}
+	}
+
+	return best;
+}
+
+/**
  * fb_match_mode - find a videomode which exactly matches the timings in var
  * @var: pointer to struct fb_var_screeninfo
  * @head: pointer to struct list_head of modelist

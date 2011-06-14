@@ -1080,8 +1080,12 @@ extern const struct fb_videomode *fb_match_mode(const struct fb_var_screeninfo *
 						struct list_head *head);
 extern const struct fb_videomode *fb_find_best_mode(const struct fb_var_screeninfo *var,
 						    struct list_head *head);
+
+extern const struct fb_videomode *fb_find_best_nearest_mode(const struct fb_videomode *mode,
+						    struct list_head *head);
 extern const struct fb_videomode *fb_find_nearest_mode(const struct fb_videomode *mode,
 						       struct list_head *head);
+
 extern void fb_destroy_modelist(struct list_head *head);
 extern void fb_videomode_to_modelist(const struct fb_videomode *modedb, int num,
 				     struct list_head *head);
