@@ -342,15 +342,13 @@ kgsl_ringbuffer_checkpm4(unsigned int* cmds, unsigned int sizedwords, int pmodeo
 static void
 kgsl_ringbuffer_submit(gsl_ringbuffer_t *rb)
 {
-    unsigned int value;
-
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
                     "--> static void kgsl_ringbuffer_submit(gsl_ringbuffer_t *rb=0x%08x)\n", rb );
 
     KOS_ASSERT(rb->wptr != 0);
 
     kgsl_device_active(rb->device);
-    
+
     GSL_RB_UPDATE_WPTR_POLLING(rb);
 
     // send the wptr to the hw
