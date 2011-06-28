@@ -22,6 +22,7 @@
 #include <linux/delay.h>
 #include <linux/mxc_scc2_driver.h>
 #include <linux/iram_alloc.h>
+#include <linux/fsl_devices.h>
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <mach/gpio.h>
@@ -1111,6 +1112,11 @@ struct platform_device gpu_device = {
 	.id = 0,
 	.num_resources = ARRAY_SIZE(mxc_gpu_resources),
 	.resource = mxc_gpu_resources,
+};
+
+struct mxc_gpu_platform_data mxc_gpu_data = {
+	.z160_revision = 0,
+	.enable_mmu = 1,
 };
 
 static struct resource mxc_gpu2d_resources[] = {

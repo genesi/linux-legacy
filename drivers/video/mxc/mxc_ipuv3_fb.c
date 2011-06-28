@@ -1481,13 +1481,10 @@ static int mxcfb_resume(struct platform_device *pdev)
  */
 static int mxcfb_map_video_memory(struct fb_info *fbi)
 {
-	if (fbi->fix.smem_len < fbi->var.yres_virtual * fbi->fix.line_length)
-		fbi->fix.smem_len = fbi->var.yres_virtual *
-				    fbi->fix.line_length;
+	fbi->fix.smem_len = fbi->var.yres_virtual * fbi->fix.line_length;
+	fbi->fix.smem_len = (fbi->fix.smem_len + SZ_1M - 1) & ~(SZ_1M - 1);
 
-	/* line_length is 0 sometimes (BAH!) so temporarily hack it so this doesn't OOPS */
-	if (fbi->fix.smem_len)
-		fbi->screen_base = dma_alloc_writecombine(fbi->device,
+	fbi->screen_base = dma_alloc_writecombine(fbi->device,
 				fbi->fix.smem_len,
 				(dma_addr_t *)&fbi->fix.smem_start,
 				GFP_DMA);
@@ -1634,7 +1631,6 @@ static int mxcfb_probe(struct platform_device *pdev)
 	struct fb_info *fbi;
 	struct mxcfb_info *mxcfbi;
 	struct mxc_fb_platform_data *plat_data = pdev->dev.platform_data;
-	struct resource *res;
 	char *options;
 	char name[] = "mxcdi0fb";
 	int ret = 0;
@@ -1725,13 +1721,6 @@ static int mxcfb_probe(struct platform_device *pdev)
 	}
 	ipu_disable_irq(mxcfbi->ipu_ch_irq);
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (res && res->end) {
-		fbi->fix.smem_len = res->end - res->start + 1;
-		fbi->fix.smem_start = res->start;
-		fbi->screen_base = ioremap(fbi->fix.smem_start, fbi->fix.smem_len);
-	}
-
 	/* Need dummy values until real panel is configured */
 	fbi->var.xres = 640;
 	fbi->var.yres = 480;
@@ -1765,9 +1754,8 @@ static int mxcfb_probe(struct platform_device *pdev)
 
 	mxcfb_set_fix(fbi);
 
-	/* alocate fb first */
-	if (!res || !res->end)
-		if (mxcfb_map_video_memory(fbi) < 0)
+	/* allocate fb first */
+	if (mxcfb_map_video_memory(fbi) < 0)
 			return -ENOMEM;
 
 	ret = register_framebuffer(fbi);

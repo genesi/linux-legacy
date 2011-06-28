@@ -129,9 +129,6 @@ static void mx51_efikasb_lvds_reset(void)
 
 }
 
-
-
-
 static struct siihdmi_platform_data mx51_efikamx_siihdmi_data = {
 	.reset       = mx51_efikamx_display_reset,
 
@@ -175,13 +172,6 @@ static struct i2c_board_info mx51_efikamx_i2c_display[] __initdata = {
 	.addr = 0x3a,
 	.platform_data = &mx51_efikasb_mtl017_data,
 	},
-};
-
-
-static struct resource mxcfb_resources[] = {
-	[0] = {
-		.flags = IORESOURCE_MEM,
-		},
 };
 
 static struct mxc_fb_platform_data mx51_efikamx_display_data[] = {
@@ -256,7 +246,7 @@ void __init mx51_efikamx_init_display(void)
 
 	mxc_register_device(&mxc_ipu_device, &mxc_ipu_data);
 	mxc_register_device(&mxcvpu_device, &mxc_vpu_data);
-	mxc_register_device(&gpu_device, NULL);
+	mxc_register_device(&gpu_device, &mxc_gpu_data);
 	mxc_register_device(&mxc_v4l2out_device, NULL);
 
 	/* display_id is specific to the board, and configures the single controller
@@ -264,29 +254,10 @@ void __init mx51_efikamx_init_display(void)
 	 * supported)
 	 */
 	mxc_ipu_data.di_clk[display_id] = clk_get(NULL, mxcfb_clocks[display_id]);
-	mxc_fb_devices[display_id].num_resources = ARRAY_SIZE(mxcfb_resources);
-	mxc_fb_devices[display_id].resource = mxcfb_resources;
 	mxc_register_device(&mxc_fb_devices[display_id], &mx51_efikamx_display_data[display_id]);
 
 	i2c_register_board_info(1, &mx51_efikamx_i2c_display[display_id], 1);
 
 	/* video overlay */
 	mxc_register_device(&mxc_fb_devices[2], NULL);
-}
-
-void __init mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_mem)
-{
-		/*reserve memory for gpu*/
-		gpu_device.resource[5].start = gpu_start;
-		gpu_device.resource[5].end =
-				gpu_device.resource[5].start + gpu_mem - 1;
-		if (fb_mem) {
-			mxcfb_resources[0].start =
-				gpu_device.resource[5].end + 1;
-			mxcfb_resources[0].end =
-				mxcfb_resources[0].start + fb_mem - 1;
-		} else {
-			mxcfb_resources[0].start = 0;
-			mxcfb_resources[0].end = 0;
-		}
 }

@@ -280,71 +280,17 @@ static void __init mx51_efikamx_board_init(void)
 	}
 }
 
-/* is in mx51_efikamx_cpu.c */
 static struct sys_timer mx51_efikamx_timer = {
 	.init	= mx51_efikamx_timer_init,
 };
 
-
 static void __init mx51_efikamx_fixup(struct machine_desc *desc, struct tag *tags,
 				   char **cmdline, struct meminfo *mi)
 {
-	char *str;
-	struct tag *t;
-	struct tag *mem_tag = 0;
-	int total_mem = SZ_512M;
-	int left_mem = 0;
-	int gpu_mem = SZ_64M;
-	int fb_mem = SZ_32M;
-
 	mxc_set_cpu_type(MXC_CPU_MX51);
 
 	get_cpu_wp = mx51_efikamx_get_cpu_wp;
 	set_num_cpu_wp = mx51_efikamx_set_num_cpu_wp;
-
-	for_each_tag(mem_tag, tags) {
-		if (mem_tag->hdr.tag == ATAG_MEM) {
-			total_mem = mem_tag->u.mem.size;
-			left_mem = total_mem - gpu_mem - fb_mem;
-			break;
-		}
-	}
-
-	for_each_tag(t, tags) {
-		if (t->hdr.tag == ATAG_CMDLINE) {
-			str = t->u.cmdline.cmdline;
-			str = strstr(str, "mem=");
-			if (str != NULL) {
-				str += 4;
-				left_mem = memparse(str, &str);
-				if (left_mem == 0 || left_mem > total_mem)
-					left_mem = total_mem - gpu_mem - fb_mem;
-			}
-
-			str = t->u.cmdline.cmdline;
-			str = strstr(str, "gpu_memory=");
-			if (str != NULL) {
-				str += 11;
-				gpu_mem = memparse(str, &str);
-			}
-
-			break;
-		}
-	}
-
-	if (mem_tag) {
-		fb_mem = total_mem - left_mem - gpu_mem;
-		if (fb_mem < 0) {
-			gpu_mem = total_mem - left_mem;
-			fb_mem = 0;
-		}
-		mem_tag->u.mem.size = left_mem;
-
-		mx51_efikamx_display_adjust_mem(mem_tag->u.mem.start + left_mem,
-						gpu_mem,
-						fb_mem);
-
-	}
 }
 
 

@@ -67,7 +67,6 @@ extern void mx51_efikamx_set_num_cpu_wp(int num);
 extern int mx51_efikamx_reboot(void);
 extern void mx51_efikamx_power_off(void);
 
-extern void mx51_efikamx_display_adjust_mem(int gpu_start, int gpu_mem, int fb_mem);
 #define DBG(x) { printk(KERN_INFO "Efika MX: "); printk x ; }
 
 extern void mx51_efikamx_wifi_power(int state);
