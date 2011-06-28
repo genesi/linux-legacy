@@ -99,7 +99,7 @@ static int mx51_efikamx_headphone_det_status(void)
 }
 
 static struct mxc_audio_platform_data mx51_efikamx_audio_data = {
-	.ssi_num = 1,
+	.ssi_num = 2,
 	.src_port = 2,
 	.ext_port = 3,
 	.hp_irq = IOMUX_TO_IRQ(EFIKAMX_HP_DETECT),
@@ -129,9 +129,6 @@ static struct mxc_spdif_platform_data mx51_efikamx_spdif_data = {
 
 void mx51_efikamx_init_audio(void)
 {
-	struct clk *ssi_ext1;
-	int rate;
-
 	CONFIG_IOMUX(mx51_efikamx_audio_iomux_pins);
 
 	/* turn the SGTL5000 off to start */
@@ -139,13 +136,6 @@ void mx51_efikamx_init_audio(void)
 	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_AMP_ENABLE), 0);
 	gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_HP_DETECT));
 
-	ssi_ext1 = clk_get(NULL, "ssi_ext1_clk");
-	rate = clk_round_rate(ssi_ext1, 24000000);
-	clk_set_rate(ssi_ext1, rate);
-	clk_enable(ssi_ext1);
-	mx51_efikamx_audio_data.sysclk = rate;
-
-	mxc_register_device(&mxc_ssi1_device, NULL);
 	mxc_register_device(&mxc_ssi2_device, NULL);
 
 	mxc_register_device(&mx51_efikamx_audio_device, &mx51_efikamx_audio_data);
