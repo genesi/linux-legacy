@@ -79,7 +79,6 @@ struct mxcfb_info {
 	u32 pseudo_palette[16];
 
 	bool wait4vsync;
-	uint32_t waitcnt;
 	struct semaphore flip_sem;
 	struct semaphore alpha_flip_sem;
 	struct completion vsync_complete;
@@ -250,7 +249,7 @@ static int _setup_disp_channel2(struct fb_info *fbi)
 		fb_stride = fbi->fix.line_length;
 	}
 
-	mxc_fbi->cur_ipu_buf = 1;
+	mxc_fbi->cur_ipu_buf = 2;
 	sema_init(&mxc_fbi->flip_sem, 1);
 	if (mxc_fbi->alpha_chan_en) {
 		mxc_fbi->cur_ipu_alpha_buf = 1;
@@ -269,6 +268,8 @@ static int _setup_disp_channel2(struct fb_info *fbi)
 					 IPU_ROTATE_NONE,
 					 base,
 					 base,
+					 (fbi->var.accel_flags ==
+					  FB_ACCEL_TRIPLE_FLAG) ? base : 0,
 					 0, 0);
 	if (retval) {
 		dev_err(fbi->device,
@@ -284,6 +285,7 @@ static int _setup_disp_channel2(struct fb_info *fbi)
 						 IPU_ROTATE_NONE,
 						 mxc_fbi->alpha_phy_addr1,
 						 mxc_fbi->alpha_phy_addr0,
+						 0,
 						 0, 0);
 		if (retval) {
 			dev_err(fbi->device,
@@ -306,15 +308,6 @@ static int mxcfb_set_par(struct fb_info *fbi)
 	u32 mem_len, alpha_mem_len;
 	ipu_di_signal_cfg_t sig_cfg;
 	struct mxcfb_info *mxc_fbi = (struct mxcfb_info *)fbi->par;
-
-	/*
-	 * stubbornly refuse to clock a mode less than 12.5MHz. This fixes the
-	 * issue where a "dummy" 320x240 mode gives us all kinds of hassle when
-	 * we catch framebuffer registration. There is no standard mode that
-	 * goes this low so everything should still work :)
-	 */
-	if (fbi->var.pixclock > 80000)
-		return 0;
 
 	dev_dbg(fbi->device, "Reconfiguring framebuffer\n");
 
@@ -1255,12 +1248,13 @@ mxcfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 				loc_alpha_en = true;
 				mxc_graphic_fbi = (struct mxcfb_info *)
 						(registered_fb[i]->par);
-				active_alpha_phy_addr = mxc_fbi->cur_ipu_buf ?
+				active_alpha_phy_addr =
+					mxc_fbi->cur_ipu_alpha_buf ?
 					mxc_graphic_fbi->alpha_phy_addr1 :
 					mxc_graphic_fbi->alpha_phy_addr0;
-				dev_dbg(info->device, "Updating SDC graphic "
+				dev_dbg(info->device, "Updating SDC alpha "
 					"buf %d address=0x%08lX\n",
-					mxc_fbi->cur_ipu_buf,
+					!mxc_fbi->cur_ipu_alpha_buf,
 					active_alpha_phy_addr);
 				break;
 			}
@@ -1269,7 +1263,8 @@ mxcfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 
 	down(&mxc_fbi->flip_sem);
 
-	mxc_fbi->cur_ipu_buf = !mxc_fbi->cur_ipu_buf;
+	mxc_fbi->cur_ipu_buf = (++mxc_fbi->cur_ipu_buf) % 3;
+	mxc_fbi->cur_ipu_alpha_buf = !mxc_fbi->cur_ipu_alpha_buf;
 
 	dev_dbg(info->device, "Updating SDC %s buf %d address=0x%08lX\n",
 		info->fix.id, mxc_fbi->cur_ipu_buf, base);
@@ -1280,11 +1275,11 @@ mxcfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 		if (loc_alpha_en && mxc_graphic_fbi == mxc_fbi &&
 		    ipu_update_channel_buffer(mxc_graphic_fbi->ipu_ch,
 					      IPU_ALPHA_IN_BUFFER,
-					      mxc_fbi->cur_ipu_buf,
+					      mxc_fbi->cur_ipu_alpha_buf,
 					      active_alpha_phy_addr) == 0) {
 			ipu_select_buffer(mxc_graphic_fbi->ipu_ch,
 					  IPU_ALPHA_IN_BUFFER,
-					  mxc_fbi->cur_ipu_buf);
+					  mxc_fbi->cur_ipu_alpha_buf);
 		}
 
 		ipu_select_buffer(mxc_fbi->ipu_ch, IPU_INPUT_BUFFER,
@@ -1293,9 +1288,20 @@ mxcfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 		ipu_enable_irq(mxc_fbi->ipu_ch_irq);
 	} else {
 		dev_err(info->device,
-			"Error updating SDC buf %d to address=0x%08lX\n",
-			mxc_fbi->cur_ipu_buf, base);
-		mxc_fbi->cur_ipu_buf = !mxc_fbi->cur_ipu_buf;
+			"Error updating SDC buf %d to address=0x%08lX, "
+			"current buf %d, buf0 ready %d, buf1 ready %d, "
+			"buf2 ready %d\n", mxc_fbi->cur_ipu_buf, base,
+			ipu_get_cur_buffer_idx(mxc_fbi->ipu_ch,
+					       IPU_INPUT_BUFFER),
+			ipu_check_buffer_ready(mxc_fbi->ipu_ch,
+					       IPU_INPUT_BUFFER, 0),
+			ipu_check_buffer_ready(mxc_fbi->ipu_ch,
+					       IPU_INPUT_BUFFER, 1),
+			ipu_check_buffer_ready(mxc_fbi->ipu_ch,
+					       IPU_INPUT_BUFFER, 2));
+		mxc_fbi->cur_ipu_buf = (++mxc_fbi->cur_ipu_buf) % 3;
+		mxc_fbi->cur_ipu_buf = (++mxc_fbi->cur_ipu_buf) % 3;
+		mxc_fbi->cur_ipu_alpha_buf = !mxc_fbi->cur_ipu_alpha_buf;
 		ipu_clear_irq(mxc_fbi->ipu_ch_irq);
 		ipu_enable_irq(mxc_fbi->ipu_ch_irq);
 		return -EBUSY;
@@ -1397,23 +1403,8 @@ static irqreturn_t mxcfb_irq_handler(int irq, void *dev_id)
 		ipu_disable_irq(irq);
 		mxc_fbi->wait4vsync = 0;
 	} else {
-		if (!ipu_check_buffer_ready(mxc_fbi->ipu_ch,
-				IPU_INPUT_BUFFER, mxc_fbi->cur_ipu_buf)
-				|| (mxc_fbi->waitcnt > 2)) {
-			/*
-			 * This interrupt come after pan display select
-			 * cur_ipu_buf buffer, this buffer should become
-			 * idle after show. If it keep busy, clear it manually.
-			 */
-			if (mxc_fbi->waitcnt > 2)
-				ipu_clear_buffer_ready(mxc_fbi->ipu_ch,
-						IPU_INPUT_BUFFER,
-						mxc_fbi->cur_ipu_buf);
-			up(&mxc_fbi->flip_sem);
-			ipu_disable_irq(irq);
-			mxc_fbi->waitcnt = 0;
-		} else
-			mxc_fbi->waitcnt++;
+		up(&mxc_fbi->flip_sem);
+		ipu_disable_irq(irq);
 	}
 	return IRQ_HANDLED;
 }
@@ -1729,8 +1720,8 @@ static int mxcfb_probe(struct platform_device *pdev)
 	if (plat_data && !mxcfbi->ipu_di_pix_fmt) {
 		mxcfbi->ipu_di_pix_fmt = plat_data->interface_pix_fmt;
 		/* try and use a bit depth closest to the bit depth we use for the panel */
-		if (!mxcfbi->default_bpp)
-			mxcfbi->default_bpp = pixfmt_to_bpp(plat_data->interface_pix_fmt);
+//		if (!mxcfbi->default_bpp)
+//			mxcfbi->default_bpp = pixfmt_to_bpp(plat_data->interface_pix_fmt);
 	}
 
 	if (!mxcfbi->default_bpp)
