@@ -249,15 +249,23 @@ void __init mx51_efikamx_init_display(void)
 	mxc_register_device(&gpu_device, &mxc_gpu_data);
 	mxc_register_device(&mxc_v4l2out_device, NULL);
 
-	/* display_id is specific to the board, and configures the single controller
-	 * we have on each board except for errant, weirdo VGA systems (which are not
-	 * supported)
+	/* display_id is specific to the board, and configures the primary DI for each board
+	 * (DI0 on MX, DI1 on SB) first to make it the first framebuffer device.
 	 */
 	mxc_ipu_data.di_clk[display_id] = clk_get(NULL, mxcfb_clocks[display_id]);
 	mxc_register_device(&mxc_fb_devices[display_id], &mx51_efikamx_display_data[display_id]);
 
-	i2c_register_board_info(1, &mx51_efikamx_i2c_display[display_id], 1);
+	/* register /dev/fb1 even though it's not used. We just register the other DI with the LVDS platform
+	 * data, since this is all it really needs to create the framebuffer, even though it just won't be
+	 * used for anything
+	 */
+	mxc_register_device(&mxc_fb_devices[!display_id], &mx51_efikamx_display_data[EFIKASB_LVDS_DISPLAY_ID]);
 
-	/* video overlay */
+	/* video overlay, absolutely must be /dev/fb2 and therefore registered after TWO framebuffers otherwise
+	 * the v4l2sink doesn't work right. This is probably actually a major bug in userspace somewhere..
+	 */
 	mxc_register_device(&mxc_fb_devices[2], NULL);
+
+	/* make siihdmi and mtl017 appear */
+	i2c_register_board_info(1, &mx51_efikamx_i2c_display[display_id], 1);
 }
