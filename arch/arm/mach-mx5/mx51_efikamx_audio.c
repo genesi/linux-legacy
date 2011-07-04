@@ -67,11 +67,6 @@ static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_audio_iomux_pins[] = {
 	{ EFIKAMX_HP_DETECT, IOMUX_CONFIG_GPIO, PAD_CTL_100K_PU, },
 };
 
-/* schematic confusion here there are two AUD_AMP_MUTE# pins */
-static struct mxc_iomux_pin_cfg __initdata mx51_efikasb_audio_iomux_pins[] = {
-	{ EFIKASB_AMP_ENABLE, IOMUX_CONFIG_GPIO, PAD_CTL_100K_PU, },
-};
-
 static struct mxc_iomux_pin_cfg __initdata mx51_efikamx_spdif_iomux_pins[] = {
 	{ EFIKAMX_SPDIF_OUT, IOMUX_CONFIG_ALT6, },
 };
