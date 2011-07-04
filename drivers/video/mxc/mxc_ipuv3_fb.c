@@ -1473,6 +1473,8 @@ static int mxcfb_resume(struct platform_device *pdev)
  */
 static int mxcfb_map_video_memory(struct fb_info *fbi)
 {
+	if (fbi->fix.line_length == 0) fbi->fix.line_length = fbi->var.xres;
+
 	fbi->fix.smem_len = fbi->var.yres_virtual * fbi->fix.line_length;
 	fbi->fix.smem_len = (fbi->fix.smem_len + SZ_1M - 1) & ~(SZ_1M - 1);
 

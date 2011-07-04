@@ -901,7 +901,7 @@ const struct fb_videomode *fb_find_nearest_mode(const struct fb_videomode *mode,
 }
 
 /**
- * fb_find_best_nearest_mode - find closest videomode a different way
+ * fb_find_best_mode_at_most - find closest videomode a different way
  *
  * @mode: pointer to struct fb_videomode
  * @head: pointer to modelist
@@ -921,33 +921,32 @@ const struct fb_videomode *fb_find_nearest_mode(const struct fb_videomode *mode,
  * the greatest mode in the vast majority of cases)
  *
  */
-const struct fb_videomode *fb_find_best_nearest_mode(const struct fb_videomode *mode,
-					        struct list_head *head)
+const struct fb_videomode *fb_find_best_mode_at_most(const struct fb_videomode *max,
+						     struct list_head *modes)
 {
-	struct list_head *pos;
-	struct fb_modelist *modelist;
-	struct fb_videomode *cmode, *best = NULL;
-	u32 diff = -1;
+	struct fb_videomode *best = NULL;
+	struct list_head *entry;
+	u32 difference = -1;
 
-	list_for_each(pos, head) {
-		u32 d;
+	list_for_each(entry, modes) {
+		const struct fb_modelist * const modelist =
+			list_entry(entry, struct fb_modelist, list);
+		const struct fb_videomode * const mode = &modelist->mode;
 
-		modelist = list_entry(pos, struct fb_modelist, list);
-		cmode = &modelist->mode;
+		if (mode->xres <= max->xres && mode->yres <= max->yres) {
+			const u32 delta = (max->xres - mode->xres)
+					+ (max->yres - mode->yres);
 
-		/* the calculations here assume that every other mode than the one
-		   passed is somewhat smaller :) */
-		if (mode->xres >= cmode->xres && mode->yres >= cmode->yres) {
-			d = (mode->xres - cmode->xres) +
-			    (mode->yres - cmode->yres);
-			if (diff > d) {
-				/* as d grows smaller, best gets closer to the
-				 * passed mode */
-				diff = d;
-				best = cmode;
-			} else if (diff == d && best &&
-				   cmode->refresh > best->refresh) {
-				best = cmode;
+			if (delta == difference) {
+				if (best && mode->refresh > best->refresh)
+					best = mode;
+				continue;
+			}
+
+			if (delta < difference) {
+				difference = delta;
+				best = mode;
+				continue;
 			}
 		}
 	}

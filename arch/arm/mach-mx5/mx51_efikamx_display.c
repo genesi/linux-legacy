@@ -26,7 +26,6 @@
 #include <linux/i2c.h>
 #include <linux/ipu.h>
 #include <linux/mxcfb.h>
-#include <linux/i2c/siihdmi.h>
 #include <mach/common.h>
 #include <mach/hardware.h>
 #include <asm/setup.h>
@@ -39,7 +38,7 @@
 #include "mx51_pins.h"
 
 #include "mx51_efikamx.h"
-
+#include "../../../drivers/video/mxc/siihdmi.h"
 
 
 extern void mx5_ipu_reset(void);

@@ -42,7 +42,7 @@
 #endif
 
 
-#define CEA81_NO_DTDS_PRESENT				(0x04)
+#define CEA861_NO_DTDS_PRESENT				(0x04)
 
 static const u8 CEA861_OUI_REGISTRATION_ID_HDMI_LSB[] = { 0x03, 0x0C, 0x00 };
 
@@ -77,15 +77,17 @@ struct __packed cea861_vendor_specific_data_block {
 	u8 data[28];
 };
 
+#define CEA861_SVD_NATIVE_FLAG				(1 << 7)
+
 struct __packed cea861_video_data_block {
 	struct cea861_data_block_header header;
 
-	/* actual length in header, the index stops us from walking out of
+	/*
+	 * actual length in header, the index stops us from walking out of
 	 * spec but not out of bounds
 	 */
 	u8 svd[31];
 };
-
 
 struct __packed cea861_timing_block {
 	/* CEA Extension Header */
@@ -211,6 +213,7 @@ enum scan_information {
 	SCAN_INFORMATION_UNKNOWN,
 	SCAN_INFORMATION_OVERSCANNED,
 	SCAN_INFORMATION_UNDERSCANNED,
+	SCAN_INFORMATION_RESERVED,
 };
 
 enum bar_info {

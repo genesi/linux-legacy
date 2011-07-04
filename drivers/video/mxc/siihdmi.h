@@ -29,8 +29,8 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LINUX_SIIHDMI_H
-#define LINUX_SIIHDMI_H
+#ifndef LINUX_DRIVERS_VIDEO_SIIHDMI_H
+#define LINUX_DRIVERS_VIDEO_SIIHDMI_H
 
 #include <linux/cea861.h>
 #include <linux/ioport.h>
@@ -76,6 +76,7 @@
 #define SIIHDMI_TPI_REG_I2S_SOURCE_CHANNEL		(0x23)
 #define SIIHDMI_TPI_REG_I2S_ACCURACY_SAMPLING_FREQUENCY	(0x24)
 #define SIIHDMI_TPI_REG_I2S_ORIGINAL_FREQ_SAMPLE_LENGTH	(0x25)
+#define SIIHDMI_TPI_REG_I2S_AUDIO_CONFIGURATION_BASE	(0x26)
 #define SIIHDMI_TPI_REG_I2S_AUDIO_PACKET_LAYOUT_CTRL	(0x26)
 #define SIIHDMI_TPI_REG_I2S_AUDIO_SAMPLING_HBR		(0x27)
 #define SIIHDMI_TPI_REG_I2S_AUDIO_RESERVED		(0x28)
@@ -148,6 +149,8 @@
 
 #define SIIHDMI_HOTPLUG_HANDLER_TIMEOUT			(0x32)
 
+#define SIIHDMI_VERSION_FLAG_VIRTUAL			(1 << 7)
+
 /* Input Bus and Pixel Repetition */
 #define SIIHDMI_PIXEL_REPETITION_DUAL			(1 << 0)
 #define SIIHDMI_PIXEL_REPETITION_QUAD			(3 << 0)
@@ -202,12 +205,34 @@
 #define SIIHDMI_POWER_STATE_D3				(3 << 0)
 #define SIIHDMI_WAKEUP_STATE_COLD			(1 << 2)
 
+/* Audio Frequency Sampling Length */
+#define SIIHDMI_AUDIO_HANDLING_PASS_BASIC_AUDIO		(0 << 0)
+#define SIIHDMI_AUDIO_HANDLING_PASS_ALL_AUDIO_MODES	(1 << 0)
+#define SIIHDMI_AUDIO_HANDLING_DOWN_SAMPLE		(2 << 0)
+#define SIIHDMI_AUDIO_HANDLING_UNCHECKED		(3 << 0)
+
 /* Audio Interface Control */
-#define SIIHDMI_AUDIO_DISABLE                          (0 << 6)
-#define SIIHDMI_AUDIO_I2S_ENABLE                       (2 << 6)
-#define SIIHDMI_AUDIO_SPDIF_ENABLE                     (1 << 6)
-#define SIIHDMI_AUDIO_MUTE                             (1 << 4)
-#define SIIHDMI_AUDIO_UNMUTE                           (0 << 4)
+#define SIIHDMI_AUDIO_MUTE				(1 << 4)
+#define SIIHDMI_AUDIO_DISABLE				(0 << 6)
+#define SIIHDMI_AUDIO_I2S_ENABLE			(2 << 6)
+#define SIIHDMI_AUDIO_SPDIF_ENABLE			(1 << 6)
+
+/* Audio Sampling HBR */
+#define SIIHDMI_AUDIO_SAMPLING_HBR_ENABLE		(1 << 2)
+
+#define SIIHDMI_AUDIO_SAMPLING_FREQUENCY_AUTO		(0 << 3)
+#define SIIHDMI_AUDIO_SAMPLING_FREQUENCY_32_KHZ		(1 << 3)
+#define SIIHDMI_AUDIO_SAMPLING_FREQUENCY_44_1_KHZ	(2 << 3)
+#define SIIHDMI_AUDIO_SAMPLING_FREQUENCY_48_KHZ		(3 << 3)
+#define SIIHDMI_AUDIO_SAMPLING_FREQUENCY_88_2_KHZ	(4 << 3)
+#define SIIHDMI_AUDIO_SAMPLING_FREQUENCY_96_KHZ		(5 << 3)
+#define SIIHDMI_AUDIO_SAMPLING_FREQUENCY_176_4_KHZ	(6 << 3)
+#define SIIHDMI_AUDIO_SAMPLING_FREQUENCY_192_KHZ	(7 << 3)
+
+#define SIIHDMI_AUDIO_SAMPLING_DEPTH_AUTO		(0 << 6)
+#define SIIHDMI_AUDIO_SAMPLING_DEPTH_16_BIT		(1 << 6)
+#define SIIHDMI_AUDIO_SAMPLING_DEPTH_20_BIT		(2 << 6)
+#define SIIHDMI_AUDIO_SAMPLING_DEPTH_24_BIT		(3 << 6)
 
 /* I²S Enable and Mapping */
 #define SIIHDMI_I2S_MAPPING_SELECT_SD_CHANNEL_0		(0 << 0)
@@ -251,7 +276,9 @@
 #define SIIHDMI_ISR_HOT_PLUG_EVENT			(1 << 0)
 #define SIIHDMI_ISR_RECEIVER_SENSE_EVENT		(1 << 1)
 #define SIIHDMI_ISR_CTRL_BUS_EVENT			(1 << 2)
+#define SIIHDMI_ISR_DISPLAY_ATTACHED			(1 << 2)
 #define SIIHDMI_ISR_CPI_EVENT				(1 << 3)
+#define SIIHDMI_ISR_RECEIVER_SENSE			(1 << 3)
 #define SIIHDMI_ISR_AUDIO_EVENT				(1 << 4)
 #define SIIHDMI_ISR_SECURITY_STATUS_CHANGED		(1 << 5)
 #define SIIHDMI_ISR_HDCP_VALUE_READY			(1 << 6)
@@ -350,37 +377,40 @@ struct siihdmi_tx {
 	struct fb_info *info;
 	struct notifier_block nb;
 
-	struct delayed_work hotplug;
+	struct {
+		bool enabled;
+		struct delayed_work handler;
+	} hotplug;
 
-	u16 device_id;
-	u8 tpi;
-	u8 hdcp;
+	struct {
+		u8 *data;
+		u32 length;
+#if defined(CONFIG_SYSFS)
+		struct bin_attribute attributes;
+#endif
+	} edid;
 
-	bool tmds_enabled;
+	struct {
+		bool available;
+#if defined(CONFIG_SYSFS)
+		struct bin_attribute attributes;
+#endif
+	} audio;
 
-	u8 *edid;
-	u32 edid_length;
-	struct bin_attribute edid_attr;
-	struct bin_attribute audio_attr;
+	struct {
+		enum {
+			SINK_TYPE_DVI,
+			SINK_TYPE_HDMI,
+		} type;
 
-	/* sink information */
-	bool basic_audio;
-	enum {
-		CONNECTION_TYPE_DVI,
-		CONNECTION_TYPE_HDMI,
-	} connection_type;
-	enum {
-		PIXEL_MAPPING_EXACT,
-		PIXEL_MAPPING_UNDERSCANNED,
-		PIXEL_MAPPING_OVERSCANNED,
-	} pixel_mapping;
+		enum {
+			SCANNING_EXACT,
+			SCANNING_UNDERSCANNED,
+			SCANNING_OVERSCANNED,
+		} scanning;
 
-        int pt_overunder_behavior;
-        int ce_overunder_behavior;
-        int it_overunder_behavior;
-
-	/* preferred video mode (based on EDID) */
-	struct fb_videomode preferred;
+		struct fb_videomode preferred_mode;
+	} sink;
 };
 
 #endif
