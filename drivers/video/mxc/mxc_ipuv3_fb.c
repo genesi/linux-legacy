@@ -44,10 +44,11 @@
 #include <linux/io.h>
 #include <linux/ipu.h>
 #include <linux/mxcfb.h>
-#include <linux/cea861_modes.h>
 #include <asm/mach-types.h>
 #include <asm/uaccess.h>
 #include <mach/hardware.h>
+
+#include "../cea861_modedb.h"
 
 /*
  * Driver name

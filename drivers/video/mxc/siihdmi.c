@@ -41,7 +41,8 @@
 
 #include <linux/edid.h>
 #include <linux/cea861.h>
-#include <linux/cea861_modes.h>
+
+#include "../cea861_modedb.h"
 
 #include "siihdmi.h"
 
