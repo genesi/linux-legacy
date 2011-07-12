@@ -8,7 +8,7 @@ obj-$(CONFIG_VGASTATE)            += vgastate.o
 obj-y                             += fb_notify.o
 obj-$(CONFIG_FB)                  += fb.o
 fb-y                              := fbmem.o fbmon.o fbcmap.o fbsysfs.o \
-                                     modedb.o fbcvt.o
+                                     modedb.o cea861_modedb.o fbcvt.o
 fb-objs                           := $(fb-y)
 
 obj-$(CONFIG_VT)		  += console/

@@ -132,6 +132,8 @@ static inline int siihdmi_power_down(struct siihdmi_tx *tx)
 	int ret;
 	u8 ctrl;
 
+	memset((void *) &tx->sink.current_mode, 0, sizeof(struct fb_videomode));
+
 	ctrl = SIIHDMI_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN;
 	if (tx->sink.type == SINK_TYPE_HDMI)
 		ctrl |= SIIHDMI_SYS_CTRL_OUTPUT_MODE_SELECT_HDMI;
@@ -411,6 +413,10 @@ static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
 
 	/* basic video mode data */
 	vmode[PIXEL_CLOCK]  = (u16) (pixclk / 10);
+	/*
+	  Silicon Image example code implies refresh to be 6000 for 60Hz?
+	  This may work simply because we only test it on little-endian :(
+	*/
 	vmode[REFRESH_RATE] = (u16) refresh;
 	vmode[X_RESOLUTION] = (u16) htotal;
 	vmode[Y_RESOLUTION] = (u16) vtotal;
@@ -630,8 +636,8 @@ static inline void siihdmi_configure_audio(struct siihdmi_tx *tx)
 	i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_I2S_AUDIO_SAMPLING_HBR, 0);
 	i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_I2S_ORIGINAL_FREQ_SAMPLE_LENGTH, SIIHDMI_AUDIO_HANDLING_DOWN_SAMPLE);
 
-	siihdmi_set_audio_info_frame(tx);
 	siihdmi_audio_unmute(tx);
+	siihdmi_set_audio_info_frame(tx);
 }
 
 static void siihdmi_print_modeline(const struct siihdmi_tx *tx,
@@ -692,6 +698,13 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 {
 	u8 ctrl;
 	int ret;
+
+	if (0 == memcmp((void *) &tx->sink.current_mode, (void *) mode, sizeof(struct fb_videomode)))
+	{
+		return 0;
+	}
+
+	memset((void *) &tx->sink.current_mode, 0, sizeof(struct fb_videomode));
 
 	INFO("selected configuration: \n");
 	siihdmi_print_modeline(tx, mode, NULL);
@@ -761,6 +774,8 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 		DEBUG("unable to enable the display\n");
 
 	/* step 10: (potentially) enable HDCP */
+
+	memcpy((void *) &tx->sink.current_mode, mode, sizeof(struct fb_videomode));
 
 	return ret;
 }
@@ -1089,6 +1104,7 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 	case FB_EVENT_BLANK:
 		switch (*((int *) event->data)) {
 			case FB_BLANK_POWERDOWN:
+				/* oddly, nobody ever uses this..? */
 				return siihdmi_power_down(tx);
 			case FB_BLANK_VSYNC_SUSPEND:
 			case FB_BLANK_HSYNC_SUSPEND:

@@ -410,6 +410,7 @@ struct siihdmi_tx {
 		} scanning;
 
 		struct fb_videomode preferred_mode;
+		struct fb_videomode current_mode;
 	} sink;
 };
 

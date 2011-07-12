@@ -44,6 +44,7 @@
 #include <linux/io.h>
 #include <linux/ipu.h>
 #include <linux/mxcfb.h>
+#include <linux/cea861_modes.h>
 #include <asm/mach-types.h>
 #include <asm/uaccess.h>
 #include <mach/hardware.h>
@@ -1715,15 +1716,16 @@ static int mxcfb_probe(struct platform_device *pdev)
 	}
 	ipu_disable_irq(mxcfbi->ipu_ch_irq);
 
-	/* Need dummy values until real panel is configured */
-	fbi->var.xres = 640;
-	fbi->var.yres = 480;
+	/* default to 640x480@60 */
+	fb_videomode_to_var(&fbi->var, &cea_modes[1]);
 
 	if (plat_data && !mxcfbi->ipu_di_pix_fmt) {
 		mxcfbi->ipu_di_pix_fmt = plat_data->interface_pix_fmt;
+#if 0
 		/* try and use a bit depth closest to the bit depth we use for the panel */
-//		if (!mxcfbi->default_bpp)
-//			mxcfbi->default_bpp = pixfmt_to_bpp(plat_data->interface_pix_fmt);
+		if (!mxcfbi->default_bpp)
+			mxcfbi->default_bpp = pixfmt_to_bpp(plat_data->interface_pix_fmt);
+#endif
 	}
 
 	if (!mxcfbi->default_bpp)
