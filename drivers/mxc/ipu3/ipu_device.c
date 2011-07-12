@@ -447,13 +447,7 @@ static int mxc_ipu_ioctl(struct inode *inode, struct file *file,
 
 static int mxc_ipu_mmap(struct file *file, struct vm_area_struct *vma)
 {
-#if defined(I_WANT_FLASH_TO_BE_REALLY_SLOW)
-	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-#else
-	vma->vm_page_prot = (__pgprot(pgprot_val(vma->vm_page_prot) |
-				L_PTE_MT_WRITETHROUGH) &
-				~L_PTE_MT_BUFFERABLE);
-#endif
+	vma->vm_page_prot = pgprot_writethru(vma->vm_page_prot);
 
 	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
 				vma->vm_end - vma->vm_start,
