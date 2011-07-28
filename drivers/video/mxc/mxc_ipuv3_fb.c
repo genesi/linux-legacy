@@ -75,6 +75,7 @@ struct mxcfb_info {
 	void *alpha_virt_addr1;
 	uint32_t alpha_mem_len;
 	uint32_t ipu_ch_irq;
+	uint32_t ipu_alp_ch_irq;
 	uint32_t cur_ipu_buf;
 	uint32_t cur_ipu_alpha_buf;
 
@@ -626,6 +627,13 @@ static int mxcfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 
 	if (var->xres_virtual < var->xres)
 		var->xres_virtual = var->xres;
+
+	/*
+	 * pad xres_virtual to 32 pixels to make it more suitable for
+	 * gpu acceleration
+	 */
+	if (var->xres_virtual & 0x1f)
+		var->xres_virtual = (var->xres_virtual + 31) & ~31;
 
 	/* Default Y virtual size is 3*yres */
 	if (var->yres_virtual < (var->yres * 3))
@@ -1475,10 +1483,12 @@ static int mxcfb_resume(struct platform_device *pdev)
  */
 static int mxcfb_map_video_memory(struct fb_info *fbi)
 {
-	if (fbi->fix.line_length == 0) fbi->fix.line_length = fbi->var.xres;
+	if (fbi->fix.line_length == 0) {
+		return -EINVAL;
+	}
 
-	fbi->fix.smem_len = fbi->var.yres_virtual * fbi->fix.line_length;
-	fbi->fix.smem_len = (fbi->fix.smem_len + SZ_1M - 1) & ~(SZ_1M - 1);
+	if (fbi->fix.smem_len < fbi->var.yres_virtual * fbi->fix.line_length)
+		fbi->fix.smem_len = fbi->var.yres_virtual * fbi->fix.line_length;
 
 	fbi->screen_base = dma_alloc_writecombine(fbi->device,
 				fbi->fix.smem_len,
@@ -1614,6 +1624,50 @@ static ssize_t swap_disp_chan(struct device *dev,
 }
 DEVICE_ATTR(fsl_disp_property, 644, show_disp_chan, swap_disp_chan);
 
+static int mxcfb_setup(struct fb_info *fbi, struct platform_device *pdev)
+{
+	struct mxcfb_info *mxcfbi = (struct mxcfb_info *) fbi->par;
+	struct mxc_fb_platform_data *plat_data = pdev->dev.platform_data;
+	int ret = 0;
+
+	/* default to 640x480@60 */
+	fb_videomode_to_var(&fbi->var, &cea_modes[1]);
+
+	if (plat_data && !mxcfbi->ipu_di_pix_fmt) {
+		mxcfbi->ipu_di_pix_fmt = plat_data->interface_pix_fmt;
+#if 0
+		/* try and use a bit depth closest to the bit depth we use for the panel */
+		if (!mxcfbi->default_bpp)
+			mxcfbi->default_bpp = pixfmt_to_bpp(plat_data->interface_pix_fmt);
+#endif
+	}
+
+	if (!mxcfbi->default_bpp)
+		mxcfbi->default_bpp = 16;
+
+	if (plat_data && plat_data->mode && plat_data->num_modes)
+		fb_videomode_to_modelist(plat_data->mode, plat_data->num_modes,
+				&fbi->modelist);
+
+	if (!mxcfbi->fb_mode_str && plat_data && plat_data->mode_str)
+		mxcfbi->fb_mode_str = plat_data->mode_str;
+
+	if (mxcfbi->fb_mode_str) {
+		ret = fb_find_mode(&fbi->var, fbi, mxcfbi->fb_mode_str, NULL, 0, NULL,
+				mxcfbi->default_bpp);
+		if ((!ret || (ret > 2)) && plat_data && plat_data->mode && plat_data->num_modes)
+			fb_find_mode(&fbi->var, fbi, mxcfbi->fb_mode_str, plat_data->mode,
+					plat_data->num_modes, NULL, mxcfbi->default_bpp);
+	}
+
+
+	mxcfb_check_var(&fbi->var, fbi);
+	mxcfb_set_fix(fbi);
+
+	return ret;
+}
+
+
 /*!
  * Probe routine for the framebuffer driver. It is called during the
  * driver binding process.      The following functions are performed in
@@ -1626,7 +1680,7 @@ static int mxcfb_probe(struct platform_device *pdev)
 {
 	struct fb_info *fbi;
 	struct mxcfb_info *mxcfbi;
-	struct mxc_fb_platform_data *plat_data = pdev->dev.platform_data;
+	struct resource *res;
 	char *options;
 	char name[] = "mxcdi0fb";
 	int ret = 0;
@@ -1659,6 +1713,7 @@ static int mxcfb_probe(struct platform_device *pdev)
 	}
 
 	mxcfbi->ipu_di = pdev->id;
+	mxcfbi->ipu_alp_ch_irq = -1;
 
 	if (pdev->id == 0) {
 		ipu_disp_set_global_alpha(mxcfbi->ipu_ch, true, 0x80);
@@ -1666,30 +1721,17 @@ static int mxcfb_probe(struct platform_device *pdev)
 		strcpy(fbi->fix.id, "DISP3 BG");
 
 		if (!g_dp_in_use)
-			if (ipu_request_irq(IPU_IRQ_BG_ALPHA_SYNC_EOF,
-					    mxcfb_alpha_irq_handler, 0,
-					    MXCFB_NAME, fbi) != 0) {
-				dev_err(&pdev->dev, "Error registering BG "
-						    "alpha irq handler.\n");
-				ret = -EBUSY;
-				goto err1;
-			}
+			mxcfbi->ipu_alp_ch_irq = IPU_IRQ_BG_ALPHA_SYNC_EOF;
 		g_dp_in_use = true;
 	} else if (pdev->id == 1) {
 		strcpy(fbi->fix.id, "DISP3 BG - DI1");
 
 		if (!g_dp_in_use)
-			if (ipu_request_irq(IPU_IRQ_BG_ALPHA_SYNC_EOF,
-					    mxcfb_alpha_irq_handler, 0,
-					    MXCFB_NAME, fbi) != 0) {
-				dev_err(&pdev->dev, "Error registering BG "
-						    "alpha irq handler.\n");
-				ret = -EBUSY;
-				goto err1;
-			}
+			mxcfbi->ipu_alp_ch_irq = IPU_IRQ_BG_ALPHA_SYNC_EOF;
 		g_dp_in_use = true;
 	} else if (pdev->id == 2) {	/* Overlay */
 		mxcfbi->ipu_ch_irq = IPU_IRQ_FG_SYNC_EOF;
+		mxcfbi->ipu_alp_ch_irq = IPU_IRQ_FG_ALPHA_SYNC_EOF;
 		mxcfbi->ipu_ch = MEM_FG_SYNC;
 		mxcfbi->ipu_di = -1;
 		mxcfbi->overlay = true;
@@ -1697,14 +1739,6 @@ static int mxcfb_probe(struct platform_device *pdev)
 
 		strcpy(fbi->fix.id, "DISP3 FG");
 
-		if (ipu_request_irq(IPU_IRQ_FG_ALPHA_SYNC_EOF,
-				    mxcfb_alpha_irq_handler, 0,
-				    MXCFB_NAME, fbi) != 0) {
-			dev_err(&pdev->dev, "Error registering FG alpha irq "
-					    "handler.\n");
-			ret = -EBUSY;
-			goto err1;
-		}
 	}
 
 	mxcfb_info[pdev->id] = fbi;
@@ -1717,47 +1751,30 @@ static int mxcfb_probe(struct platform_device *pdev)
 	}
 	ipu_disable_irq(mxcfbi->ipu_ch_irq);
 
-	/* default to 640x480@60 */
-	fb_videomode_to_var(&fbi->var, &cea_modes[1]);
-
-	if (plat_data && !mxcfbi->ipu_di_pix_fmt) {
-		mxcfbi->ipu_di_pix_fmt = plat_data->interface_pix_fmt;
-#if 0
-		/* try and use a bit depth closest to the bit depth we use for the panel */
-		if (!mxcfbi->default_bpp)
-			mxcfbi->default_bpp = pixfmt_to_bpp(plat_data->interface_pix_fmt);
-#endif
+	if (mxcfbi->ipu_alp_ch_irq != -1) {
+		if (ipu_request_irq(mxcfbi->ipu_alp_ch_irq,
+				    mxcfb_alpha_irq_handler, 0,
+				    MXCFB_NAME, fbi) != 0) {
+			dev_err(&pdev->dev, "Error registering alpha irq handler.\n");
+			ret = -EBUSY;
+			goto err2;
+		}
 	}
 
-	if (!mxcfbi->default_bpp)
-		mxcfbi->default_bpp = 16;
-
-	if (plat_data && plat_data->mode && plat_data->num_modes)
-		fb_videomode_to_modelist(plat_data->mode, plat_data->num_modes,
-				&fbi->modelist);
-
-	if (!mxcfbi->fb_mode_str && plat_data && plat_data->mode_str)
-		mxcfbi->fb_mode_str = plat_data->mode_str;
-
-	if (mxcfbi->fb_mode_str) {
-		ret = fb_find_mode(&fbi->var, fbi, mxcfbi->fb_mode_str, NULL, 0, NULL,
-				mxcfbi->default_bpp);
-		if ((!ret || (ret > 2)) && plat_data && plat_data->mode && plat_data->num_modes)
-			fb_find_mode(&fbi->var, fbi, mxcfbi->fb_mode_str, plat_data->mode,
-					plat_data->num_modes, NULL, mxcfbi->default_bpp);
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res && res->end) {
+		fbi->fix.smem_len = res->end - res->start + 1;
+		fbi->fix.smem_start = res->start;
+		fbi->screen_base = ioremap(fbi->fix.smem_start, fbi->fix.smem_len);
 	}
 
-	mxcfb_check_var(&fbi->var, fbi);
-
-	mxcfb_set_fix(fbi);
-
-	/* allocate fb first */
-	if (mxcfb_map_video_memory(fbi) < 0)
-			return -ENOMEM;
+	ret = mxcfb_setup(fbi, pdev);
+	if (ret < 0)
+		goto err3;
 
 	ret = register_framebuffer(fbi);
 	if (ret < 0)
-		goto err2;
+		goto err3;
 
 	platform_set_drvdata(pdev, fbi);
 
@@ -1767,6 +1784,9 @@ static int mxcfb_probe(struct platform_device *pdev)
 
 	return 0;
 
+err3:
+	if (mxcfbi->ipu_alp_ch_irq != -1)
+		ipu_free_irq(mxcfbi->ipu_alp_ch_irq, fbi);
 err2:
 	ipu_free_irq(mxcfbi->ipu_ch_irq, fbi);
 err1:

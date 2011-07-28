@@ -41,6 +41,7 @@
 #include "../../../drivers/video/mxc/siihdmi.h"
 
 
+
 extern void mx5_ipu_reset(void);
 static struct mxc_ipu_config mxc_ipu_data = {
 	.rev = 2,
@@ -188,7 +189,17 @@ static char *mxcfb_clocks[] = {
 };
 
 
+static struct resource mx51_efikamx_fb_resources[] = {
+	[0] = {
+		.flags = IORESOURCE_MEM,
+		},
+};
 
+void __init mx51_efikamx_display_adjust_mem(unsigned int start, unsigned int size)
+{
+	mx51_efikamx_fb_resources[0].start = start;
+	mx51_efikamx_fb_resources[0].end = start + size - 1;
+}
 
 void __init mx51_efikamx_init_display(void)
 {
@@ -252,14 +263,20 @@ void __init mx51_efikamx_init_display(void)
 	 * (DI0 on MX, DI1 on SB) first to make it the first framebuffer device.
 	 */
 	mxc_ipu_data.di_clk[display_id] = clk_get(NULL, mxcfb_clocks[display_id]);
+
+	mxc_fb_devices[display_id].num_resources = ARRAY_SIZE(mx51_efikamx_fb_resources);
+	mxc_fb_devices[display_id].resource = mx51_efikamx_fb_resources;
 	mxc_register_device(&mxc_fb_devices[display_id], &mx51_efikamx_display_data[display_id]);
 
+#if defined(ANDROID_SUPPORT)
 	/* register /dev/fb1 even though it's not used. We just register the other DI with the LVDS platform
 	 * data, since this is all it really needs to create the framebuffer, even though it just won't be
-	 * used for anything
+	 * used for anything. This actually won't work for now because there's some real weirdness about
+	 * the preallocated memory and a second framebuffer in the same resource area (it has no idea how
+	 * big the other framebuffer is..)
 	 */
 	mxc_register_device(&mxc_fb_devices[!display_id], &mx51_efikamx_display_data[EFIKASB_LVDS_DISPLAY_ID]);
-
+#endif
 	/* video overlay, absolutely must be /dev/fb2 and therefore registered after TWO framebuffers otherwise
 	 * the v4l2sink doesn't work right. This is probably actually a major bug in userspace somewhere..
 	 */

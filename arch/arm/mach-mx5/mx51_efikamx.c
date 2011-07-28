@@ -287,10 +287,48 @@ static struct sys_timer mx51_efikamx_timer = {
 static void __init mx51_efikamx_fixup(struct machine_desc *desc, struct tag *tags,
 				   char **cmdline, struct meminfo *mi)
 {
+	struct tag *mem_tag = 0;
+	int total_mem = SZ_512M;
+	int sys_mem = 0;
+	int fb_mem;
+
+	/*
+	 * a note on these sizes. we reserve enough memory to set up a framebuffer
+	 * of maximum size for the platform, with triple buffer, at maximum
+	 * reasonable bit depth. Since the Smartbook has a 16-bit LVDS interface
+	 * the most reasonable depth is 16-bit, hence 1280x720-16 * 3 is ~6MB
+	 * and we can get away with a minimal reservation of 8MB. For the Smarttop
+	 * the maximum resolution is 1920x1080-32 * 3 which is just over 24MB and
+	 * we reserve 32MB as it is a nice, round number
+	 */
+
+	if (machine_is_mx51_efikasb()) {
+		fb_mem = SZ_8M;
+	} else if (machine_is_mx51_efikamx()) {
+		fb_mem = SZ_32M;
+	}
+
 	mxc_set_cpu_type(MXC_CPU_MX51);
 
 	get_cpu_wp = mx51_efikamx_get_cpu_wp;
 	set_num_cpu_wp = mx51_efikamx_set_num_cpu_wp;
+
+	for_each_tag(mem_tag, tags) {
+		if (mem_tag->hdr.tag == ATAG_MEM) {
+			total_mem = mem_tag->u.mem.size;
+			break;
+		}
+	}
+
+	if (fb_mem) {
+		sys_mem = total_mem - fb_mem;
+
+		if (mem_tag) {
+			fb_mem = total_mem - fb_mem;
+			mem_tag->u.mem.size = sys_mem;
+			mx51_efikamx_display_adjust_mem(mem_tag->u.mem.start + sys_mem, fb_mem);
+		}
+	}
 }
 
 
