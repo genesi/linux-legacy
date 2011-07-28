@@ -1127,8 +1127,8 @@ static irqreturn_t siihdmi_hotplug_handler(int irq, void *dev_id)
 {
 	struct siihdmi_tx *tx = ((struct siihdmi_tx *) dev_id);
 
-	schedule_delayed_work(&tx->hotplug.handler,
-			      msecs_to_jiffies(SIIHDMI_HOTPLUG_HANDLER_TIMEOUT));
+	schedule_work(&tx->hotplug.handler);
+	//msecs_to_jiffies(SIIHDMI_HOTPLUG_HANDLER_TIMEOUT));
 
 	return IRQ_HANDLED;
 }
@@ -1141,7 +1141,7 @@ static void siihdmi_hotplug_event(struct work_struct *work)
 	char *power_off[]    = { "DISPLAY_POWERED_ON=0", NULL };
 
 	struct siihdmi_tx *tx =
-		container_of(work, struct siihdmi_tx, hotplug.handler.work);
+		container_of(work, struct siihdmi_tx, hotplug.handler);
 	u8 isr;
 
 	isr = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_ISR);
@@ -1223,7 +1223,7 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, tx);
 
-	INIT_DELAYED_WORK(&tx->hotplug.handler, siihdmi_hotplug_event);
+	INIT_WORK(&tx->hotplug.handler, siihdmi_hotplug_event);
 
 	BUG_ON(~tx->platform->hotplug.flags & IORESOURCE_IRQ);
 

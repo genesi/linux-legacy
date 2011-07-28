@@ -379,7 +379,7 @@ struct siihdmi_tx {
 
 	struct {
 		bool enabled;
-		struct delayed_work handler;
+		struct work_struct handler;
 	} hotplug;
 
 	struct {
