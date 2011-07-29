@@ -1105,8 +1105,7 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 	case FB_EVENT_BLANK:
 		switch (*((int *) event->data)) {
 			case FB_BLANK_POWERDOWN:
-				/* oddly, nobody ever uses this..? */
-				return siihdmi_power_down(tx);
+				/* do NOT siihdmi_power_down() here */
 			case FB_BLANK_VSYNC_SUSPEND:
 			case FB_BLANK_HSYNC_SUSPEND:
 			case FB_BLANK_NORMAL:
