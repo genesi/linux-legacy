@@ -986,7 +986,7 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 	      (isr & SIIHDMI_ISR_DISPLAY_ATTACHED) ? "attached" : "detached",
 	      (isr & SIIHDMI_ISR_RECEIVER_SENSE) ? "on" : "off");
 
-	if (~isr & (SIIHDMI_ISR_DISPLAY_ATTACHED | SIIHDMI_ISR_RECEIVER_SENSE))
+	if (~isr & (SIIHDMI_ISR_DISPLAY_ATTACHED))
 		return siihdmi_power_down(tx);
 
 	if (tx->info)
