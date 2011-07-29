@@ -152,32 +152,26 @@ typedef struct
 }
 ctx_t;
 
-//////////////////////////////////////////////////////////////////////////////
-// Helper function to calculate IEEE754 single precision float values without FPU
-//////////////////////////////////////////////////////////////////////////////
+/* Helper function to calculate IEEE754 single precision float values
+ * without FPU
+ */
 unsigned int uint2float( unsigned int uintval )
 {
-    unsigned int exp = 0;
-    unsigned int frac = 0;
-    unsigned int u = uintval;
+    unsigned int exp, frac = 0;
 
-    // Handle zero separately
-    if( uintval == 0 ) return 0;
+    if( uintval == 0 )
+	return 0;
 
-    // Find log2 of u
-    if(u>=0x10000) { exp+=16; u>>=16; }
-    if(u>=0x100  ) { exp+=8;  u>>=8;  }
-    if(u>=0x10   ) { exp+=4;  u>>=4;  }
-    if(u>=0x4    ) { exp+=2;  u>>=2;  }
-    if(u>=0x2    ) { exp+=1;  u>>=1;  }
+    exp = ilog2(uintval);
 
-    // Calculate fraction
-    frac = ( uintval & ( ~( 1 << exp ) ) ) << ( 23 - exp );
+    /* Calculate fraction */
+    if (23 > exp)
+	frac = ( uintval & ( ~( 1 << exp ) ) ) << ( 23 - exp );
 
-    // Exp is biased by 127 and shifted 23 bits
+    /* Exp is biased by 127 and shifted 23 bits */
     exp = ( exp + 127 ) << 23;
 
-    return ( exp | frac );
+    return exp | frac;
 }
 
 //////////////////////////////////////////////////////////////////////////////
