@@ -1765,7 +1765,7 @@ static int mxcfb_probe(struct platform_device *pdev)
 	if (res && res->end) {
 		fbi->fix.smem_len = res->end - res->start + 1;
 		fbi->fix.smem_start = res->start;
-		fbi->screen_base = ioremap(fbi->fix.smem_start, fbi->fix.smem_len);
+		fbi->screen_base = ioremap_wc(fbi->fix.smem_start, fbi->fix.smem_len);
 	}
 
 	ret = mxcfb_setup(fbi, pdev);
