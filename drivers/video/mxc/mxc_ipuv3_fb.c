@@ -55,6 +55,10 @@
  */
 #define MXCFB_NAME      "mxc_sdc_fb"
 
+#define DI0_FIXID	"DISP3 BG"
+#define DI1_FIXID	"DISP3 BG - DI1"
+#define YUV_FIXID	"DISP3 FG"
+
 /*!
  * Structure containing the MXC specific framebuffer information.
  */
@@ -630,10 +634,12 @@ static int mxcfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 
 	/*
 	 * pad xres_virtual to 32 pixels to make it more suitable for
-	 * gpu acceleration
+	 * gpu acceleration. But only for screen framebuffers..
 	 */
-	if (var->xres_virtual & 0x1f)
-		var->xres_virtual = (var->xres_virtual + 31) & ~31;
+	if (strncmp(info->fix.id, YUV_FIXID, 8)) {
+		if (var->xres_virtual & 0x1f)
+			var->xres_virtual = (var->xres_virtual + 31) & ~31;
+	}
 
 	/* Default Y virtual size is 3*yres */
 	if (var->yres_virtual < (var->yres * 3))
@@ -848,9 +854,9 @@ static int mxcfb_ioctl(struct fb_info *fbi, unsigned int cmd, unsigned long arg)
 				mxc_fbi->alpha_chan_en = true;
 
 				if (mxc_fbi->ipu_ch == MEM_FG_SYNC)
-					video_plane_idstr = "DISP3 BG";
+					video_plane_idstr = DI0_FIXID;
 				else if (mxc_fbi->ipu_ch == MEM_BG_SYNC)
-					video_plane_idstr = "DISP3 FG";
+					video_plane_idstr = YUV_FIXID;
 
 				for (i = 0; i < num_registered_fb; i++) {
 					char *idstr = registered_fb[i]->fix.id;
@@ -1251,8 +1257,8 @@ mxcfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	if (mxc_fbi->ipu_ch == MEM_BG_SYNC || mxc_fbi->ipu_ch == MEM_FG_SYNC) {
 		for (i = 0; i < num_registered_fb; i++) {
 			char *idstr = registered_fb[i]->fix.id;
-			if ((strcmp(idstr, "DISP3 BG") == 0 ||
-			     strcmp(idstr, "DISP3 FG") == 0) &&
+			if ((strcmp(idstr, DI0_FIXID) == 0 ||
+			     strcmp(idstr, YUV_FIXID) == 0) &&
 			    ((struct mxcfb_info *)
 			      (registered_fb[i]->par))->alpha_chan_en) {
 				loc_alpha_en = true;
@@ -1718,13 +1724,13 @@ static int mxcfb_probe(struct platform_device *pdev)
 	if (pdev->id == 0) {
 		ipu_disp_set_global_alpha(mxcfbi->ipu_ch, true, 0x80);
 		ipu_disp_set_color_key(mxcfbi->ipu_ch, false, 0);
-		strcpy(fbi->fix.id, "DISP3 BG");
+		strcpy(fbi->fix.id, DI0_FIXID);
 
 		if (!g_dp_in_use)
 			mxcfbi->ipu_alp_ch_irq = IPU_IRQ_BG_ALPHA_SYNC_EOF;
 		g_dp_in_use = true;
 	} else if (pdev->id == 1) {
-		strcpy(fbi->fix.id, "DISP3 BG - DI1");
+		strcpy(fbi->fix.id, DI1_FIXID);
 
 		if (!g_dp_in_use)
 			mxcfbi->ipu_alp_ch_irq = IPU_IRQ_BG_ALPHA_SYNC_EOF;
@@ -1737,7 +1743,7 @@ static int mxcfb_probe(struct platform_device *pdev)
 		mxcfbi->overlay = true;
 		mxcfbi->cur_blank = mxcfbi->next_blank = FB_BLANK_POWERDOWN;
 
-		strcpy(fbi->fix.id, "DISP3 FG");
+		strcpy(fbi->fix.id, YUV_FIXID);
 
 	}
 
