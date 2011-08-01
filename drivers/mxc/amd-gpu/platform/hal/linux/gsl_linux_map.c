@@ -52,7 +52,7 @@ void *gsl_linux_map_alloc(unsigned int gpu_addr, unsigned int size)
 	void *va;
 
 	mutex_lock(&gsl_linux_map_mutex);
-	
+
 	list_for_each(p, &gsl_linux_map_list){
 		map = list_entry(p, struct gsl_linux_map, list);
 		if(map->gpu_addr == gpu_addr){
@@ -86,7 +86,7 @@ void gsl_linux_map_free(unsigned int gpu_addr)
 	struct list_head *p;
 
 	mutex_lock(&gsl_linux_map_mutex);
-	
+
 	list_for_each(p, &gsl_linux_map_list){
 		map = list_entry(p, struct gsl_linux_map, list);
 		if(map->gpu_addr == gpu_addr){
@@ -110,7 +110,7 @@ void *gsl_linux_map_find(unsigned int gpu_addr)
 	struct list_head *p;
 
 	mutex_lock(&gsl_linux_map_mutex);
-	
+
 	list_for_each(p, &gsl_linux_map_list){
 		map = list_entry(p, struct gsl_linux_map, list);
 		if(map->gpu_addr == gpu_addr){
@@ -129,10 +129,10 @@ void *gsl_linux_map_read(void *dst, unsigned int gpuoffset, unsigned int sizebyt
 	struct list_head *p;
 
 	mutex_lock(&gsl_linux_map_mutex);
-	
+
 	list_for_each(p, &gsl_linux_map_list){
 		map = list_entry(p, struct gsl_linux_map, list);
-		if(map->gpu_addr <= gpuoffset && 
+		if(map->gpu_addr <= gpuoffset &&
 			(map->gpu_addr +  map->size) > gpuoffset){
 			void *src = map->kernel_virtual_addr + (gpuoffset - map->gpu_addr);
 			mutex_unlock(&gsl_linux_map_mutex);
@@ -157,10 +157,10 @@ void *gsl_linux_map_write(void *src, unsigned int gpuoffset, unsigned int sizeby
 	struct list_head *p;
 
 	mutex_lock(&gsl_linux_map_mutex);
-	
+
 	list_for_each(p, &gsl_linux_map_list){
 		map = list_entry(p, struct gsl_linux_map, list);
-		if(map->gpu_addr <= gpuoffset && 
+		if(map->gpu_addr <= gpuoffset &&
 			(map->gpu_addr +  map->size) > gpuoffset){
 			void *dst = map->kernel_virtual_addr + (gpuoffset - map->gpu_addr);
 			mutex_unlock(&gsl_linux_map_mutex);
@@ -185,10 +185,10 @@ void *gsl_linux_map_set(unsigned int gpuoffset, unsigned int value, unsigned int
 	struct list_head *p;
 
 	mutex_lock(&gsl_linux_map_mutex);
-	
+
 	list_for_each(p, &gsl_linux_map_list){
 		map = list_entry(p, struct gsl_linux_map, list);
-		if(map->gpu_addr <= gpuoffset && 
+		if(map->gpu_addr <= gpuoffset &&
 			(map->gpu_addr +  map->size) > gpuoffset){
 			void *ptr = map->kernel_virtual_addr + (gpuoffset - map->gpu_addr);
 			mutex_unlock(&gsl_linux_map_mutex);
@@ -206,7 +206,7 @@ int gsl_linux_map_destroy()
 	struct list_head *p, *tmp;
 
 	mutex_lock(&gsl_linux_map_mutex);
-	
+
 	list_for_each_safe(p, tmp, &gsl_linux_map_list){
 		map = list_entry(p, struct gsl_linux_map, list);
 		vfree(map->kernel_virtual_addr);
