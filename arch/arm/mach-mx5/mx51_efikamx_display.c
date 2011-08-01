@@ -268,15 +268,12 @@ void __init mx51_efikamx_init_display(void)
 	mxc_fb_devices[display_id].resource = mx51_efikamx_fb_resources;
 	mxc_register_device(&mxc_fb_devices[display_id], &mx51_efikamx_display_data[display_id]);
 
-#if defined(ANDROID_SUPPORT)
 	/* register /dev/fb1 even though it's not used. We just register the other DI with the LVDS platform
 	 * data, since this is all it really needs to create the framebuffer, even though it just won't be
-	 * used for anything. This actually won't work for now because there's some real weirdness about
-	 * the preallocated memory and a second framebuffer in the same resource area (it has no idea how
-	 * big the other framebuffer is..)
+	 * used for anything.
 	 */
 	mxc_register_device(&mxc_fb_devices[!display_id], &mx51_efikamx_display_data[EFIKASB_LVDS_DISPLAY_ID]);
-#endif
+
 	/* video overlay, absolutely must be /dev/fb2 and therefore registered after TWO framebuffers otherwise
 	 * the v4l2sink doesn't work right. This is probably actually a major bug in userspace somewhere..
 	 */
