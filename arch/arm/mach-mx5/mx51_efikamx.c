@@ -289,8 +289,9 @@ static void __init mx51_efikamx_fixup(struct machine_desc *desc, struct tag *tag
 {
 	struct tag *mem_tag = 0;
 	int total_mem = SZ_512M;
-	int sys_mem = 0;
-	int fb_mem;
+	int fb_mem = SZ_8M;
+	int gpu_mem = SZ_32M;
+	int sys_mem;
 
 	/*
 	 * a note on these sizes. we reserve enough memory to set up a framebuffer
@@ -302,9 +303,7 @@ static void __init mx51_efikamx_fixup(struct machine_desc *desc, struct tag *tag
 	 * we reserve 32MB as it is a nice, round number
 	 */
 
-	if (machine_is_mx51_efikasb()) {
-		fb_mem = SZ_8M;
-	} else if (machine_is_mx51_efikamx()) {
+	if (machine_is_mx51_efikamx()) {
 		fb_mem = SZ_32M;
 	}
 
@@ -320,14 +319,15 @@ static void __init mx51_efikamx_fixup(struct machine_desc *desc, struct tag *tag
 		}
 	}
 
-	if (fb_mem) {
-		sys_mem = total_mem - fb_mem;
+	sys_mem = total_mem - gpu_mem - fb_mem;
 
-		if (mem_tag) {
-			fb_mem = total_mem - fb_mem;
-			mem_tag->u.mem.size = sys_mem;
-			mx51_efikamx_display_adjust_mem(mem_tag->u.mem.start + sys_mem, fb_mem);
-		}
+	if (mem_tag) {
+		unsigned int fb_start = mem_tag->u.mem.start + sys_mem;
+		unsigned int gpu_start = fb_start + fb_mem;
+
+		mem_tag->u.mem.size = sys_mem;
+		mx51_efikamx_display_adjust_mem(fb_start, fb_mem);
+		mx51_efikamx_gpu_adjust_mem(gpu_start, gpu_mem);
 	}
 }
 

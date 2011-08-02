@@ -16,6 +16,7 @@
 extern int mx51_efikamx_revision(void);
 
 extern void __init mx51_efikamx_display_adjust_mem(unsigned int start, unsigned int size);
+extern void __init mx51_efikamx_gpu_adjust_mem(unsigned int start, unsigned int size);
 
 extern void __init mx51_efikamx_io_init(void);
 extern int __init mx51_efikamx_init_mc13892(void);

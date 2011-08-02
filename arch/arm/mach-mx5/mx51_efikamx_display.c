@@ -201,6 +201,12 @@ void __init mx51_efikamx_display_adjust_mem(unsigned int start, unsigned int siz
 	mx51_efikamx_fb_resources[0].end = start + size - 1;
 }
 
+void __init mx51_efikamx_gpu_adjust_mem(unsigned int start, unsigned int size)
+{
+	gpu_device.resource[5].start = start;
+	gpu_device.resource[5].end = start + size - 1;
+}
+
 void __init mx51_efikamx_init_display(void)
 {
 	int display_id = 0;

@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.31.14.23
-# Tue Jul 12 10:39:54 2011
+# Linux kernel version: 2.6.31.14.26
+# Tue Aug  2 14:23:41 2011
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -213,7 +213,7 @@ CONFIG_UTMI_MXC=y
 CONFIG_ARCH_MX5=y
 CONFIG_MXC_SDMA_API=y
 CONFIG_SDMA_IRAM=y
-CONFIG_FORCE_MAX_ZONEORDER=13
+CONFIG_FORCE_MAX_ZONEORDER=15
 # CONFIG_ARCH_MXC_HAS_NFC_V3 is not set
 CONFIG_ARCH_MX51=y
 CONFIG_MX5_OPTIONS=y
