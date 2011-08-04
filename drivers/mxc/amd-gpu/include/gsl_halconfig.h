@@ -45,8 +45,8 @@
  * reserved area, don't make them bigger (will explode) or
  * smaller (wasting memory)!
  */
-#define GSL_HAL_SHMEM_SIZE_EMEM2_MMU    0x01000000            /* 16MB */
-#define GSL_HAL_SHMEM_SIZE_PHYS_MMU     0x01000000            /* 16MB */
+#define GSL_HAL_SHMEM_SIZE_EMEM2_MMU    0x00800000            /* 8MB */
+#define GSL_HAL_SHMEM_SIZE_PHYS_MMU     0x01800000            /* 24MB */
 
 #define GSL_HAL_SHMEM_SIZE_EMEM1_NOMMU  0x00A00000            /* 10MB */
 #define GSL_HAL_SHMEM_SIZE_EMEM2_NOMMU  0x00200000            /* 2MB */
