@@ -34,22 +34,13 @@
 #define __GSL_HALCONFIG_H
 
 #define GSL_HAL_GPUBASE_REG_YDX         0x30000000
-#define GSL_HAL_SIZE_REG_YDX            0x00020000            /* 128KB */
+#define GSL_HAL_SIZE_REG_YDX            SZ_128K            /* 128KB */
 
-#define GSL_HAL_SIZE_REG_G12            0x00001000            /* 4KB */
+#define GSL_HAL_SIZE_REG_G12            SZ_4K            /* 4KB */
 
-/* generic, virtualized allocation pool */
-#define GSL_HAL_SHMEM_SIZE_EMEM1_MMU    0x08000000            /* 128MB */
-/* contiguous pool:
- * these two values absolutely have to fit inside the gpu_mem
- * reserved area, don't make them bigger (will explode) or
- * smaller (wasting memory)!
- */
-#define GSL_HAL_SHMEM_SIZE_EMEM2_MMU    0x00800000            /* 8MB */
-#define GSL_HAL_SHMEM_SIZE_PHYS_MMU     0x01800000            /* 24MB */
+#define GSL_HAL_SHMEM_SIZE_EMEM_MMU    SZ_128M
 
-#define GSL_HAL_SHMEM_SIZE_EMEM1_NOMMU  0x00A00000            /* 10MB */
-#define GSL_HAL_SHMEM_SIZE_EMEM2_NOMMU  0x00200000            /* 2MB */
-#define GSL_HAL_SHMEM_SIZE_PHYS_NOMMU   0x00100000            /* 1MB */
+#define GSL_HAL_SHMEM_SIZE_EMEM_NOMMU  (10*SZ_1M)
+#define GSL_HAL_SHMEM_SIZE_PHYS_NOMMU   SZ_1M
 
 #endif  /* __GSL_HALCONFIG_H */
