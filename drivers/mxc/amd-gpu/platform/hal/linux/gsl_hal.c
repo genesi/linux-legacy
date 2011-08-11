@@ -38,7 +38,7 @@
 #define GSL_HAL_MEM2                        1
 //#define GSL_HAL_MEM3                        2
 
-#define GSL_HAL_DEBUG
+//#define GSL_HAL_DEBUG
 
 extern phys_addr_t gpu_2d_regbase;
 extern int gpu_2d_regsize;
