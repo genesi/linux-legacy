@@ -29,3 +29,9 @@ gpu-objs += 	common/gsl_cmdstream.o \
 		platform/hal/linux/gsl_kmod_cleanup.o \
 		platform/hal/linux/misc.o \
 		os/kernel/src/linux/kos_lib.o
+
+
+ifdef CONFIG_MXC_AMD_GPU_LOGGING
+gpu-objs += common/gsl_log.o
+EXTRA_CFLAGS += -DGSL_LOG
+endif

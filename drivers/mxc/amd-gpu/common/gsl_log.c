@@ -20,9 +20,7 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
-#include <stdarg.h>
-#include <stdio.h>
-#include <string.h>
+#include <linux/string.h>
 #include "gsl.h"
 
 #define KGSL_OUTPUT_TYPE_MEMBUF 0
@@ -34,10 +32,7 @@
 
 typedef struct log_output
 {
-    unsigned char       type;
     unsigned int        flags;
-    oshandle_t         file;
-
     struct log_output*  next;
 } log_output_t;
 
@@ -50,18 +45,38 @@ static int          log_initialized = 0;
 
 //----------------------------------------------------------------------------
 
-int kgsl_log_init()
+int kgsl_log_start( unsigned int log_flags )
 {
-    log_mutex = kos_mutex_create( "log_mutex" );
+    log_output_t* output;
 
+    if( log_initialized ) return GSL_SUCCESS;
+
+    log_mutex = kos_mutex_create( "log_mutex" );
     log_initialized = 1;
-    
+
+    output = kos_malloc( sizeof( log_output_t ) );
+    output->flags = log_flags;
+
+    // Add to the list
+    if( outputs == NULL )
+    {
+        // First node in the list.
+        outputs = output;
+        output->next = NULL;
+    }
+    else
+    {
+        // Add to the start of the list
+        output->next = outputs;
+        outputs = output;
+    }
+
     return GSL_SUCCESS;
 }
 
 //----------------------------------------------------------------------------
 
-int kgsl_log_close()
+int kgsl_log_finish()
 {
     if( !log_initialized ) return GSL_SUCCESS;
 
@@ -69,13 +84,6 @@ int kgsl_log_close()
     while( outputs != NULL )
     {
         log_output_t* temp = outputs->next;
-        
-        switch( outputs->type )
-        {
-            case KGSL_OUTPUT_TYPE_FILE:
-                kos_fclose( outputs->file );
-            break;
-        }
 
         kos_free( outputs );
         outputs = temp;
@@ -88,82 +96,6 @@ int kgsl_log_close()
     return GSL_SUCCESS;
 }
 
-//----------------------------------------------------------------------------
-
-int kgsl_log_open_stdout( unsigned int log_flags )
-{
-    log_output_t* output;
-    
-    if( !log_initialized ) return GSL_SUCCESS;
-    
-    output = kos_malloc( sizeof( log_output_t ) );
-    output->type = KGSL_OUTPUT_TYPE_STDOUT;
-    output->flags = log_flags;
-
-    // Add to the list
-    if( outputs == NULL )    
-    {
-        // First node in the list.
-        outputs = output;
-        output->next = NULL;
-    }
-    else
-    {
-        // Add to the start of the list
-        output->next = outputs;
-        outputs = output;
-    }
-
-    return GSL_SUCCESS;
-}
-
-//----------------------------------------------------------------------------
-
-int kgsl_log_open_membuf( int* memBufId, unsigned int log_flags )
-{
-    // TODO
-
-    return GSL_SUCCESS;
-}
-
-//----------------------------------------------------------------------------
-
-int kgsl_log_open_file( char* filename, unsigned int log_flags )
-{
-    log_output_t* output;
-    
-    if( !log_initialized ) return GSL_SUCCESS;
-    
-    output = kos_malloc( sizeof( log_output_t ) );
-    output->type = KGSL_OUTPUT_TYPE_FILE;
-    output->flags = log_flags;
-    output->file = kos_fopen( filename, "w" );
-
-    // Add to the list
-    if( outputs == NULL )    
-    {
-        // First node in the list.
-        outputs = output;
-        output->next = NULL;
-    }
-    else
-    {
-        // Add to the start of the list
-        output->next = outputs;
-        outputs = output;
-    }
-
-    return GSL_SUCCESS;
-}
-
-//----------------------------------------------------------------------------
-
-int kgsl_log_flush_membuf( char* filename, int memBufId )
-{
-    // TODO
-
-    return GSL_SUCCESS;
-}
 //----------------------------------------------------------------------------
 
 int kgsl_log_write( unsigned int log_flags, char* format, ... )
@@ -188,7 +120,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
     {
         // Find the first occurence of %
         p1 = strchr( c, '%' );
-        if( !p1 ) 
+        if( !p1 )
         {
             // No more % characters -> copy rest of the string
             strcpy( b, c );
@@ -272,7 +204,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
                 *b = '\0';
             }
             break;
-            
+
             // gsl_intrid_t
             case 'I':
             {
@@ -327,7 +259,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
             case 'R':
             {
                 unsigned int val = va_arg( arguments, unsigned int );
-                
+
                 // Handle string before %R
                 kos_memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;
@@ -525,7 +457,6 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
             }
             break;
         }
-        
 
         c = p2;
     }
@@ -538,14 +469,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
         // Filter according to the flags
         if( ( output->flags & log_flags ) == log_flags )
         {
-            // Passed the filter. Now commit this message.
-            switch( output->type )
-            {
-                case KGSL_OUTPUT_TYPE_MEMBUF:
-                    // TODO
-                break;
-
-                case KGSL_OUTPUT_TYPE_STDOUT:
+		/*
                     // Write timestamp if enabled
                     if( output->flags & KGSL_LOG_TIMESTAMP )
                         printf( "[Timestamp: %d] ", kos_timestamp() );
@@ -555,28 +479,11 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
                     // Write thread id if enabled
                     if( output->flags & KGSL_LOG_THREAD_ID )
                         printf( "[Thread ID: %d] ", kos_thread_getid() );
-
-                    // Write the message
-                    printf( buffer );
-                break;
-                
-                case KGSL_OUTPUT_TYPE_FILE:
-                    // Write timestamp if enabled
-                    if( output->flags & KGSL_LOG_TIMESTAMP )
-                        kos_fprintf( output->file, "[Timestamp: %d] ", kos_timestamp() );
-                    // Write process id if enabled
-                    if( output->flags & KGSL_LOG_PROCESS_ID )
-                        kos_fprintf( output->file, "[Process ID: %d] ", kos_process_getid() );
-                    // Write thread id if enabled
-                    if( output->flags & KGSL_LOG_THREAD_ID )
-                        kos_fprintf( output->file, "[Thread ID: %d] ", kos_thread_getid() );
-
-                    // Write the message
-                    kos_fprintf( output->file, buffer );
-                break;
-            }
+		*/
+		// Write the message
+		printk( buffer );
         }
-            
+
         output = output->next;
     }
 

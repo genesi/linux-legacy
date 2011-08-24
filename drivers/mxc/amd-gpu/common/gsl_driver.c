@@ -53,12 +53,8 @@ kgsl_driver_init0(gsl_flags_t flags, gsl_flags_t flags_debug)
     if (!(gsl_driver_initialized & GSL_FLAGS_INITIALIZED0))
     {
 #ifdef GSL_LOG
-        // Uncomment these to enable logging.
-        //kgsl_log_init();
-        //kgsl_log_open_stdout( KGSL_LOG_GROUP_ALL | KGSL_LOG_LEVEL_ALL | KGSL_LOG_TIMESTAMP
-        //                      | KGSL_LOG_THREAD_ID | KGSL_LOG_PROCESS_ID );
-        //kgsl_log_open_file( "c:\\kgsl_log.txt", KGSL_LOG_GROUP_ALL | KGSL_LOG_LEVEL_ALL | KGSL_LOG_TIMESTAMP
-        //                      | KGSL_LOG_THREAD_ID | KGSL_LOG_PROCESS_ID );
+        kgsl_log_start( KGSL_LOG_GROUP_ALL | KGSL_LOG_LEVEL_ALL | KGSL_LOG_TIMESTAMP
+                              | KGSL_LOG_THREAD_ID | KGSL_LOG_PROCESS_ID );
 #endif
         kos_memset(&gsl_driver, 0, sizeof(gsl_driver_t));
 
@@ -119,7 +115,7 @@ kgsl_driver_close0(gsl_flags_t flags)
         GSL_API_MUTEX_FREE();
 
 #ifdef GSL_LOG
-        kgsl_log_close();
+        kgsl_log_finish();
 #endif
 
         gsl_driver_initialized &= ~flags;

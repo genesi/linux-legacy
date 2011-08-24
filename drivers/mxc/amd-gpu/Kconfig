@@ -10,4 +10,10 @@ config MXC_AMD_GPU
 	---help---
          Say Y to get the GPU driver support.
 
+config MXC_AMD_GPU_LOGGING
+	bool "Enable Logging"
+	depends on MXC_AMD_GPU
+	---help---
+	 Enable logging to kernel messages for GPU kernel module
+
 endmenu
