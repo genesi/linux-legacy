@@ -15,20 +15,24 @@
  * 02110-1301, USA.
  *
  */
- 
+
 #include "gsl.h"
 #include "gsl_hal.h"
 
-//////////////////////////////////////////////////////////////////////////////
-//  defines                    
-//////////////////////////////////////////////////////////////////////////////
+/*
+ * defines
+ *
+ * these are a bit overzealous: a whole byte for a bit flag?
+ */
 #define GSL_MEMARENAPRIV_SIGNATURE_MASK         0x0000FFFF
 #define GSL_MEMARENAPRIV_APERTUREID_MASK        0xF0000000
 #define GSL_MEMARENAPRIV_MMUVIRTUALIZED_MASK    0x0F000000
+#define GSL_MEMARENAPRIV_CONPHYS_MASK		0x00F00000 //neko
 
 #define GSL_MEMARENAPRIV_SIGNATURE_SHIFT        0
 #define GSL_MEMARENAPRIV_MMUVIRTUALIZED_SHIFT   24
 #define GSL_MEMARENAPRIV_APERTUREID_SHIFT       28
+#define GSL_MEMARENAPRIV_CONPHYS_SHIFT		20 //neko
 
 #define GSL_MEMARENA_INSTANCE_SIGNATURE         0x0000CAFE
 
@@ -39,36 +43,33 @@
 #endif // GSL_STATS_MEM
 
 
-/////////////////////////////////////////////////////////////////////////////
 // macros
-//////////////////////////////////////////////////////////////////////////////
 #define GSL_MEMARENA_LOCK()                 kos_mutex_lock(memarena->mutex)
 #define GSL_MEMARENA_UNLOCK()               kos_mutex_unlock(memarena->mutex)
 
 #define GSL_MEMARENA_SET_SIGNATURE          (memarena->priv |= ((GSL_MEMARENA_INSTANCE_SIGNATURE << GSL_MEMARENAPRIV_SIGNATURE_SHIFT) & GSL_MEMARENAPRIV_SIGNATURE_MASK))
 #define GSL_MEMARENA_SET_MMU_VIRTUALIZED    (memarena->priv |= ((mmu_virtualized << GSL_MEMARENAPRIV_MMUVIRTUALIZED_SHIFT) & GSL_MEMARENAPRIV_MMUVIRTUALIZED_MASK))
 #define GSL_MEMARENA_SET_ID                 (memarena->priv |= ((aperture_id << GSL_MEMARENAPRIV_APERTUREID_SHIFT) & GSL_MEMARENAPRIV_APERTUREID_MASK))
+#define GSL_MEMARENA_SET_CONPHYS            (memarena->priv |= ((conphys << GSL_MEMARENAPRIV_CONPHYS_SHIFT) & GSL_MEMARENAPRIV_CONPHYS_MASK))//neko
 
 #define GSL_MEMARENA_GET_SIGNATURE          ((memarena->priv & GSL_MEMARENAPRIV_SIGNATURE_MASK)   >> GSL_MEMARENAPRIV_SIGNATURE_SHIFT)
 #define GSL_MEMARENA_IS_MMU_VIRTUALIZED     ((memarena->priv & GSL_MEMARENAPRIV_MMUVIRTUALIZED_MASK) >> GSL_MEMARENAPRIV_MMUVIRTUALIZED_SHIFT)
 #define GSL_MEMARENA_GET_ID                 ((memarena->priv & GSL_MEMARENAPRIV_APERTUREID_MASK)  >> GSL_MEMARENAPRIV_APERTUREID_SHIFT)
+#define GSL_MEMARENA_IS_CONPHYS		    ((memarena->priv & GSL_MEMARENAPRIV_CONPHYS_MASK) >> GSL_MEMARENAPRIV_CONPHYS_SHIFT)//neko
 
-
-//////////////////////////////////////////////////////////////////////////////
 //  validate
-//////////////////////////////////////////////////////////////////////////////
 #define GSL_MEMARENA_VALIDATE(memarena)                                 \
     KOS_ASSERT(memarena);                                               \
     if (GSL_MEMARENA_GET_SIGNATURE != GSL_MEMARENA_INSTANCE_SIGNATURE)  \
     {                                                                   \
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR,   \
-                        "ERROR: Memarena validation failed.\n" );       \
+			"ERROR: Memarena validation failed.\n" );       \
         return (GSL_FAILURE);                                           \
     }
 
-//////////////////////////////////////////////////////////////////////////////
+// " neko
+
 //  block alignment shift count
-//////////////////////////////////////////////////////////////////////////////
 OSINLINE unsigned int
 gsl_memarena_alignmentshift(gsl_flags_t flags)
 {
@@ -78,9 +79,7 @@ gsl_memarena_alignmentshift(gsl_flags_t flags)
     return (alignshift);
 }
 
-//////////////////////////////////////////////////////////////////////////////
 //  address alignment
-//////////////////////////////////////////////////////////////////////////////
 OSINLINE unsigned int
 gsl_memarena_alignaddr(unsigned int address, int shift)
 {
@@ -97,14 +96,11 @@ gsl_memarena_alignaddr(unsigned int address, int shift)
 }
 
 
-//////////////////////////////////////////////////////////////////////////////
 //                         memory management API
-//////////////////////////////////////////////////////////////////////////////
-
-OSINLINE memblk_t*
-kgsl_memarena_getmemblknode(gsl_memarena_t *memarena)
-{
 #ifdef GSL_MEMARENA_NODE_POOL_ENABLED
+OSINLINE memblk_t*
+kgsl_memarena_getmemblknode_pool(gsl_memarena_t *memarena)
+{
     gsl_nodepool_t  *nodepool    = memarena->nodepool;
     memblk_t        *memblk      = NULL;
     int             allocnewpool = 1;
@@ -139,7 +135,7 @@ kgsl_memarena_getmemblknode(gsl_memarena_t *memarena)
 
                 break;
             }
-            else        
+            else
             {
                 nodepool = nodepool->next;
 
@@ -188,6 +184,14 @@ kgsl_memarena_getmemblknode(gsl_memarena_t *memarena)
     KOS_ASSERT(memblk);
 
     return (memblk);
+}
+#endif
+
+OSINLINE memblk_t*
+kgsl_memarena_getmemblknode(gsl_memarena_t *memarena)
+{
+#ifdef GSL_MEMARENA_NODE_POOL_ENABLED
+    return( kgsl_memarena_getmemblknode_pool(gsl_memarena_t *memarena) );
 #else
     // unreferenced formal parameter
     (void) memarena;
@@ -198,10 +202,10 @@ kgsl_memarena_getmemblknode(gsl_memarena_t *memarena)
 
 //----------------------------------------------------------------------------
 
-OSINLINE void
-kgsl_memarena_releasememblknode(gsl_memarena_t *memarena, memblk_t *memblk)
-{
 #ifdef GSL_MEMARENA_NODE_POOL_ENABLED
+OSINLINE void
+kgsl_memarena_releasememblknode_pool(gsl_memarena_t *memarena, memblk_t *memblk)
+{
     gsl_nodepool_t *nodepool = memarena->nodepool;
 
     KOS_ASSERT(memblk);
@@ -245,6 +249,14 @@ kgsl_memarena_releasememblknode(gsl_memarena_t *memarena, memblk_t *memblk)
         // leave pool head in last pool a memblk node was released
         memarena->nodepool = nodepool;
     }
+}
+#endif
+
+OSINLINE void
+kgsl_memarena_releasememblknode(gsl_memarena_t *memarena, memblk_t *memblk)
+{
+#ifdef GSL_MEMARENA_NODE_POOL_ENABLED
+	kgsl_memarena_releasememblknode(memarena, memblk)
 #else
     // unreferenced formal parameter
     (void) memarena;
@@ -314,7 +326,7 @@ kgsl_memarena_create(int aperture_id, int mmu_virtualized, unsigned int hostbase
 
 //----------------------------------------------------------------------------
 
-int         
+int
 kgsl_memarena_destroy(gsl_memarena_t *memarena)
 {
     int       status = GSL_SUCCESS;
@@ -409,7 +421,7 @@ kgsl_memarena_checkconsistency(gsl_memarena_t *memarena)
 
 //----------------------------------------------------------------------------
 
-int             
+int
 kgsl_memarena_querystats(gsl_memarena_t *memarena, gsl_memarena_stats_t *stats)
 {
 #ifdef GSL_STATS_MEM
@@ -417,7 +429,7 @@ kgsl_memarena_querystats(gsl_memarena_t *memarena, gsl_memarena_stats_t *stats)
     GSL_MEMARENA_VALIDATE(memarena);
 
     kos_memcpy(stats, &memarena->stats, sizeof(gsl_memarena_stats_t));
-    
+
     return (GSL_SUCCESS);
 #else
     // unreferenced formal parameters
@@ -430,7 +442,7 @@ kgsl_memarena_querystats(gsl_memarena_t *memarena, gsl_memarena_stats_t *stats)
 
 //----------------------------------------------------------------------------
 
-int         
+int
 kgsl_memarena_checkfreeblock(gsl_memarena_t *memarena, int bytesneeded)
 {
     memblk_t  *p;
@@ -471,7 +483,7 @@ kgsl_memarena_checkfreeblock(gsl_memarena_t *memarena, int bytesneeded)
 
 //----------------------------------------------------------------------------
 
-int 
+int
 kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, gsl_memdesc_t *memdesc)
 {
     int           result = GSL_FAILURE_OUTOFMEM;
@@ -541,11 +553,11 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, gsl_m
     freeblk = 0;
 
     do
-    { 
+    {
         // align base address
         baseaddr = ptrfree->blkaddr + memarena->gpubaseaddr;
         alignedbaseaddr = gsl_memarena_alignaddr(baseaddr, alignmentshift);
-       
+
         alignfragment = alignedbaseaddr - baseaddr;
 
         if (ptrfree->blksize >= blksize + alignfragment)
@@ -629,7 +641,7 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, gsl_m
     }
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_memarena_alloc. Return value: %B\n", result );
-        
+
     return (result);
 }
 
@@ -648,7 +660,7 @@ kgsl_memarena_free(gsl_memarena_t *memarena, gsl_memdesc_t *memdesc)
     memblk_t      *ptrfree, *ptrend, *p;
     int           mallocfreeblk, clockwise;
     unsigned int  addrtofree;
-    
+
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> void kgsl_memarena_free(gsl_memarena_t *memarena=0x%08x, gsl_memdesc_t *memdesc=%M)\n", memarena, memdesc );
 
@@ -659,7 +671,7 @@ kgsl_memarena_free(gsl_memarena_t *memarena, gsl_memdesc_t *memdesc)
         return;
     }
 
-    // check size of malloc'ed block 
+    // check size of malloc'ed block
     if (memdesc->size <= 0)
     {
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: Illegal size for the memdesc.\n" );
