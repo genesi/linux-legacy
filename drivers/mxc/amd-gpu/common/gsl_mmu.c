@@ -235,7 +235,7 @@ kgsl_mmu_destroypagetableobject(gsl_mmu_t *mmu, unsigned int pid)
     int              pindex;
     gsl_pagetable_t  *pagetable;
 
-    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> gsl_pagetable_t* kgsl_mmu_destroypagetableobject(gsl_mmu_t *mmu=0x%08x, unsigned int pid=0x%08x)\n", mmu, pid );
+    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> gsl_pagetable_t* kgsl_mmu_destroypagetableobject(gsl_mmu_t *mmu=0x%08x, uint pid=0x%08x)\n", mmu, pid );
 
     if (kgsl_mmu_getprocessindex(pid, &pindex) != GSL_SUCCESS)
     {
@@ -306,7 +306,7 @@ kgsl_mmu_createpagetableobject(gsl_mmu_t *mmu, unsigned int pid)
     int              pindex;
     gsl_flags_t      flags;
 
-    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> gsl_pagetable_t* kgsl_mmu_createpagetableobject(gsl_mmu_t *mmu=0x%08x, unsigned int pid=0x%08x)\n", mmu, pid );
+    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> gsl_pagetable_t* kgsl_mmu_createpagetableobject(gsl_mmu_t *mmu=0x%08x, uint pid=0x%08x)\n", mmu, pid );
 
     status = kgsl_mmu_getprocessindex(pid, &pindex);
     if (status != GSL_SUCCESS)
@@ -604,7 +604,7 @@ kgsl_mmu_map(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, const gsl_scatterlist_t *sca
     gsl_pagetable_t  *pagetable;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_mmu_map(gsl_mmu_t *mmu=0x%08x, gpuaddr_t gpubaseaddr=0x%08x, gsl_scatterlist_t *scatterlist=%M, gsl_flags_t flags=%d, unsigned int pid=%d)\n",
+                    "--> int kgsl_mmu_map(gsl_mmu_t *mmu=0x%08x, gpuaddr_t gpubaseaddr=0x%08x, gsl_scatterlist_t *scatterlist=%M, gsl_flags_t flags=%d, uint pid=0x%08x)\n",
                     mmu, gpubaseaddr, scatterlist, flags, pid );
 
     KOS_ASSERT(scatterlist);
@@ -731,7 +731,7 @@ kgsl_mmu_unmap(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, int range, unsigned int pi
     unsigned int     pte, ptefirst, ptelast, superpte;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_mmu_unmap(gsl_mmu_t *mmu=0x%08x, gpuaddr_t gpubaseaddr=0x%08x, int range=%d, unsigned int pid=%d)\n",
+                    "--> int kgsl_mmu_unmap(gsl_mmu_t *mmu=0x%08x, gpuaddr_t gpubaseaddr=0x%08x, int range=%d, uint pid=0x%08x)\n",
                     mmu, gpubaseaddr, range, pid );
 
     if (range <= 0)
@@ -980,7 +980,7 @@ kgsl_mmu_attachcallback(gsl_mmu_t *mmu, unsigned int pid)
     int              status = GSL_SUCCESS;
     gsl_pagetable_t  *pagetable;
 
-    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_mmu_attachcallback(gsl_mmu_t *mmu=0x%08x, unsigned int pid=0x%08x)\n", mmu, pid );
+    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_mmu_attachcallback(gsl_mmu_t *mmu=0x%08x, uint pid=0x%08x)\n", mmu, pid );
 
     GSL_MMU_LOCK();
 
@@ -1022,7 +1022,7 @@ kgsl_mmu_detachcallback(gsl_mmu_t *mmu, unsigned int pid)
     int              status = GSL_SUCCESS;
     gsl_pagetable_t  *pagetable;
 
-    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_mmu_detachcallback(gsl_mmu_t *mmu=0x%08x, unsigned int pid=0x%08x)\n", mmu, pid );
+    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_mmu_detachcallback(gsl_mmu_t *mmu=0x%08x, uint pid=0x%08x)\n", mmu, pid );
 
     GSL_MMU_LOCK();
 

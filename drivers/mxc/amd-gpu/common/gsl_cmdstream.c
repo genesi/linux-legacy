@@ -64,7 +64,7 @@ kgsl_cmdstream_readtimestamp0(gsl_deviceid_t device_id, gsl_timestamp_type_t typ
     gsl_timestamp_t   timestamp = -1;
     gsl_device_t* device  = &gsl_driver.device[device_id-1];
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> gsl_timestamp_t kgsl_cmdstream_readtimestamp(gsl_deviceid_t device_id=%d gsl_timestamp_type_t type=%d)\n", device_id, type );
+                    "--> gsl_timestamp_t kgsl_cmdstream_readtimestamp(gsl_deviceid_t device_id=%D gsl_timestamp_type_t type=%d)\n", device_id, type );
 #if (defined(GSL_BLD_G12) && defined(IRQTHREAD_POLL))
     kos_event_signal(device->irqthread_event);
 #endif

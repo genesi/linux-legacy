@@ -82,7 +82,7 @@ kgsl_cmdwindow_write0(gsl_deviceid_t device_id, gsl_cmdwindow_t target, unsigned
     unsigned int  cmdstream;
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_cmdwindow_write( gsl_device_id_t device_id=%d, gsl_cmdwindow_t target=%d, unsigned int addr=0x%08x, unsigned int data=0x%08x)\n", device_id, target, addr, data );
+                    "--> int kgsl_cmdwindow_write( gsl_device_id_t device_id=%D, gsl_cmdwindow_t target=%d, uint addr=0x%08x, uint data=0x%08x)\n", device_id, target, addr, data );
 
     device = &gsl_driver.device[device_id-1];       // device_id is 1 based
 

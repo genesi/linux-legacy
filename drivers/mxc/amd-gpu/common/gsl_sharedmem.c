@@ -460,7 +460,7 @@ kgsl_sharedmem_read0(const gsl_memdesc_t *memdesc, void *dst, unsigned int offse
     unsigned int     gpuoffsetbytes;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_read(gsl_memdesc_t *memdesc=%M, void *dst=0x%08x, unsigned int offsetbytes=%d, unsigned int sizebytes=%d)\n",
+                    "--> int kgsl_sharedmem_read(gsl_memdesc_t *memdesc=%M, void *dst=0x%08x, uint offsetbytes=%u, uint sizebytes=%u)\n",
                     memdesc, dst, offsetbytes, sizebytes );
 
     GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
@@ -524,7 +524,7 @@ kgsl_sharedmem_write0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, vo
     unsigned int     gpuoffsetbytes;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_write(gsl_memdesc_t *memdesc=%M, unsigned int offsetbytes=%d, void *src=0x%08x, unsigned int sizebytes=%d)\n",
+                    "--> int kgsl_sharedmem_write(gsl_memdesc_t *memdesc=%M, uint offsetbytes=%u, void *src=0x%08x, uint sizebytes=%u)\n",
                     memdesc, offsetbytes, src, sizebytes );
 
     GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
