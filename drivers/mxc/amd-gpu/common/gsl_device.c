@@ -311,7 +311,7 @@ kgsl_device_getproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void
     gsl_device_t  *device = &gsl_driver.device[device_id-1];        // device_id is 1 based
 
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_getproperty(gsl_deviceid_t device_id=%D, gsl_property_type_t type=%d, void *value=0x08x, unsigned int sizebytes=%d)\n", device_id, type, value, sizebytes );
+                    "--> int kgsl_device_getproperty(gsl_deviceid_t device_id=%D, gsl_property_type_t type=%d, void *value=0x%08x, uint sizebytes=%u)\n", device_id, type, value, sizebytes );
 
     KOS_ASSERT(value);
 
@@ -404,7 +404,7 @@ kgsl_device_setproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void
     gsl_device_t  *device;
 
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_setproperty(gsl_deviceid_t device_id=%D, gsl_property_type_t type=%d, void *value=0x08x, unsigned int sizebytes=%d)\n", device_id, type, value, sizebytes );
+                    "--> int kgsl_device_setproperty(gsl_deviceid_t device_id=%D, gsl_property_type_t type=%d, void *value=0x%08x, uint sizebytes=%u)\n", device_id, type, value, sizebytes );
 
     KOS_ASSERT(value);
 
@@ -619,7 +619,7 @@ kgsl_device_regwrite(gsl_deviceid_t device_id, unsigned int offsetwords, unsigne
     gsl_device_t  *device;
 
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_regwrite(gsl_deviceid_t device_id=%D, unsigned int offsetwords=%R, unsigned int value=0x%08x)\n", device_id, offsetwords, value );
+                    "--> int kgsl_device_regwrite(gsl_deviceid_t device_id=%D, unsigned int offsetwords=%R, uint value=0x%08x)\n", device_id, offsetwords, value );
 
     GSL_API_MUTEX_LOCK();
 
