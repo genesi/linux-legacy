@@ -645,6 +645,18 @@ static int mxcfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	if (var->yres_virtual < (var->yres * 3))
 		var->yres_virtual = (var->yres * 3);
 
+	/* for large displays, try not to allocate new memory by reducing triple buffer
+	 * down to a double buffer. Note: at 1080p the leftover memory is about 200kb
+	 * which will make Freescale's xorg-video-imx (based on libz160) run out of
+	 * memory and stop accelerating really very quickly. Genesi c2d_z160 driver has
+	 * no such problem as it uses the GPU pool.
+	 */
+	if ( (var->yres_virtual * (var->bits_per_pixel/8) * var->xres_virtual) > SZ_16M )
+		var->yres_virtual = (var->yres * 2);
+
+	if ( (var->yres_virtual * (var->bits_per_pixel/8) * var->xres_virtual) > SZ_16M )
+		dev_warn(info->device, "specified framebuffer size is larger than preallocated pool\n");
+
 	if ((var->bits_per_pixel != 32) && (var->bits_per_pixel != 24) &&
 	    (var->bits_per_pixel != 16) && (var->bits_per_pixel != 12) &&
 	    (var->bits_per_pixel != 8))
