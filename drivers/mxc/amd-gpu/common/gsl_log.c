@@ -20,7 +20,9 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
+#include <linux/slab.h>
 #include <linux/string.h>
+
 #include "gsl.h"
 
 #define KGSL_OUTPUT_TYPE_MEMBUF 0
@@ -54,7 +56,7 @@ int kgsl_log_start( unsigned int log_flags )
     log_mutex = kos_mutex_create( "log_mutex" );
     log_initialized = 1;
 
-    output = kos_malloc( sizeof( log_output_t ) );
+    output = kmalloc( sizeof( log_output_t ), GFP_KERNEL );
     output->flags = log_flags;
 
     // Add to the list
@@ -85,7 +87,7 @@ int kgsl_log_finish()
     {
         log_output_t* temp = outputs->next;
 
-        kos_free( outputs );
+        kfree( outputs );
         outputs = temp;
     }
 
@@ -135,7 +137,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
         if( !p2 ) p2 = strchr( p1+1, '\0' );
 
         // Break the string to this point
-        kos_memcpy( buffer2, c, p2-c );
+        memcpy( buffer2, c, p2-c );
         *(buffer2+(unsigned int)(p2-c)) = '\0';
 
         switch( *(p1+1) )
@@ -145,12 +147,12 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
             {
                 gsl_memdesc_t val = va_arg( arguments, gsl_memdesc_t );
                 // Handle string before %M
-                kos_memcpy( b, c, p1-c );
+                memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;
                 // Replace %M
                 b += sprintf( b, "[hostptr=0x%08x, gpuaddr=0x%08x]", val.hostptr, val.gpuaddr );
                 // Handle string after %M
-                kos_memcpy( b, p1+2, p2-(p1+2) );
+                memcpy( b, p1+2, p2-(p1+2) );
                 b += (unsigned int)p2-(unsigned int)(p1+2);
                 *b = '\0';
             }
@@ -160,16 +162,23 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
             case 'B':
             {
                 int val = va_arg( arguments, int );
+		char *s;
                 // Handle string before %B
-                kos_memcpy( b, c, p1-c );
+                memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;
                 // Replace %B
-                if( val == GSL_SUCCESS )
-                    b += sprintf( b, "%s", "GSL_SUCCESS" );
-                else
-                    b += sprintf( b, "%s", "GSL_FAILURE" );
+		switch (val) {
+			case GSL_SUCCESS:
+				s = "GSL_SUCCESS";
+				break;
+			case GSL_FAILURE:
+			default:
+				s = "GSL_FAILURE";
+				break;
+		}
+		b += sprintf( b, "%s", s );
                 // Handle string after %B
-                kos_memcpy( b, p1+2, p2-(p1+2) );
+                memcpy( b, p1+2, p2-(p1+2) );
                 b += (unsigned int)p2-(unsigned int)(p1+2);
                 *b = '\0';
             }
@@ -180,7 +189,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
             {
                 gsl_deviceid_t val = va_arg( arguments, gsl_deviceid_t );
                 // Handle string before %D
-                kos_memcpy( b, c, p1-c );
+                memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;
                 // Replace %D
                 switch( val )
@@ -199,7 +208,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
                     break;
                 }
                 // Handle string after %D
-                kos_memcpy( b, p1+2, p2-(p1+2) );
+                memcpy( b, p1+2, p2-(p1+2) );
                 b += (unsigned int)p2-(unsigned int)(p1+2);
                 *b = '\0';
             }
@@ -210,7 +219,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
             {
                 unsigned int val = va_arg( arguments, unsigned int );
                 // Handle string before %I
-                kos_memcpy( b, c, p1-c );
+                memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;
                 // Replace %I
                 switch( val )
@@ -249,7 +258,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
                     break;
                 }
                 // Handle string after %I
-                kos_memcpy( b, p1+2, p2-(p1+2) );
+                memcpy( b, p1+2, p2-(p1+2) );
                 b += (unsigned int)p2-(unsigned int)(p1+2);
                 *b = '\0';
             }
@@ -261,7 +270,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
                 unsigned int val = va_arg( arguments, unsigned int );
 
                 // Handle string before %R
-                kos_memcpy( b, c, p1-c );
+                memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;
                 // Replace %R
                 switch( val )
@@ -442,7 +451,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
                     break;
                 }
                 // Handle string after %R
-                kos_memcpy( b, p1+2, p2-(p1+2) );
+                memcpy( b, p1+2, p2-(p1+2) );
                 b += (unsigned int)p2-(unsigned int)(p1+2);
                 *b = '\0';
             }
