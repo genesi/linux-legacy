@@ -518,15 +518,6 @@ KOS_API void*           kos_lib_getaddr(oshandle_t libhandle, char* procname);
 //////////////////////////////////////////////////////////////////////////////
 /*-------------------------------------------------------------------*//*!
  * \external
- * \brief   Get system status info.
- *
- * \param   os_stats_t* stats   Pointer to the destination stats structure.
- * \return  Returns NULL if no error, otherwise an error code.
- *//*-------------------------------------------------------------------*/
-KOS_API int             kos_get_stats(os_stats_t* stats);
-
-/*-------------------------------------------------------------------*//*!
- * \external
  * \brief   Sync block start
  *
  * \param   void

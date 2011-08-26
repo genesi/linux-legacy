@@ -31,33 +31,16 @@
 #include <linux/kthread.h>
 #include "kos_libapi.h"
 
-//////////////////////////////////////////////////////////////////////////////
 //  defines
-//////////////////////////////////////////////////////////////////////////////
-//#define KOS_STATS_ENABLE
 
-//////////////////////////////////////////////////////////////////////////////
 //  macros
-//////////////////////////////////////////////////////////////////////////////
 #define KOS_MALLOC(s)               kmalloc(s, GFP_KERNEL)
 #define KOS_CALLOC(num, size)       kcalloc(num, size, GFP_KERNEL)
 #define KOS_REALLOC(p, s)           krealloc(p, s, GFP_KERNEL)
 #define KOS_FREE(p)                 kfree(p); p = 0
 #define KOS_DBGFLAGS_SET(flag)
 
-//////////////////////////////////////////////////////////////////////////////
-// stats
-//////////////////////////////////////////////////////////////////////////////
-#ifdef KOS_STATS_ENABLE
-os_stats_t kos_stats = {0, 0, 0, 0, 0, 0, 0, 0};
-#define KOS_STATS(x) x
-#else
-#define KOS_STATS(x)
-#endif
-
-//////////////////////////////////////////////////////////////////////////////
 //  assert API
-//////////////////////////////////////////////////////////////////////////////
 KOS_API void
 kos_assert_hook(const char* file, int line, int expression)
 {
@@ -84,8 +67,6 @@ kos_malloc(int size)
     void* ptr = KOS_MALLOC(size);
 
     KOS_ASSERT(ptr);
-    KOS_STATS(kos_stats.heap_allocs++);
-    KOS_STATS(kos_stats.heap_alloc_bytes += size);
 
     return (ptr);
 }
@@ -99,8 +80,6 @@ kos_calloc(int num, int size)
     void* ptr = KOS_CALLOC(num, size);
 
     KOS_ASSERT(ptr);
-    KOS_STATS(kos_stats.heap_allocs++);
-    KOS_STATS(kos_stats.heap_alloc_bytes += (size * num));
 
     return (ptr);
 }
@@ -125,8 +104,6 @@ kos_realloc(void* ptr, int size)
 KOS_API void
 kos_free(void* ptr)
 {
-    KOS_STATS(kos_stats.heap_frees++);
-
     KOS_FREE(ptr);
 }
 
@@ -328,21 +305,6 @@ kos_event_wait(oshandle_t a_event, int a_milliSeconds)
 }
 
 //----------------------------------------------------------------------------
-
-#ifdef KOS_STATS_ENABLE
-KOS_API int
-kos_get_stats(os_stats_t* stats)
-{
-    kos_memcpy(stats, &kos_stats, sizeof(os_stats_t));
-    return (OS_SUCCESS);
-}
-#else
-KOS_API int
-kos_get_stats(os_stats_t* stats)
-{
-    return (OS_FAILURE);
-}
-#endif // KOS_STATS
 
 /*-------------------------------------------------------------------*//*!
  * \brief Sync block API
