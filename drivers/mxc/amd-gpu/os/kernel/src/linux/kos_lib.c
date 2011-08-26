@@ -502,48 +502,9 @@ kos_sleep(unsigned int milliseconds)
     msleep(milliseconds);
 }
 
-//////////////////////////////////////////////////////////////////////////////
-//  query API
-//////////////////////////////////////////////////////////////////////////////
 
-static int
-kos_get_endianness(void)
-{
-    int  value;
-    char* ptr;
 
-    value = 0x01FFFF00;
 
-    ptr = (char*)&value;
-
-    KOS_ASSERT((*ptr == 0x00) || (*ptr == 0x01));
-
-    return (int)*ptr;
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API int
-kos_get_sysinfo(os_sysinfo_t* sysinfo)
-{
-    KOS_ASSERT(sysinfo);
-    if (!sysinfo) return (OS_FAILURE);
-
-    sysinfo->cpu_mhz            = 0;
-    sysinfo->cpu_type           = 0;
-    sysinfo->cpu_version        = 0;
-    sysinfo->os_type            = 0;
-    sysinfo->os_version         = 0;
-    sysinfo->sysmem_size        = 0;
-    sysinfo->page_size          = 0x1000;
-    sysinfo->max_path           = PATH_MAX;
-//  sysinfo->tls_slots          = TLS_MINIMUM_AVAILABLE - 1;
-    sysinfo->endianness         = kos_get_endianness();
-
-    return (OS_SUCCESS);
-}
-
-//----------------------------------------------------------------------------
 
 #ifdef KOS_STATS_ENABLE
 KOS_API int

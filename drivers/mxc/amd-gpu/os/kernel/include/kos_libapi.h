@@ -677,15 +677,6 @@ KOS_API void*           kos_lib_getaddr(oshandle_t libhandle, char* procname);
 //////////////////////////////////////////////////////////////////////////////
 /*-------------------------------------------------------------------*//*!
  * \external
- * \brief   Get device system info.
- *
- * \param   os_sysinfo_t* sysinfo   Pointer to the destination sysinfo structure.
- * \return  Returns NULL if no error, otherwise an error code.
- *//*-------------------------------------------------------------------*/
-KOS_API int             kos_get_sysinfo(os_sysinfo_t* sysinfo);
-
-/*-------------------------------------------------------------------*//*!
- * \external
  * \brief   Get system status info.
  *
  * \param   os_stats_t* stats   Pointer to the destination stats structure.
