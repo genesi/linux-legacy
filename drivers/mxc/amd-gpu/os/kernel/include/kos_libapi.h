@@ -158,33 +158,6 @@ KOS_API void            kos_free(void* memblock);
  *
  *//*-------------------------------------------------------------------*/ 
 KOS_API void            kos_enable_memoryleakcheck(void);
-
-
-//////////////////////////////////////////////////////////////////////////////
-//  physical memory API
-//////////////////////////////////////////////////////////////////////////////
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Allocates a physically contiguous memory block.
- *
- *
- * \param   void** virt_addr    Pointer where to store the virtual address of the reserved block.
- * \param   void** phys_addr    Pointer where to store the physical address of the reserved block.
- * \param   int pages           Number of pages to reserve (default page size = 4096 bytes).
- * \return  Zero if ok, othervise an error code.
- *//*-------------------------------------------------------------------*/
-KOS_API int             kos_alloc_physical(void** virt_addr, void** phys_addr, int pages);
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Free a physically contiguous allocated memory block.
- *
- *
- * \param   void* virt_addr     Virtual address of the memory block.
- * \param   int pages           Number of pages.
- * \return  Zero if ok, othervise an error code.
- *//*-------------------------------------------------------------------*/
-KOS_API int             kos_free_physical(void* virt_addr, int pages);
-
 KOS_API void            kos_memoryfence(void);
 
 

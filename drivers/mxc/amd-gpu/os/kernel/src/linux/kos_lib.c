@@ -130,51 +130,6 @@ kos_free(void* ptr)
     KOS_FREE(ptr);
 }
 
-
-//////////////////////////////////////////////////////////////////////////////
-//  physical memory API
-//////////////////////////////////////////////////////////////////////////////
-KOS_API int
-kos_alloc_physical(void** virt_addr, void** phys_addr, int pages)
-{
-    *virt_addr = dma_alloc_coherent(NULL, pages*PAGE_SIZE, (dma_addr_t*)*phys_addr, GFP_DMA | GFP_KERNEL);
-    return *virt_addr ? OS_SUCCESS : OS_FAILURE;
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API int
-kos_free_physical(void* virt_addr, int pages)
-{
-    (void) virt_addr;      // unreferenced formal parameter
-    (void) pages;         // unreferenced formal parameter
-
-    return (OS_SUCCESS);
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API int
-kos_map_physical(void** virt_addr, void** phys_addr, int pages)
-{
-    (void) virt_addr;      // unreferenced formal parameter
-    (void) phys_addr;     // unreferenced formal parameter
-    (void) pages;         // unreferenced formal parameter
-
-    return (OS_SUCCESS);
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API int
-kos_unmap_physical(void* virt_addr, int pages)
-{
-    (void) virt_addr;      // unreferenced formal parameter
-    (void) pages;         // unreferenced formal parameter
-
-    return (OS_SUCCESS);
-}
-
 //----------------------------------------------------------------------------
 
 KOS_API void
