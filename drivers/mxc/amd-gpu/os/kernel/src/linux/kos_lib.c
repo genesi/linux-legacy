@@ -54,20 +54,6 @@ kos_assert_hook(const char* file, int line, int expression)
 }
 
 
-KOS_API void
-kos_memoryfence(void)
-{
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API void
-kos_enable_memoryleakcheck(void)
-{
-    // perform automatic leak checking at program exit
-    KOS_DBGFLAGS_SET(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-}
-
 //////////////////////////////////////////////////////////////////////////////
 //  sync API
 //////////////////////////////////////////////////////////////////////////////

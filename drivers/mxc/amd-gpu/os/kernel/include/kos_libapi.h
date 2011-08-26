@@ -77,11 +77,6 @@ KOS_API void                    kos_assert_hook(const char* file, int line, int 
 
 typedef enum mutexIndex mutexIndex_t;
 
-KOS_API void            kos_enable_memoryleakcheck(void);
-KOS_API void            kos_memoryfence(void);
-
-
-
 //////////////////////////////////////////////////////////////////////////////
 //  sync API
 //////////////////////////////////////////////////////////////////////////////
