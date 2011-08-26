@@ -297,9 +297,9 @@ kgsl_memarena_create(int aperture_id, int mmu_virtualized, unsigned int hostbase
     // define unique mutex for each memory arena instance
     id_str[0] = (char) (count + '0');
     id_str[1] = '\0';
-    kos_strcpy(name, "GSL_memory_arena_");
-    len = kos_strlen(name);
-    kos_strcpy(&name[len], id_str);
+    strcpy(name, "GSL_memory_arena_");
+    len = strlen(name);
+    strcpy(&name[len], id_str);
 
     memarena->mutex = kos_mutex_create(name);
 

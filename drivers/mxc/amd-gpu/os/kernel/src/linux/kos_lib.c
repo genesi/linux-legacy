@@ -147,67 +147,6 @@ kos_enable_memoryleakcheck(void)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-//  string API
-//////////////////////////////////////////////////////////////////////////////
-
-KOS_API char*
-kos_strcpy(char* strdestination, const char* strsource)
-{
-    KOS_ASSERT(strdestination);
-    KOS_ASSERT(strsource);
-    return strcpy(strdestination, strsource);
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API char*
-kos_strncpy(char* destination, const char* source, int length)
-{
-    KOS_ASSERT(destination);
-    KOS_ASSERT(source);
-    return strncpy(destination, source, length);
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API char*
-kos_strcat(char* strdestination, const char* strsource)
-{
-    KOS_ASSERT(strdestination);
-    KOS_ASSERT(strsource);
-    return strcat(strdestination, strsource);
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API int
-kos_strcmp(const char* string1, const char* string2)
-{
-    KOS_ASSERT(string1);
-    KOS_ASSERT(string2);
-    return strcmp(string1, string2);
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API int
-kos_strncmp(const char* string1, const char* string2, int length)
-{
-    KOS_ASSERT(string1);
-    KOS_ASSERT(string2);
-    return strncmp(string1, string2, length);
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API int
-kos_strlen(const char* string)
-{
-    KOS_ASSERT(string);
-    return strlen(string);
-}
-
-//////////////////////////////////////////////////////////////////////////////
 //  sync API
 //////////////////////////////////////////////////////////////////////////////
 
