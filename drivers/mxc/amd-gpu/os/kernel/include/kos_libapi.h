@@ -68,37 +68,14 @@ extern "C" {
 KOS_API void                    kos_assert_hook(const char* file, int line, int expression);
 
 #if defined(DEBUG) || defined(DBG) || defined (_DBG) || defined (_DEBUG)
-
-#if defined(_WIN32) && !defined(__SYMBIAN32__) || defined(_WIN32_WCE)
-#include <assert.h>
-#define KOS_ASSERT(expression)  assert(expression)
-#elif defined(_BREW)
-#include <assert.h>
-#define KOS_ASSERT(expression)  kos_assert_hook(__FILE__, __LINE__, expression)
-#elif defined(__SYMBIAN32__)
-//#include <assert.h>
-//#define   KOS_ASSERT(expression)  assert(expression)
-#define KOS_ASSERT(expression)  /**/
-#elif defined(__ARM__)
-#define KOS_ASSERT(expression)
-#elif defined(_LINUX)
 #define KOS_ASSERT(expression) //kos_assert_hook(__FILE__, __LINE__, (int)(expression))
-#endif
-
 #else
-
 #define KOS_ASSERT(expression)
-
 #endif // DEBUG || DBG || _DBG
 
-#if defined(_WIN32) && defined(_DEBUG) && !defined(_WIN32_WCE) && !defined(__SYMBIAN32__)
-#pragma warning ( push, 3 )
-#include <crtdbg.h>
-#pragma warning  (pop)
-#define KOS_MALLOC_DBG(size)    _malloc_dbg(size, _NORMAL_BLOCK, __FILE__, __LINE__)
-#else
+#if defined(_DEBUG)
 #define KOS_MALLOC_DBG(size)    kos_malloc(int size)
-#endif // _WIN32 _DEBUG
+#endif // _DEBUG
 
 #define kos_assert(expression)  KOS_ASSERT(expression)
 #define kos_malloc_dbg(size)    KOS_MALLOC_DBG(size)
@@ -160,20 +137,6 @@ KOS_API void            kos_free(void* memblock);
 KOS_API void            kos_enable_memoryleakcheck(void);
 KOS_API void            kos_memoryfence(void);
 
-
-
-KOS_API int             kos_atoi(const char* string);
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Convert string to unsigned long integer.
- *
- *
- * \param   void* nptr      Pointer to the string.
- * \param   char** endptr   If not null, will be set to point to the next character after the number.
- * \param   int base        Base defining the type of the numeric string.
- * \return  Unsigned integer value extracted from the string.
- *//*-------------------------------------------------------------------*/
-KOS_API unsigned int    kos_strtoul(const char* nptr, char** endptr, int base);
 
 
 //////////////////////////////////////////////////////////////////////////////
