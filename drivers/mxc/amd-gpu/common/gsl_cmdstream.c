@@ -16,6 +16,8 @@
  *
  */
 
+#include <linux/slab.h>
+
 #include "gsl.h"
 #include "gsl_hal.h"
 #include "gsl_cmdstream.h"
@@ -198,7 +200,7 @@ kgsl_cmdstream_memqueue_drain(gsl_device_t *device)
         memnode  = freehead;
         freehead = memnode->next;
         kgsl_sharedmem_free0(&memnode->memdesc, memnode->pid);
-        kos_free(memnode);
+        kfree(memnode);
     }
 
     GSL_CMDSTREAM_MUTEX_UNLOCK();
@@ -219,7 +221,7 @@ kgsl_cmdstream_freememontimestamp(gsl_deviceid_t device_id, gsl_memdesc_t *memde
 
 	memqueue = &device->memqueue;
 
-    memnode  = kos_malloc(sizeof(gsl_memnode_t));
+    memnode  = kmalloc(sizeof(gsl_memnode_t), GFP_KERNEL);
 
     if (!memnode)
     {

@@ -16,6 +16,8 @@
  *
  */
 
+#include <linux/slab.h>
+
 #include "gsl.h"
 #include "gsl_hal.h"
 
@@ -152,7 +154,7 @@ kgsl_memarena_getmemblknode_pool(gsl_memarena_t *memarena)
     if (allocnewpool)
     {
         // alloc new pool of memblk nodes
-        nodepool = ((gsl_nodepool_t *)kos_malloc(sizeof(gsl_nodepool_t)));
+        nodepool = ((gsl_nodepool_t *)kmalloc(sizeof(gsl_nodepool_t), GFP_KERNEL));
         if (nodepool)
         {
             memset(nodepool, 0, sizeof(gsl_nodepool_t));
@@ -196,7 +198,7 @@ kgsl_memarena_getmemblknode(gsl_memarena_t *memarena)
     // unreferenced formal parameter
     (void) memarena;
 
-    return ((memblk_t *)kos_malloc(sizeof(memblk_t)));
+    return ((memblk_t *)kmalloc(sizeof(memblk_t), GFP_KERNEL));
 #endif // GSL_MEMARENA_NODE_POOL_ENABLED
 }
 
@@ -242,7 +244,7 @@ kgsl_memarena_releasememblknode_pool(gsl_memarena_t *memarena, memblk_t *memblk)
             memarena->nodepool = NULL;
         }
 
-        kos_free((void *)nodepool);
+        kfree((void *)nodepool);
     }
     else
     {
@@ -261,7 +263,7 @@ kgsl_memarena_releasememblknode(gsl_memarena_t *memarena, memblk_t *memblk)
     // unreferenced formal parameter
     (void) memarena;
 
-    kos_free((void *)memblk);
+    kfree((void *)memblk);
 #endif // GSL_MEMARENA_NODE_POOL_ENABLED
 }
 
@@ -278,7 +280,7 @@ kgsl_memarena_create(int aperture_id, int mmu_virtualized, unsigned int hostbase
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> gsl_memarena_t* kgsl_memarena_create(int aperture_id=%d, gpuaddr_t gpubaseaddr=0x%08x, int sizebytes=%d)\n", aperture_id, gpubaseaddr, sizebytes );
 
-    memarena = (gsl_memarena_t *)kos_malloc(sizeof(gsl_memarena_t));
+    memarena = (gsl_memarena_t *)kmalloc(sizeof(gsl_memarena_t), GFP_KERNEL);
 
     if (!memarena) 
     {
@@ -368,7 +370,7 @@ kgsl_memarena_destroy(gsl_memarena_t *memarena)
         kos_mutex_free(memarena->mutex);
     }
 
-    kos_free((void *)memarena);
+    kfree((void *)memarena);
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_memarena_destroy. Return value: %B\n", GSL_SUCCESS );
 

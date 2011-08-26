@@ -16,10 +16,8 @@
  *
  */
 
-#include <stdio.h>
-#ifdef WIN32
-#include <windows.h>
-#endif
+#include <linux/string.h>
+
 #include "gsl.h"
 #include "gsl_tbdump.h"
 #include "kos_libapi.h"

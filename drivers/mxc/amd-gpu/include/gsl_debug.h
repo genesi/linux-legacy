@@ -116,9 +116,6 @@ void            Yamato_DumpWriteMemory(unsigned int dwAddress, unsigned int dwSi
 void            Yamato_DumpSetMemory(unsigned int dwAddress, unsigned int dwSize, unsigned int pData);
 void            Yamato_DumpFbStart(gsl_device_t *device);
 void            Yamato_DumpRegSpace(gsl_device_t *device);
-#ifdef _WIN32
-void            Yamato_DumpWindow(unsigned int addr, unsigned int width, unsigned int height);
-#endif
 #endif
 #ifdef _DEBUG
 int             kgsl_dumpx_parse_ibs(gpuaddr_t gpuaddr, int sizedwords);

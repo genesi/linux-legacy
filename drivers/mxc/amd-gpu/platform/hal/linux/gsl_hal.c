@@ -97,7 +97,7 @@ kgsl_hal_init(void)
 	return GSL_FAILURE_ALREADYINITIALIZED;
     }
 
-    gsl_driver.hal = (void *)kos_malloc(sizeof(gsl_hal_t));
+    gsl_driver.hal = (void *)kmalloc(sizeof(gsl_hal_t), GFP_KERNEL);
 
     if (!gsl_driver.hal) {
 	return GSL_FAILURE_OUTOFMEM;
@@ -277,7 +277,7 @@ kgsl_hal_close(void)
 
 	/* release hal struct */
 	memset(hal, 0, sizeof(gsl_hal_t));
-	kos_free(gsl_driver.hal);
+	kfree(gsl_driver.hal);
 	gsl_driver.hal = NULL;
     }
 

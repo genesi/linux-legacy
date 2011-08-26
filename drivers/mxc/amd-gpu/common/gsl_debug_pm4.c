@@ -19,11 +19,9 @@
 #include "gsl.h"
 #include "gsl_hal.h"
 
-#if defined(_WIN32) && defined (GSL_BLD_YAMATO)
+#if 0 // defined (GSL_BLD_YAMATO)
 
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
+#include <linux/string.h>
 
 //#define PM4_DEBUG_USE_MEMBUF
 
@@ -80,11 +78,7 @@ int printString( FILE *_File, const char * _Format, ...)
 
 #endif
 
-#ifndef    _WIN32_WCE
 #define PM4_DUMPFILE    "pm4dump.txt"
-#else
-#define PM4_DUMPFILE    "\\Release\\pm4dump.txt"
-#endif
 
 //////////////////////////////////////////////////////////////////////////////
 // defines

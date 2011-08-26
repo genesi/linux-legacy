@@ -34,10 +34,6 @@
 //  defines
 
 //  macros
-#define KOS_MALLOC(s)               kmalloc(s, GFP_KERNEL)
-#define KOS_CALLOC(num, size)       kcalloc(num, size, GFP_KERNEL)
-#define KOS_REALLOC(p, s)           krealloc(p, s, GFP_KERNEL)
-#define KOS_FREE(p)                 kfree(p); p = 0
 #define KOS_DBGFLAGS_SET(flag)
 
 //  assert API
@@ -57,57 +53,6 @@ kos_assert_hook(const char* file, int line, int expression)
     // put breakpoint here
 }
 
-
-//////////////////////////////////////////////////////////////////////////////
-//  heap API (per process)
-//////////////////////////////////////////////////////////////////////////////
-KOS_API void*
-kos_malloc(int size)
-{
-    void* ptr = KOS_MALLOC(size);
-
-    KOS_ASSERT(ptr);
-
-    return (ptr);
-}
-
-
-//----------------------------------------------------------------------------
-
-KOS_API void*
-kos_calloc(int num, int size)
-{
-    void* ptr = KOS_CALLOC(num, size);
-
-    KOS_ASSERT(ptr);
-
-    return (ptr);
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API void*
-kos_realloc(void* ptr, int size)
-{
-    void* newptr;
-
-    KOS_ASSERT(ptr);
-    newptr = KOS_REALLOC(ptr, size);
-
-    KOS_ASSERT(newptr);
-
-    return (newptr);
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API void
-kos_free(void* ptr)
-{
-    KOS_FREE(ptr);
-}
-
-//----------------------------------------------------------------------------
 
 KOS_API void
 kos_memoryfence(void)
@@ -130,7 +75,7 @@ kos_enable_memoryleakcheck(void)
 KOS_API oshandle_t
 kos_mutex_create(const char *name)
 {
-	struct mutex *mutex = KOS_MALLOC(sizeof(struct mutex));
+	struct mutex *mutex = kmalloc(sizeof(struct mutex), GFP_KERNEL);
 	if (!mutex)
 		return 0;
 	mutex_init(mutex);
@@ -154,7 +99,7 @@ kos_mutex_free(oshandle_t mutexhandle)
 	struct mutex *mutex = (struct mutex *)mutexhandle;
 	if (!mutex)
 		return OS_FAILURE;
-	KOS_FREE(mutex);
+	kfree(mutex);
 	return OS_SUCCESS;
 }
 
@@ -218,7 +163,7 @@ kos_process_getid(void)
 KOS_API oshandle_t
 kos_event_create(int a_manualReset)
 {
-    struct completion *comp = KOS_MALLOC(sizeof(struct completion));
+    struct completion *comp = kmalloc(sizeof(struct completion), GFP_KERNEL);
 
     KOS_ASSERT(comp);
     if(!comp)
@@ -244,7 +189,7 @@ kos_event_destroy(oshandle_t a_event)
     KOS_ASSERT(comp);
 //  KOS_ASSERT(completion_done(comp));
 
-    KOS_FREE(comp);
+    kfree(comp);
     return (OS_SUCCESS);
 }
 

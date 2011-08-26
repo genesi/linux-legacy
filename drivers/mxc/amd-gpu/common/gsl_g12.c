@@ -357,12 +357,6 @@ kgsl_g12_close(gsl_device_t *device)
 
         device->flags &= ~GSL_FLAGS_INITIALIZED;
 
-#if defined(__SYMBIAN32__)
-        while(device->irq_thread)
-        {
-            msleep(20);
-        }
-#endif
         drawctx_id = 0;
 
         KOS_ASSERT(g_z1xx.numcontext == 0);
@@ -817,7 +811,7 @@ kgsl_g12_context_create(gsl_device_t* device, gsl_context_type_t type, unsigned 
         {
             status = kgsl_sharedmem_alloc0(GSL_DEVICE_ANY, gslflags, GSL_HAL_CMDBUFFERSIZE, &g_z1xx.cmdbufdesc[i]);
             KOS_ASSERT(status == GSL_SUCCESS);
-            g_z1xx.cmdbuf[i]=kos_malloc(GSL_HAL_CMDBUFFERSIZE);
+            g_z1xx.cmdbuf[i]=kmalloc(GSL_HAL_CMDBUFFERSIZE, GFP_KERNEL);
             KOS_ASSERT(g_z1xx.cmdbuf[i]);
             memset((void*)g_z1xx.cmdbuf[i], 0, GSL_HAL_CMDBUFFERSIZE);
 
@@ -893,7 +887,7 @@ kgsl_g12_context_destroy(gsl_device_t* device, unsigned int drawctxt_id)
         for (i=0;i<GSL_HAL_NUMCMDBUFFERS;i++)
         {
             kgsl_sharedmem_free0(&g_z1xx.cmdbufdesc[i], GSL_CALLER_PROCESSID_GET());
-            kos_free(g_z1xx.cmdbuf[i]);
+            kfree(g_z1xx.cmdbuf[i]);
         }
         kgsl_sharedmem_free0(&g_z1xx.e0, GSL_CALLER_PROCESSID_GET());
         kgsl_sharedmem_free0(&g_z1xx.e1, GSL_CALLER_PROCESSID_GET());

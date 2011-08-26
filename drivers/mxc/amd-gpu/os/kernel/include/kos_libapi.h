@@ -41,17 +41,8 @@ extern "C" {
 //////////////////////////////////////////////////////////////////////////////
 
 
-#if defined(_WIN32) && !defined (_WIN32_WCE) && !defined(__SYMBIAN32__)
-#define KOS_DLLEXPORT   __declspec(dllexport)
-#define KOS_DLLIMPORT   __declspec(dllimport)
-#elif defined(_WIN32) && defined (_WIN32_WCE)
-#define KOS_DLLEXPORT   __declspec(dllexport)   
-#define KOS_DLLIMPORT
-#else
 #define KOS_DLLEXPORT   extern
-#define KOS_DLLIMPORT   
-#endif // _WIN32
-
+#define KOS_DLLIMPORT
 
 //////////////////////////////////////////////////////////////////////////////
 //   KOS lib entrypoints
@@ -86,54 +77,6 @@ KOS_API void                    kos_assert_hook(const char* file, int line, int 
 
 typedef enum mutexIndex mutexIndex_t;
 
-//////////////////////////////////////////////////////////////////////////////
-//  heap API (per process)
-//////////////////////////////////////////////////////////////////////////////
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Allocate memory for a kernel side process.
- *
- *
- * \param   int size    Amount of bytes to be allocated.
- * \return  Pointer to the reserved memory, NULL if any error.
- *//*-------------------------------------------------------------------*/ 
-KOS_API void*           kos_malloc(int size);
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Allocate memory for a kernel side process. Clears the reserved memory.
- *
- *
- * \param   int num     Number of elements to allocate.
- * \param   int size    Element size in bytes.
- * \return  Pointer to the reserved memory, NULL if any error.
- *//*-------------------------------------------------------------------*/ 
-KOS_API void*           kos_calloc(int num, int size);
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Re-allocate an existing memory for a kernel side process.
- *          Contents of the old block will be copied to the new block
- *          taking the sizes of both blocks into account.
- *
- *
- * \param   void* memblock  Pointer to the old memory block.
- * \param   int size        Size of the new block in bytes.
- * \return  Pointer to the new memory block, NULL if any error.
- *//*-------------------------------------------------------------------*/ 
-KOS_API void*           kos_realloc(void* memblock, int size);
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Free a reserved memory block from the kernel side process.
- *
- *
- * \param   void* memblock  Pointer to the memory block.
- *//*-------------------------------------------------------------------*/ 
-KOS_API void            kos_free(void* memblock);
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Enable automatic memory leak checking performed at program exit.
- *
- *
- *//*-------------------------------------------------------------------*/ 
 KOS_API void            kos_enable_memoryleakcheck(void);
 KOS_API void            kos_memoryfence(void);
 
@@ -518,13 +461,6 @@ KOS_API int             kos_fprintf(oshandle_t file, const char* format, ...);
  * \return  Returns zero if no error, otherwise an error code.
  *//*-------------------------------------------------------------------*/
 KOS_API int             kos_fclose(oshandle_t file);
-
-#ifdef  __SYMBIAN32__
-KOS_API void kos_create_dfc(void);
-KOS_API void kos_signal_dfc(void);
-KOS_API void kos_enter_critical_section();
-KOS_API void kos_leave_critical_section();
-#endif  // __SYMBIAN32__
 
 #ifdef __cplusplus
 }

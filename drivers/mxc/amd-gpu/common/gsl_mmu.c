@@ -16,6 +16,8 @@
  *
  */
 
+#include <linux/slab.h>
+
 #include "gsl.h"
 #include "gsl_hal.h"
 
@@ -270,7 +272,7 @@ kgsl_mmu_destroypagetableobject(gsl_mmu_t *mmu, unsigned int pid)
                 kgsl_sharedmem_free0(&pagetable->base, GSL_CALLER_PROCESSID_GET());
             }
 
-            kos_free(pagetable);
+            kfree(pagetable);
 
             // clear pagetable object reference for all "device mmu"/"current caller process" combinations
             for (tmp_id = GSL_DEVICE_ANY + 1; tmp_id <= GSL_DEVICE_MAX; tmp_id++)
@@ -344,7 +346,7 @@ kgsl_mmu_createpagetableobject(gsl_mmu_t *mmu, unsigned int pid)
         // create new pagetable object
         else
         {
-            mmu->pagetable[pindex] = (void *)kos_malloc(sizeof(gsl_pagetable_t));
+            mmu->pagetable[pindex] = (void *)kmalloc(sizeof(gsl_pagetable_t), GFP_KERNEL);
             if (!mmu->pagetable[pindex])
             {
                 kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: Unable to allocate pagetable object.\n" );
@@ -544,7 +546,7 @@ kgsl_mmu_init(gsl_device_t *device)
 
             // create tlb flush filter to track dirty superPTE's -- one bit per superPTE
             mmu->tlbflushfilter.size = (mmu->va_range / (GSL_PAGESIZE * GSL_PT_SUPER_PTE * 8)) + 1;
-            mmu->tlbflushfilter.base = (unsigned int *)kos_malloc(mmu->tlbflushfilter.size);
+            mmu->tlbflushfilter.base = (unsigned int *)kmalloc(mmu->tlbflushfilter.size, GFP_KERNEL);
             if (!mmu->tlbflushfilter.base)
             {
                 kgsl_mmu_close(device);
@@ -946,7 +948,7 @@ kgsl_mmu_close(gsl_device_t *device)
 
             if (mmu->tlbflushfilter.base)
             {
-                kos_free(mmu->tlbflushfilter.base);
+                kfree(mmu->tlbflushfilter.base);
             }
 
             if (mmu->dummyspace.gpuaddr)

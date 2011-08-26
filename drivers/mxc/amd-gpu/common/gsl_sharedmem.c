@@ -16,6 +16,8 @@
  *
  */
 
+#include <linux/slab.h>
+
 #include "gsl.h"
 #include "gsl_hal.h"
 
@@ -347,7 +349,7 @@ kgsl_sharedmem_alloc0(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes
                 scatterlist.num++;
             }
 
-            scatterlist.pages = kos_malloc(sizeof(unsigned int) * scatterlist.num);
+            scatterlist.pages = kmalloc(sizeof(unsigned int) * scatterlist.num, GFP_KERNEL);
             if (scatterlist.pages)
             {
                 // allocate physical pages
@@ -361,7 +363,7 @@ kgsl_sharedmem_alloc0(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes
                     }
                 }
 
-                kos_free(scatterlist.pages);
+                kfree(scatterlist.pages);
             }
             else
             {
