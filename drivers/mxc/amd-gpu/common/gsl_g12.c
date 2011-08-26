@@ -20,9 +20,9 @@
 #include "gsl_hal.h"
 #include "kos_libapi.h"
 #include "gsl_cmdstream.h"
-#ifdef _LINUX
+
+#include <linux/delay.h>
 #include <linux/sched.h>
-#endif
 
 #ifdef CONFIG_ARCH_MX35
 #define V3_SYNC
