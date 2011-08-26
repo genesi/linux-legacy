@@ -29,6 +29,8 @@
 #ifndef __OSTYPES_H
 #define __OSTYPES_H
 
+#include <linux/types.h>
+
 //////////////////////////////////////////////////////////////////////////////
 //   status
 //////////////////////////////////////////////////////////////////////////////
@@ -80,45 +82,6 @@
 typedef void *          oshandle_t;
 #define OS_HANDLE_NULL  (oshandle_t)0x0
 
-//
-// os_sysinfo_t
-//
-typedef struct _os_sysinfo_t {
-    int     cpu_mhz;
-    int     cpu_type;
-    int     cpu_version;
-    int     os_type;
-    int     os_version;
-    int     sysmem_size;
-    int     page_size;
-    int     max_path;
-    int     tls_slots;
-    int     endianness;     // 0 == little_endian, 1 == big_endian
-} os_sysinfo_t;
-
-
-//
-// os_stats_t
-//
-#ifdef _LINUX
-typedef long long __int64;
-typedef unsigned long long __uint64;
-#else
-typedef unsigned __int64 __uint64;
-#endif
-
-typedef struct _os_stats_t {
-    __int64     heap_allocs;
-    __int64     heap_frees;
-    __int64     heap_alloc_bytes;
-    __int64     shared_heap_allocs;
-    __int64     shared_heap_frees;
-    __int64     shared_heap_alloc_bytes;
-    __int64     objects_alloc;
-    __int64     objects_free;
-} os_stats_t;
-
-
 typedef enum {
     OS_PROTECTION_GLOBAL,   // inter process
     OS_PROTECTION_LOCAL,    // process local
@@ -129,10 +92,10 @@ typedef struct _os_cputimer_t {
     int refcount;                   // Reference count
     int enabled;                    // Counter is enabled
     int size;                       // Number of counters
-    __int64  start_time;            // start time in cpu ticks
-    __int64  end_time;              // end time in cpu ticks
-    __int64  timer_frequency;       // cpu ticks per second
-    __int64  *counter_array;        // number of ticks for each counter
+    __s64  start_time;            // start time in cpu ticks
+    __s64  end_time;              // end time in cpu ticks
+    __s64  timer_frequency;       // cpu ticks per second
+    __s64  *counter_array;        // number of ticks for each counter
 } os_cputimer_t;
 
 #endif  // __OSTYPES_H

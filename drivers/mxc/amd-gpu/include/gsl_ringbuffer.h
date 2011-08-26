@@ -123,9 +123,9 @@ typedef struct _gsl_rbmemptrs_t {
 // stats
 // -----
 typedef struct _gsl_rbstats_t {
-    __int64  wraps;
-    __int64  issues;
-    __int64  wordstotal;
+    __s64  wraps;
+    __s64  issues;
+    __s64  wordstotal;
 } gsl_rbstats_t;
 
 

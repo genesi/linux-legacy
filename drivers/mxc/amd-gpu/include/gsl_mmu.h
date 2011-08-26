@@ -97,9 +97,9 @@ typedef struct _gsl_mh_intr_t
 // page table stats
 // ----------------
 typedef struct _gsl_ptstats_t {
-    __int64  maps;
-    __int64  unmaps;
-	__int64  switches;
+    __s64  maps;
+    __s64  unmaps;
+	__s64  switches;
 } gsl_ptstats_t;
 
 // ---------
@@ -107,7 +107,7 @@ typedef struct _gsl_ptstats_t {
 // ---------
 typedef struct _gsl_mmustats_t {
 	gsl_ptstats_t  pt;
-	__int64        tlbflushes;
+	__s64        tlbflushes;
 } gsl_mmustats_t;
 
 // -----------------

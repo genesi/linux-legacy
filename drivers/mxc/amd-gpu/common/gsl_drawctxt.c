@@ -197,7 +197,7 @@ unsigned int uintdivide(unsigned int a, unsigned int b)
 	do_div(a_fixed, b_fixed);
     fraction = (unsigned int)a_fixed;
 #else
-    fraction = ((unsigned int)((((__int64)a_fixed) << 32) / (__int64)b_fixed));
+    fraction = ((unsigned int)((((__s64)a_fixed) << 32) / (__s64)b_fixed));
 #endif
 
     if( fraction == 0 ) return 0;
