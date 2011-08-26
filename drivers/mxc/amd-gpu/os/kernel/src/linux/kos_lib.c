@@ -132,67 +132,6 @@ kos_free(void* ptr)
 
 
 //////////////////////////////////////////////////////////////////////////////
-//  shared heap API (cross process)
-//////////////////////////////////////////////////////////////////////////////
-KOS_API void*
-kos_shared_malloc(int size)
-{
-    void* ptr;
-
-    ptr = NULL; // shared alloc
-
-    KOS_ASSERT(ptr);
-    KOS_STATS(kos_stats.shared_heap_allocs++);
-    KOS_STATS(kos_stats.shared_heap_alloc_bytes += size);
-
-    return (ptr);
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API void*
-kos_shared_calloc(int num, int size)
-{
-    void* ptr;
-
-    ptr = NULL; // shared calloc
-
-    KOS_ASSERT(ptr);
-    KOS_STATS(kos_stats.shared_heap_allocs++);
-    KOS_STATS(kos_stats.shared_heap_alloc_bytes += (size * num));
-    return (ptr);
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API void*
-kos_shared_realloc(void* ptr, int size)
-{
-    void* newptr;
-    (void) ptr;      // unreferenced formal parameter
-    (void) size;     // unreferenced formal parameter
-
-    newptr = NULL; // shared realloc
-
-    KOS_ASSERT(newptr);
-
-    return (newptr);
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API void
-kos_shared_free(void* ptr)
-{
-    (void) ptr;      // unreferenced formal parameter
-    KOS_ASSERT(0);   // not implemented
-
-    KOS_STATS(kos_stats.shared_heap_frees++);
-
-    // shared free
-}
-
-//////////////////////////////////////////////////////////////////////////////
 //  physical memory API
 //////////////////////////////////////////////////////////////////////////////
 KOS_API int

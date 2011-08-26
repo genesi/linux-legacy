@@ -108,12 +108,6 @@ KOS_API void                    kos_assert_hook(const char* file, int line, int 
 #endif
 
 typedef enum mutexIndex mutexIndex_t;
-//////////////////////////////////////////////////////////////////////////////
-//  Interprocess shared memory initialization 
-//////////////////////////////////////////////////////////////////////////////
-// TODO: still valid?
-KOS_API int             kos_sharedmem_create(unsigned int map_addr, unsigned int size);
-KOS_API int             kos_sharedmem_destroy(void);
 
 //////////////////////////////////////////////////////////////////////////////
 //  heap API (per process)
@@ -164,52 +158,6 @@ KOS_API void            kos_free(void* memblock);
  *
  *//*-------------------------------------------------------------------*/ 
 KOS_API void            kos_enable_memoryleakcheck(void);
-
-
-//////////////////////////////////////////////////////////////////////////////
-//  shared heap API (cross process)
-//////////////////////////////////////////////////////////////////////////////
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Allocate memory that can be shared between user and kernel
- *          side processes.
- *
- *
- * \param   int size    Amount of bytes to be allocated.
- * \return  Pointer to the new memory block, NULL if any error.
- *//*-------------------------------------------------------------------*/ 
-KOS_API void*           kos_shared_malloc(int size);
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Allocate memory that can be shared between user and kernel
- *          side processes. Clears the reserved memory.
- *
- *
- * \param   int num Number of elements to allocate.
- * \param   int size    Element size in bytes.
- * \return  Pointer to the reserved memory, NULL if any error.
- *//*-------------------------------------------------------------------*/ 
-KOS_API void*           kos_shared_calloc(int num, int size);
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Re-allocate an existing user/kernel shared memory block.
- *          Contents of the old block will be copied to the new block
- *          taking the sizes of both blocks into account.
- *
- *
- * \param   void* ptr   Pointer to the old memory block.
- * \param   int size    Size of the new block in bytes.
- * \return  Pointer to the new memory block, NULL if any error.
- *//*-------------------------------------------------------------------*/
-KOS_API void*           kos_shared_realloc(void* ptr, int size);
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Free a reserved shared memory block.
- *
- *
- * \param   void* ptr   Pointer to the memory block.
- *//*-------------------------------------------------------------------*/
- KOS_API void           kos_shared_free(void* ptr);
 
 
 //////////////////////////////////////////////////////////////////////////////
