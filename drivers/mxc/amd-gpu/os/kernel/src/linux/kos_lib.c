@@ -496,16 +496,6 @@ kos_event_wait(oshandle_t a_event, int a_milliSeconds)
 
 //----------------------------------------------------------------------------
 
-KOS_API void
-kos_sleep(unsigned int milliseconds)
-{
-    msleep(milliseconds);
-}
-
-
-
-
-
 #ifdef KOS_STATS_ENABLE
 KOS_API int
 kos_get_stats(os_stats_t* stats)

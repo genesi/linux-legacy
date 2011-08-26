@@ -340,7 +340,7 @@ kgsl_yamato_init(gsl_device_t *device)
 
     // soft reset
     device->ftbl.device_regwrite(device, mmRBBM_SOFT_RESET, 0xFFFFFFFF);
-    kos_sleep(50);
+    msleep(50);
     device->ftbl.device_regwrite(device, mmRBBM_SOFT_RESET, 0x00000000);
 
     // RBBM control

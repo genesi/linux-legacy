@@ -377,7 +377,7 @@ kgsl_g12_close(gsl_device_t *device)
 #if defined(__SYMBIAN32__)
         while(device->irq_thread)
         {
-            kos_sleep(20);
+            msleep(20);
         }
 #endif
         drawctx_id = 0;
@@ -533,7 +533,7 @@ kgsl_g12_idle(gsl_device_t *device, unsigned int timeout)
 			gsl_timestamp_t ts_diff = retired - device->current_timestamp;
 			if ( ts_diff >= 0 || ts_diff < -GSL_TIMESTAMP_EPSILON )
 				break;
-			kos_sleep(10);
+			msleep(10);
 		}
 	}
 

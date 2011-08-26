@@ -578,14 +578,6 @@ KOS_API void*           kos_tls_read(unsigned int tlsindex);
 KOS_API int             kos_tls_write(unsigned int tlsindex, void* tlsvalue);
 /*-------------------------------------------------------------------*//*!
  * \external
- * \brief   Put the thread to sleep for the given time period.
- *
- *
- * \param   unsigned int milliseconds   Time in milliseconds.
- *//*-------------------------------------------------------------------*/
-KOS_API void            kos_sleep(unsigned int milliseconds);
-/*-------------------------------------------------------------------*//*!
- * \external
  * \brief   Get the id of the current process.
  *
  *
