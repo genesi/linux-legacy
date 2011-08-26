@@ -441,34 +441,6 @@ KOS_API unsigned int    kos_process_getid(void);
  * \return  Returns the caller process id.
  *//*-------------------------------------------------------------------*/
 KOS_API unsigned int    kos_callerprocess_getid(void);
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Get the id of the current thread.
- *
- *
- * \return  Returns the thread id.
- *//*-------------------------------------------------------------------*/
-KOS_API unsigned int    kos_thread_getid(void);
-
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Create a new thread.
- *
- *
- * \param   oshandle_t a_function Handle to the function to be executed in the thread.
- * \param   unsigned int* a_threadId Pointer to a value where to store the ID of the new thread.
- * \return  Returns an handle to the created thread.
- *//*-------------------------------------------------------------------*/
-KOS_API oshandle_t      kos_thread_create(oshandle_t a_function, unsigned int* a_threadId);
-
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Destroy the given thread.
- *
- *
- * \param   oshandle_t a_task Handle to the thread to be destroyed.
- *//*-------------------------------------------------------------------*/
-KOS_API void            kos_thread_destroy( oshandle_t a_task );
 
 //////////////////////////////////////////////////////////////////////////////
 //  timing API

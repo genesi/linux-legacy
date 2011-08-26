@@ -317,16 +317,9 @@ kgsl_g12_init(gsl_device_t *device)
 #endif //_Z180
 
     // create thread for IRQ handling
-#if defined(__SYMBIAN32__)
-    kos_thread_create( (oshandle_t)irq_thread, &(device->irq_thread) );
-#elif defined(_LINUX)
-	device->irq_workq = create_singlethread_workqueue("z1xx_workq");
-	INIT_WORK(&device->irq_work, kgsl_g12_irqtask);
-	INIT_WORK(&device->irq_err_work, kgsl_g12_irqerr);
-#else
-    #pragma warning(disable:4152)
-    device->irq_thread_handle = kos_thread_create( (oshandle_t)irq_thread, &(device->irq_thread) );
-#endif
+    device->irq_workq = create_singlethread_workqueue("z160_workqueue");
+    INIT_WORK(&device->irq_work, kgsl_g12_irqtask);
+    INIT_WORK(&device->irq_err_work, kgsl_g12_irqerr);
 
     return (status);
 }
@@ -346,11 +339,7 @@ kgsl_g12_close(gsl_device_t *device)
         status = device->ftbl.device_idle(device, 1000);
         KOS_ASSERT(status == GSL_SUCCESS);
 
-#ifndef _LINUX
-        kos_thread_destroy(device->irq_thread_handle);
-#else
-		destroy_workqueue(device->irq_workq);
-#endif
+	destroy_workqueue(device->irq_workq);
 
         // shutdown command window
         kgsl_cmdwindow_close(device);

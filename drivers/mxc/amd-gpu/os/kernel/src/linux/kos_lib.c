@@ -363,15 +363,3 @@ KOS_API int kos_syncblock_end(void)
 
     return return_value;
 }
-
-KOS_API oshandle_t kos_thread_create(oshandle_t a_function, unsigned int* a_threadId)
-{
-	struct task_struct *task = kthread_run(a_function, 0, "kos_thread_%p", a_threadId);
-	*a_threadId = (unsigned int)task;
-	return (oshandle_t)task;
-}
-
-KOS_API void kos_thread_destroy( oshandle_t a_task )
-{
-	kthread_stop((struct task_struct *)a_task);
-}
