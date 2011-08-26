@@ -29,13 +29,11 @@
 #ifndef __GSL_HWACCESS_LINUX_H
 #define __GSL_HWACCESS_LINUX_H
 
-#ifdef _LINUX
-#include "gsl_linux_map.h"
-#endif
-
 #include <linux/io.h>
 #include <asm/system.h>
 #include <asm/uaccess.h>
+
+#include "gsl_linux_map.h"
 
 OSINLINE void
 kgsl_hwaccess_memread(void *dst, unsigned int gpubase, unsigned int gpuoffset, unsigned int sizebytes, unsigned int touserspace)

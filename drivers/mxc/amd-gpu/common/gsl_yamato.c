@@ -16,12 +16,11 @@
  *
  */
 
-#include "gsl.h"
-#include "gsl_hal.h"
-#ifdef _LINUX
 #include <linux/delay.h>
 #include <linux/sched.h>
-#endif
+
+#include "gsl.h"
+#include "gsl_hal.h"
 
 #ifdef GSL_BLD_YAMATO
 
@@ -106,11 +105,7 @@ kgsl_yamato_cpintrcallback(gsl_intrid_t id, void *cookie)
     switch(id)
     {
         case GSL_INTR_YDX_CP_RING_BUFFER:
-#ifndef _LINUX		
-              kos_event_signal(device->timestamp_event);
-#else
-			  wake_up_interruptible_all(&(device->timestamp_waitq));
-#endif
+		wake_up_interruptible_all(&(device->timestamp_waitq));
             break;
         default:
             break;
@@ -867,9 +862,6 @@ int
 kgsl_yamato_waittimestamp(gsl_device_t *device, gsl_timestamp_t timestamp, unsigned int timeout)
 {
 #if defined GSL_RB_TIMESTAMP_INTERUPT
-#ifndef _LINUX
-	return kos_event_wait( device->timestamp_event, timeout );
-#else
 	int status = wait_event_interruptible_timeout(device->timestamp_waitq,
 							kgsl_yamato_check_timestamp(device->id, timestamp),
 							msecs_to_jiffies(timeout));
@@ -877,7 +869,6 @@ kgsl_yamato_waittimestamp(gsl_device_t *device, gsl_timestamp_t timestamp, unsig
 		return GSL_SUCCESS;
 	else
 		return GSL_FAILURE;
-#endif
 #else
 	return (GSL_SUCCESS);
 #endif

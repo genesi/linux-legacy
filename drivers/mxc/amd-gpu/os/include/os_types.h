@@ -51,11 +51,7 @@
 // inline
 //////////////////////////////////////////////////////////////////////////////
 #ifndef OSINLINE
-#ifdef _LINUX
 #define OSINLINE    static __inline
-#else
-#define OSINLINE    __inline
-#endif
 #endif // OSINLINE
 
 

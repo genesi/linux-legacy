@@ -16,11 +16,10 @@
  *
  */
 
+#include <asm/div64.h>
+
 #include "gsl.h"
 #include "gsl_hal.h"
-#ifdef _LINUX
-#include <asm/div64.h>
-#endif
 
 #ifdef GSL_BLD_YAMATO
 
@@ -179,26 +178,18 @@ unsigned int uint2float( unsigned int uintval )
 //////////////////////////////////////////////////////////////////////////////
 unsigned int uintdivide(unsigned int a, unsigned int b)
 {
-#ifdef _LINUX
     uint64_t a_fixed = a << 16;
     uint64_t b_fixed = b << 16;
-#else
-    unsigned int a_fixed = a << 16;
-    unsigned int b_fixed = b << 16;
-#endif
+
     // Assume the result is 0.fraction
     unsigned int fraction;
     unsigned int exp = 126;
 
     if( b == 0 ) return 0;
 
-#ifdef _LINUX
     a_fixed = a_fixed << 32;
 	do_div(a_fixed, b_fixed);
     fraction = (unsigned int)a_fixed;
-#else
-    fraction = ((unsigned int)((((__s64)a_fixed) << 32) / (__s64)b_fixed));
-#endif
 
     if( fraction == 0 ) return 0;
 

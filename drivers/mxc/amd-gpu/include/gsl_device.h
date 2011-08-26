@@ -29,10 +29,8 @@
 #ifndef __GSL_DEVICE_H
 #define __GSL_DEVICE_H
 
-#ifdef _LINUX
 #include <linux/wait.h>
 #include <linux/workqueue.h>
-#endif
 
 //////////////////////////////////////////////////////////////////////////////
 //  types
@@ -106,10 +104,6 @@ struct _gsl_device_t {
     unsigned int      intrcnt[GSL_G12_INTR_COUNT];
     gsl_timestamp_t   current_timestamp;
     gsl_timestamp_t   timestamp;
-#ifndef _LINUX	
-    unsigned int      irq_thread;
-    oshandle_t        irq_thread_handle;
-#endif
 #ifdef IRQTHREAD_POLL
     oshandle_t        irqthread_event;
 #endif
@@ -117,14 +111,11 @@ struct _gsl_device_t {
 #ifdef GSL_LOCKING_FINEGRAIN
     oshandle_t        cmdstream_mutex;
 #endif
-#ifndef _LINUX	
-    oshandle_t        timestamp_event;
-#else
 	wait_queue_head_t timestamp_waitq;
 	struct workqueue_struct	*irq_workq;
 	struct work_struct irq_work;	
 	struct work_struct irq_err_work;
-#endif
+
     void              *autogate;
 };
 

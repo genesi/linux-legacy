@@ -30,12 +30,8 @@
 #ifndef __REGS_G4X_DRIVER_H
 #define __REGS_G4X_DRIVER_H
 
-#ifndef _LINUX
-#include <assert.h>
-#else
 #ifndef assert
 #define assert(expr)
-#endif
 #endif
 
 //-----------------------------------------------------

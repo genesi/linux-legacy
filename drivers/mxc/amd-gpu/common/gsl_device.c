@@ -15,12 +15,11 @@
  * 02110-1301, USA.
  *
  */
- 
+
+#include <linux/sched.h>
+
 #include "gsl.h"
 #include "gsl_hal.h"
-#ifdef _LINUX
-#include <linux/sched.h>
-#endif
 
 //////////////////////////////////////////////////////////////////////////////
 //  inline functions
@@ -135,18 +134,8 @@ kgsl_device_init(gsl_device_t *device, gsl_deviceid_t device_id)
             return (status);
         }
 
-#ifndef _LINUX		
-        // Create timestamp event
-        device->timestamp_event = kos_event_create(0);
-        if( !device->timestamp_event )
-        {
-            kgsl_device_stop(device->id);
-            return (status);
-        }
-#else
-		// Create timestamp wait queue
-		init_waitqueue_head(&device->timestamp_waitq);
-#endif	
+	// Create timestamp wait queue
+	init_waitqueue_head(&device->timestamp_waitq);
 
         //
         //  Read the chip ID after the device has been initialized.
@@ -198,20 +187,10 @@ kgsl_device_close(gsl_device_t *device)
 	kgsl_sharedmem_free0(&device->memstore, GSL_CALLER_PROCESSID_GET());
     }
 
-#ifndef _LINUX	
-    // destroy timestamp event
-    if(device->timestamp_event)
-    {
-        kos_event_signal(device->timestamp_event);  // wake up waiting threads before destroying the structure
-        kos_event_destroy( device->timestamp_event );
-        device->timestamp_event = 0;
-    }
-#else
     wake_up_interruptible_all(&(device->timestamp_waitq));
-#endif	
 
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_close. Return value %B\n", status );
-    
+
     return (status);
 }
 
