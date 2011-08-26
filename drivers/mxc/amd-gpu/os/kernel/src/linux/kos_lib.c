@@ -193,36 +193,6 @@ kos_shared_free(void* ptr)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-//  memory access API
-//////////////////////////////////////////////////////////////////////////////
-KOS_API void*
-kos_memcpy(void* dst, const void* src, int count)
-{
-    KOS_ASSERT(src);
-    KOS_ASSERT(dst);
-    return memcpy(dst, src, count);
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API void*
-kos_memset(void* dst, int value, int count)
-{
-    KOS_ASSERT(dst);
-    return memset(dst, value, count);
-}
-
-//----------------------------------------------------------------------------
-
-KOS_API int
-kos_memcmp(void* dst, void* src, int count)
-{
-    KOS_ASSERT(src);
-    KOS_ASSERT(dst);
-    return memcmp(dst, src, count);
-}
-
-//////////////////////////////////////////////////////////////////////////////
 //  physical memory API
 //////////////////////////////////////////////////////////////////////////////
 KOS_API int

@@ -54,7 +54,7 @@ kgsl_hwaccess_memread(void *dst, unsigned int gpubase, unsigned int gpuoffset, u
         }
         else
         {
-            kos_memcpy(dst, (void *) (gpubase + gpuoffset), sizebytes);
+            memcpy(dst, (void *) (gpubase + gpuoffset), sizebytes);
         }
         mb();
         dsb();
@@ -80,7 +80,7 @@ kgsl_hwaccess_memwrite(unsigned int gpubase, unsigned int gpuoffset, void *src, 
         }
         else
         {
-            kos_memcpy((void *)(gpubase + gpuoffset), src, sizebytes);
+            memcpy((void *)(gpubase + gpuoffset), src, sizebytes);
         }
         mb();
         dsb();
@@ -97,7 +97,7 @@ kgsl_hwaccess_memset(unsigned int gpubase, unsigned int gpuoffset, unsigned int 
     } else {
         mb();
         dsb();
-        kos_memset((void *)(gpubase + gpuoffset), value, sizebytes);
+        memset((void *)(gpubase + gpuoffset), value, sizebytes);
         mb();
         dsb();
     }

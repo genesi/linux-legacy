@@ -15,7 +15,8 @@
  * 02110-1301, USA.
  *
  */
- 
+
+#include <linux/string.h>
 #include "gsl.h"
 
 //////////////////////////////////////////////////////////////////////////////
@@ -142,7 +143,7 @@ int kgsl_intr_close(gsl_device_t *device)
             }
         }
 
-        kos_memset(&device->intr, 0, sizeof(gsl_intr_t));
+        memset(&device->intr, 0, sizeof(gsl_intr_t));
     }
 
     return (GSL_SUCCESS);

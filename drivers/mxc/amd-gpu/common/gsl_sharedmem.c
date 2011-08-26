@@ -190,7 +190,7 @@ kgsl_sharedmem_close(gsl_sharedmem_t *shmem)
             }
         }
 
-        kos_memset(shmem, 0, sizeof(gsl_sharedmem_t));
+        memset(shmem, 0, sizeof(gsl_sharedmem_t));
     }
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_sharedmem_close. Return value %B\n", result );
@@ -221,7 +221,7 @@ kgsl_sharedmem_alloc0(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes
     GSL_MEMFLAGS_APERTURE_GET(flags, aperture_id);
     GSL_MEMFLAGS_CHANNEL_GET(flags, channel_id);
 
-    kos_memset(memdesc, 0, sizeof(gsl_memdesc_t));
+    memset(memdesc, 0, sizeof(gsl_memdesc_t));
 
     if (!(shmem->flags & GSL_FLAGS_INITIALIZED))
     {
@@ -426,7 +426,7 @@ kgsl_sharedmem_free0(gsl_memdesc_t *memdesc, unsigned int pid)
         kgsl_memarena_free(shmem->apertures[aperture_index].memarena, memdesc);
 
         // clear descriptor
-        kos_memset(memdesc, 0, sizeof(gsl_memdesc_t));
+        memset(memdesc, 0, sizeof(gsl_memdesc_t));
     }
     else
     {
@@ -802,7 +802,7 @@ kgsl_sharedmem_getmap(const gsl_memdesc_t *memdesc, gsl_scatterlist_t *scatterli
         KOS_ASSERT(memdesc->gpuaddr >= shmem->apertures[aperture_index].memarena->gpubaseaddr);
         KOS_ASSERT((memdesc->gpuaddr + memdesc->size) <= (shmem->apertures[aperture_index].memarena->gpubaseaddr + shmem->apertures[aperture_index].memarena->sizebytes));
 
-        kos_memset(scatterlist->pages, 0, sizeof(unsigned int) * scatterlist->num);
+        memset(scatterlist->pages, 0, sizeof(unsigned int) * scatterlist->num);
 
         if (kgsl_memarena_isvirtualized(shmem->apertures[aperture_index].memarena))
         {
@@ -847,7 +847,7 @@ kgsl_sharedmem_querystats(gsl_sharedmem_t *shmem, gsl_sharedmem_stats_t *stats)
     }
     else
     {
-        kos_memset(stats, 0, sizeof(gsl_sharedmem_stats_t));
+        memset(stats, 0, sizeof(gsl_sharedmem_stats_t));
     }
 
     return (status);

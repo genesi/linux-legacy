@@ -757,7 +757,7 @@ kgsl_ringbuffer_close(gsl_ringbuffer_t *rb)
 
     GSL_RB_MUTEX_FREE();
 
-    kos_memset(rb, 0, sizeof(gsl_ringbuffer_t));
+    memset(rb, 0, sizeof(gsl_ringbuffer_t));
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_close. Return value %B\n", GSL_SUCCESS );
     return (GSL_SUCCESS);
@@ -808,7 +808,7 @@ kgsl_ringbuffer_issuecmds(gsl_device_t *device, int pmodeoff, unsigned int *cmds
     }
 
     // copy the cmds to the ringbuffer
-    kos_memcpy(ringcmds, cmds, (sizedwords << 2));
+    memcpy(ringcmds, cmds, (sizedwords << 2));
 
     ringcmds += sizedwords;
 
@@ -924,7 +924,7 @@ kgsl_ringbuffer_issueibcmds(gsl_device_t *device, int drawctxt_index, gpuaddr_t 
 static void
 kgsl_ringbuffer_debug(gsl_ringbuffer_t *rb, gsl_rb_debug_t *rb_debug)
 {
-    kos_memset(rb_debug, 0, sizeof(gsl_rb_debug_t));
+    memset(rb_debug, 0, sizeof(gsl_rb_debug_t));
 
     rb_debug->pm4_ucode_rel = PM4_MICROCODE_VERSION;
     rb_debug->pfp_ucode_rel = PFP_MICROCODE_VERSION;
@@ -961,7 +961,7 @@ kgsl_ringbuffer_querystats(gsl_ringbuffer_t *rb, gsl_rbstats_t *stats)
         return (GSL_FAILURE);
     }
 
-    kos_memcpy(stats, &rb->stats, sizeof(gsl_rbstats_t));
+    memcpy(stats, &rb->stats, sizeof(gsl_rbstats_t));
 
     return (GSL_SUCCESS);
 #else

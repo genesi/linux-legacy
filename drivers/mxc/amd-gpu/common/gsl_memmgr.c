@@ -155,7 +155,7 @@ kgsl_memarena_getmemblknode_pool(gsl_memarena_t *memarena)
         nodepool = ((gsl_nodepool_t *)kos_malloc(sizeof(gsl_nodepool_t)));
         if (nodepool)
         {
-            kos_memset(nodepool, 0, sizeof(gsl_nodepool_t));
+            memset(nodepool, 0, sizeof(gsl_nodepool_t));
 
             if (memarena->nodepool)
             {
@@ -288,7 +288,7 @@ kgsl_memarena_create(int aperture_id, int mmu_virtualized, unsigned int hostbase
         return (NULL);
     }
 
-    kos_memset(memarena, 0, sizeof(gsl_memarena_t));
+    memset(memarena, 0, sizeof(gsl_memarena_t));
 
     GSL_MEMARENA_SET_SIGNATURE;
     GSL_MEMARENA_SET_MMU_VIRTUALIZED;
@@ -428,7 +428,7 @@ kgsl_memarena_querystats(gsl_memarena_t *memarena, gsl_memarena_stats_t *stats)
     KOS_ASSERT(stats);
     GSL_MEMARENA_VALIDATE(memarena);
 
-    kos_memcpy(stats, &memarena->stats, sizeof(gsl_memarena_stats_t));
+    memcpy(stats, &memarena->stats, sizeof(gsl_memarena_stats_t));
 
     return (GSL_SUCCESS);
 #else

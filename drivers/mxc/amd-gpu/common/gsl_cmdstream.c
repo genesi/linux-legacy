@@ -232,7 +232,7 @@ kgsl_cmdstream_freememontimestamp(gsl_deviceid_t device_id, gsl_memdesc_t *memde
     memnode->timestamp = timestamp;
     memnode->pid       = GSL_CALLER_PROCESSID_GET();
     memnode->next      = NULL;
-    kos_memcpy(&memnode->memdesc, memdesc, sizeof(gsl_memdesc_t));
+    memcpy(&memnode->memdesc, memdesc, sizeof(gsl_memdesc_t));
 
     // add to end of queue
     if (memqueue->tail != NULL)

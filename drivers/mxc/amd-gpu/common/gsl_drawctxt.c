@@ -506,7 +506,7 @@ program_shader(unsigned int *cmds, int vtxfrag, const unsigned int *shader_pgm, 
     *cmds++ = vtxfrag;                      // 0=vertex shader, 1=fragment shader
     *cmds++ = ( (0 << 16) | dwords );       // instruction start & size (in 32-bit words)
 
-    kos_memcpy(cmds, shader_pgm, dwords<<2);
+    memcpy(cmds, shader_pgm, dwords<<2);
     cmds += dwords;
 
     return cmds;
@@ -914,7 +914,7 @@ build_sys2gmem_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
     // texture constants
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, (SYS2GMEM_TEX_CONST_LEN + 1));
     *cmds++ = (0x1 << 16) | (0 * 6);
-    kos_memcpy(cmds, sys2gmem_tex_const, SYS2GMEM_TEX_CONST_LEN<<2);
+    memcpy(cmds, sys2gmem_tex_const, SYS2GMEM_TEX_CONST_LEN<<2);
     cmds[0] |= (shadow->pitch >> 5) << 22;
     cmds[1] |= shadow->gmemshadow.gpuaddr | surface_format_table[shadow->format];
     cmds[2] |= (shadow->width+shadow->offset_x-1) | (shadow->height+shadow->offset_y-1) << 13;
@@ -1121,10 +1121,10 @@ static void set_gmem_copy_quad( gmem_shadow_t* shadow )
     gmem_copy_texcoord[5] = gmem_copy_texcoord[7] = tex_offset[1];
 
     // copy quad data to vertex buffer
-    kos_memcpy(shadow->quad_vertices.hostptr, gmem_copy_quad, QUAD_LEN << 2);
+    memcpy(shadow->quad_vertices.hostptr, gmem_copy_quad, QUAD_LEN << 2);
 
     // copy tex coord data to tex coord buffer
-    kos_memcpy(shadow->quad_texcoords.hostptr, gmem_copy_texcoord, TEXCOORD_LEN << 2);
+    memcpy(shadow->quad_texcoords.hostptr, gmem_copy_texcoord, TEXCOORD_LEN << 2);
 }
 
 
@@ -1361,7 +1361,7 @@ create_gmem_shadow(gsl_device_t *device, gsl_drawctxt_t *drawctxt, ctx_t *ctx)
     }
     else
     {
-        kos_memset( &drawctxt->context_gmem_shadow.gmemshadow, 0, sizeof( gsl_memdesc_t ) );
+        memset( &drawctxt->context_gmem_shadow.gmemshadow, 0, sizeof( gsl_memdesc_t ) );
     }
 
     // build quad vertex buffer
@@ -1457,7 +1457,7 @@ kgsl_drawctxt_create(gsl_device_t* device, gsl_context_type_t type, unsigned int
 
     drawctxt = &device->drawctxt[index];
 
-    kos_memset( &drawctxt->context_gmem_shadow, 0, sizeof( gmem_shadow_t ) );
+    memset( &drawctxt->context_gmem_shadow, 0, sizeof( gmem_shadow_t ) );
 
 	drawctxt->pid   = GSL_CALLER_PROCESSID_GET();
     drawctxt->flags = CTXT_FLAGS_IN_USE;
@@ -1479,7 +1479,7 @@ kgsl_drawctxt_create(gsl_device_t* device, gsl_context_type_t type, unsigned int
         drawctxt->flags |= ( CTXT_FLAGS_SHADER_SAVE | CTXT_FLAGS_GMEM_SHADOW );
 
         // Clear out user defined GMEM shadow buffer structs
-        kos_memset( drawctxt->user_gmem_shadow, 0, sizeof(gmem_shadow_t)*GSL_MAX_GMEM_SHADOW_BUFFERS );
+        memset( drawctxt->user_gmem_shadow, 0, sizeof(gmem_shadow_t)*GSL_MAX_GMEM_SHADOW_BUFFERS );
 
         // create gmem shadow
         if (create_gmem_shadow(device, drawctxt, &ctx) != GSL_SUCCESS)
@@ -1605,7 +1605,7 @@ KGSL_API int kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned i
 		KOS_ASSERT(buffer_id < GSL_MAX_GMEM_SHADOW_BUFFERS);
 
 		// Set up GMEM shadow regions
-        kos_memcpy( &shadow->gmemshadow, &shadow_buffer->data, sizeof( gsl_memdesc_t ) );
+        memcpy( &shadow->gmemshadow, &shadow_buffer->data, sizeof( gsl_memdesc_t ) );
         shadow->size = shadow->gmemshadow.size;
 
 		shadow->width = shadow_buffer->width;

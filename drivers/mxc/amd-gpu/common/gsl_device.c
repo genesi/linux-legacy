@@ -74,16 +74,16 @@ kgsl_device_init(gsl_device_t *device, gsl_deviceid_t device_id)
         return (GSL_SUCCESS);
     }
 
-    kos_memset(device, 0, sizeof(gsl_device_t));
+    memset(device, 0, sizeof(gsl_device_t));
 
     // if device configuration is present
     if (kgsl_hal_getdevconfig(device_id, &config) == GSL_SUCCESS)
     {
         kgsl_device_getfunctable(device_id, &device->ftbl);
 
-        kos_memcpy(&device->regspace,  &config.regspace,  sizeof(gsl_memregion_t));
+        memcpy(&device->regspace,  &config.regspace,  sizeof(gsl_memregion_t));
 #ifdef GSL_BLD_YAMATO
-        kos_memcpy(&device->gmemspace, &config.gmemspace, sizeof(gsl_memregion_t));
+        memcpy(&device->gmemspace, &config.gmemspace, sizeof(gsl_memregion_t));
 #endif // GSL_BLD_YAMATO
 
         device->refcnt        = 0;
@@ -365,7 +365,7 @@ kgsl_device_getproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void
 
         KOS_ASSERT(sizebytes == sizeof(gsl_shadowprop_t));
 
-        kos_memset(shadowprop, 0, sizeof(gsl_shadowprop_t));
+        memset(shadowprop, 0, sizeof(gsl_shadowprop_t));
 
 #ifdef  GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
         if (device->memstore.hostptr)

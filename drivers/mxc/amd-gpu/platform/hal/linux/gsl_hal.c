@@ -103,7 +103,7 @@ kgsl_hal_init(void)
 	return GSL_FAILURE_OUTOFMEM;
     }
 
-    kos_memset(gsl_driver.hal, 0, sizeof(gsl_hal_t));
+    memset(gsl_driver.hal, 0, sizeof(gsl_hal_t));
 
 
     /* overlay structure on hal memory */
@@ -190,7 +190,7 @@ kgsl_hal_init(void)
     }
 
     if (va) {
-	kos_memset((void *)va, 0, physsize);
+	memset((void *)va, 0, physsize);
 
 	hal->memchunk.mmio_virt_base = (void *)va;
 	hal->memchunk.mmio_phys_base = pa;
@@ -276,7 +276,7 @@ kgsl_hal_close(void)
 	}
 
 	/* release hal struct */
-	kos_memset(hal, 0, sizeof(gsl_hal_t));
+	memset(hal, 0, sizeof(gsl_hal_t));
 	kos_free(gsl_driver.hal);
 	gsl_driver.hal = NULL;
     }
@@ -292,7 +292,7 @@ kgsl_hal_getshmemconfig(gsl_shmemconfig_t *config)
     int        status = GSL_FAILURE_DEVICEERROR;
     gsl_hal_t  *hal   = (gsl_hal_t *) gsl_driver.hal;
 
-    kos_memset(config, 0, sizeof(gsl_shmemconfig_t));
+    memset(config, 0, sizeof(gsl_shmemconfig_t));
 
     if (hal) {
 	config->numapertures = GSL_SHMEM_MAX_APERTURES;
@@ -327,7 +327,7 @@ kgsl_hal_getdevconfig(gsl_deviceid_t device_id, gsl_devconfig_t *config)
     int        status = GSL_FAILURE_DEVICEERROR;
     gsl_hal_t  *hal   = (gsl_hal_t *) gsl_driver.hal;
 
-    kos_memset(config, 0, sizeof(gsl_devconfig_t));
+    memset(config, 0, sizeof(gsl_devconfig_t));
 
     if (hal) {
 	switch (device_id) {

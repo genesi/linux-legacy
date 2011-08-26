@@ -78,7 +78,7 @@ void tbdump_open(char* filename)
 {
     if( !tbdump_mutex ) tbdump_mutex = kos_mutex_create( "TBDUMP_MUTEX" );
 
-    kos_memset( &g_tb, 0, sizeof( g_tb ) );
+    memset( &g_tb, 0, sizeof( g_tb ) );
 
     g_tb.file = kos_fopen( filename, "wt" );
 

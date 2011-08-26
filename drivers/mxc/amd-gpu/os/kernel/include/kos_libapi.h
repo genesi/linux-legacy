@@ -213,45 +213,6 @@ KOS_API void*           kos_shared_realloc(void* ptr, int size);
 
 
 //////////////////////////////////////////////////////////////////////////////
-//  memory API
-//////////////////////////////////////////////////////////////////////////////
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Copies the values of num bytes from the location pointed by src
- *          directly to the memory block pointed by dst.
- *
- *
- * \param   void* dst   Pointer to the destination memory block.
- * \param   void* src   Pointer to the source memory block.
- * \param   void* count Amount of bytes to copy.
- * \return  Returns the dst pointer, NULL if any error.
- *//*-------------------------------------------------------------------*/
-KOS_API void*           kos_memcpy(void* dst, const void* src, int count);
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Fills the destination memory block with the given value.
- *
- *
- * \param   void* dst   Pointer to the destination memory block.
- * \param   int value   Value to be written to each destination address.
- * \param   void* count Number of bytes to be set to the value.
- * \return  Returns the dst pointer, NULL if any error.
- *//*-------------------------------------------------------------------*/
-KOS_API void*           kos_memset(void* dst, int value, int count);
-/*-------------------------------------------------------------------*//*!
- * \external
- * \brief   Compares two memory blocks.
- *
- *
- * \param   void* dst   Pointer to the destination memory block.
- * \param   void* src   Pointer to the source memory block.
- * \param   void* count Number of bytes to compare.
- * \return  Zero if identical, >0 if first nonmatching byte is greater in dst.
- *//*-------------------------------------------------------------------*/
-KOS_API int             kos_memcmp(void* dst, void* src, int count);
-
-
-//////////////////////////////////////////////////////////////////////////////
 //  physical memory API
 //////////////////////////////////////////////////////////////////////////////
 /*-------------------------------------------------------------------*//*!

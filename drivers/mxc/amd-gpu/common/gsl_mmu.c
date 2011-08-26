@@ -99,7 +99,7 @@ const unsigned int GSL_PT_PAGE_AP[4] = {(GSL_PT_PAGE_READ | GSL_PT_PAGE_WRITE), 
 #define GSL_TLBFLUSH_FILTER_GET(superpte)       *((unsigned char *)(((unsigned int)mmu->tlbflushfilter.base) + (superpte / GSL_TLBFLUSH_FILTER_ENTRY_NUMBITS)))
 #define GSL_TLBFLUSH_FILTER_SETDIRTY(superpte)  (GSL_TLBFLUSH_FILTER_GET((superpte)) |= 1 << (superpte % GSL_TLBFLUSH_FILTER_ENTRY_NUMBITS))
 #define GSL_TLBFLUSH_FILTER_ISDIRTY(superpte)   (GSL_TLBFLUSH_FILTER_GET((superpte)) & (1 << (superpte % GSL_TLBFLUSH_FILTER_ENTRY_NUMBITS)))
-#define GSL_TLBFLUSH_FILTER_RESET()             kos_memset(mmu->tlbflushfilter.base, 0, mmu->tlbflushfilter.size)
+#define GSL_TLBFLUSH_FILTER_RESET()             memset(mmu->tlbflushfilter.base, 0, mmu->tlbflushfilter.size)
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -172,7 +172,7 @@ kgsl_mmu_debug(gsl_mmu_t *mmu, gsl_mmu_debug_t *regs)
 {
     unsigned int  devindex = mmu->device->id-1;         // device_id is 1 based
 
-    kos_memset(regs, 0, sizeof(gsl_mmu_debug_t));
+    memset(regs, 0, sizeof(gsl_mmu_debug_t));
 
     mmu->device->ftbl.device_regread(mmu->device, gsl_cfg_mmu_reg[devindex].CONFIG,     &regs->config);
     mmu->device->ftbl.device_regread(mmu->device, gsl_cfg_mmu_reg[devindex].MPU_BASE,   &regs->mpu_base);
@@ -352,7 +352,7 @@ kgsl_mmu_createpagetableobject(gsl_mmu_t *mmu, unsigned int pid)
                 return (NULL);
             }
 
-            kos_memset(mmu->pagetable[pindex], 0, sizeof(gsl_pagetable_t));
+            memset(mmu->pagetable[pindex], 0, sizeof(gsl_pagetable_t));
 
 			mmu->pagetable[pindex]->pid           = pid;
             mmu->pagetable[pindex]->refcnt        = 0;
@@ -1067,11 +1067,11 @@ kgsl_mmu_querystats(gsl_mmu_t *mmu, gsl_mmustats_t *stats)
 
     if (mmu->flags & GSL_FLAGS_STARTED)
     {
-		kos_memcpy(stats, &mmu->stats, sizeof(gsl_mmustats_t));
+		memcpy(stats, &mmu->stats, sizeof(gsl_mmustats_t));
     }
     else
     {
-		kos_memset(stats, 0, sizeof(gsl_mmustats_t));
+		memset(stats, 0, sizeof(gsl_mmustats_t));
     }
 
     GSL_MMU_UNLOCK();

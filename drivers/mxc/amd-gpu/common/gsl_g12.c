@@ -845,7 +845,7 @@ kgsl_g12_context_create(gsl_device_t* device, gsl_context_type_t type, unsigned 
             KOS_ASSERT(status == GSL_SUCCESS);          
             g_z1xx.cmdbuf[i]=kos_malloc(GSL_HAL_CMDBUFFERSIZE);
             KOS_ASSERT(g_z1xx.cmdbuf[i]);
-            kos_memset((void*)g_z1xx.cmdbuf[i], 0, GSL_HAL_CMDBUFFERSIZE);
+            memset((void*)g_z1xx.cmdbuf[i], 0, GSL_HAL_CMDBUFFERSIZE);
                   
             g_z1xx.curr = i;
             g_z1xx.offs = 0;
@@ -926,7 +926,7 @@ kgsl_g12_context_destroy(gsl_device_t* device, unsigned int drawctxt_id)
 #ifdef _Z180
         kgsl_sharedmem_free0(&g_z1xx.e2, GSL_CALLER_PROCESSID_GET());
 #endif
-        kos_memset(&g_z1xx,0,sizeof(gsl_z1xx_t));
+        memset(&g_z1xx,0,sizeof(gsl_z1xx_t));
     }
     return (GSL_SUCCESS);
 }

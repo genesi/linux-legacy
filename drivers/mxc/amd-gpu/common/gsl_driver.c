@@ -56,7 +56,7 @@ kgsl_driver_init0(gsl_flags_t flags, gsl_flags_t flags_debug)
         kgsl_log_start( KGSL_LOG_GROUP_ALL | KGSL_LOG_LEVEL_ALL | KGSL_LOG_TIMESTAMP
                               | KGSL_LOG_THREAD_ID | KGSL_LOG_PROCESS_ID );
 #endif
-        kos_memset(&gsl_driver, 0, sizeof(gsl_driver_t));
+        memset(&gsl_driver, 0, sizeof(gsl_driver_t));
 
         GSL_API_MUTEX_CREATE();
     }
