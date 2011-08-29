@@ -39,7 +39,7 @@ kgsl_yamato_gmeminit(gsl_device_t *device)
     unsigned int    edram_value = 0;
 
     // make sure edram range is aligned to size
-    KOS_ASSERT((device->gmemspace.gpu_base  & (device->gmemspace.sizebytes - 1)) == 0);
+    DEBUG_ASSERT((device->gmemspace.gpu_base  & (device->gmemspace.sizebytes - 1)) == 0);
 
     // get edram_size value equivalent
     gmem_size = (device->gmemspace.sizebytes >> 14);
@@ -86,7 +86,7 @@ kgsl_yamato_rbbmintrcallback(gsl_intrid_t id, void *cookie)
         case GSL_INTR_YDX_RBBM_DISPLAY_UPDATE:
         case GSL_INTR_YDX_RBBM_GUI_IDLE:
 
-            kos_event_signal(device->intr.evnt[id]);
+            complete_all(&device->intr.evnt[id]);
             break;
 
         default:
@@ -159,7 +159,7 @@ kgsl_yamato_bist(gsl_device_t *device)
     // interrupt bist
     link[0] = pm4_type3_packet(PM4_INTERRUPT, 1);
     link[1] = CP_INT_CNTL__RB_INT_MASK;
-	kgsl_ringbuffer_issuecmds(device, 1, &link[0], 2, GSL_CALLER_PROCESSID_GET());
+	kgsl_ringbuffer_issuecmds(device, 1, &link[0], 2, current->tgid);
 
     status = kgsl_mmu_bist(&device->mmu);
     if (status != GSL_SUCCESS)
@@ -401,7 +401,7 @@ kgsl_yamato_destroy(gsl_device_t *device)
 
 #ifdef _DEBUG
     // for now, signal catastrophic failure in a brute force way
-    KOS_ASSERT(0);
+    DEBUG_ASSERT(0);
 #endif // _DEBUG
 
     // todo: - hard reset core?
@@ -498,7 +498,7 @@ kgsl_yamato_stop(gsl_device_t *device)
 	unsigned int cmds[2];
     cmds[0] = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
     cmds[0] = 0;
-	kgsl_ringbuffer_issuecmds(device, 0, cmds, 2, GSL_CALLER_PROCESSID_GET());
+	kgsl_ringbuffer_issuecmds(device, 0, cmds, 2, current->tgid);
 
     // disable rbbm interrupts
     kgsl_intr_detach(&device->intr, GSL_INTR_YDX_RBBM_READ_ERROR);
@@ -545,7 +545,7 @@ kgsl_yamato_getproperty(gsl_device_t *device, gsl_property_type_t type, void *va
     {
         gsl_devinfo_t  *devinfo = (gsl_devinfo_t *) value;
 
-        KOS_ASSERT(sizebytes == sizeof(gsl_devinfo_t));
+        DEBUG_ASSERT(sizebytes == sizeof(gsl_devinfo_t));
 
         devinfo->device_id         = device->id;
         devinfo->chip_id           = (gsl_chipid_t)device->chip_id;
@@ -576,7 +576,7 @@ kgsl_yamato_setproperty(gsl_device_t *device, gsl_property_type_t type, void *va
     {
         gsl_powerprop_t  *power = (gsl_powerprop_t *) value;
 
-        KOS_ASSERT(sizebytes == sizeof(gsl_powerprop_t));
+        DEBUG_ASSERT(sizebytes == sizeof(gsl_powerprop_t));
 
         if (!(device->flags & GSL_FLAGS_SAFEMODE))
         {
@@ -602,7 +602,7 @@ kgsl_yamato_setproperty(gsl_device_t *device, gsl_property_type_t type, void *va
     {
         gsl_dmiprop_t  *dmi = (gsl_dmiprop_t *) value;
 
-        KOS_ASSERT(sizebytes == sizeof(gsl_dmiprop_t));
+        DEBUG_ASSERT(sizebytes == sizeof(gsl_dmiprop_t));
 
         //
         //  In order to enable DMI, it must not already be enabled.
@@ -716,7 +716,7 @@ kgsl_yamato_setproperty(gsl_device_t *device, gsl_property_type_t type, void *va
                     }
                     
                     // issue the commands
-                    kgsl_ringbuffer_issuecmds(device, 1, &cmdbuf[0], size, GSL_CALLER_PROCESSID_GET());
+                    kgsl_ringbuffer_issuecmds(device, 1, &cmdbuf[0], size, current->tgid);
 
                     gsl_driver.dmi_frame %= gsl_driver.dmi_max_frame;
                     status = GSL_SUCCESS;
@@ -744,8 +744,6 @@ kgsl_yamato_idle(gsl_device_t *device, unsigned int timeout)
 
     KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, KGSL_DEBUG_DUMPX(BB_DUMP_REGPOLL, device->id, mmRBBM_STATUS, 0x80000000, "kgsl_yamato_idle"));
 
-    GSL_RB_MUTEX_LOCK();
-
     // first, wait until the CP has consumed all the commands in the ring buffer
     if (rb->flags & GSL_FLAGS_STARTED)
     {
@@ -768,8 +766,6 @@ kgsl_yamato_idle(gsl_device_t *device, unsigned int timeout)
         }
 
     }
-	
-    GSL_RB_MUTEX_UNLOCK();
 
     return (status);
 }
@@ -827,7 +823,14 @@ kgsl_yamato_waitirq(gsl_device_t *device, gsl_intrid_t intr_id, unsigned int *co
         if (kgsl_intr_isenabled(&device->intr, intr_id) == GSL_SUCCESS)
         {
             // wait until intr completion event is received
-            if (kos_event_wait(device->intr.evnt[intr_id], timeout) == OS_SUCCESS)
+	    int complete = OS_SUCCESS;
+
+	    if (timeout != OS_INFINITE)
+		complete = wait_for_completion_timeout(&device->intr.evnt[intr_id], msecs_to_jiffies(timeout));
+	    else
+		wait_for_completion_killable(&device->intr.evnt[intr_id]);
+
+            if (complete == OS_SUCCESS)
             {
                 *count = 1;
                 status = GSL_SUCCESS;

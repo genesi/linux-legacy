@@ -29,6 +29,7 @@
 #ifndef __GSL_INTRMGR_H
 #define __GSL_INTRMGR_H
 
+#include <linux/sched.h>
 
 //////////////////////////////////////////////////////////////////////////////
 //  types
@@ -85,7 +86,7 @@ typedef struct _gsl_intr_t
     gsl_device_t        *device;
     unsigned int        enabled[GSL_INTR_BLOCK_COUNT];
     gsl_intr_handler_t  handler[GSL_INTR_COUNT];
-    oshandle_t          evnt[GSL_INTR_COUNT];
+    struct completion   evnt[GSL_INTR_COUNT];
 } gsl_intr_t;
 
 

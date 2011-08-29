@@ -35,106 +35,67 @@ extern "C" {
 
 #include "gsl_types.h"
 
-//////////////////////////////////////////////////////////////////////////////
-//  entrypoints
-//////////////////////////////////////////////////////////////////////////////
-#ifdef __GSLLIB_EXPORTS
-#define GSL_API                 OS_DLLEXPORT
-#else
-#define GSL_API                 OS_DLLIMPORT
-#endif // __GSLLIB_EXPORTS
-
-
-//////////////////////////////////////////////////////////////////////////////
-//  defines                    
-//////////////////////////////////////////////////////////////////////////////
+//  defines
 #define GSLLIB_NAME            "AMD GSL User Library"
 #define GSLLIB_VERSION         "0.1"
 
 
-//////////////////////////////////////////////////////////////////////////////
 //  libary API
-//////////////////////////////////////////////////////////////////////////////
-GSL_API int                     gsl_library_open(gsl_flags_t flags);
-GSL_API int                     gsl_library_close(void);
+int                     gsl_library_open(gsl_flags_t flags);
+int                     gsl_library_close(void);
 
 
-////////////////////////////////////////////////////////////////////////////
 //  device API
-////////////////////////////////////////////////////////////////////////////
-GSL_API gsl_devhandle_t         gsl_device_open(gsl_deviceid_t device_id, gsl_flags_t flags);
-GSL_API int                     gsl_device_close(gsl_devhandle_t devhandle);
-GSL_API int                     gsl_device_idle(gsl_devhandle_t devhandle, unsigned int timeout);
-GSL_API int                     gsl_device_isidle(gsl_devhandle_t devhandle);
-GSL_API int                     gsl_device_getcount(void);
-GSL_API int                     gsl_device_getinfo(gsl_devhandle_t devhandle, gsl_devinfo_t *devinfo);
-GSL_API int                     gsl_device_setpowerstate(gsl_devhandle_t devhandle, gsl_flags_t flags);
-GSL_API int                     gsl_device_setdmistate(gsl_devhandle_t devhandle,  gsl_flags_t flags);
-GSL_API int                     gsl_device_waitirq(gsl_devhandle_t devhandle, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout);
-GSL_API int                     gsl_device_waittimestamp(gsl_devhandle_t devhandle, gsl_timestamp_t timestamp, unsigned int timeout);
-GSL_API int                     gsl_device_addtimestamp(gsl_devhandle_t devhandle, gsl_timestamp_t *timestamp);
+gsl_devhandle_t         gsl_device_open(gsl_deviceid_t device_id, gsl_flags_t flags);
+int                     gsl_device_close(gsl_devhandle_t devhandle);
+int                     gsl_device_idle(gsl_devhandle_t devhandle, unsigned int timeout);
+int                     gsl_device_isidle(gsl_devhandle_t devhandle);
+int                     gsl_device_getcount(void);
+int                     gsl_device_getinfo(gsl_devhandle_t devhandle, gsl_devinfo_t *devinfo);
+int                     gsl_device_setpowerstate(gsl_devhandle_t devhandle, gsl_flags_t flags);
+int                     gsl_device_setdmistate(gsl_devhandle_t devhandle,  gsl_flags_t flags);
+int                     gsl_device_waitirq(gsl_devhandle_t devhandle, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout);
+int                     gsl_device_waittimestamp(gsl_devhandle_t devhandle, gsl_timestamp_t timestamp, unsigned int timeout);
+int                     gsl_device_addtimestamp(gsl_devhandle_t devhandle, gsl_timestamp_t *timestamp);
 
-//////////////////////////////////////////////////////////////////////////////
 //  direct register API
-//////////////////////////////////////////////////////////////////////////////
-GSL_API int                     gsl_register_read(gsl_devhandle_t devhandle, unsigned int offsetwords, unsigned int *data);
+int                     gsl_register_read(gsl_devhandle_t devhandle, unsigned int offsetwords, unsigned int *data);
 
 
-//////////////////////////////////////////////////////////////////////////////
 //  command API
-//////////////////////////////////////////////////////////////////////////////
-GSL_API int                     gsl_cp_issueibcommands(gsl_devhandle_t devhandle, gsl_ctxthandle_t ctxthandle, gpuaddr_t ibaddr, unsigned int sizewords, gsl_timestamp_t *timestamp, gsl_flags_t flags);
-GSL_API gsl_timestamp_t         gsl_cp_readtimestamp(gsl_devhandle_t devhandle, gsl_timestamp_type_t type);
-GSL_API int                     gsl_cp_checktimestamp(gsl_devhandle_t devhandle, gsl_timestamp_t timestamp, gsl_timestamp_type_t type);
-GSL_API int                     gsl_cp_freememontimestamp(gsl_devhandle_t devhandle, gsl_memdesc_t *memdesc, gsl_timestamp_t timestamp, gsl_timestamp_type_t type);
-GSL_API int                     gsl_v3_issuecommand(gsl_devhandle_t devhandle, gsl_cmdwindow_t target, unsigned int addr, unsigned int data);
+int                     gsl_cp_issueibcommands(gsl_devhandle_t devhandle, gsl_ctxthandle_t ctxthandle, gpuaddr_t ibaddr, unsigned int sizewords, gsl_timestamp_t *timestamp, gsl_flags_t flags);
+gsl_timestamp_t         gsl_cp_readtimestamp(gsl_devhandle_t devhandle, gsl_timestamp_type_t type);
+int                     gsl_cp_checktimestamp(gsl_devhandle_t devhandle, gsl_timestamp_t timestamp, gsl_timestamp_type_t type);
+int                     gsl_cp_freememontimestamp(gsl_devhandle_t devhandle, gsl_memdesc_t *memdesc, gsl_timestamp_t timestamp, gsl_timestamp_type_t type);
+int                     gsl_v3_issuecommand(gsl_devhandle_t devhandle, gsl_cmdwindow_t target, unsigned int addr, unsigned int data);
 
-
-//////////////////////////////////////////////////////////////////////////////
 //  context API
-//////////////////////////////////////////////////////////////////////////////
-GSL_API gsl_ctxthandle_t        gsl_context_create(gsl_devhandle_t devhandle, gsl_context_type_t type, gsl_flags_t flags);
-GSL_API int                     gsl_context_destroy(gsl_devhandle_t devhandle, gsl_ctxthandle_t ctxthandle);
-GSL_API int                     gsl_context_bind_gmem_shadow(gsl_devhandle_t devhandle, gsl_ctxthandle_t ctxthandle, const gsl_rect_t* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const gsl_buffer_desc_t* shadow_buffer, unsigned int buffer_id);
+gsl_ctxthandle_t        gsl_context_create(gsl_devhandle_t devhandle, gsl_context_type_t type, gsl_flags_t flags);
+int                     gsl_context_destroy(gsl_devhandle_t devhandle, gsl_ctxthandle_t ctxthandle);
+int                     gsl_context_bind_gmem_shadow(gsl_devhandle_t devhandle, gsl_ctxthandle_t ctxthandle, const gsl_rect_t* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const gsl_buffer_desc_t* shadow_buffer, unsigned int buffer_id);
 
 
-
-//////////////////////////////////////////////////////////////////////////////
 //  sharedmem API
-//////////////////////////////////////////////////////////////////////////////
-GSL_API int                     gsl_memory_alloc(gsl_deviceid_t device_id, unsigned int sizebytes, gsl_flags_t flags, gsl_memdesc_t *memdesc);
-GSL_API int                     gsl_memory_free(gsl_memdesc_t *memdesc);
-GSL_API int                     gsl_memory_read(const gsl_memdesc_t *memdesc, void *dst, unsigned int sizebytes, unsigned int offsetbytes);
-GSL_API int                     gsl_memory_write(const gsl_memdesc_t *memdesc, void *src, unsigned int sizebytes, unsigned int offsetbytes);
-GSL_API int                     gsl_memory_write_multiple(const gsl_memdesc_t *memdesc, void *src, unsigned int srcstridebytes, unsigned int dststridebytes, unsigned int blocksizebytes, unsigned int numblocks, unsigned int offsetbytes);
-GSL_API unsigned int            gsl_memory_getlargestfreeblock(gsl_deviceid_t device_id, gsl_flags_t flags);
-GSL_API int                     gsl_memory_set(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes);
-GSL_API int                     gsl_memory_cacheoperation(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsigned int sizebytes, unsigned int operation);
-GSL_API int                     gsl_memory_fromhostpointer(gsl_deviceid_t device_id, gsl_memdesc_t *memdesc, void* hostptr);
+int                     gsl_memory_alloc(gsl_deviceid_t device_id, unsigned int sizebytes, gsl_flags_t flags, gsl_memdesc_t *memdesc);
+int                     gsl_memory_free(gsl_memdesc_t *memdesc);
+int                     gsl_memory_read(const gsl_memdesc_t *memdesc, void *dst, unsigned int sizebytes, unsigned int offsetbytes);
+int                     gsl_memory_write(const gsl_memdesc_t *memdesc, void *src, unsigned int sizebytes, unsigned int offsetbytes);
+int                     gsl_memory_write_multiple(const gsl_memdesc_t *memdesc, void *src, unsigned int srcstridebytes, unsigned int dststridebytes, unsigned int blocksizebytes, unsigned int numblocks, unsigned int offsetbytes);
+unsigned int            gsl_memory_getlargestfreeblock(gsl_deviceid_t device_id, gsl_flags_t flags);
+int                     gsl_memory_set(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes);
+int                     gsl_memory_cacheoperation(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsigned int sizebytes, unsigned int operation);
+int                     gsl_memory_fromhostpointer(gsl_deviceid_t device_id, gsl_memdesc_t *memdesc, void* hostptr);
 
 #ifdef _DIRECT_MAPPED
-GSL_API unsigned int            gsl_sharedmem_gethostaddr(const gsl_memdesc_t *memdesc);
+unsigned int            gsl_sharedmem_gethostaddr(const gsl_memdesc_t *memdesc);
 #endif // _DIRECT_MAPPED
 
-//////////////////////////////////////////////////////////////////////////////
 //  address translation API
-//////////////////////////////////////////////////////////////////////////////
-GSL_API int                     gsl_translate_physaddr(void* virtAddr, unsigned int* physAddr);
+int                     gsl_translate_physaddr(void* virtAddr, unsigned int* physAddr);
 
-
-//////////////////////////////////////////////////////////////////////////////
 //  TB dump API
-//////////////////////////////////////////////////////////////////////////////
-GSL_API int                     gsl_tbdump_waitirq();
-GSL_API int                     gsl_tbdump_exportbmp(const void* addr, unsigned int format, unsigned int stride, unsigned int width, unsigned int height);
-
-//////////////////////////////////////////////////////////////////////////////
-//  OS specific APIs - need to go into their own gsl_libapi_platform.h file
-//////////////////////////////////////////////////////////////////////////////
-#ifdef WM7
-GSL_API int                     gsl_kos_wm7_surfobjfromhbitmap(HBITMAP hbitmap, SURFOBJ *surfobj);
-#endif // WM7
-
+int                     gsl_tbdump_waitirq();
+int                     gsl_tbdump_exportbmp(const void* addr, unsigned int format, unsigned int stride, unsigned int width, unsigned int height);
 
 #ifdef __cplusplus
 }

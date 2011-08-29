@@ -29,42 +29,20 @@
 #ifndef __GSL_DRIVER_H
 #define __GSL_DRIVER_H
 
-
-/////////////////////////////////////////////////////////////////////////////
-// macros
-//////////////////////////////////////////////////////////////////////////////
-#ifdef GSL_DEDICATED_PROCESS
-#define GSL_CALLER_PROCESSID_GET()      kos_callerprocess_getid()
-#else
-#define GSL_CALLER_PROCESSID_GET()      kos_process_getid()
-#endif // GSL_DEDICATED_PROCESS
-
-#ifdef GSL_LOCKING_COARSEGRAIN
-#define GSL_API_MUTEX_CREATE()          gsl_driver.mutex = kos_mutex_create("gsl_global"); \
-                                        if (!gsl_driver.mutex) {return (GSL_FAILURE);}
-#define GSL_API_MUTEX_LOCK()            kos_mutex_lock(gsl_driver.mutex)
-#define GSL_API_MUTEX_UNLOCK()          kos_mutex_unlock(gsl_driver.mutex)
-#define GSL_API_MUTEX_FREE()            kos_mutex_free(gsl_driver.mutex); gsl_driver.mutex = 0;
-#else
-#define GSL_API_MUTEX_CREATE()
-#define GSL_API_MUTEX_LOCK()        
-#define GSL_API_MUTEX_UNLOCK()      
-#define GSL_API_MUTEX_FREE()
-#endif
-
+#include <linux/mutex.h>
 
 //////////////////////////////////////////////////////////////////////////////
 // types
 //////////////////////////////////////////////////////////////////////////////
 
 // -------------
-// driver object 
+// driver object
 // -------------
 typedef struct _gsl_driver_t {
     gsl_flags_t      flags_debug;
     int              refcnt;
     unsigned int     callerprocess[GSL_CALLER_PROCESS_MAX]; // caller process table
-    oshandle_t       mutex;                                 // global API mutex
+    struct mutex     lock;                                 // global API mutex
     void             *hal;
     gsl_sharedmem_t  shmem;
     gsl_device_t     device[GSL_DEVICE_MAX];
@@ -85,7 +63,7 @@ extern gsl_driver_t  gsl_driver;
 //////////////////////////////////////////////////////////////////////////////
 //  inline functions
 //////////////////////////////////////////////////////////////////////////////
-OSINLINE int
+static __inline int
 kgsl_driver_getcallerprocessindex(unsigned int pid, int *index)
 {
     int  i;
@@ -95,7 +73,7 @@ kgsl_driver_getcallerprocessindex(unsigned int pid, int *index)
     {
         if (gsl_driver.callerprocess[i] == pid)
         {
-            *index = i;            
+            *index = i;
             return (GSL_SUCCESS);
         }
     }

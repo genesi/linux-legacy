@@ -20,7 +20,6 @@
 
 #include "gsl.h"
 #include "gsl_tbdump.h"
-#include "kos_libapi.h"
 
 #ifdef TBDUMP
 
@@ -31,9 +30,7 @@ typedef struct TBDump_
 
 
 static TBDump g_tb;
-static oshandle_t tbdump_mutex = 0;
-#define TBDUMP_MUTEX_LOCK() if( tbdump_mutex ) kos_mutex_lock( tbdump_mutex )
-#define TBDUMP_MUTEX_UNLOCK() if( tbdump_mutex ) kos_mutex_unlock( tbdump_mutex )
+static struct mutex *tbdump_mutex = NULL;
 
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */
@@ -74,7 +71,11 @@ static void tbdump_getmemhex(char* buffer, unsigned int addr, unsigned int sizew
 
 void tbdump_open(char* filename)
 {
-    if( !tbdump_mutex ) tbdump_mutex = kos_mutex_create( "TBDUMP_MUTEX" );
+    if( !tbdump_mutex ) {
+	tbdump_mutex = (struct mutex *) kmalloc(sizeof(struct mutex), GFP_KERNEL);
+	if (tbdump_mutex)
+		mutex_init(tbdump_mutex);
+    }
 
     memset( &g_tb, 0, sizeof( g_tb ) );
 
@@ -90,14 +91,16 @@ void tbdump_open(char* filename)
 
 void tbdump_close()
 {
-    TBDUMP_MUTEX_LOCK();
+    if (tbdump_mutex)
+	mutex_lock(tbdump_mutex);
 
     kos_fclose( g_tb.file );
     g_tb.file = 0;
 
-    TBDUMP_MUTEX_UNLOCK();
-
-    if( tbdump_mutex ) kos_mutex_free( tbdump_mutex );
+    if( tbdump_mutex ) {
+	mutex_unlock(tbdump_mutex);
+	kfree( tbdump_mutex );
+    }
 }
 
 /* ------------------------------------------------------------------------ */
@@ -109,7 +112,8 @@ void tbdump_syncmem(unsigned int addr, unsigned int src, unsigned int sizebytes)
     unsigned int end = addr+sizebytes;
     char buffer[65];
 
-    TBDUMP_MUTEX_LOCK();
+    if (tbdump_mutex)
+	mutex_lock(tbdump_mutex);
 
     beg = (beg+15) & ~15;
     end &= ~15;
@@ -120,7 +124,8 @@ void tbdump_syncmem(unsigned int addr, unsigned int src, unsigned int sizebytes)
 
         tbdump_printline("19 %08x %i 1 %s", addr, sizebytes, buffer);
 
-        TBDUMP_MUTEX_UNLOCK();
+	    if (tbdump_mutex)
+		mutex_unlock(tbdump_mutex);
         return;
     }
 
@@ -153,40 +158,46 @@ void tbdump_syncmem(unsigned int addr, unsigned int src, unsigned int sizebytes)
         tbdump_printline("19 %08x %i 1 %s", end, (addr+sizebytes)-end, buffer);
     }
 
-    TBDUMP_MUTEX_UNLOCK();
+    if (tbdump_mutex)
+	mutex_unlock(tbdump_mutex);
 }
 
 /* ------------------------------------------------------------------------ */
 
 void tbdump_setmem(unsigned int addr, unsigned int value, unsigned int sizebytes)
 {
-    TBDUMP_MUTEX_LOCK();
+    if (tbdump_mutex)
+	mutex_lock(tbdump_mutex);
 
     tbdump_printline("19 %08x 4 %i %032x", addr, (sizebytes+3)/4, value );
 
-    TBDUMP_MUTEX_UNLOCK();
+    if (tbdump_mutex)
+	mutex_unlock(tbdump_mutex);
 }
 
 /* ------------------------------------------------------------------------ */
 
 void tbdump_slavewrite(unsigned int addr, unsigned int value)
 {
-    TBDUMP_MUTEX_LOCK();
+    if (tbdump_mutex)
+	mutex_lock(tbdump_mutex);
 
     tbdump_printline("1 %08x %08x", addr, value);
 
-    TBDUMP_MUTEX_UNLOCK();
+    if (tbdump_mutex)
+	mutex_unlock(tbdump_mutex);
 }
 
 /* ------------------------------------------------------------------------ */
 
 
-KGSL_API int
+int
 kgsl_tbdump_waitirq()
 {
     if(!g_tb.file) return GSL_FAILURE;
 
-    TBDUMP_MUTEX_LOCK();
+    if (tbdump_mutex)
+	mutex_lock(tbdump_mutex);
 
     tbdump_printinfo("wait irq");
     tbdump_printline("10");
@@ -195,14 +206,15 @@ kgsl_tbdump_waitirq()
     tbdump_printline("1 00000418 00000003");
     tbdump_printline("18 00000018 00000000 # slave read & assert");
 
-    TBDUMP_MUTEX_UNLOCK();
+    if (tbdump_mutex)
+	mutex_unlock(tbdump_mutex);
 
     return GSL_SUCCESS;
 }
 
 /* ------------------------------------------------------------------------ */
 
-KGSL_API int
+int
 kgsl_tbdump_exportbmp(const void* addr, unsigned int format, unsigned int stride, unsigned int width, unsigned int height)
 {
     static char filename[20];
@@ -210,13 +222,16 @@ kgsl_tbdump_exportbmp(const void* addr, unsigned int format, unsigned int stride
 
     if(!g_tb.file) return GSL_FAILURE;
 
-    TBDUMP_MUTEX_LOCK();
+    if (tbdump_mutex)
+	mutex_lock(tbdump_mutex);
+
     #pragma warning(disable:4996)
     sprintf( filename, "tbdump_%08d.bmp", numframe++ );
 
     tbdump_printline("13 %s %d %08x %d %d %d 0", filename, format, (unsigned int)addr, stride, width, height);
 
-    TBDUMP_MUTEX_UNLOCK();
+    if (tbdump_mutex)
+	mutex_unlock(tbdump_mutex);
 
     return GSL_SUCCESS;
 }

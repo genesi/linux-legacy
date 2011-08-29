@@ -3,10 +3,7 @@ EXTRA_CFLAGS := \
 	-I$(obj)/include \
 	-I$(obj)/include/api \
 	-I$(obj)/include/ucode \
-	-I$(obj)/platform/hal/linux \
-	-I$(obj)/os/include \
-	-I$(obj)/os/kernel/include \
-	-I$(obj)/os/user/include
+	-I$(obj)/platform/hal/linux
 
 obj-$(CONFIG_MXC_AMD_GPU) += gpu.o
 gpu-objs += 	common/gsl_cmdstream.o \
@@ -28,7 +25,6 @@ gpu-objs += 	common/gsl_cmdstream.o \
 		platform/hal/linux/gsl_hal.o \
 		platform/hal/linux/gsl_kmod_cleanup.o \
 		platform/hal/linux/misc.o \
-		os/kernel/src/linux/kos_lib.o
 
 
 ifdef CONFIG_MXC_AMD_GPU_LOGGING

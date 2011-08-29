@@ -46,9 +46,6 @@
 
 
 // macros
-#define GSL_MEMARENA_LOCK()                 kos_mutex_lock(memarena->mutex)
-#define GSL_MEMARENA_UNLOCK()               kos_mutex_unlock(memarena->mutex)
-
 #define GSL_MEMARENA_SET_SIGNATURE          (memarena->priv |= ((GSL_MEMARENA_INSTANCE_SIGNATURE << GSL_MEMARENAPRIV_SIGNATURE_SHIFT) & GSL_MEMARENAPRIV_SIGNATURE_MASK))
 #define GSL_MEMARENA_SET_MMU_VIRTUALIZED    (memarena->priv |= ((mmu_virtualized << GSL_MEMARENAPRIV_MMUVIRTUALIZED_SHIFT) & GSL_MEMARENAPRIV_MMUVIRTUALIZED_MASK))
 #define GSL_MEMARENA_SET_ID                 (memarena->priv |= ((aperture_id << GSL_MEMARENAPRIV_APERTUREID_SHIFT) & GSL_MEMARENAPRIV_APERTUREID_MASK))
@@ -61,7 +58,7 @@
 
 //  validate
 #define GSL_MEMARENA_VALIDATE(memarena)                                 \
-    KOS_ASSERT(memarena);                                               \
+    DEBUG_ASSERT(memarena);                                               \
     if (GSL_MEMARENA_GET_SIGNATURE != GSL_MEMARENA_INSTANCE_SIGNATURE)  \
     {                                                                   \
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR,   \
@@ -72,7 +69,7 @@
 // " neko
 
 //  block alignment shift count
-OSINLINE unsigned int
+static __inline unsigned int
 gsl_memarena_alignmentshift(gsl_flags_t flags)
 {
     int alignshift = ((flags & GSL_MEMFLAGS_ALIGN_MASK) >> GSL_MEMFLAGS_ALIGN_SHIFT);
@@ -82,7 +79,7 @@ gsl_memarena_alignmentshift(gsl_flags_t flags)
 }
 
 //  address alignment
-OSINLINE unsigned int
+static __inline unsigned int
 gsl_memarena_alignaddr(unsigned int address, int shift)
 {
     //
@@ -100,7 +97,7 @@ gsl_memarena_alignaddr(unsigned int address, int shift)
 
 //                         memory management API
 #ifdef GSL_MEMARENA_NODE_POOL_ENABLED
-OSINLINE memblk_t*
+static __inline memblk_t*
 kgsl_memarena_getmemblknode_pool(gsl_memarena_t *memarena)
 {
     gsl_nodepool_t  *nodepool    = memarena->nodepool;
@@ -183,13 +180,13 @@ kgsl_memarena_getmemblknode_pool(gsl_memarena_t *memarena)
         }
     }
 
-    KOS_ASSERT(memblk);
+    DEBUG_ASSERT(memblk);
 
     return (memblk);
 }
 #endif
 
-OSINLINE memblk_t*
+static __inline memblk_t*
 kgsl_memarena_getmemblknode(gsl_memarena_t *memarena)
 {
 #ifdef GSL_MEMARENA_NODE_POOL_ENABLED
@@ -205,21 +202,21 @@ kgsl_memarena_getmemblknode(gsl_memarena_t *memarena)
 //----------------------------------------------------------------------------
 
 #ifdef GSL_MEMARENA_NODE_POOL_ENABLED
-OSINLINE void
+static __inline void
 kgsl_memarena_releasememblknode_pool(gsl_memarena_t *memarena, memblk_t *memblk)
 {
     gsl_nodepool_t *nodepool = memarena->nodepool;
 
-    KOS_ASSERT(memblk);
-    KOS_ASSERT(nodepool);
+    DEBUG_ASSERT(memblk);
+    DEBUG_ASSERT(nodepool);
 
     // locate pool to which this memblk node belongs
-    while (((unsigned int) memblk) < ((unsigned int) nodepool) || 
+    while (((unsigned int) memblk) < ((unsigned int) nodepool) ||
            ((unsigned int) memblk) > ((unsigned int) nodepool) + sizeof(gsl_nodepool_t))
     {
         nodepool = nodepool->prev;
 
-        KOS_ASSERT(nodepool != memarena->nodepool);
+        DEBUG_ASSERT(nodepool != memarena->nodepool);
     }
 
     // mark memblk node as unused
@@ -254,7 +251,7 @@ kgsl_memarena_releasememblknode_pool(gsl_memarena_t *memarena, memblk_t *memblk)
 }
 #endif
 
-OSINLINE void
+static __inline void
 kgsl_memarena_releasememblknode(gsl_memarena_t *memarena, memblk_t *memblk)
 {
 #ifdef GSL_MEMARENA_NODE_POOL_ENABLED
@@ -273,8 +270,6 @@ gsl_memarena_t*
 kgsl_memarena_create(int aperture_id, int mmu_virtualized, unsigned int hostbaseaddr, gpuaddr_t gpubaseaddr, int sizebytes)
 {
     static int      count = 0;
-    char            name[100], id_str[2];
-    int             len;
     gsl_memarena_t  *memarena;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
@@ -282,7 +277,7 @@ kgsl_memarena_create(int aperture_id, int mmu_virtualized, unsigned int hostbase
 
     memarena = (gsl_memarena_t *)kmalloc(sizeof(gsl_memarena_t), GFP_KERNEL);
 
-    if (!memarena) 
+    if (!memarena)
     {
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR,
                         "ERROR: Memarena allocation failed.\n" );
@@ -296,14 +291,7 @@ kgsl_memarena_create(int aperture_id, int mmu_virtualized, unsigned int hostbase
     GSL_MEMARENA_SET_MMU_VIRTUALIZED;
     GSL_MEMARENA_SET_ID;
 
-    // define unique mutex for each memory arena instance
-    id_str[0] = (char) (count + '0');
-    id_str[1] = '\0';
-    strcpy(name, "GSL_memory_arena_");
-    len = strlen(name);
-    strcpy(&name[len], id_str);
-
-    memarena->mutex = kos_mutex_create(name);
+    mutex_init(&memarena->lock);
 
     // set up the memory arena
     memarena->hostbaseaddr = hostbaseaddr;
@@ -332,6 +320,7 @@ int
 kgsl_memarena_destroy(gsl_memarena_t *memarena)
 {
     int       status = GSL_SUCCESS;
+    int	      err;
     memblk_t  *p, *next;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
@@ -339,7 +328,11 @@ kgsl_memarena_destroy(gsl_memarena_t *memarena)
 
     GSL_MEMARENA_VALIDATE(memarena);
 
-    GSL_MEMARENA_LOCK();
+    err = mutex_lock_interruptible(&memarena->lock);
+    if (err == -EINTR) {
+	kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_FATAL,
+			"WARNING: memarena mutex lock was interrupted\n");
+    }
 
 #ifdef _DEBUG
     // memory leak check
@@ -363,12 +356,7 @@ kgsl_memarena_destroy(gsl_memarena_t *memarena)
         p = next;
     } while (p != memarena->freelist.head);
 
-    GSL_MEMARENA_UNLOCK();
-
-    if (memarena->mutex)
-    {
-        kos_mutex_free(memarena->mutex);
-    }
+    mutex_unlock(&memarena->lock);
 
     kfree((void *)memarena);
 
@@ -403,11 +391,11 @@ kgsl_memarena_checkconsistency(gsl_memarena_t *memarena)
     {
         if (p->next->blkaddr != memarena->freelist.head->blkaddr)
         {
-            if (p->prev->next->blkaddr  != p->blkaddr || 
+            if (p->prev->next->blkaddr  != p->blkaddr ||
                 p->next->prev->blkaddr  != p->blkaddr ||
                 p->blkaddr + p->blksize >= p->next->blkaddr)
             {
-                KOS_ASSERT(0);
+                DEBUG_ASSERT(0);
                 kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_memarena_checkconsistency. Return value: %B\n", GSL_FAILURE );
                 return (GSL_FAILURE);
             }
@@ -427,7 +415,7 @@ int
 kgsl_memarena_querystats(gsl_memarena_t *memarena, gsl_memarena_stats_t *stats)
 {
 #ifdef GSL_STATS_MEM
-    KOS_ASSERT(stats);
+    DEBUG_ASSERT(stats);
     GSL_MEMARENA_VALIDATE(memarena);
 
     memcpy(stats, &memarena->stats, sizeof(gsl_memarena_stats_t));
@@ -448,6 +436,7 @@ int
 kgsl_memarena_checkfreeblock(gsl_memarena_t *memarena, int bytesneeded)
 {
     memblk_t  *p;
+    int err;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_memarena_checkfreeblock(gsl_memarena_t *memarena=0x%08x, int bytesneeded=%d)\n", memarena, bytesneeded );
@@ -457,12 +446,16 @@ kgsl_memarena_checkfreeblock(gsl_memarena_t *memarena, int bytesneeded)
     if (bytesneeded < 1)
     {
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: Illegal number of bytes needed.\n" );
-        KOS_ASSERT(0);
+        DEBUG_ASSERT(0);
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_memarena_checkfreeblock. Return value: %B\n", GSL_FAILURE );
         return (GSL_FAILURE);
     }
 
-    GSL_MEMARENA_LOCK();
+    err = mutex_lock_interruptible(&memarena->lock);
+    if (err == -EINTR) {
+	kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_FATAL,
+			"WARNING: memarena mutex lock was interrupted\n");
+    }
 
     p = memarena->freelist.head;
     do
@@ -476,7 +469,7 @@ kgsl_memarena_checkfreeblock(gsl_memarena_t *memarena, int bytesneeded)
         p = p->next;
     } while (p != memarena->freelist.head);
 
-    GSL_MEMARENA_UNLOCK();
+    mutex_unlock(&memarena->lock);
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_memarena_checkfreeblock. Return value: %B\n", GSL_FAILURE );
 
@@ -493,6 +486,7 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, gsl_m
     unsigned int  blksize;
     unsigned int  baseaddr, alignedbaseaddr, alignfragment;
     int           freeblk, alignmentshift;
+    int		  err;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_memarena_alloc(gsl_memarena_t *memarena=0x%08x, gsl_flags_t flags=0x%08x, int size=%d, gsl_memdesc_t *memdesc=%M)\n", memarena, flags, size, memdesc );
@@ -502,7 +496,7 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, gsl_m
     if (size <= 0)
     {
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: Invalid size for memory allocation.\n" );
-        KOS_ASSERT(0);
+        DEBUG_ASSERT(0);
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_memarena_alloc. Return value: %B\n", GSL_FAILURE );
         return (GSL_FAILURE);
     }
@@ -517,14 +511,14 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, gsl_m
     // by blksize and return the address after allocating the memory.  if the free block size becomes
     // 0 then remove this node from the free list
     //
-    // there would be no node on the free list if all available memory were to be allocated.  
-    // handling an empty list would require executing error checking code in the main branch which 
-    // is not desired.  instead, the free list will have at least one node at all times. This node 
+    // there would be no node on the free list if all available memory were to be allocated.
+    // handling an empty list would require executing error checking code in the main branch which
+    // is not desired.  instead, the free list will have at least one node at all times. This node
     // could have a block size of zero
     //
-    // we use a next fit allocation mechanism that uses a roving pointer on a circular free block list. 
+    // we use a next fit allocation mechanism that uses a roving pointer on a circular free block list.
     // the pointer is advanced along the chain when searching for a fit. Thus each allocation begins
-    // looking where the previous one finished. 
+    // looking where the previous one finished.
     //
 
     // when allocating from external memory aperture, round up size of requested block to multiple of page size if needed
@@ -545,7 +539,11 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, gsl_m
     // adjust size of requested block to include alignment
     blksize = (unsigned int)((size + ((1 << alignmentshift) - 1)) >> alignmentshift) << alignmentshift;
 
-    GSL_MEMARENA_LOCK();
+    err = mutex_lock_interruptible(&memarena->lock);
+    if (err == -EINTR) {
+	kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_FATAL,
+			"WARNING: memarena mutex lock was interrupted\n");
+    }
 
     // check consistency, debug only
     KGSL_DEBUG(GSL_DBGFLAGS_MEMMGR, kgsl_memarena_checkconsistency(memarena));
@@ -620,12 +618,13 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, gsl_m
 
     } while (!freeblk && ptrfree != memarena->freelist.allocrover);
 
-    GSL_MEMARENA_UNLOCK();
+
+    mutex_unlock(&memarena->lock);
 
     if (result == GSL_SUCCESS)
     {
         GSL_MEMARENA_STATS(
-        {   
+        {
             int i = 0;
             while (memdesc->size >> (GSL_PAGESIZE_SHIFT + i))
             {
@@ -662,11 +661,12 @@ kgsl_memarena_free(gsl_memarena_t *memarena, gsl_memdesc_t *memdesc)
     memblk_t      *ptrfree, *ptrend, *p;
     int           mallocfreeblk, clockwise;
     unsigned int  addrtofree;
+    int           err;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> void kgsl_memarena_free(gsl_memarena_t *memarena=0x%08x, gsl_memdesc_t *memdesc=%M)\n", memarena, memdesc );
 
-    KOS_ASSERT(memarena);
+    DEBUG_ASSERT(memarena);
     if (GSL_MEMARENA_GET_SIGNATURE != GSL_MEMARENA_INSTANCE_SIGNATURE)
     {
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_memarena_free.\n" );
@@ -677,17 +677,21 @@ kgsl_memarena_free(gsl_memarena_t *memarena, gsl_memdesc_t *memdesc)
     if (memdesc->size <= 0)
     {
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: Illegal size for the memdesc.\n" );
-        KOS_ASSERT(0);
+        DEBUG_ASSERT(0);
 
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_memarena_free.\n" );
         return;
     }
 
     // check address range
-    KOS_ASSERT( memarena->gpubaseaddr <= memdesc->gpuaddr);
-    KOS_ASSERT((memarena->gpubaseaddr + memarena->sizebytes) >= memdesc->gpuaddr + memdesc->size);
+    DEBUG_ASSERT( memarena->gpubaseaddr <= memdesc->gpuaddr);
+    DEBUG_ASSERT((memarena->gpubaseaddr + memarena->sizebytes) >= memdesc->gpuaddr + memdesc->size);
 
-    GSL_MEMARENA_LOCK();
+    err = mutex_lock_interruptible(&memarena->lock);
+    if (err == -EINTR) {
+	kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_FATAL,
+			"WARNING: memarena mutex lock was interrupted\n");
+    }
 
     // check consistency of memory map, debug only
     KGSL_DEBUG(GSL_DBGFLAGS_MEMMGR, kgsl_memarena_checkconsistency(memarena));
@@ -760,7 +764,7 @@ kgsl_memarena_free(gsl_memarena_t *memarena, gsl_memdesc_t *memdesc)
         // traverse the nodes
         do
         {
-            if ((addrtofree >= ptrfree->blkaddr + ptrfree->blksize) && 
+            if ((addrtofree >= ptrfree->blkaddr + ptrfree->blksize) &&
                 (addrtofree + memdesc->size <= ptrfree->next->blkaddr))
             {
                 if (addrtofree == ptrfree->blkaddr + ptrfree->blksize)
@@ -834,10 +838,10 @@ kgsl_memarena_free(gsl_memarena_t *memarena, gsl_memdesc_t *memdesc)
         memarena->freelist.freerover = ptrfree;
     }
 
-    GSL_MEMARENA_UNLOCK();
+    mutex_unlock(&memarena->lock);
 
     GSL_MEMARENA_STATS(
-    {   
+    {
         int i = 0;
         while (memdesc->size >> (GSL_PAGESIZE_SHIFT + i))
         {
@@ -854,8 +858,7 @@ kgsl_memarena_free(gsl_memarena_t *memarena, gsl_memdesc_t *memdesc)
 
 //----------------------------------------------------------------------------
 
-void *          
-kgsl_memarena_gethostptr(gsl_memarena_t *memarena, gpuaddr_t gpuaddr)
+void *kgsl_memarena_gethostptr(gsl_memarena_t *memarena, gpuaddr_t gpuaddr)
 {
     //
     // get the host mapped address for a hardware device address
@@ -866,7 +869,7 @@ kgsl_memarena_gethostptr(gsl_memarena_t *memarena, gpuaddr_t gpuaddr)
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> void* kgsl_memarena_gethostptr(gsl_memarena_t *memarena=0x%08x, gpuaddr_t gpuaddr=0x%08x)\n", memarena, gpuaddr );
 
-    KOS_ASSERT(memarena);
+    DEBUG_ASSERT(memarena);
     if (GSL_MEMARENA_GET_SIGNATURE != GSL_MEMARENA_INSTANCE_SIGNATURE)
     {
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_memarena_gethostptr. Return value: 0x%08x\n", NULL );
@@ -874,8 +877,8 @@ kgsl_memarena_gethostptr(gsl_memarena_t *memarena, gpuaddr_t gpuaddr)
     }
 
     // check address range
-    KOS_ASSERT(gpuaddr >= memarena->gpubaseaddr);
-    KOS_ASSERT(gpuaddr <  memarena->gpubaseaddr + memarena->sizebytes);
+    DEBUG_ASSERT(gpuaddr >= memarena->gpubaseaddr);
+    DEBUG_ASSERT(gpuaddr <  memarena->gpubaseaddr + memarena->sizebytes);
 
     hostptr = (void *)((gpuaddr - memarena->gpubaseaddr) + memarena->hostbaseaddr);
 
@@ -886,8 +889,7 @@ kgsl_memarena_gethostptr(gsl_memarena_t *memarena, gpuaddr_t gpuaddr)
 
 //----------------------------------------------------------------------------
 
-gpuaddr_t           
-kgsl_memarena_getgpuaddr(gsl_memarena_t *memarena, void *hostptr)
+gpuaddr_t kgsl_memarena_getgpuaddr(gsl_memarena_t *memarena, void *hostptr)
 {
     //
     // get the hardware device address for a host mapped address
@@ -898,7 +900,7 @@ kgsl_memarena_getgpuaddr(gsl_memarena_t *memarena, void *hostptr)
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_memarena_getgpuaddr(gsl_memarena_t *memarena=0x%08x, void *hostptr=0x%08x)\n", memarena, hostptr );
 
-    KOS_ASSERT(memarena);
+    DEBUG_ASSERT(memarena);
     if (GSL_MEMARENA_GET_SIGNATURE != GSL_MEMARENA_INSTANCE_SIGNATURE)
     {
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_memarena_getgpuaddr. Return value: 0x%08x\n", 0 );
@@ -906,9 +908,9 @@ kgsl_memarena_getgpuaddr(gsl_memarena_t *memarena, void *hostptr)
     }
 
     // check address range
-    KOS_ASSERT(hostptr >= (void *)memarena->hostbaseaddr);
-    KOS_ASSERT(hostptr <  (void *)(memarena->hostbaseaddr + memarena->sizebytes));
-    
+    DEBUG_ASSERT(hostptr >= (void *)memarena->hostbaseaddr);
+    DEBUG_ASSERT(hostptr <  (void *)(memarena->hostbaseaddr + memarena->sizebytes));
+
     gpuaddr = ((unsigned int)hostptr - memarena->hostbaseaddr) + memarena->gpubaseaddr;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_memarena_getgpuaddr. Return value: 0x%08x\n", gpuaddr );
@@ -918,18 +920,19 @@ kgsl_memarena_getgpuaddr(gsl_memarena_t *memarena, void *hostptr)
 
 //----------------------------------------------------------------------------
 
-unsigned int    
+unsigned int
 kgsl_memarena_getlargestfreeblock(gsl_memarena_t *memarena, gsl_flags_t flags)
 {
     memblk_t      *ptrfree;
     unsigned int  blocksize, largestblocksize = 0;
-    int           alignmentshift; 
+    int           alignmentshift;
+    int           err;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> unsigned int kgsl_memarena_getlargestfreeblock(gsl_memarena_t *memarena=0x%08x, gsl_flags_t flags=0x%08x)\n", memarena, flags );
 
-    KOS_ASSERT(memarena);
-    if (GSL_MEMARENA_GET_SIGNATURE != GSL_MEMARENA_INSTANCE_SIGNATURE) 
+    DEBUG_ASSERT(memarena);
+    if (GSL_MEMARENA_GET_SIGNATURE != GSL_MEMARENA_INSTANCE_SIGNATURE)
     {
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_memarena_getlargestfreeblock. Return value: %d\n", 0 );
         return (0);
@@ -938,7 +941,11 @@ kgsl_memarena_getlargestfreeblock(gsl_memarena_t *memarena, gsl_flags_t flags)
     // determine shift count for alignment requested
     alignmentshift = gsl_memarena_alignmentshift(flags);
 
-    GSL_MEMARENA_LOCK();
+    err = mutex_lock_interruptible(&memarena->lock);
+    if (err == -EINTR) {
+	kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_FATAL,
+			"WARNING: memarena mutex lock was interrupted\n");
+    }
 
     ptrfree = memarena->freelist.head;
 
@@ -955,7 +962,7 @@ kgsl_memarena_getlargestfreeblock(gsl_memarena_t *memarena, gsl_flags_t flags)
 
     } while (ptrfree != memarena->freelist.head);
 
-    GSL_MEMARENA_UNLOCK();
+    mutex_unlock(&memarena->lock);
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_memarena_getlargestfreeblock. Return value: %d\n", largestblocksize );
 

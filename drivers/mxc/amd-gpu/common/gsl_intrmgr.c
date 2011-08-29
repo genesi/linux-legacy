@@ -16,7 +16,9 @@
  *
  */
 
+#include <linux/slab.h>
 #include <linux/string.h>
+
 #include "gsl.h"
 
 //////////////////////////////////////////////////////////////////////////////
@@ -84,7 +86,7 @@ kgsl_intr_decode(gsl_device_t *device, gsl_intrblock_t block_id)
 
 //----------------------------------------------------------------------------
 
-KGSL_API void
+void
 kgsl_intr_isr(gsl_device_t *device)
 {
     if (device->intr.flags & GSL_FLAGS_INITIALIZED) {
@@ -178,7 +180,7 @@ int kgsl_intr_enable(gsl_intr_t *intr, gsl_intrid_t id)
 
     if (mask && !(enabled & mask))
     {
-        intr->evnt[id] = kos_event_create(0);
+	init_completion(&intr->evnt[id]);
 
         enabled                 |= mask;
         intr->enabled[block->id] = enabled;
@@ -201,13 +203,13 @@ int kgsl_intr_disable(gsl_intr_t *intr, gsl_intrid_t id)
         return (GSL_FAILURE_BADPARAM);
     }
 
-    if (intr->handler[id].callback == NULL) 
+    if (intr->handler[id].callback == NULL)
     {
         return (GSL_FAILURE_NOTINITIALIZED);
     }
 
     block = kgsl_intr_id2block(id);
-    if (block == NULL) 
+    if (block == NULL)
     {
         return (GSL_FAILURE_SYSTEMERROR);
     }
@@ -215,15 +217,13 @@ int kgsl_intr_disable(gsl_intr_t *intr, gsl_intrid_t id)
     mask    = gsl_cfg_intr_mask[id];
     enabled = intr->enabled[block->id];
 
-    if (enabled & mask) 
+    if (enabled & mask)
     {
         enabled                 &= ~mask;
         intr->enabled[block->id] = enabled;
         intr->device->ftbl.device_regwrite(intr->device, block->mask_reg, enabled);
 
-        kos_event_signal(intr->evnt[id]); // wake up waiting threads before destroying the event
-        kos_event_destroy(intr->evnt[id]);
-        intr->evnt[id] = 0;
+        complete_all(&intr->evnt[id]); // wake up waiting threads before destroying the event
     }
 
     return (GSL_SUCCESS);

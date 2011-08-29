@@ -29,7 +29,49 @@
 #ifndef __GSL_TYPES_H
 #define __GSL_TYPES_H
 
+#include <linux/types.h>
 #include "stddef.h"
+
+
+//////////////////////////////////////////////////////////////////////////////
+// Operating System values
+//////////////////////////////////////////////////////////////////////////////
+#define OS_SUCCESS                       0
+#define OS_FAILURE                      -1
+#define OS_FAILURE_SYSTEMERROR          -2
+#define OS_FAILURE_DEVICEERROR          -3
+#define OS_FAILURE_OUTOFMEM             -4
+#define OS_FAILURE_BADPARAM             -5
+#define OS_FAILURE_NOTSUPPORTED         -6
+#define OS_FAILURE_NOMOREAVAILABLE      -7
+#define OS_FAILURE_NOTINITIALIZED       -8
+#define OS_FAILURE_ALREADYINITIALIZED   -9
+#define OS_FAILURE_TIMEOUT              -10
+
+
+#define OS_INFINITE             0xFFFFFFFF
+#define OS_TLS_OUTOFINDEXES     0xFFFFFFFF
+#define OS_TRUE                         1
+#define OS_FALSE                        0
+
+
+
+typedef enum {
+    OS_PROTECTION_GLOBAL,   // inter process
+    OS_PROTECTION_LOCAL,    // process local
+    OS_PROTECTION_NONE,     // none
+} os_protection_t;
+
+typedef struct _os_cputimer_t {
+    int refcount;                   // Reference count
+    int enabled;                    // Counter is enabled
+    int size;                       // Number of counters
+    __s64  start_time;            // start time in cpu ticks
+    __s64  end_time;              // end time in cpu ticks
+    __s64  timer_frequency;       // cpu ticks per second
+    __s64  *counter_array;        // number of ticks for each counter
+} os_cputimer_t;
+
 
 
 //////////////////////////////////////////////////////////////////////////////

@@ -16,6 +16,7 @@
  *
  */
 
+#include <linux/sched.h>
 #include <asm/div64.h>
 
 #include "gsl.h"
@@ -107,23 +108,6 @@
 #define SHADER_OFFSET           ((TEX_OFFSET + TEX_SHADOW_SIZE + 32) & ~31)
 
 #define CONTEXT_SIZE            (SHADER_OFFSET + 3 * SHADER_SHADOW_SIZE)
-
-
-/////////////////////////////////////////////////////////////////////////////
-// macros
-//////////////////////////////////////////////////////////////////////////////
-#ifdef GSL_LOCKING_FINEGRAIN
-#define GSL_CONTEXT_MUTEX_CREATE()          device->drawctxt_mutex = kos_mutex_create("gsl_drawctxt"); \
-                                            if (!device->drawctxt_mutex) {return (GSL_FAILURE);}
-#define GSL_CONTEXT_MUTEX_LOCK()            kos_mutex_lock(device->drawctxt_mutex)
-#define GSL_CONTEXT_MUTEX_UNLOCK()          kos_mutex_unlock(device->drawctxt_mutex)
-#define GSL_CONTEXT_MUTEX_FREE()            kos_mutex_free(device->drawctxt_mutex); device->drawctxt_mutex = 0;
-#else
-#define GSL_CONTEXT_MUTEX_CREATE()
-#define GSL_CONTEXT_MUTEX_LOCK()
-#define GSL_CONTEXT_MUTEX_UNLOCK()
-#define GSL_CONTEXT_MUTEX_FREE()
-#endif
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -726,7 +710,7 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
     // RB_COLOR_INFO        Endian=none, Linear, Format=RGBA8888, Swap=0, Base=gmem_base
     if( ctx )
     {
-        KOS_ASSERT((ctx->gmem_base & 0xFFF) == 0);   // gmem base assumed 4K aligned.
+        DEBUG_ASSERT((ctx->gmem_base & 0xFFF) == 0);   // gmem base assumed 4K aligned.
         *cmds++ = (shadow->format << RB_COLOR_INFO__COLOR_FORMAT__SHIFT) | ctx->gmem_base;
     }
     else
@@ -779,7 +763,7 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
 		*cmds++ = shadow->pitch >> 5;  // RB_COPY_DEST_PITCH
 		*cmds++ = 0x0003c008 | (shadow->format << RB_COPY_DEST_INFO__COPY_DEST_FORMAT__SHIFT); // Endian=none, Linear, Format=RGBA8888,Swap=0,!Dither,MaskWrite:R=G=B=A=1
 
-        KOS_ASSERT( (offset & 0xfffff000) == 0 ); // Make sure we stay in offsetx field.
+        DEBUG_ASSERT( (offset & 0xfffff000) == 0 ); // Make sure we stay in offsetx field.
 		*cmds++ = offset;
     }
 
@@ -1391,8 +1375,6 @@ create_gmem_shadow(gsl_device_t *device, gsl_drawctxt_t *drawctxt, ctx_t *ctx)
 int
 kgsl_drawctxt_init(gsl_device_t *device)
 {
-    GSL_CONTEXT_MUTEX_CREATE();
-
     return (GSL_SUCCESS);
 }
 
@@ -1404,8 +1386,6 @@ kgsl_drawctxt_init(gsl_device_t *device)
 int
 kgsl_drawctxt_close(gsl_device_t *device)
 {
-    GSL_CONTEXT_MUTEX_FREE();
-
     return (GSL_SUCCESS);
 }
 
@@ -1422,11 +1402,9 @@ kgsl_drawctxt_create(gsl_device_t* device, gsl_context_type_t type, unsigned int
     ctx_t           ctx;
 
     kgsl_device_active(device);
-    
-    GSL_CONTEXT_MUTEX_LOCK();
+
     if (device->drawctxt_count >= GSL_CONTEXT_MAX)
     {
-        GSL_CONTEXT_MUTEX_UNLOCK();
         return (GSL_FAILURE);
     }
 
@@ -1442,15 +1420,14 @@ kgsl_drawctxt_create(gsl_device_t* device, gsl_context_type_t type, unsigned int
 
     if (index >= GSL_CONTEXT_MAX)
     {
-        GSL_CONTEXT_MUTEX_UNLOCK();
-        return (GSL_FAILURE);
+	return (GSL_FAILURE);
     }
 
     drawctxt = &device->drawctxt[index];
 
     memset( &drawctxt->context_gmem_shadow, 0, sizeof( gmem_shadow_t ) );
 
-	drawctxt->pid   = GSL_CALLER_PROCESSID_GET();
+	drawctxt->pid   = current->tgid;
     drawctxt->flags = CTXT_FLAGS_IN_USE;
     drawctxt->type  = type;
 
@@ -1462,7 +1439,7 @@ kgsl_drawctxt_create(gsl_device_t* device, gsl_context_type_t type, unsigned int
         if (create_gpustate_shadow(device, drawctxt, &ctx) != GSL_SUCCESS)
         {
             kgsl_drawctxt_destroy(device, index);
-            GSL_CONTEXT_MUTEX_UNLOCK();
+
             return (GSL_FAILURE);
         }
 
@@ -1476,16 +1453,15 @@ kgsl_drawctxt_create(gsl_device_t* device, gsl_context_type_t type, unsigned int
         if (create_gmem_shadow(device, drawctxt, &ctx) != GSL_SUCCESS)
         {
             kgsl_drawctxt_destroy(device, index);
-            GSL_CONTEXT_MUTEX_UNLOCK();
+
             return (GSL_FAILURE);
         }
 
-        KOS_ASSERT(ctx.cmd - ctx.start <= CMD_BUFFER_LEN);
+        DEBUG_ASSERT(ctx.cmd - ctx.start <= CMD_BUFFER_LEN);
     }
 
     *drawctxt_id = index;
 
-    GSL_CONTEXT_MUTEX_UNLOCK();
     return (GSL_SUCCESS);
 }
 
@@ -1498,8 +1474,6 @@ int
 kgsl_drawctxt_destroy(gsl_device_t* device, unsigned int drawctxt_id)
 {
     gsl_drawctxt_t *drawctxt;
-
-    GSL_CONTEXT_MUTEX_LOCK();
 
     drawctxt = &device->drawctxt[drawctxt_id];
 
@@ -1518,13 +1492,13 @@ kgsl_drawctxt_destroy(gsl_device_t* device, unsigned int drawctxt_id)
 
         // destroy state shadow, if allocated
         if (drawctxt->flags & CTXT_FLAGS_STATE_SHADOW)
-            kgsl_sharedmem_free0(&drawctxt->gpustate, GSL_CALLER_PROCESSID_GET());
+            kgsl_sharedmem_free0(&drawctxt->gpustate, current->tgid);
 
 
         // destroy gmem shadow, if allocated
         if (drawctxt->context_gmem_shadow.gmemshadow.size > 0)
         {
-            kgsl_sharedmem_free0(&drawctxt->context_gmem_shadow.gmemshadow, GSL_CALLER_PROCESSID_GET());
+            kgsl_sharedmem_free0(&drawctxt->context_gmem_shadow.gmemshadow, current->tgid);
             drawctxt->context_gmem_shadow.gmemshadow.size = 0;
         }
 
@@ -1532,10 +1506,8 @@ kgsl_drawctxt_destroy(gsl_device_t* device, unsigned int drawctxt_id)
 		drawctxt->pid   = 0;
 
         device->drawctxt_count--;
-        KOS_ASSERT(device->drawctxt_count >= 0);
+        DEBUG_ASSERT(device->drawctxt_count >= 0);
     }
-
-    GSL_CONTEXT_MUTEX_UNLOCK();
 
     return (GSL_SUCCESS);
 }
@@ -1562,15 +1534,14 @@ kgsl_drawctxt_destroy(gsl_device_t* device, unsigned int drawctxt_id)
 //
 //
 //////////////////////////////////////////////////////////////////////////////
-KGSL_API int kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned int drawctxt_id, const gsl_rect_t* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const gsl_buffer_desc_t* shadow_buffer, unsigned int buffer_id)
+int kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned int drawctxt_id, const gsl_rect_t* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const gsl_buffer_desc_t* shadow_buffer, unsigned int buffer_id)
 {
     gsl_device_t   *device = &gsl_driver.device[device_id-1];
     gsl_drawctxt_t *drawctxt = &device->drawctxt[drawctxt_id];
     gmem_shadow_t  *shadow = &drawctxt->user_gmem_shadow[buffer_id];
     unsigned int    i;
 
-    GSL_API_MUTEX_LOCK();
-    GSL_CONTEXT_MUTEX_LOCK();
+    mutex_lock(&gsl_driver.lock);
 
 	if( !shadow_buffer->enabled )
     {
@@ -1580,20 +1551,20 @@ KGSL_API int kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned i
     else
     {
 		// Sanity checks
-		KOS_ASSERT((gmem_rect->x % 2) == 0);      // Needs to be a multiple of 2
-		KOS_ASSERT((gmem_rect->y % 2) == 0);      // Needs to be a multiple of 2
-		KOS_ASSERT((gmem_rect->width % 2) == 0);  // Needs to be a multiple of 2
-		KOS_ASSERT((gmem_rect->height % 2) == 0); // Needs to be a multiple of 2
-		KOS_ASSERT((gmem_rect->pitch % 32) == 0); // Needs to be a multiple of 32
+		DEBUG_ASSERT((gmem_rect->x % 2) == 0);      // Needs to be a multiple of 2
+		DEBUG_ASSERT((gmem_rect->y % 2) == 0);      // Needs to be a multiple of 2
+		DEBUG_ASSERT((gmem_rect->width % 2) == 0);  // Needs to be a multiple of 2
+		DEBUG_ASSERT((gmem_rect->height % 2) == 0); // Needs to be a multiple of 2
+		DEBUG_ASSERT((gmem_rect->pitch % 32) == 0); // Needs to be a multiple of 32
 
-		KOS_ASSERT((shadow_x % 2) == 0);  // Needs to be a multiple of 2
-		KOS_ASSERT((shadow_y % 2) == 0);  // Needs to be a multiple of 2
+		DEBUG_ASSERT((shadow_x % 2) == 0);  // Needs to be a multiple of 2
+		DEBUG_ASSERT((shadow_y % 2) == 0);  // Needs to be a multiple of 2
 
-		KOS_ASSERT(shadow_buffer->format >= COLORX_4_4_4_4);
-		KOS_ASSERT(shadow_buffer->format <= COLORX_32_32_32_32_FLOAT);
-		KOS_ASSERT((shadow_buffer->pitch % 32) == 0); // Needs to be a multiple of 32
-		KOS_ASSERT(buffer_id >= 0);
-		KOS_ASSERT(buffer_id < GSL_MAX_GMEM_SHADOW_BUFFERS);
+		DEBUG_ASSERT(shadow_buffer->format >= COLORX_4_4_4_4);
+		DEBUG_ASSERT(shadow_buffer->format <= COLORX_32_32_32_32_FLOAT);
+		DEBUG_ASSERT((shadow_buffer->pitch % 32) == 0); // Needs to be a multiple of 32
+		DEBUG_ASSERT(buffer_id >= 0);
+		DEBUG_ASSERT(buffer_id < GSL_MAX_GMEM_SHADOW_BUFFERS);
 
 		// Set up GMEM shadow regions
         memcpy( &shadow->gmemshadow, &shadow_buffer->data, sizeof( gsl_memdesc_t ) );
@@ -1626,7 +1597,7 @@ KGSL_API int kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned i
         // Release context GMEM shadow if found
         if (drawctxt->context_gmem_shadow.gmemshadow.size > 0)
         {
-            kgsl_sharedmem_free0(&drawctxt->context_gmem_shadow.gmemshadow, GSL_CALLER_PROCESSID_GET());
+            kgsl_sharedmem_free0(&drawctxt->context_gmem_shadow.gmemshadow, current->tgid);
             drawctxt->context_gmem_shadow.gmemshadow.size = 0;
         }
     }
@@ -1641,8 +1612,7 @@ KGSL_API int kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned i
         }
     }
 
-    GSL_CONTEXT_MUTEX_UNLOCK();
-    GSL_API_MUTEX_UNLOCK();
+    mutex_unlock(&gsl_driver.lock);
 
     return (GSL_SUCCESS);
 }
@@ -1779,8 +1749,6 @@ kgsl_drawctxt_destroyall(gsl_device_t *device)
     int             i;
     gsl_drawctxt_t  *drawctxt;
 
-    GSL_CONTEXT_MUTEX_LOCK();
-
     for (i = 0; i < GSL_CONTEXT_MAX; i++)
     {
         drawctxt = &device->drawctxt[i];
@@ -1789,23 +1757,21 @@ kgsl_drawctxt_destroyall(gsl_device_t *device)
         {
             // destroy state shadow, if allocated
             if (drawctxt->flags & CTXT_FLAGS_STATE_SHADOW)
-                kgsl_sharedmem_free0(&drawctxt->gpustate, GSL_CALLER_PROCESSID_GET());
+                kgsl_sharedmem_free0(&drawctxt->gpustate, current->tgid);
 
             // destroy gmem shadow, if allocated
             if (drawctxt->context_gmem_shadow.gmemshadow.size > 0)
             {
-                kgsl_sharedmem_free0(&drawctxt->context_gmem_shadow.gmemshadow, GSL_CALLER_PROCESSID_GET());
+                kgsl_sharedmem_free0(&drawctxt->context_gmem_shadow.gmemshadow, current->tgid);
                 drawctxt->context_gmem_shadow.gmemshadow.size = 0;
             }
 
             drawctxt->flags = CTXT_FLAGS_NOT_IN_USE;
 
             device->drawctxt_count--;
-            KOS_ASSERT(device->drawctxt_count >= 0);
+            DEBUG_ASSERT(device->drawctxt_count >= 0);
         }
     }
-
-    GSL_CONTEXT_MUTEX_UNLOCK();
 
     return (GSL_SUCCESS);
 }

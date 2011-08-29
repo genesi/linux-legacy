@@ -24,7 +24,7 @@
 //////////////////////////////////////////////////////////////////////////////
 //  inline functions
 //////////////////////////////////////////////////////////////////////////////
-OSINLINE void
+static __inline void
 kgsl_device_getfunctable(gsl_deviceid_t device_id, gsl_functable_t *ftbl)
 {
     switch (device_id)
@@ -111,7 +111,7 @@ kgsl_device_init(gsl_device_t *device, gsl_deviceid_t device_id)
         KGSL_DEBUG(GSL_DBGFLAGS_DUMPX,
         {
             // dumpx needs this to be in EMEM0 aperture
-            kgsl_sharedmem_free0(&device->memstore, GSL_CALLER_PROCESSID_GET());
+            kgsl_sharedmem_free0(&device->memstore, current->tgid);
             status = kgsl_sharedmem_alloc0(device->id, GSL_MEMFLAGS_ALIGNPAGE, sizeof(gsl_devmemstore_t), &device->memstore);
         });
 
@@ -167,9 +167,9 @@ kgsl_device_close(gsl_device_t *device)
        kgsl_device_close is only called for last running caller process
     */
     while (device->refcnt > 0) {
-	GSL_API_MUTEX_UNLOCK();
+	mutex_unlock(&gsl_driver.lock);
 	kgsl_device_stop(device->id);
-	GSL_API_MUTEX_LOCK();
+	mutex_lock(&gsl_driver.lock);
     }
 
     // close cmdstream
@@ -184,7 +184,7 @@ kgsl_device_close(gsl_device_t *device)
     if ((device->refcnt == 0) && device->memstore.hostptr
 	&& !(gsl_driver.flags_debug & GSL_DBGFLAGS_DUMPX))
     {
-	kgsl_sharedmem_free0(&device->memstore, GSL_CALLER_PROCESSID_GET());
+	kgsl_sharedmem_free0(&device->memstore, current->tgid);
     }
 
     wake_up_interruptible_all(&(device->timestamp_waitq));
@@ -283,7 +283,7 @@ kgsl_device_detachcallback(gsl_device_t *device, unsigned int pid)
 
 //----------------------------------------------------------------------------
 
-KGSL_API int
+int
 kgsl_device_getproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void *value, unsigned int sizebytes)
 {
     int           status  = GSL_SUCCESS;
@@ -292,7 +292,7 @@ kgsl_device_getproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_device_getproperty(gsl_deviceid_t device_id=%D, gsl_property_type_t type=%d, void *value=0x%08x, uint sizebytes=%u)\n", device_id, type, value, sizebytes );
 
-    KOS_ASSERT(value);
+    DEBUG_ASSERT(value);
 
 #ifndef _DEBUG
     (void) sizebytes;       // unreferenced formal parameter
@@ -304,7 +304,7 @@ kgsl_device_getproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void
         {
         gsl_shmemprop_t  *shem = (gsl_shmemprop_t *) value;
 
-        KOS_ASSERT(sizebytes == sizeof(gsl_shmemprop_t));
+        DEBUG_ASSERT(sizebytes == sizeof(gsl_shmemprop_t));
 
         shem->numapertures   = gsl_driver.shmem.numapertures;
         shem->aperture_mask  = GSL_APERTURE_MASK;
@@ -318,7 +318,7 @@ kgsl_device_getproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void
         int i;
         gsl_apertureprop_t  *aperture = (gsl_apertureprop_t *) value;
 
-        KOS_ASSERT(sizebytes == (sizeof(gsl_apertureprop_t) * gsl_driver.shmem.numapertures));
+        DEBUG_ASSERT(sizebytes == (sizeof(gsl_apertureprop_t) * gsl_driver.shmem.numapertures));
 
         for (i = 0; i < gsl_driver.shmem.numapertures; i++)
         {
@@ -342,7 +342,7 @@ kgsl_device_getproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void
         {
         gsl_shadowprop_t  *shadowprop = (gsl_shadowprop_t *) value;
 
-        KOS_ASSERT(sizebytes == sizeof(gsl_shadowprop_t));
+        DEBUG_ASSERT(sizebytes == sizeof(gsl_shadowprop_t));
 
         memset(shadowprop, 0, sizeof(gsl_shadowprop_t));
 
@@ -376,7 +376,7 @@ kgsl_device_getproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void
 
 //----------------------------------------------------------------------------
 
-KGSL_API int
+int
 kgsl_device_setproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void *value, unsigned int sizebytes)
 {
     int           status = GSL_SUCCESS;
@@ -385,9 +385,9 @@ kgsl_device_setproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_device_setproperty(gsl_deviceid_t device_id=%D, gsl_property_type_t type=%d, void *value=0x%08x, uint sizebytes=%u)\n", device_id, type, value, sizebytes );
 
-    KOS_ASSERT(value);
+    DEBUG_ASSERT(value);
 
-    GSL_API_MUTEX_LOCK();
+    mutex_lock(&gsl_driver.lock);
 
     device = &gsl_driver.device[device_id-1];       // device_id is 1 based
 
@@ -399,7 +399,7 @@ kgsl_device_setproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void
         }
     }
 
-    GSL_API_MUTEX_UNLOCK();
+    mutex_unlock(&gsl_driver.lock);
 
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_setproperty. Return value %B\n", status );
 
@@ -408,7 +408,7 @@ kgsl_device_setproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void
 
 //----------------------------------------------------------------------------
 
-KGSL_API int
+int
 kgsl_device_start(gsl_deviceid_t device_id, gsl_flags_t flags)
 {
     int           status = GSL_FAILURE_NOTINITIALIZED;
@@ -418,15 +418,15 @@ kgsl_device_start(gsl_deviceid_t device_id, gsl_flags_t flags)
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_device_start(gsl_deviceid_t device_id=%D, gsl_flags_t flags=%d)\n", device_id, flags );
 
-    GSL_API_MUTEX_LOCK();
+    mutex_lock(&gsl_driver.lock);
 
     if ((GSL_DEVICE_G12 == device_id) && !(hal->has_z160)) {
-	GSL_API_MUTEX_UNLOCK();
+	mutex_unlock(&gsl_driver.lock);
 	return GSL_FAILURE_NOTSUPPORTED;
     }
 
     if ((GSL_DEVICE_YAMATO == device_id) && !(hal->has_z430)) {
-	GSL_API_MUTEX_UNLOCK();
+	mutex_unlock(&gsl_driver.lock);
 	return GSL_FAILURE_NOTSUPPORTED;
     }
 
@@ -436,7 +436,7 @@ kgsl_device_start(gsl_deviceid_t device_id, gsl_flags_t flags)
     
     if (!(device->flags & GSL_FLAGS_INITIALIZED))
     {
-        GSL_API_MUTEX_UNLOCK();
+        mutex_unlock(&gsl_driver.lock);
 
         kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_ERROR, "ERROR: Trying to start uninitialized device.\n" );
         kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_start. Return value %B\n", GSL_FAILURE );
@@ -447,7 +447,7 @@ kgsl_device_start(gsl_deviceid_t device_id, gsl_flags_t flags)
 
     if (device->flags & GSL_FLAGS_STARTED)
     {
-        GSL_API_MUTEX_UNLOCK();
+        mutex_unlock(&gsl_driver.lock);
         kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_start. Return value %B\n", GSL_SUCCESS );
         return (GSL_SUCCESS);
     }
@@ -464,7 +464,7 @@ kgsl_device_start(gsl_deviceid_t device_id, gsl_flags_t flags)
         status = device->ftbl.device_start(device, flags);
     }
 
-    GSL_API_MUTEX_UNLOCK();
+    mutex_unlock(&gsl_driver.lock);
 
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_start. Return value %B\n", status );
 
@@ -473,7 +473,7 @@ kgsl_device_start(gsl_deviceid_t device_id, gsl_flags_t flags)
 
 //----------------------------------------------------------------------------
 
-KGSL_API int
+int
 kgsl_device_stop(gsl_deviceid_t device_id)
 {
     int           status = GSL_FAILURE_NOTINITIALIZED;
@@ -482,13 +482,13 @@ kgsl_device_stop(gsl_deviceid_t device_id)
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_device_stop(gsl_deviceid_t device_id=%D)\n", device_id );
 
-    GSL_API_MUTEX_LOCK();
+    mutex_lock(&gsl_driver.lock);
 
     device = &gsl_driver.device[device_id-1];       // device_id is 1 based
 
     if (device->flags & GSL_FLAGS_STARTED)
     {
-        KOS_ASSERT(device->refcnt);
+        DEBUG_ASSERT(device->refcnt);
 
         device->refcnt--;
 
@@ -505,7 +505,7 @@ kgsl_device_stop(gsl_deviceid_t device_id)
         }
     }
 
-    GSL_API_MUTEX_UNLOCK();
+    mutex_unlock(&gsl_driver.lock);
 
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_stop. Return value %B\n", status );
 
@@ -514,7 +514,7 @@ kgsl_device_stop(gsl_deviceid_t device_id)
 
 //----------------------------------------------------------------------------
 
-KGSL_API int
+int
 kgsl_device_idle(gsl_deviceid_t device_id, unsigned int timeout)
 {
     int           status = GSL_FAILURE_NOTINITIALIZED;
@@ -523,7 +523,7 @@ kgsl_device_idle(gsl_deviceid_t device_id, unsigned int timeout)
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_device_idle(gsl_deviceid_t device_id=%D, unsigned int timeout=%d)\n", device_id, timeout );
 
-    GSL_API_MUTEX_LOCK();
+    mutex_lock(&gsl_driver.lock);
 
     device = &gsl_driver.device[device_id-1];       // device_id is 1 based
 
@@ -534,7 +534,7 @@ kgsl_device_idle(gsl_deviceid_t device_id, unsigned int timeout)
         status = device->ftbl.device_idle(device, timeout);
     }
 
-    GSL_API_MUTEX_UNLOCK();
+    mutex_unlock(&gsl_driver.lock);
 
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_idle. Return value %B\n", status );
 
@@ -543,7 +543,7 @@ kgsl_device_idle(gsl_deviceid_t device_id, unsigned int timeout)
 
 //----------------------------------------------------------------------------
 
-KGSL_API int
+int
 kgsl_device_isidle(gsl_deviceid_t device_id)
 {
 	gsl_timestamp_t retired = kgsl_cmdstream_readtimestamp0(device_id, GSL_TIMESTAMP_RETIRED);
@@ -554,7 +554,7 @@ kgsl_device_isidle(gsl_deviceid_t device_id)
 
 //----------------------------------------------------------------------------
 
-KGSL_API int
+int
 kgsl_device_regread(gsl_deviceid_t device_id, unsigned int offsetwords, unsigned int *value)
 {
     int           status = GSL_FAILURE_NOTINITIALIZED;
@@ -567,19 +567,19 @@ kgsl_device_regread(gsl_deviceid_t device_id, unsigned int offsetwords, unsigned
                         "--> int kgsl_device_regread(gsl_deviceid_t device_id=%D, unsigned int offsetwords=%R, unsigned int *value=0x%08x)\n", device_id, offsetwords, value );
 #endif
 
-    GSL_API_MUTEX_LOCK();
+    mutex_lock(&gsl_driver.lock);
 
     device = &gsl_driver.device[device_id-1];       // device_id is 1 based
 
-    KOS_ASSERT(value);
-    KOS_ASSERT(offsetwords < device->regspace.sizebytes);
+    DEBUG_ASSERT(value);
+    DEBUG_ASSERT(offsetwords < device->regspace.sizebytes);
 
     if (device->ftbl.device_regread)
     {
         status = device->ftbl.device_regread(device, offsetwords, value);
     }
 
-    GSL_API_MUTEX_UNLOCK();
+    mutex_unlock(&gsl_driver.lock);
 
 #ifdef GSL_LOG
     if( offsetwords != mmRBBM_STATUS && offsetwords != mmCP_RB_RPTR )
@@ -591,7 +591,7 @@ kgsl_device_regread(gsl_deviceid_t device_id, unsigned int offsetwords, unsigned
 
 //----------------------------------------------------------------------------
 
-KGSL_API int
+int
 kgsl_device_regwrite(gsl_deviceid_t device_id, unsigned int offsetwords, unsigned int value)
 {
     int           status = GSL_FAILURE_NOTINITIALIZED;
@@ -600,18 +600,18 @@ kgsl_device_regwrite(gsl_deviceid_t device_id, unsigned int offsetwords, unsigne
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_device_regwrite(gsl_deviceid_t device_id=%D, unsigned int offsetwords=%R, uint value=0x%08x)\n", device_id, offsetwords, value );
 
-    GSL_API_MUTEX_LOCK();
+    mutex_lock(&gsl_driver.lock);
 
     device = &gsl_driver.device[device_id-1];       // device_id is 1 based
 
-    KOS_ASSERT(offsetwords < device->regspace.sizebytes);
+    DEBUG_ASSERT(offsetwords < device->regspace.sizebytes);
 
     if (device->ftbl.device_regwrite)
     {
         status = device->ftbl.device_regwrite(device, offsetwords, value);
     }
 
-    GSL_API_MUTEX_UNLOCK();
+    mutex_unlock(&gsl_driver.lock);
 
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_regwrite. Return value %B\n", status );
 
@@ -620,7 +620,7 @@ kgsl_device_regwrite(gsl_deviceid_t device_id, unsigned int offsetwords, unsigne
 
 //----------------------------------------------------------------------------
 
-KGSL_API int
+int
 kgsl_device_waitirq(gsl_deviceid_t device_id, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout)
 {
     int           status = GSL_FAILURE_NOTINITIALIZED;
@@ -629,7 +629,7 @@ kgsl_device_waitirq(gsl_deviceid_t device_id, gsl_intrid_t intr_id, unsigned int
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_device_waitirq(gsl_deviceid_t device_id=%D, gsl_intrid_t intr_id=%d, unsigned int *count=0x%08x, unsigned int timout=0x%08x)\n", device_id, intr_id, count, timeout);
 
-    GSL_API_MUTEX_LOCK();
+    mutex_lock(&gsl_driver.lock);
 
     device = &gsl_driver.device[device_id-1];       // device_id is 1 based
 
@@ -638,7 +638,7 @@ kgsl_device_waitirq(gsl_deviceid_t device_id, gsl_intrid_t intr_id, unsigned int
         status = device->ftbl.device_waitirq(device, intr_id, count, timeout);
     }
 
-    GSL_API_MUTEX_UNLOCK();
+    mutex_unlock(&gsl_driver.lock);
 
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_waitirq. Return value %B\n", status );
 

@@ -373,7 +373,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
                      * always check against GSL_SUCCESS  or GSL_FAILURE as they are not the only
                      * return values.
                      */
-                    KOS_ASSERT(tmpStatus == GSL_SUCCESS);
+                    DEBUG_ASSERT(tmpStatus == GSL_SUCCESS);
                     printk(KERN_ERR "%s: copy_to_user error\n", __func__);
                     kgslStatus = GSL_FAILURE;
                     break;
@@ -427,7 +427,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
                 if (copy_to_user(param.memdesc, &tmp, sizeof(gsl_memdesc_t)))
                 {
                     tmpStatus = kgsl_sharedmem_free(&tmp);
-                    KOS_ASSERT(tmpStatus == GSL_SUCCESS);
+                    DEBUG_ASSERT(tmpStatus == GSL_SUCCESS);
                     printk(KERN_ERR "%s: copy_to_user error\n", __func__);
                     kgslStatus = GSL_FAILURE;
                     break;

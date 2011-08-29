@@ -22,12 +22,9 @@
 
 #include <linux/slab.h>
 #include <linux/string.h>
+#include <linux/mutex.h>
 
 #include "gsl.h"
-
-#define KGSL_OUTPUT_TYPE_MEMBUF 0
-#define KGSL_OUTPUT_TYPE_STDOUT 1
-#define KGSL_OUTPUT_TYPE_FILE   2
 
 #define REG_OUTPUT( X ) case X: b += sprintf( b, "%s", #X ); break;
 #define INTRID_OUTPUT( X ) case X: b += sprintf( b, "%s", #X ); break;
@@ -40,7 +37,7 @@ typedef struct log_output
 
 static log_output_t* outputs = NULL;
 
-static oshandle_t   log_mutex = NULL;
+static struct mutex   log_mutex;
 static char         buffer[256];
 static char         buffer2[256];
 static int          log_initialized = 0;
@@ -53,7 +50,7 @@ int kgsl_log_start( unsigned int log_flags )
 
     if( log_initialized ) return GSL_SUCCESS;
 
-    log_mutex = kos_mutex_create( "log_mutex" );
+    mutex_init(&log_mutex);
     log_initialized = 1;
 
     output = kmalloc( sizeof( log_output_t ), GFP_KERNEL );
@@ -91,8 +88,6 @@ int kgsl_log_finish()
         outputs = temp;
     }
 
-    kos_mutex_free( log_mutex );
-
     log_initialized = 0;
 
     return GSL_SUCCESS;
@@ -111,7 +106,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
     if( !log_initialized ) return GSL_SUCCESS;
 
     // Acquire mutex lock as we are using shared buffer for the string parsing
-    kos_mutex_lock( log_mutex );
+    mutex_lock(&log_mutex);
 
     // Add separator
     *(b++) = '|'; *(b++) = ' ';
@@ -498,7 +493,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
 
     va_end( arguments );
 
-    kos_mutex_unlock( log_mutex );
+    mutex_unlock(&log_mutex );
 
     return GSL_SUCCESS;
 }

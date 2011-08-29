@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  */
-	
+
 #ifndef __GSL_DISPLAYAPI_H
 #define __GSL_DISPLAYAPI_H
 
@@ -33,19 +33,7 @@
 extern "C" {
 #endif // __cplusplus
 
-//////////////////////////////////////////////////////////////////////////////
-//  entrypoints
-//////////////////////////////////////////////////////////////////////////////
-#ifdef __GSLDISPLAY_EXPORTS
-#define DISP_API                    OS_DLLEXPORT
-#else
-#define DISP_API                    OS_DLLIMPORT
-#endif // __GSLDISPLAY_EXPORTS
-
-
-//////////////////////////////////////////////////////////////////////////////
-//  defines                    
-//////////////////////////////////////////////////////////////////////////////
+//  defines
 #define GSL_DISPLAY_PANEL_TOSHIBA_640x480     0
 #define GSL_DISPLAY_PANEL_HITACHI_240x320     1
 #define GSL_DISPLAY_PANEL_DEFAULT             GSL_DISPLAY_PANEL_TOSHIBA_640x480
@@ -70,14 +58,14 @@ typedef struct _gsl_displaymode_t {
 //////////////////////////////////////////////////////////////////////////////
 //  prototypes
 //////////////////////////////////////////////////////////////////////////////
-DISP_API gsl_display_id_t   gsl_display_open(gsl_devhandle_t devhandle, int panel_id);
-DISP_API int                gsl_display_close(gsl_display_id_t display_id);
-DISP_API int                gsl_display_getcount(void);
-DISP_API int                gsl_display_setmode(gsl_display_id_t display_id, gsl_displaymode_t displaymode);
-DISP_API int                gsl_display_getmode(gsl_display_id_t display_id, gsl_displaymode_t *displaymode);
-DISP_API gsl_surface_id_t   gsl_display_setsurface(gsl_display_id_t display_id, void *buffer);
-DISP_API int                gsl_display_getactivesurface(gsl_display_id_t display_id, void **buffer);
-DISP_API int                gsl_display_flipsurface(gsl_display_id_t display_id, gsl_surface_id_t surface_id);
+extern gsl_display_id_t   gsl_display_open(gsl_devhandle_t devhandle, int panel_id);
+extern int                gsl_display_close(gsl_display_id_t display_id);
+extern int                gsl_display_getcount(void);
+extern int                gsl_display_setmode(gsl_display_id_t display_id, gsl_displaymode_t displaymode);
+extern int                gsl_display_getmode(gsl_display_id_t display_id, gsl_displaymode_t *displaymode);
+extern gsl_surface_id_t   gsl_display_setsurface(gsl_display_id_t display_id, void *buffer);
+extern int                gsl_display_getactivesurface(gsl_display_id_t display_id, void **buffer);
+extern int                gsl_display_flipsurface(gsl_display_id_t display_id, gsl_surface_id_t surface_id);
 
 #ifdef __cplusplus
 }

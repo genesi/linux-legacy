@@ -30,6 +30,8 @@
 #define __GSL_MEMMGR_H
 
 
+#include <linux/mutex.h>
+
 //////////////////////////////////////////////////////////////////////////////
 // defines
 //////////////////////////////////////////////////////////////////////////////
@@ -91,7 +93,7 @@ typedef struct _gsl_nodepool_t {
 // memory arena object
 // -------------------
 typedef struct _gsl_memarena_t {
-    oshandle_t      mutex;
+    struct mutex    lock;
     unsigned int    gpubaseaddr;
     unsigned int    hostbaseaddr;
     unsigned int    sizebytes;

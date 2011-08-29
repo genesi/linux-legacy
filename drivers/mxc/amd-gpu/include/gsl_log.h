@@ -57,9 +57,9 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... );
 #else
 
 // Empty function definitions
-OSINLINE int kgsl_log_finish(void) { return GSL_SUCCESS; }
-OSINLINE int kgsl_log_start( unsigned int log_flags ) { (void)log_flags; return GSL_SUCCESS; }
-OSINLINE int kgsl_log_write( unsigned int log_flags, char* format, ... ) { (void)log_flags; (void)format; return GSL_SUCCESS; }
+static __inline int kgsl_log_finish(void) { return GSL_SUCCESS; }
+static __inline int kgsl_log_start( unsigned int log_flags ) { (void)log_flags; return GSL_SUCCESS; }
+static __inline int kgsl_log_write( unsigned int log_flags, char* format, ... ) { (void)log_flags; (void)format; return GSL_SUCCESS; }
 
 #endif
 

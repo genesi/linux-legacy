@@ -16,59 +16,33 @@
  *
  */
 
+#include <linux/sched.h>
 #include <linux/slab.h>
 
 #include "gsl.h"
 #include "gsl_hal.h"
 #include "gsl_cmdstream.h"
 
-#ifdef GSL_LOCKING_FINEGRAIN
-#define GSL_CMDSTREAM_MUTEX_CREATE()        device->cmdstream_mutex = kos_mutex_create("gsl_cmdstream"); \
-                                            if (!device->cmdstream_mutex) return (GSL_FAILURE);
-#define GSL_CMDSTREAM_MUTEX_LOCK()          kos_mutex_lock(device->cmdstream_mutex)
-#define GSL_CMDSTREAM_MUTEX_UNLOCK()        kos_mutex_unlock(device->cmdstream_mutex)
-#define GSL_CMDSTREAM_MUTEX_FREE()          kos_mutex_free(device->cmdstream_mutex); device->cmdstream_mutex = 0;
-#else
-#define GSL_CMDSTREAM_MUTEX_CREATE()
-#define GSL_CMDSTREAM_MUTEX_LOCK()
-#define GSL_CMDSTREAM_MUTEX_UNLOCK()
-#define GSL_CMDSTREAM_MUTEX_FREE()
-#endif
-
-
-//////////////////////////////////////////////////////////////////////////////
 // functions
-//////////////////////////////////////////////////////////////////////////////
 
-int
-kgsl_cmdstream_init(gsl_device_t *device)
+int kgsl_cmdstream_init(gsl_device_t *device)
 {
-    GSL_CMDSTREAM_MUTEX_CREATE();
-
-    return GSL_SUCCESS;
+	return GSL_SUCCESS;
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_cmdstream_close(gsl_device_t *device)
+int kgsl_cmdstream_close(gsl_device_t *device)
 {
-    GSL_CMDSTREAM_MUTEX_FREE();
-
-    return GSL_SUCCESS;
+	return GSL_SUCCESS;
 }
 
-//----------------------------------------------------------------------------
-
-gsl_timestamp_t
-kgsl_cmdstream_readtimestamp0(gsl_deviceid_t device_id, gsl_timestamp_type_t type)
+gsl_timestamp_t kgsl_cmdstream_readtimestamp0(gsl_deviceid_t device_id, gsl_timestamp_type_t type)
 {
     gsl_timestamp_t   timestamp = -1;
     gsl_device_t* device  = &gsl_driver.device[device_id-1];
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
                     "--> gsl_timestamp_t kgsl_cmdstream_readtimestamp(gsl_deviceid_t device_id=%D gsl_timestamp_type_t type=%d)\n", device_id, type );
 #if (defined(GSL_BLD_G12) && defined(IRQTHREAD_POLL))
-    kos_event_signal(device->irqthread_event);
+    complete_all(&device->irqthread_event);
 #endif
     if (type == GSL_TIMESTAMP_CONSUMED)
     {
@@ -86,54 +60,63 @@ kgsl_cmdstream_readtimestamp0(gsl_deviceid_t device_id, gsl_timestamp_type_t typ
 
 //----------------------------------------------------------------------------
 
-KGSL_API gsl_timestamp_t
+gsl_timestamp_t
 kgsl_cmdstream_readtimestamp(gsl_deviceid_t device_id, gsl_timestamp_type_t type)
 {
 	gsl_timestamp_t timestamp = -1;
-	GSL_API_MUTEX_LOCK();
+
+	mutex_lock(&gsl_driver.lock);
+
 	timestamp = kgsl_cmdstream_readtimestamp0(device_id, type);
-	GSL_API_MUTEX_UNLOCK();
+
+	mutex_unlock(&gsl_driver.lock);
+
 	return timestamp;
 }
 
 //----------------------------------------------------------------------------
 
-KGSL_API int
+int
 kgsl_cmdstream_issueibcmds(gsl_deviceid_t device_id, int drawctxt_index, gpuaddr_t ibaddr, int sizedwords, gsl_timestamp_t *timestamp, unsigned int flags)
 {
     gsl_device_t* device  = &gsl_driver.device[device_id-1];
     int status = GSL_FAILURE;
-    GSL_API_MUTEX_LOCK();
-    
+
+    mutex_lock(&gsl_driver.lock);
+
     kgsl_device_active(device);
-     
+
     if (device->ftbl.cmdstream_issueibcmds)
     {
         status = device->ftbl.cmdstream_issueibcmds(device, drawctxt_index, ibaddr, sizedwords, timestamp, flags);
     }
-    GSL_API_MUTEX_UNLOCK();
+
+    mutex_unlock(&gsl_driver.lock);
+
     return status;
 }
 
 //----------------------------------------------------------------------------
 
-KGSL_API int
+int
 kgsl_add_timestamp(gsl_deviceid_t device_id, gsl_timestamp_t *timestamp)
 {
     gsl_device_t* device  = &gsl_driver.device[device_id-1];
     int status = GSL_FAILURE;
-    GSL_API_MUTEX_LOCK();
+
+    mutex_lock(&gsl_driver.lock);
+
     if (device->ftbl.device_addtimestamp)
     {
         status = device->ftbl.device_addtimestamp(device, timestamp);
     }
-    GSL_API_MUTEX_UNLOCK();
+
+    mutex_unlock(&gsl_driver.lock);
     return status;
 }
 
 //----------------------------------------------------------------------------
 
-KGSL_API
 int kgsl_cmdstream_waittimestamp(gsl_deviceid_t device_id, gsl_timestamp_t timestamp, unsigned int timeout)
 {
     gsl_device_t* device  = &gsl_driver.device[device_id-1];
@@ -154,12 +137,9 @@ kgsl_cmdstream_memqueue_drain(gsl_device_t *device)
     gsl_timestamp_t   timestamp, ts_processed;
     gsl_memqueue_t    *memqueue = &device->memqueue;
 
-    GSL_CMDSTREAM_MUTEX_LOCK();
-
     // check head
     if (memqueue->head == NULL)
     {
-        GSL_CMDSTREAM_MUTEX_UNLOCK();
         return;
     }
     // get current EOP timestamp
@@ -168,7 +148,6 @@ kgsl_cmdstream_memqueue_drain(gsl_device_t *device)
     // check head timestamp
     if (!(((ts_processed - timestamp) >= 0) || ((ts_processed - timestamp) < -GSL_TIMESTAMP_EPSILON)))
     {
-        GSL_CMDSTREAM_MUTEX_UNLOCK();
         return;
     }
     memnode  = memqueue->head;
@@ -203,7 +182,6 @@ kgsl_cmdstream_memqueue_drain(gsl_device_t *device)
         kfree(memnode);
     }
 
-    GSL_CMDSTREAM_MUTEX_UNLOCK();
 }
 
 //----------------------------------------------------------------------------
@@ -216,23 +194,20 @@ kgsl_cmdstream_freememontimestamp(gsl_deviceid_t device_id, gsl_memdesc_t *memde
     gsl_memqueue_t *memqueue;
     (void)type; // unref. For now just use EOP timestamp
 
-	GSL_API_MUTEX_LOCK();
-	GSL_CMDSTREAM_MUTEX_LOCK();
+    mutex_lock(&gsl_driver.lock);
 
-	memqueue = &device->memqueue;
-
+    memqueue = &device->memqueue;
     memnode  = kmalloc(sizeof(gsl_memnode_t), GFP_KERNEL);
 
     if (!memnode)
     {
         // other solution is to idle and free which given that the upper level driver probably wont check, probably a better idea
-		GSL_CMDSTREAM_MUTEX_UNLOCK();
-		GSL_API_MUTEX_UNLOCK();
+	mutex_unlock(&gsl_driver.lock);
         return (GSL_FAILURE);
     }
 
     memnode->timestamp = timestamp;
-    memnode->pid       = GSL_CALLER_PROCESSID_GET();
+    memnode->pid       = current->tgid;
     memnode->next      = NULL;
     memcpy(&memnode->memdesc, memdesc, sizeof(gsl_memdesc_t));
 
@@ -244,13 +219,12 @@ kgsl_cmdstream_freememontimestamp(gsl_deviceid_t device_id, gsl_memdesc_t *memde
     }
     else
     {
-        KOS_ASSERT(memqueue->head == NULL);
+        DEBUG_ASSERT(memqueue->head == NULL);
         memqueue->head = memnode;
         memqueue->tail = memnode;
     }
 
-    GSL_CMDSTREAM_MUTEX_UNLOCK();
-	GSL_API_MUTEX_UNLOCK();
+    mutex_unlock(&gsl_driver.lock);
 
     return (GSL_SUCCESS);
 }

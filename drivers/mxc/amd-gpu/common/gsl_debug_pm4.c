@@ -868,14 +868,14 @@ static int kgsl_dumpx_handle_type3(unsigned int* hostaddr, int count)
                 addr_stack[kgsl_dumpx_addr_count] = ibaddr;
                 // just for sanity checking
                 size_stack[kgsl_dumpx_addr_count++] = ibsize; 
-                KOS_ASSERT(kgsl_dumpx_addr_count < ADDRESS_STACK_SIZE);
+                DEBUG_ASSERT(kgsl_dumpx_addr_count < ADDRESS_STACK_SIZE);
 
                 // recursively follow the indirect link and update swap if indirect buffer had resolve
                 swap |= kgsl_dumpx_parse_ibs(ibaddr, ibsize); 
             }
             else
             {
-                KOS_ASSERT(size_stack[i] == ibsize);
+                DEBUG_ASSERT(size_stack[i] == ibsize);
             }
         } 
         break;
@@ -928,7 +928,7 @@ static int kgsl_dumpx_handle_type3(unsigned int* hostaddr, int count)
             if(iscopy && !swap)
             {
                 // printf("resolve: %ix%i @ 0x%08x, format = 0x%08x\n", width, height, baseaddr, format);
-                KOS_ASSERT(format < 15);
+                DEBUG_ASSERT(format < 15);
 
                 // yes it was and we need to update color buffer config because this is the first bin
                 // dumpx framebuffer base address, and dimensions
@@ -963,8 +963,8 @@ int kgsl_dumpx_parse_ibs(gpuaddr_t gpuaddr, int sizedwords)
 
     level++;
 
-    KOS_ASSERT(sizeof(unsigned int *) == sizeof(unsigned int));
-    KOS_ASSERT(level <= 2);
+    DEBUG_ASSERT(sizeof(unsigned int *) == sizeof(unsigned int));
+    DEBUG_ASSERT(level <= 2);
     hostaddr = (unsigned int *)kgsl_sharedmem_convertaddr(gpuaddr, 0);    
 
     // dump the IB to test vector
@@ -987,13 +987,13 @@ int kgsl_dumpx_parse_ibs(gpuaddr_t gpuaddr, int sizedwords)
             swap |= kgsl_dumpx_handle_type3(hostaddr, count);
             break; // type-3
         default:
-            KOS_ASSERT(!"unknown packet type");
+            DEBUG_ASSERT(!"unknown packet type");
         }
         
         // jump to next packet
         dwords_left -= count;
         hostaddr += count;
-        KOS_ASSERT(dwords_left >= 0 && "PM4 parsing error");
+        DEBUG_ASSERT(dwords_left >= 0 && "PM4 parsing error");
     }
 
     level--;

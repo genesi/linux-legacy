@@ -33,19 +33,6 @@
 extern "C" {
 #endif // __cplusplus
 
-/*
-#include "gsl_buildconfig.h"
-#include "kos_libapi.h"
-#include "gsl_klibapi.h"
-#ifdef GSL_BLD_YAMATO
-#include <reg/yamato.h>
-#endif
-#ifdef GSL_BLD_G12
-#include <reg/g12_reg.h>
-#endif
-#include "gsl_hwaccess.h"
-*/
-
 #include "gsl.h"
 #include "gsl_hwaccess.h"
 
@@ -61,7 +48,7 @@ extern "C" {
 
 
 //////////////////////////////////////////////////////////////////////////////
-//  version control                    
+//  version control
 //////////////////////////////////////////////////////////////////////////////
 #define KGSLHAL_NAME            "AMD GSL Kernel HAL"
 #define KGSLHAL_VERSION         "0.1"

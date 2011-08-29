@@ -29,7 +29,6 @@
 #ifndef __GSL_H
 #define __GSL_H
 
-//#define __KGSLLIB_EXPORTS
 #define __KERNEL_MODE__
 
 
@@ -44,8 +43,6 @@ typedef struct _gsl_device_t    gsl_device_t;
 //  includes
 //////////////////////////////////////////////////////////////////////////////
 #include "gsl_buildconfig.h"
-
-#include "kos_libapi.h"
 
 #include "gsl_klibapi.h"
 
@@ -75,5 +72,8 @@ typedef struct _gsl_device_t    gsl_device_t;
 #include "gsl_log.h"
 
 #include "gsl_config.h"
+
+
+#define DEBUG_ASSERT(x)
 
 #endif // __GSL_H

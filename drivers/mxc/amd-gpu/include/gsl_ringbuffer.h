@@ -136,9 +136,6 @@ typedef struct _gsl_ringbuffer_t {
 
     gsl_device_t      *device;
     gsl_flags_t       flags;
-#ifdef GSL_LOCKING_FINEGRAIN
-    oshandle_t        mutex;
-#endif
     gsl_memdesc_t     buffer_desc;              // allocated memory descriptor
     gsl_memdesc_t     memptrs_desc;
 
@@ -160,23 +157,6 @@ typedef struct _gsl_ringbuffer_t {
 
 } gsl_ringbuffer_t;
 
-
-//////////////////////////////////////////////////////////////////////////////
-// macros
-//////////////////////////////////////////////////////////////////////////////
-
-#ifdef GSL_LOCKING_FINEGRAIN
-#define GSL_RB_MUTEX_CREATE()               rb->mutex = kos_mutex_create("gsl_ringbuffer"); \
-                                            if (!rb->mutex) {return (GSL_FAILURE);}
-#define GSL_RB_MUTEX_LOCK()                 kos_mutex_lock(rb->mutex)
-#define GSL_RB_MUTEX_UNLOCK()               kos_mutex_unlock(rb->mutex)
-#define GSL_RB_MUTEX_FREE()                 kos_mutex_free(rb->mutex); rb->mutex = 0;
-#else
-#define GSL_RB_MUTEX_CREATE()
-#define GSL_RB_MUTEX_LOCK()
-#define GSL_RB_MUTEX_UNLOCK()
-#define GSL_RB_MUTEX_FREE()
-#endif
 
 // ----------
 // ring write
