@@ -780,9 +780,9 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
     *cmds++ = 0x6;                          // EDRAM copy
 
     // gleaned from qualcomm source
-    *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmPA_CL_CLIP_CNTL);
-    *cmds++ = 0x00010000;
+    //*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+    //*cmds++ = PM4_REG(mmPA_CL_CLIP_CNTL);
+    //*cmds++ = 0x00010000;
 
     // queue the draw packet
     *cmds++ = pm4_type3_packet(PM4_DRAW_INDX, 2);
