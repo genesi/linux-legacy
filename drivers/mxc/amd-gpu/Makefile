@@ -1,9 +1,6 @@
 EXTRA_CFLAGS := \
-	-D_LINUX \
 	-I$(obj)/include \
-	-I$(obj)/include/api \
-	-I$(obj)/include/ucode \
-	-I$(obj)/platform/hal/linux
+	-I$(obj)/include/api
 
 obj-$(CONFIG_MXC_AMD_GPU) += gpu.o
 gpu-objs += 	common/gsl_cmdstream.o \
@@ -20,11 +17,11 @@ gpu-objs += 	common/gsl_cmdstream.o \
 		common/gsl_ringbuffer.o \
 		common/gsl_sharedmem.o \
 		common/gsl_yamato.o \
-		platform/hal/linux/gsl_linux_map.o \
-		platform/hal/linux/gsl_kmod.o \
-		platform/hal/linux/gsl_hal.o \
-		platform/hal/linux/gsl_kmod_cleanup.o \
-		platform/hal/linux/misc.o \
+		common/gsl_linux_map.o \
+		common/gsl_kmod.o \
+		common/gsl_hal.o \
+		common/gsl_kmod_cleanup.o \
+		common/misc.o \
 
 
 ifdef CONFIG_MXC_AMD_GPU_LOGGING
