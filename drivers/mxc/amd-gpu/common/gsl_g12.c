@@ -359,6 +359,8 @@ kgsl_g12_close(gsl_device_t *device)
         drawctx_id = 0;
 
         DEBUG_ASSERT(g_z1xx.numcontext == 0);
+
+	memset(&g_z1xx, 0, sizeof(gsl_z1xx_t));
     }
 
     return (GSL_SUCCESS);
@@ -890,7 +892,6 @@ kgsl_g12_context_destroy(gsl_device_t* device, unsigned int drawctxt_id)
 #ifdef _Z180
         kgsl_sharedmem_free0(&g_z1xx.e2, current->tgid);
 #endif
-        memset(&g_z1xx,0,sizeof(gsl_z1xx_t));
     }
     return (GSL_SUCCESS);
 }
