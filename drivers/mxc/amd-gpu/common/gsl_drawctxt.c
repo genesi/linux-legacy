@@ -586,6 +586,10 @@ build_regsave_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
     // Copy Tex constants
     cmd = reg_to_mem(cmd, (drawctxt->gpustate.gpuaddr + TEX_OFFSET) & 0xFFFFE000, mmSQ_FETCH_0, TEX_CONSTANTS);
 #else
+    // insert a wait for idle (adreno.c:542 from qualcomm kernel)
+    *cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
+    *cmd++ = 0;
+
     // H/w registers are already shadowed; just need to disable shadowing to prevent corruption.
     *cmd++ = pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, 3);
     *cmd++ = (drawctxt->gpustate.gpuaddr + REG_OFFSET) & 0xFFFFE000;
@@ -652,6 +656,10 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
 
     // Set TP0_CHICKEN to zero
     *cmds++ = pm4_type0_packet(mmTP0_CHICKEN, 1);
+    *cmds++ = 0x00000000;
+
+    /* Set PA_SC_AA_CONFIG to 0 - from Qualcomm*/
+    *cmds++ = pm4_type0_packet(mmPA_SC_AA_CONFIG, 1);
     *cmds++ = 0x00000000;
 
     // --------------
@@ -771,6 +779,11 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
     *cmds++ = PM4_REG(mmRB_MODECONTROL);
     *cmds++ = 0x6;                          // EDRAM copy
 
+    // gleaned from qualcomm source
+    *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
+    *cmds++ = PM4_REG(mmPA_CL_CLIP_CNTL);
+    *cmds++ = 0x00010000;
+
     // queue the draw packet
     *cmds++ = pm4_type3_packet(PM4_DRAW_INDX, 2);
     *cmds++ = 0;                            // viz query info.
@@ -811,6 +824,10 @@ build_sys2gmem_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
 
     // Set TP0_CHICKEN to zero
     *cmds++ = pm4_type0_packet(mmTP0_CHICKEN, 1);
+    *cmds++ = 0x00000000;
+
+    /* Set PA_SC_AA_CONFIG to 0 */
+    *cmds++ = pm4_type0_packet(mmPA_SC_AA_CONFIG, 1);
     *cmds++ = 0x00000000;
 
     // ----------------

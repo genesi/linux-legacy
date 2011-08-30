@@ -38,7 +38,7 @@
 #define GSL_HAL_MEM2                        1
 //#define GSL_HAL_MEM3                        2
 
-//#define GSL_HAL_DEBUG
+#define GSL_HAL_DEBUG
 
 extern phys_addr_t gpu_2d_regbase;
 extern int gpu_2d_regsize;
@@ -449,6 +449,10 @@ kgsl_hal_getchipid(gsl_deviceid_t device_id)
 	patchid = ((revid >> 16) & 0xFF);
 
 	chipid = ((coreid << 24) | (majorid << 16) | (minorid << 8) | (patchid << 0));
+
+#ifdef GSL_HAL_DEBUG
+	printk(KERN_INFO "Z430 found: core %u major %u minor %u patch %u (chipid 0x%08x)\n", coreid, majorid, minorid, patchid, chipid);
+#endif
     }
 
     return chipid;
