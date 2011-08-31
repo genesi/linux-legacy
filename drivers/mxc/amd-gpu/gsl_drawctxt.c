@@ -659,8 +659,8 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
     *cmds++ = 0x00000000;
 
     /* Set PA_SC_AA_CONFIG to 0 - from Qualcomm*/
-    *cmds++ = pm4_type0_packet(mmPA_SC_AA_CONFIG, 1);
-    *cmds++ = 0x00000000;
+    //*cmds++ = pm4_type0_packet(mmPA_SC_AA_CONFIG, 1);
+    //*cmds++ = 0x00000000;
 
     // --------------
     // program shader
@@ -827,8 +827,8 @@ build_sys2gmem_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
     *cmds++ = 0x00000000;
 
     /* Set PA_SC_AA_CONFIG to 0 */
-    *cmds++ = pm4_type0_packet(mmPA_SC_AA_CONFIG, 1);
-    *cmds++ = 0x00000000;
+    //*cmds++ = pm4_type0_packet(mmPA_SC_AA_CONFIG, 1);
+    //*cmds++ = 0x00000000;
 
     // ----------------
     // shader constants

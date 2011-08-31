@@ -19,7 +19,7 @@
 #include "gsl.h"
 #include "gsl_hal.h"
 
-#if 0 // defined (GSL_BLD_YAMATO)
+#if 0//defined(GSL_BLD_YAMATO)
 
 #include <linux/string.h>
 
@@ -32,16 +32,11 @@
 char memBuf[MEMBUF_SIZE];
 static int writePtr = 0;
 static unsigned int lineNumber = 0;
-//#define fprintf(A,...); writePtr += sprintf( memBuf+writePtr, __VA_ARGS__ ); sprintf( memBuf+writePtr, "###" ); if( writePtr > MEMBUF_SIZE-BUFFER_END_MARGIN ) { memset(memBuf+writePtr, '#', MEMBUF_SIZE-writePtr); writePtr = 0; }
-#define FILE char
-#define fopen(X,Y) 0
-#define fclose(X)
 
-int printString( FILE *_File, const char * _Format, ...)
+int printString(const char * _Format, ...)
 {
     int ret;
     va_list ap;
-    (void)_File;
 
     va_start(ap, _Format);
     if( writePtr > 0 && memBuf[writePtr-1] == '\n' )
@@ -52,9 +47,9 @@ int printString( FILE *_File, const char * _Format, ...)
     ret = vsprintf(memBuf+writePtr, _Format, ap);
     writePtr += ret;
     sprintf( memBuf+writePtr, "###" );
-    if( writePtr > MEMBUF_SIZE-BUFFER_END_MARGIN ) 
-    { 
-        memset(memBuf+writePtr, '#', MEMBUF_SIZE-writePtr); 
+    if( writePtr > MEMBUF_SIZE-BUFFER_END_MARGIN )
+    {
+        memset(memBuf+writePtr, '#', MEMBUF_SIZE-writePtr);
         writePtr = 0;
     }
 
@@ -65,20 +60,17 @@ int printString( FILE *_File, const char * _Format, ...)
 
 #else
 
-int printString( FILE *_File, const char * _Format, ...)
+int printString(const char * _Format, ...)
 {
     int ret;
     va_list ap;
     va_start(ap, _Format);
-    ret = vfprintf(_File, _Format, ap);
+    ret = printk(_Format, ap);
     va_end(ap);
-    fflush(_File);
     return ret;
 }
 
 #endif
-
-#define PM4_DUMPFILE    "pm4dump.txt"
 
 //////////////////////////////////////////////////////////////////////////////
 // defines
@@ -90,7 +82,7 @@ int printString( FILE *_File, const char * _Format, ...)
 #define GetString_signedint15(val, szValue)  GetString_signedint(val, 15, szValue)
 
 // Need a prototype for this function
-void WritePM4Packet_Type3(FILE* pFile, unsigned int dwHeader, unsigned int** ppBuffer);
+void WritePM4Packet_Type3(unsigned int dwHeader, unsigned int** ppBuffer);
 
 static int indirectionLevel = 0;
 
@@ -99,14 +91,14 @@ static int indirectionLevel = 0;
 // functions
 //////////////////////////////////////////////////////////////////////////////
 
-void WriteDWORD(FILE* pFile, unsigned int dwValue)
+void WriteDWORD(unsigned int dwValue)
 {
-    printString(pFile, "    0x%08x", dwValue);
+    printString( "    0x%08x", dwValue);
 }
 
-void WriteDWORD2(FILE* pFile, unsigned int dwValue)
+void WriteDWORD2(unsigned int dwValue)
 {
-    printString(pFile, "    0x%08x\n", dwValue);
+    printString( "    0x%08x\n", dwValue);
 }
 
 //----------------------------------------------------------------------------
@@ -120,7 +112,7 @@ void GetString_##__type(unsigned int val, char* szValue)   \
 
 #define GENERATE_ENUM(__enumname, __val)            \
         case __val:                                 \
-            kos_strcpy(szValue, #__enumname);        \
+            strcpy(szValue, #__enumname);           \
             break;
 
 #define END_ENUMTYPE(__type)                        \
@@ -154,14 +146,7 @@ GetString_float(unsigned int val, char* szValue)
 void 
 GetString_bool(unsigned int val, char* szValue)
 {
-    if (val)
-    {
-        kos_strcpy(szValue, "TRUE");
-    }
-    else
-    {
-        kos_strcpy(szValue, "FALSE");
-    }
+    strcpy(szValue, val ? "TRUE" : "FALSE");
 }
 
 //----------------------------------------------------------------------------
@@ -266,7 +251,7 @@ switch(EXPAND_OPCODE(opcode))
     {
 #define TYPE3SWITCH(__opcode)                  \
         case PM4_PACKET3_##__opcode:           \
-            kos_strcpy(pszValue, #__opcode);    \
+            strcpy(pszValue, #__opcode);    \
             break;
 
         TYPE3SWITCH(NOP)
@@ -327,14 +312,14 @@ switch(EXPAND_OPCODE(opcode))
 //----------------------------------------------------------------------------
 
 void 
-WritePM4Packet_Type0(FILE* pFile, unsigned int dwHeader, unsigned int** ppBuffer)
+WritePM4Packet_Type0(unsigned int dwHeader, unsigned int** ppBuffer)
 {
     pm4_type0 header = *((pm4_type0*) &dwHeader);
     unsigned int* pBuffer = *ppBuffer;
     unsigned int dwIndex;
 
-    WriteDWORD(pFile, dwHeader);
-    printString(pFile, "    // Type-0 packet (BASE_INDEX = 0x%x, ONE_REG_WR = %d, COUNT = %d+1)\n",
+    WriteDWORD(dwHeader);
+    printString("    // Type-0 packet (BASE_INDEX = 0x%x, ONE_REG_WR = %d, COUNT = %d+1)\n",
         header.base_index, header.one_reg_wr, header.count);   
 
     // Now go through and write the dwNumDWORDs 
@@ -353,10 +338,10 @@ WritePM4Packet_Type0(FILE* pFile, unsigned int dwHeader, unsigned int** ppBuffer
             dwRegIndex = header.base_index + dwIndex;
         }
 
-        WriteDWORD(pFile, dwRegValue);
+        WriteDWORD(dwRegValue);
         // Write register string based on fields
         GetString_Register(dwRegIndex, dwRegValue, szRegister);
-        printString(pFile, "    // %s\n", szRegister);
+        printString("    // %s\n", szRegister);
 
         // Write actual unsigned int
         
@@ -368,42 +353,42 @@ WritePM4Packet_Type0(FILE* pFile, unsigned int dwHeader, unsigned int** ppBuffer
 //----------------------------------------------------------------------------
 
 void 
-WritePM4Packet_Type2(FILE* pFile, unsigned int dwHeader, unsigned int** ppBuffer)
+WritePM4Packet_Type2(unsigned int dwHeader, unsigned int** ppBuffer)
 {
     unsigned int* pBuffer = *ppBuffer;
 
-    WriteDWORD(pFile, dwHeader);
-    printString(pFile, "    // Type-2 packet\n");
-    
+    WriteDWORD(dwHeader);
+    printString("    // Type-2 packet\n");
+
     *ppBuffer = pBuffer;
 }
 
 //----------------------------------------------------------------------------
 
 void
-AnalyzePacketType(FILE *pFile, unsigned int dwHeader, unsigned int**ppBuffer)
+AnalyzePacketType(unsigned int dwHeader, unsigned int**ppBuffer)
 {
     switch(dwHeader & PM4_PKT_MASK)
     {
     case PM4_TYPE0_PKT:
-        WritePM4Packet_Type0(pFile, dwHeader, ppBuffer);
+        WritePM4Packet_Type0(dwHeader, ppBuffer);
         break;
 
     case PM4_TYPE1_PKT:
         break;
 
     case PM4_TYPE2_PKT:
-        WritePM4Packet_Type2(pFile, dwHeader, ppBuffer);
+        WritePM4Packet_Type2(dwHeader, ppBuffer);
         break;
 
     case PM4_TYPE3_PKT:
-        WritePM4Packet_Type3(pFile, dwHeader, ppBuffer);
+        WritePM4Packet_Type3(dwHeader, ppBuffer);
         break;
     }
 }
 
 void 
-WritePM4Packet_Type3(FILE* pFile, unsigned int dwHeader, unsigned int** ppBuffer)
+WritePM4Packet_Type3(unsigned int dwHeader, unsigned int** ppBuffer)
 {
     pm4_type3 header = *((pm4_type3*) &dwHeader);
     unsigned int* pBuffer = *ppBuffer;
@@ -419,33 +404,33 @@ WritePM4Packet_Type3(FILE* pFile, unsigned int dwHeader, unsigned int** ppBuffer
 
         indirectionLevel++;
 
-        WriteDWORD2(pFile, dwHeader);
-        WriteDWORD2(pFile, gpuaddr);
-        WriteDWORD2(pFile, (unsigned int) (pIndirectBufferEnd-pIndirectBuffer));
+        WriteDWORD2(dwHeader);
+        WriteDWORD2(gpuaddr);
+        WriteDWORD2((unsigned int) (pIndirectBufferEnd-pIndirectBuffer));
 
         if (indirectionLevel == 1)
         {
-            printString(pFile, "Start_IB1, base=0x%x, size=%d\n", gpuaddr, (unsigned int)(pIndirectBufferEnd - pIndirectBuffer));
+            printString( "Start_IB1, base=0x%x, size=%d\n", gpuaddr, (unsigned int)(pIndirectBufferEnd - pIndirectBuffer));
         }
         else
         {
-            printString(pFile, "Start_IB2, base=0x%x, size=%d\n", gpuaddr, (unsigned int)(pIndirectBufferEnd - pIndirectBuffer));
+            printString( "Start_IB2, base=0x%x, size=%d\n", gpuaddr, (unsigned int)(pIndirectBufferEnd - pIndirectBuffer));
         }
 
         while(pIndirectBuffer < pIndirectBufferEnd)
         {
             unsigned int _dwHeader = *(pIndirectBuffer++);
 
-            AnalyzePacketType(pFile, _dwHeader, &pIndirectBuffer);
+            AnalyzePacketType(_dwHeader, &pIndirectBuffer);
         }
 
         if (indirectionLevel == 1)
         {
-            printString(pFile, "End_IB1\n");
+            printString( "End_IB1\n");
         }
         else
         {
-            printString(pFile, "End_IB2\n");
+            printString( "End_IB2\n");
         }
 
         indirectionLevel--;
@@ -457,8 +442,8 @@ WritePM4Packet_Type3(FILE* pFile, unsigned int dwHeader, unsigned int** ppBuffer
 
         GetString_Type3Opcode(header.it_opcode, szOpcode);
 
-        WriteDWORD(pFile, dwHeader);
-        printString(pFile, "    // Type-3 packet (PREDICATE = %d, IT_OPCODE = %s, COUNT = %d+1)\n",
+        WriteDWORD(dwHeader);
+        printString( "    // Type-3 packet (PREDICATE = %d, IT_OPCODE = %s, COUNT = %d+1)\n",
             header.predicate, szOpcode, header.count);
         
         // Go through each command
@@ -469,20 +454,20 @@ WritePM4Packet_Type3(FILE* pFile, unsigned int dwHeader, unsigned int** ppBuffer
                 registerAddr = (*pBuffer) & 0xffff;
 
             // Write unsigned int
-            WriteDWORD(pFile, *pBuffer);
+            WriteDWORD(*pBuffer);
 
             // Starting at Ordinal 2 is actual register values
             if((dwIndex > 0) && (registerAddr != 0xffffffff))
             {
                 // Write register string based on address
                 GetString_Register(registerAddr + 0x2000, *pBuffer, szRegister);
-                printString(pFile, "    // %s\n", szRegister);
+                printString( "    // %s\n", szRegister);
                 registerAddr++;
             }
             else
             {
                 // Write out newline if we aren't augmenting with register fields
-                printString(pFile, "\n");
+                printString( "\n");
             }
 
             pBuffer++;
@@ -496,12 +481,8 @@ WritePM4Packet_Type3(FILE* pFile, unsigned int dwHeader, unsigned int** ppBuffer
 void
 Yamato_DumpInitParams(unsigned int dwEDRAMBase, unsigned int dwEDRAMSize)
 {
-    FILE* pFile = fopen(PM4_DUMPFILE, "a");
-
-    printString(pFile, "InitParams, edrambase=0x%x, edramsize=%d\n",
+    printString( "InitParams, edrambase=0x%x, edramsize=%d\n",
         dwEDRAMBase, dwEDRAMSize);
-
-    fclose(pFile);
 }
 
 //----------------------------------------------------------------------------
@@ -510,13 +491,8 @@ void
 Yamato_DumpSwapBuffers(unsigned int dwAddress, unsigned int dwWidth,
     unsigned int dwHeight, unsigned int dwPitch, unsigned int dwAlignedHeight, unsigned int dwBitsPerPixel)
 {
-    // Open file
-    FILE* pFile = fopen(PM4_DUMPFILE, "a");
-
-    printString(pFile, "SwapBuffers, address=0x%08x, width=%d, height=%d, pitch=%d, alignedheight=%d, bpp=%d\n",
+    printString( "SwapBuffers, address=0x%08x, width=%d, height=%d, pitch=%d, alignedheight=%d, bpp=%d\n",
         dwAddress, dwWidth, dwHeight, dwPitch, dwAlignedHeight, dwBitsPerPixel);
-
-    fclose(pFile);
 }
 
 //----------------------------------------------------------------------------
@@ -528,30 +504,26 @@ Yamato_DumpRegSpace(gsl_device_t *device)
     unsigned int  dwOffset;
     unsigned int  value;
 
-    FILE* pFile = fopen(PM4_DUMPFILE, "a");
-
-    printString(pFile, "Start_RegisterSpace\n");
+    printString( "Start_RegisterSpace\n");
     
     for (dwOffset = 0; dwOffset < device->regspace.sizebytes; dwOffset += 4)
     {
         if (dwOffset % regsPerLine == 0)
         {
-           printString(pFile, "    0x%08x   ", dwOffset);
+           printString( "    0x%08x   ", dwOffset);
         }
 
         GSL_HAL_REG_READ(device->id, (unsigned int) device->regspace.mmio_virt_base, (dwOffset >> 2), &value);
 
-        printString(pFile, " 0x%08x", value);
+        printString( " 0x%08x", value);
 
         if (((dwOffset + 4) % regsPerLine == 0) && ((dwOffset + 4) < device->regspace.sizebytes))
         {
-           printString(pFile, "\n");
+           printString( "\n");
         }
     }
 
-    printString(pFile, "\nEnd_RegisterSpace\n");
-
-    fclose(pFile);
+    printString( "\nEnd_RegisterSpace\n");
 }
 
 //----------------------------------------------------------------------------
@@ -560,13 +532,8 @@ void
 Yamato_DumpAllocateMemory(unsigned int dwSize, unsigned int dwFlags, unsigned int dwAddress,
     unsigned int dwActualSize)
 {
-    // Open file
-    FILE* pFile = fopen(PM4_DUMPFILE, "a");
-
-    printString(pFile, "AllocateMemory, size=%d, flags=0x%x, address=0x%x, actualSize=%d\n",
+    printString( "AllocateMemory, size=%d, flags=0x%x, address=0x%x, actualSize=%d\n",
         dwSize, dwFlags, dwAddress, dwActualSize);
-
-    fclose(pFile);
 }
 
 //----------------------------------------------------------------------------
@@ -574,12 +541,7 @@ Yamato_DumpAllocateMemory(unsigned int dwSize, unsigned int dwFlags, unsigned in
 void
 Yamato_DumpFreeMemory(unsigned int dwAddress)
 {
-    // Open file
-    FILE* pFile = fopen(PM4_DUMPFILE, "a");
-
-    printString(pFile, "FreeMemory, address=0x%x\n", dwAddress);
-
-    fclose(pFile);
+    printString( "FreeMemory, address=0x%x\n", dwAddress);
 }
 
 //----------------------------------------------------------------------------
@@ -588,12 +550,11 @@ void
 Yamato_DumpWriteMemory(unsigned int dwAddress, unsigned int dwSize, void* pData)
 {
     // Open file
-    FILE* pFile = fopen(PM4_DUMPFILE, "a");
     unsigned int dwNumDWORDs;
     unsigned int dwIndex;
     unsigned int *pDataPtr;
 
-    printString(pFile, "StartWriteMemory, address=0x%x, size=%d\n", dwAddress, dwSize);
+    printString( "StartWriteMemory, address=0x%x, size=%d\n", dwAddress, dwSize);
 
     // Now write the data, in dwNumDWORDs
     dwNumDWORDs = dwSize >> 2;
@@ -605,25 +566,19 @@ Yamato_DumpWriteMemory(unsigned int dwAddress, unsigned int dwSize, void* pData)
 
     for (dwIndex = 0, pDataPtr = (unsigned int *)pData; dwIndex < dwNumDWORDs; dwIndex++, pDataPtr++)
     {
-        WriteDWORD2(pFile, *pDataPtr);
+        WriteDWORD2(*pDataPtr);
     }
 
-    printString(pFile, "EndWriteMemory\n");
-
-    fclose(pFile);
+    printString( "EndWriteMemory\n");
 }
 
 void 
 Yamato_DumpSetMemory(unsigned int dwAddress, unsigned int dwSize, unsigned int pData)
 {
-    // Open file
-    FILE* pFile = fopen(PM4_DUMPFILE, "a");
 //    unsigned int* pDataPtr;
 
-    printString(pFile, "SetMemory, address=0x%x, size=%d, value=0x%x\n",
+    printString( "SetMemory, address=0x%x, size=%d, value=0x%x\n",
         dwAddress, dwSize, pData);
-
-    fclose(pFile);
 }
 
 //----------------------------------------------------------------------------
@@ -708,43 +663,39 @@ Yamato_DumpPM4(unsigned int* pBuffer, unsigned int sizeDWords)
     unsigned int *pBufferEnd = pBuffer + sizeDWords;
     unsigned int *tmp;
 
-    // Open file
-    FILE* pFile = fopen(PM4_DUMPFILE, "a");
-
-    printString(pFile, "Start_PM4Buffer\n");//, count=%d\n", sizeDWords);
+    printString( "Start_PM4Buffer\n");//, count=%d\n", sizeDWords);
 
     // So look at the first unsigned int - should be a header
     while(pBuffer < pBufferEnd)
     {
         unsigned int dwHeader = *(pBuffer++);
 
-        //printString(pFile, "  Start_Packet\n");
+        //printString( "  Start_Packet\n");
         switch(dwHeader & PM4_PKT_MASK)
         {
             case PM4_TYPE0_PKT:
-                WritePM4Packet_Type0(pFile, dwHeader, &pBuffer);
+                WritePM4Packet_Type0(dwHeader, &pBuffer);
                 break;
 
             case PM4_TYPE1_PKT:
                 break;
 
             case PM4_TYPE2_PKT:
-                WritePM4Packet_Type2(pFile, dwHeader, &pBuffer);
+                WritePM4Packet_Type2(dwHeader, &pBuffer);
                 break;
 
             case PM4_TYPE3_PKT:
                 indirectionLevel = 0;
                 tmp = pBuffer;
                 Yamato_ConvertIBAddr(dwHeader, tmp, 1);
-                WritePM4Packet_Type3(pFile, dwHeader, &pBuffer);
+                WritePM4Packet_Type3(dwHeader, &pBuffer);
                 Yamato_ConvertIBAddr(dwHeader, tmp, 0);
                 break;
         }
-        //printString(pFile, "  End_Packet\n");
+        //printString( "  End_Packet\n");
     }
 
-    printString(pFile, "End_PM4Buffer\n");
-    fclose(pFile);
+    printString( "End_PM4Buffer\n");
 }
 
 //----------------------------------------------------------------------------
@@ -752,8 +703,6 @@ Yamato_DumpPM4(unsigned int* pBuffer, unsigned int sizeDWords)
 void
 Yamato_DumpRegisterWrite(unsigned int dwAddress, unsigned int value)
 {
-    FILE *pFile;
-
     // Build a Type-0 packet that maps to this register write
     unsigned int pBuffer[100], *pBuf = &pBuffer[1];
 
@@ -761,16 +710,12 @@ Yamato_DumpRegisterWrite(unsigned int dwAddress, unsigned int value)
     if(dwAddress == mmCP_RB_WPTR)
         return;
 
-    pFile = fopen(PM4_DUMPFILE, "a");
-
     pBuffer[0] = dwAddress;
     pBuffer[1] = value;
 
-    printString(pFile, "StartRegisterWrite\n");
-    WritePM4Packet_Type0(pFile, pBuffer[0], &pBuf);
-    printString(pFile, "EndRegisterWrite\n");
-
-    fclose(pFile);
+    printString( "StartRegisterWrite\n");
+    WritePM4Packet_Type0(pBuffer[0], &pBuf);
+    printString( "EndRegisterWrite\n");
 }
 
 //----------------------------------------------------------------------------
@@ -778,20 +723,14 @@ Yamato_DumpRegisterWrite(unsigned int dwAddress, unsigned int value)
 void
 Yamato_DumpFbStart(gsl_device_t *device)
 {
-    FILE *pFile;
-
     static int firstCall = 0;
 
     // We only want to call this once
     if(firstCall)
         return;
 
-    pFile = fopen(PM4_DUMPFILE, "a");
-
-    printString(pFile, "FbStart, value=0x%x\n", device->mmu.mpu_base);
-    printString(pFile, "FbSize, value=0x%x\n", device->mmu.mpu_range);
-
-    fclose(pFile);
+    printString( "FbStart, value=0x%x\n", device->mmu.mpu_base);
+    printString( "FbSize, value=0x%x\n", device->mmu.mpu_range);
 
     firstCall = 1;
 }
@@ -801,13 +740,7 @@ Yamato_DumpFbStart(gsl_device_t *device)
 void
 Yamato_DumpWindow(unsigned int addr, unsigned int width, unsigned int height)
 {
-    FILE *pFile;
-
-    pFile = fopen(PM4_DUMPFILE, "a");
-
-    printString(pFile, "DumpWindow, addr=0x%x, width=0x%x, height=0x%x\n", addr, width, height);
-
-    fclose(pFile);
+    printString( "DumpWindow, addr=0x%x, width=0x%x, height=0x%x\n", addr, width, height);
 }
 
 //----------------------------------------------------------------------------

@@ -248,7 +248,7 @@ kgsl_mmu_destroypagetableobject(gsl_mmu_t *mmu, unsigned int pid)
             {
                 /* many dumpx test cases forcefully exit, and thus trigger this assert. */
                 /* Because it is an annoyance for HW guys, it is disabled for dumpx */
-                if(!gsl_driver.flags_debug & GSL_DBGFLAGS_DUMPX)
+                if(!(gsl_driver.flags_debug & GSL_DBGFLAGS_DUMPX))
                 {
                     DEBUG_ASSERT(0);
                     return (GSL_FAILURE);
@@ -897,7 +897,7 @@ kgsl_mmu_close(gsl_device_t *device)
                 {
                     /* many dumpx test cases forcefully exit, and thus trigger this assert. */
                     /* Because it is an annoyance for HW guys, it is disabled for dumpx */
-                    if(!gsl_driver.flags_debug & GSL_DBGFLAGS_DUMPX)
+                    if(!(gsl_driver.flags_debug & GSL_DBGFLAGS_DUMPX))
                     {
                         DEBUG_ASSERT(0);
                         return (GSL_FAILURE);

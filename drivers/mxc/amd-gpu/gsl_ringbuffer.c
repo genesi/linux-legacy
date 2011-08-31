@@ -21,6 +21,7 @@
 #include "gsl.h"
 #include "gsl_hal.h"
 #include "gsl_cmdstream.h"
+#include "gsl_ringbuffer.h"
 
 #ifdef GSL_BLD_YAMATO
 
