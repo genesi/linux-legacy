@@ -38,8 +38,8 @@ typedef struct log_output
 static log_output_t* outputs = NULL;
 
 static struct mutex   log_mutex;
-static char         buffer[256];
-static char         buffer2[256];
+static char         buffer[1024];
+static char         buffer2[1024];
 static int          log_initialized = 0;
 
 //----------------------------------------------------------------------------
@@ -140,12 +140,12 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
             // gsl_memdesc_t
             case 'M':
             {
-                gsl_memdesc_t val = va_arg( arguments, gsl_memdesc_t );
+                gsl_memdesc_t *val = va_arg( arguments, gsl_memdesc_t *);
                 // Handle string before %M
                 memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;
                 // Replace %M
-                b += sprintf( b, "[hostptr=0x%08x, gpuaddr=0x%08x]", val.hostptr, val.gpuaddr );
+                b += sprintf( b, "[hostptr=0x%08x, gpuaddr=0x%08x]", val->hostptr, val->gpuaddr );
                 // Handle string after %M
                 memcpy( b, p1+2, p2-(p1+2) );
                 b += (unsigned int)p2-(unsigned int)(p1+2);
@@ -452,6 +452,61 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
             }
             break;
 
+	    // gsl_scatterlist_t
+	    case 'S':
+	    {
+		gsl_scatterlist_t *val = va_arg(arguments, gsl_scatterlist_t *);
+		// handle string before %S
+                memcpy( b, c, p1-c );
+                b += (unsigned int)p1-(unsigned int)c;
+                // Replace %S
+                b += sprintf( b, "[contiguous=%d,num=%u,pages[0]=0x%08x]",val->contiguous,val->num, val->pages ? val->pages[0] : 0);
+                // Handle string after %S
+                memcpy( b, p1+2, p2-(p1+2) );
+                b += (unsigned int)p2-(unsigned int)(p1+2);
+                *b = '\0';
+	    }
+	    break;
+
+	    // gsl_property_type_t
+	    case 'T':
+	    {
+		char *prop;
+		gsl_property_type_t val = va_arg(arguments, gsl_property_type_t);
+		// handle string before %T
+                memcpy( b, c, p1-c );
+                b += (unsigned int)p1-(unsigned int)c;
+                // Replace %T
+		switch (val) {
+			case GSL_PROP_DEVICE_INFO:
+				prop = "GSL_PROP_DEVICE_INFO";
+			break;
+			case GSL_PROP_DEVICE_SHADOW:
+				prop = "GSL_PROP_DEVICE_SHADOW";
+			break;
+			case GSL_PROP_DEVICE_POWER:
+				prop = "GSL_PROP_DEVICE_POWER";
+			break;
+			case GSL_PROP_SHMEM:
+				prop = "GSL_PROP_SHMEM";
+			break;
+			case GSL_PROP_SHMEM_APERTURES:
+				prop = "GSL_PROP_SHMEM_APERTURES";
+			break;
+			case GSL_PROP_DEVICE_DMI:
+				prop = "GSL_PROP_DEVICE_DMI";
+			break;
+			default:
+				prop = "????????";
+			break;
+		}
+                b += sprintf( b, "%s",prop);
+                // Handle string after %T
+                memcpy( b, p1+2, p2-(p1+2) );
+                b += (unsigned int)p2-(unsigned int)(p1+2);
+                *b = '\0';
+	    }
+	    break;
 
             default:
             {

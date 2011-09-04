@@ -589,7 +589,7 @@ kgsl_mmu_map(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, const gsl_scatterlist_t *sca
     gsl_pagetable_t  *pagetable;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_mmu_map(gsl_mmu_t *mmu=0x%08x, gpuaddr_t gpubaseaddr=0x%08x, gsl_scatterlist_t *scatterlist=%M, gsl_flags_t flags=%d, uint pid=0x%08x)\n",
+                    "--> int kgsl_mmu_map(gsl_mmu_t *mmu=0x%08x, gpuaddr_t gpubaseaddr=0x%08x, gsl_scatterlist_t *scatterlist=%S, gsl_flags_t flags=%d, uint pid=0x%08x)\n",
                     mmu, gpubaseaddr, scatterlist, flags, pid );
 
     DEBUG_ASSERT(scatterlist);

@@ -290,7 +290,7 @@ kgsl_device_getproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void
     gsl_device_t  *device = &gsl_driver.device[device_id-1];        // device_id is 1 based
 
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_getproperty(gsl_deviceid_t device_id=%D, gsl_property_type_t type=%d, void *value=0x%08x, uint sizebytes=%u)\n", device_id, type, value, sizebytes );
+                    "--> int kgsl_device_getproperty(gsl_deviceid_t device_id=%D, gsl_property_type_t type=%T, void *value=0x%08x, uint sizebytes=%u)\n", device_id, type, value, sizebytes );
 
     DEBUG_ASSERT(value);
 
@@ -383,7 +383,7 @@ kgsl_device_setproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void
     gsl_device_t  *device;
 
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_setproperty(gsl_deviceid_t device_id=%D, gsl_property_type_t type=%d, void *value=0x%08x, uint sizebytes=%u)\n", device_id, type, value, sizebytes );
+                    "--> int kgsl_device_setproperty(gsl_deviceid_t device_id=%D, gsl_property_type_t type=%T, void *value=0x%08x, uint sizebytes=%u)\n", device_id, type, value, sizebytes );
 
     DEBUG_ASSERT(value);
 

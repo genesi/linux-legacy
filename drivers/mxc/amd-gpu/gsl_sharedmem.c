@@ -696,7 +696,7 @@ kgsl_sharedmem_map(gsl_deviceid_t device_id, gsl_flags_t flags, const gsl_scatte
     gsl_deviceid_t   tmp_id;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_map(gsl_deviceid_t device_id=%D, gsl_flags_t flags=0x%08x, gsl_scatterlist_t scatterlist=%M, gsl_memdesc_t *memdesc=%M)\n",
+                    "--> int kgsl_sharedmem_map(gsl_deviceid_t device_id=%D, gsl_flags_t flags=0x%08x, gsl_scatterlist_t scatterlist=%S, gsl_memdesc_t *memdesc=%M)\n",
                     device_id, flags, memdesc, scatterlist );
 
     // execute pending device action
@@ -790,7 +790,7 @@ kgsl_sharedmem_getmap(const gsl_memdesc_t *memdesc, gsl_scatterlist_t *scatterli
     gsl_sharedmem_t  *shmem;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_getmap(gsl_memdesc_t *memdesc=%M, gsl_scatterlist_t scatterlist=%M)\n",
+                    "--> int kgsl_sharedmem_getmap(gsl_memdesc_t *memdesc=%M, gsl_scatterlist_t scatterlist=%S)\n",
                     memdesc, scatterlist );
 
     GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
