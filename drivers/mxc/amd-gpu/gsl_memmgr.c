@@ -489,7 +489,7 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, gsl_m
     int		  err;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_memarena_alloc(gsl_memarena_t *memarena=0x%08x, gsl_flags_t flags=0x%08x, int size=%d, gsl_memdesc_t *memdesc=%M)\n", memarena, flags, size, memdesc );
+                    "--> int kgsl_memarena_alloc(gsl_memarena_t *memarena=0x%08x, gsl_flags_t flags=%x, int size=%d, gsl_memdesc_t *memdesc=%M)\n", memarena, flags, size, memdesc );
 
     GSL_MEMARENA_VALIDATE(memarena);
 
@@ -929,7 +929,7 @@ kgsl_memarena_getlargestfreeblock(gsl_memarena_t *memarena, gsl_flags_t flags)
     int           err;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> unsigned int kgsl_memarena_getlargestfreeblock(gsl_memarena_t *memarena=0x%08x, gsl_flags_t flags=0x%08x)\n", memarena, flags );
+                    "--> unsigned int kgsl_memarena_getlargestfreeblock(gsl_memarena_t *memarena=0x%08x, gsl_flags_t flags=%x)\n", memarena, flags );
 
     DEBUG_ASSERT(memarena);
     if (GSL_MEMARENA_GET_SIGNATURE != GSL_MEMARENA_INSTANCE_SIGNATURE)

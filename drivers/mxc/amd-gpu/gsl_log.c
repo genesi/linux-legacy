@@ -145,7 +145,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
                 memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;
                 // Replace %M
-                b += sprintf( b, "[hostptr=0x%08x, gpuaddr=0x%08x]", val->hostptr, val->gpuaddr );
+                b += sprintf( b, "[hostptr=0x%08x,gpuaddr=0x%08x,size=%u,flags=%x]", val->hostptr, val->gpuaddr, val->size, (unsigned int) val->priv );
                 // Handle string after %M
                 memcpy( b, p1+2, p2-(p1+2) );
                 b += (unsigned int)p2-(unsigned int)(p1+2);
@@ -460,7 +460,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
                 memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;
                 // Replace %S
-                b += sprintf( b, "[contiguous=%d,num=%u,pages[0]=0x%08x]",val->contiguous,val->num, val->pages ? val->pages[0] : 0);
+                b += sprintf( b, "[contiguous=%d,num=%u]",val->contiguous,val->num);
                 // Handle string after %S
                 memcpy( b, p1+2, p2-(p1+2) );
                 b += (unsigned int)p2-(unsigned int)(p1+2);

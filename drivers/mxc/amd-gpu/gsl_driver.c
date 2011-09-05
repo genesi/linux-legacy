@@ -163,7 +163,7 @@ kgsl_driver_entry(gsl_flags_t flags)
         return (GSL_FAILURE);
     }
 
-    kgsl_log_write( KGSL_LOG_GROUP_DRIVER | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_driver_entry( gsl_flags_t flags=%d )\n", flags );
+    kgsl_log_write( KGSL_LOG_GROUP_DRIVER | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_driver_entry( gsl_flags_t flags=%x )\n", flags );
 
     mutex_lock(&gsl_driver.lock);
 

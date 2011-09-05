@@ -50,6 +50,6 @@
 /* #define GSL_MMU_PAGETABLE_PERPROCESS */
 
 #define GSL_CALLER_PROCESS_MAX      10
-#define GSL_SHMEM_MAX_APERTURES     3
+#define GSL_SHMEM_MAX_APERTURES     2
 
 #endif /* __GSL__BUILDCONFIG_H */
