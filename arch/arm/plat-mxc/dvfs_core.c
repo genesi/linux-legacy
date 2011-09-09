@@ -88,7 +88,9 @@ int dvfs_core_resume;
 int curr_wp;
 int old_wp;
 
+#if defined(CONFIG_CPU_FREQ)
 extern int cpufreq_trig_needed;
+#endif
 struct timeval core_prev_intr;
 
 void dump_dvfs_core_regs(void);
@@ -887,7 +889,9 @@ static int __devinit mxc_dvfs_core_probe(struct platform_device *pdev)
 	old_wp = 0;
 	curr_wp = 0;
 	dvfs_core_resume = 0;
+#if defined(CONFIG_CPU_FREQ)
 	cpufreq_trig_needed = 0;
+#endif
 
 	return err;
 err3:
