@@ -444,8 +444,10 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 			freq_target = 5;
 
 		this_dbs_info->requested_freq += freq_target;
-		if (this_dbs_info->requested_freq > policy->max)
+		if (this_dbs_info->requested_freq >= policy->max) {
 			this_dbs_info->requested_freq = policy->max;
+			cpu_nonscaling(policy->cpu);
+		}
 
 		__cpufreq_driver_target(policy, this_dbs_info->requested_freq,
 			CPUFREQ_RELATION_H);
@@ -470,6 +472,7 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		if (policy->cur == policy->min)
 			return;
 
+		cpu_scaling(policy->cpu);
 		__cpufreq_driver_target(policy, this_dbs_info->requested_freq,
 				CPUFREQ_RELATION_H);
 		return;
@@ -585,6 +588,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 		dbs_timer_init(this_dbs_info);
 
+		cpu_scaling(cpu);
 		break;
 
 	case CPUFREQ_GOV_STOP:
@@ -606,6 +610,7 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 
 		mutex_unlock(&dbs_mutex);
 
+		cpu_nonscaling(cpu);
 		break;
 
 	case CPUFREQ_GOV_LIMITS:
