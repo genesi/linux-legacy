@@ -480,7 +480,7 @@ static int sgtl5000_set_dai_sysclk(struct snd_soc_dai *codec_dai,
 		sgtl5000->sysclk = freq;
 		break;
 	case SGTL5000_LRCLK:
-		sgtl5000->lrclk = freq;
+		sgtl5000->lrclk = freq;		/* What is this ???? */
 		break;
 	default:
 		return -EINVAL;
@@ -619,7 +619,8 @@ static int sgtl5000_pcm_hw_params(struct snd_pcm_substream *substream,
 	int i2s_ctl;
 	int div2 = 0;
 	int reg;
-	int sys_fs;
+	u32 sys_fs;
+	u32 sample_rate = params_rate(params);
 
 	pr_debug("%s channels=%d\n", __func__, channels);
 
@@ -636,7 +637,8 @@ static int sgtl5000_pcm_hw_params(struct snd_pcm_substream *substream,
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
 		sgtl5000->capture_channels = channels;
 
-	switch (sgtl5000->lrclk) {
+	sys_fs = sample_rate;
+	switch (sys_fs) {
 	case 8000:
 	case 16000:
 		sys_fs = 32000;
@@ -644,20 +646,6 @@ static int sgtl5000_pcm_hw_params(struct snd_pcm_substream *substream,
 	case 11025:
 	case 22050:
 		sys_fs = 44100;
-		break;
-	default:
-		sys_fs = sgtl5000->lrclk;
-		break;
-	}
-
-	switch (sys_fs / sgtl5000->lrclk) {
-	case 4:
-		clk_ctl |= SGTL5000_RATE_MODE_DIV_4 << SGTL5000_RATE_MODE_SHIFT;
-		break;
-	case 2:
-		clk_ctl |= SGTL5000_RATE_MODE_DIV_2 << SGTL5000_RATE_MODE_SHIFT;
-		break;
-	default:
 		break;
 	}
 
@@ -676,12 +664,21 @@ static int sgtl5000_pcm_hw_params(struct snd_pcm_substream *substream,
 		break;
 	default:
 		pr_err("%s: sample rate %d not supported\n", __func__,
-		       sgtl5000->lrclk);
+		       sample_rate);
 		return -EFAULT;
 	}
+	switch (sys_fs / sample_rate) {
+	case 4:
+		clk_ctl |= SGTL5000_RATE_MODE_DIV_4 << SGTL5000_RATE_MODE_SHIFT;
+		break;
+	case 2:
+		clk_ctl |= SGTL5000_RATE_MODE_DIV_2 << SGTL5000_RATE_MODE_SHIFT;
+		break;
+	}
+
 	/* SGTL5000 rev1 has a IC bug to prevent switching to MCLK from PLL. */
 	if (!sgtl5000->master) {
-		sys_fs = sgtl5000->lrclk;
+		sys_fs = sample_rate;
 		clk_ctl = SGTL5000_RATE_MODE_DIV_1 << SGTL5000_RATE_MODE_SHIFT;
 		if (sys_fs * 256 == sgtl5000->sysclk)
 			clk_ctl |= SGTL5000_MCLK_FREQ_256FS << \
@@ -697,30 +694,23 @@ static int sgtl5000_pcm_hw_params(struct snd_pcm_substream *substream,
 			       __func__);
 			return -EINVAL;
 		}
-	} else
-		clk_ctl |= SGTL5000_MCLK_FREQ_PLL << SGTL5000_MCLK_FREQ_SHIFT;
-
-	if ((clk_ctl & SGTL5000_MCLK_FREQ_MASK) == SGTL5000_MCLK_FREQ_PLL) {
-		u64 out, t;
-		unsigned int in, int_div, frac_div;
+	} else {
+		u64 out;
+		if (sys_fs == 44100) {
+			out = 180633600ULL << 11;
+		} else {
+			out = 196608000ULL << 11;
+		}
 		if (sgtl5000->sysclk > 17000000) {
 			div2 = 1;
-			in = sgtl5000->sysclk / 2;
+			out <<= 1;
 		} else {
 			div2 = 0;
-			in = sgtl5000->sysclk;
 		}
-		if (sys_fs == 44100)
-			out = 180633600;
-		else
-			out = 196608000;
-		t = do_div(out, in);
-		int_div = out;
-		t *= 2048;
-		do_div(t, in);
-		frac_div = t;
-		pll_ctl = int_div << SGTL5000_PLL_INT_DIV_SHIFT |
-		    frac_div << SGTL5000_PLL_FRAC_DIV_SHIFT;
+		out += (sgtl5000->sysclk >> 1);		/* round */
+		do_div(out, sgtl5000->sysclk);
+		pll_ctl = (int)out;
+		clk_ctl |= SGTL5000_MCLK_FREQ_PLL << SGTL5000_MCLK_FREQ_SHIFT;
 	}
 
 	i2s_ctl = sgtl5000_read(codec, SGTL5000_CHIP_I2S_CTRL);
@@ -753,8 +743,8 @@ static int sgtl5000_pcm_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	pr_debug("\nfs=%d,clk_ctl=%04x,pll_ctl=%04x,i2s_ctl=%04x,div2=%d\n",
-		 sgtl5000->lrclk, clk_ctl, pll_ctl, i2s_ctl, div2);
+	pr_debug("\nfs=%d,sysclk=%d,clk_ctl=%04x,pll_ctl=%x,i2s_ctl=%04x,div2=%d\n",
+		 sample_rate, sgtl5000->sysclk, clk_ctl, pll_ctl, i2s_ctl, div2);
 
 	if ((clk_ctl & SGTL5000_MCLK_FREQ_MASK) == SGTL5000_MCLK_FREQ_PLL) {
 		sgtl5000_write(codec, SGTL5000_CHIP_PLL_CTRL, pll_ctl);
