@@ -37,6 +37,7 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_bitbang.h>
 #include <mach/hardware.h>
+#include <linux/semaphore.h>
 
 #define MXC_CSPIRXDATA		0x00
 #define MXC_CSPITXDATA		0x04
@@ -70,6 +71,7 @@
 #define MXC_CSPISTAT_RO		6
 
 #define MXC_CSPIPERIOD_32KHZ	(1 << 15)
+static DECLARE_MUTEX(poll_mutex);
 
 /*!
  * @struct mxc_spi_unique_def
@@ -435,21 +437,19 @@ extern void gpio_spi_inactive(int cspi_mod);
 void mxc_spi_buf_rx_##type(struct mxc_spi *master_drv_data, u32 val)	\
 {									\
 	type *rx = master_drv_data->transfer.rx_buf;			\
-	if (rx) {							\
-		*rx++ = (type)val;					\
-		master_drv_data->transfer.rx_buf = rx;			\
-	}								\
+	*rx++ = (type)val;					\
+	master_drv_data->transfer.rx_buf = rx;			\
+	if (0) pr_info("spirx: %x\n",val);			\
 }
 
 #define MXC_SPI_BUF_TX(type)    				\
 u32 mxc_spi_buf_tx_##type(struct mxc_spi *master_drv_data)	\
 {								\
-	u32 val = 0;						\
+	u32 val;						\
 	const type *tx = master_drv_data->transfer.tx_buf;	\
-	if (tx) {						\
-		val = *tx++;					\
-		master_drv_data->transfer.tx_buf = tx;		\
-	}							\
+	val = *tx++;					\
+	master_drv_data->transfer.tx_buf = tx;		\
+	if (0) pr_info("spitx: %x\n",val);		\
 	return val;						\
 }
 
@@ -513,17 +513,35 @@ static unsigned int spi_find_baudrate(struct mxc_spi *master_data,
 	unsigned int divisor;
 	unsigned int shift = 0;
 
-	/* Calculate required divisor (rounded) */
-	divisor = (master_data->spi_ipg_clk + baud / 2) / baud;
-	while (divisor >>= 1)
-		shift++;
+	/* Calculate required divisor (rounded up) */
+	divisor = (master_data->spi_ipg_clk + baud - 1) / baud;
 
-	if (master_data->spi_ver_def == &spi_ver_0_0) {
-		shift = (shift - 1) * 2;
-	} else if (master_data->spi_ver_def == &spi_ver_2_3) {
-		shift = shift;
+	if (master_data->spi_ver_def == &spi_ver_2_3) {
+		if (!divisor)
+			divisor = 1;
+		while (divisor > 0x10) {
+			if (divisor & 1)
+				divisor++;
+			divisor >>= 1;
+			shift++;
+		}
+		if (shift > master_data->spi_ver_def->max_data_rate) {
+			shift = master_data->spi_ver_def->max_data_rate;
+			divisor = 0x10;
+		}
+		if (0) printk("%s: actual rate is %d (%lu %d,%d), requested %d\n", __func__,
+			(unsigned)((master_data->spi_ipg_clk / divisor) >> shift),
+			master_data->spi_ipg_clk, divisor, shift, baud);
+		shift |= ((divisor - 1) << 4);
+		return shift << master_data->spi_ver_def->data_shift;
 	} else {
-		shift -= 2;
+		while (divisor >>= 1)
+			shift++;
+		if (master_data->spi_ver_def == &spi_ver_0_0) {
+			shift = (shift - 1) * 2;
+		} else {
+			shift -= 2;
+		}
 	}
 
 	if (shift > master_data->spi_ver_def->max_data_rate)
@@ -547,9 +565,15 @@ static void spi_put_tx_data(void *base, unsigned int count,
 	int i = 0;
 
 	/* Perform Tx transaction */
-	for (i = 0; i < count; i++) {
-		data = master_drv_data->transfer.tx_get(master_drv_data);
-		__raw_writel(data, base + MXC_CSPITXDATA);
+	if (master_drv_data->transfer.tx_buf) {
+		for (i = 0; i < count; i++) {
+			data = master_drv_data->transfer.tx_get(master_drv_data);
+			__raw_writel(data, base + MXC_CSPITXDATA);
+		}
+	} else {
+		for (i = 0; i < count; i++) {
+			__raw_writel(0, base + MXC_CSPITXDATA);
+		}
 	}
 
 	ctrl_reg = __raw_readl(base + MXC_CSPICTRL);
@@ -578,14 +602,18 @@ void mxc_spi_chipselect(struct spi_device *spi, int is_active)
 	unsigned int xfer_len;
 	unsigned int cs_value;
 
+	master_drv_data = spi_master_get_devdata(spi->master);
 	if (is_active == BITBANG_CS_INACTIVE) {
 		/*Need to deselect the slave */
+		if (master_drv_data->chipselect_inactive)
+			master_drv_data->chipselect_inactive(
+				spi->master->bus_num, 0,
+				(spi->chip_select & MXC_CSPICTRL_CSMASK) + 1);
 		return;
 	}
 
 	/* Get the master controller driver data from spi device's master */
 
-	master_drv_data = spi_master_get_devdata(spi->master);
 	clk_enable(master_drv_data->clk);
 	spi_ver_def = master_drv_data->spi_ver_def;
 
@@ -716,15 +744,19 @@ static irqreturn_t mxc_spi_isr(int irq, void *dev_id)
 	unsigned int status;
 	int fifo_size;
 	unsigned int pass_counter;
+	unsigned rr_mask = (1 << (MXC_CSPISTAT_RR +
+			master_drv_data->spi_ver_def->int_status_dif));
 
 	fifo_size = master_drv_data->spi_ver_def->fifo_size;
 	pass_counter = fifo_size;
 
 	/* Read the interrupt status register to determine the source */
-	status = __raw_readl(master_drv_data->stat_addr);
-	do {
-		u32 rx_tmp =
-		    __raw_readl(master_drv_data->base + MXC_CSPIRXDATA);
+	for (;;) {
+		u32 rx_tmp;
+		status = __raw_readl(master_drv_data->stat_addr);
+		if (!(status & rr_mask))
+			break;
+		rx_tmp = __raw_readl(master_drv_data->base + MXC_CSPIRXDATA);
 
 		if (master_drv_data->transfer.rx_buf)
 			master_drv_data->transfer.rx_get(master_drv_data,
@@ -735,24 +767,17 @@ static irqreturn_t mxc_spi_isr(int irq, void *dev_id)
 		if (pass_counter-- == 0) {
 			break;
 		}
-		status = __raw_readl(master_drv_data->stat_addr);
-	} while (status &
-		 (1 <<
-		  (MXC_CSPISTAT_RR +
-		   master_drv_data->spi_ver_def->int_status_dif)));
+	}
 
 	if (master_drv_data->transfer.rx_count)
 		return ret;
 
 	if (master_drv_data->transfer.count) {
-		if (master_drv_data->transfer.tx_buf) {
-			u32 count = (master_drv_data->transfer.count >
-				     fifo_size) ? fifo_size :
-			    master_drv_data->transfer.count;
-			master_drv_data->transfer.rx_count = count;
-			spi_put_tx_data(master_drv_data->base, count,
+		u32 count = (master_drv_data->transfer.count > fifo_size) ?
+				fifo_size : master_drv_data->transfer.count;
+		master_drv_data->transfer.rx_count = count;
+		spi_put_tx_data(master_drv_data->base, count,
 					master_drv_data);
-		}
 	} else {
 		complete(&master_drv_data->xfer_done);
 	}
@@ -804,6 +829,8 @@ int mxc_spi_poll_transfer(struct spi_device *spi, struct spi_transfer *t)
 	u32 fifo_size;
 	int chipselect_status;
 
+	down(&poll_mutex);
+
 	mxc_spi_chipselect(spi, BITBANG_CS_ACTIVE);
 
 	/* Get the master controller driver data from spi device's master */
@@ -834,9 +861,15 @@ int mxc_spi_poll_transfer(struct spi_device *spi, struct spi_transfer *t)
 		 master_drv_data->spi_ver_def->rx_cnt_mask) >> master_drv_data->
 		spi_ver_def->rx_cnt_off) != count) ;
 
-	for (i = 0; i < count; i++) {
-		rx_tmp = __raw_readl(master_drv_data->base + MXC_CSPIRXDATA);
-		master_drv_data->transfer.rx_get(master_drv_data, rx_tmp);
+	if (master_drv_data->transfer.rx_buf) {
+		for (i = 0; i < count; i++) {
+			rx_tmp = __raw_readl(master_drv_data->base + MXC_CSPIRXDATA);
+			master_drv_data->transfer.rx_get(master_drv_data, rx_tmp);
+		}
+	} else {
+		for (i = 0; i < count; i++) {
+			__raw_readl(master_drv_data->base + MXC_CSPIRXDATA);
+		}
 	}
 
 	clk_disable(master_drv_data->clk);
@@ -845,6 +878,8 @@ int mxc_spi_poll_transfer(struct spi_device *spi, struct spi_transfer *t)
 						     chipselect_status,
 						     (spi->chip_select &
 						      MXC_CSPICTRL_CSMASK) + 1);
+	up(&poll_mutex);
+
 	return 0;
 }
 
@@ -910,11 +945,6 @@ int mxc_spi_transfer(struct spi_device *spi, struct spi_transfer *t)
 				    rx_inten_dif));
 
 	clk_disable(master_drv_data->clk);
-	if (master_drv_data->chipselect_inactive)
-		master_drv_data->chipselect_inactive(spi->master->bus_num,
-						     chipselect_status,
-						     (spi->chip_select &
-						      MXC_CSPICTRL_CSMASK) + 1);
 	return (t->len - master_drv_data->transfer.count);
 }
 
@@ -1293,6 +1323,7 @@ static struct platform_driver mxc_spi_driver = {
 static int __init mxc_spi_init(void)
 {
 	pr_debug("Registering the SPI Controller Driver\n");
+	sema_init(&poll_mutex, 1);
 	return platform_driver_register(&mxc_spi_driver);
 }
 
