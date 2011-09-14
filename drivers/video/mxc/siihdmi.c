@@ -68,7 +68,7 @@ static unsigned int teneighty    = 0;
 module_param(teneighty, uint, 0644);
 MODULE_PARM_DESC(teneighty, "attempt to use 1080p mode");
 
-static unsigned int useitmodes	= 0;
+static unsigned int useitmodes	= 1;
 module_param(useitmodes, uint, 0644);
 MODULE_PARM_DESC(useitmodes, "prefer IT modes over CEA modes when sanitizing the modelist");
 
