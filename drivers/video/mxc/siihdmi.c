@@ -815,86 +815,17 @@ static inline void siihdmi_process_extensions(struct siihdmi_tx *tx)
 	}
 }
 
-static bool _remove_mode(const struct siihdmi_tx * const tx,
-			 const struct fb_videomode *mode,
-			 const char **message)
+static const struct fb_videomode *
+_find_similar_mode(const struct fb_videomode * const mode, struct list_head *head)
 {
 	const struct fb_modelist *entry, *next;
-	const struct fb_videomode *match;
 
-	/*
-	 * Prefer detailed timings found in EDID.  Certain sinks support slight
-	 * variations of VESA/CEA timings, and using those allows us to support
-	 * a wider variety of devices.
-	 */
-
-	*message = NULL;
-
-	if (mode->vmode & FB_VMODE_INTERLACED) {
-		*message = "interlaced";
-		return true;
+	list_for_each_entry_safe(entry, next, head, list) {
+		if (fb_res_is_equal(mode, &entry->mode) && (mode != &entry->mode))
+			return &entry->mode;
 	}
 
-	if (mode->vmode & FB_VMODE_DOUBLE) {
-		*message = "double scanning";
-		return true;
-	}
-
-	if (mode->pixclock < tx->platform->pixclock) {
-		*message = "pixel clock exceeded";
-		return true;
-	}
-
-	/* HDMI spec (§ 5.1.2) stipulates ≥2 lines of vsync */
-	if (tx->sink.type == SINK_TYPE_HDMI && mode->lower_margin < 2) {
-		*message = "insufficient margin";
-		return true;
-	}
-
-	match = NULL;
-	list_for_each_entry_safe(entry, next, &tx->info->modelist, list) {
-		if (fb_res_is_equal(mode, &entry->mode)) {
-			match = &entry->mode;
-			break;
-		}
-	}
-
-	if (match == NULL)
-		return false;
-
-	/*
-	 * If we have a matching mode which is detailed, prefer that over the
-	 * current mode that we are checking.
-	 */
-	if ((match->flag & FB_MODE_IS_DETAILED) && (~mode->flag & FB_MODE_IS_DETAILED)) {
-		*message = "detailed match present";
-		return true;
-	}
-
-	/*
-	 * If we have a matching mode which is a CEA mode, prefer that over the
-	 * current mode that we are checking.
-	 */
-	if ((match->flag & FB_MODE_IS_CEA) && (~mode->flag & FB_MODE_IS_CEA)) {
-		/*
-		 * For HDMI, prefer CEA timings over detailed timings since HDMI
-		 * monitors hopefully cope better with CEA (TV) modes than PC
-		 * modes.
-		 */
-
-		if (tx->sink.type == SINK_TYPE_HDMI && !useitmodes) {
-			/* actually, remove the matching mode in this case */
-			mode = match;
-			*message = "CEA match present";
-		} else {
-			BUG_ON(tx->sink.type != SINK_TYPE_DVI);
-			*message = "IT match present";
-		}
-
-		return true;
-	}
-
-	return false;
+	return NULL;
 }
 
 static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
@@ -902,30 +833,95 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 	struct list_head *modelist = &tx->info->modelist;
 	const struct fb_modelist *entry, *next;
 	const struct fb_videomode *mode;
-	int removed = 0;
+	int num_removed = 0;
 
 	if ((mode = fb_find_best_display(&tx->info->monspecs, modelist)))
 		tx->sink.preferred_mode = *mode;
 
-	INFO("unsupported modelines:\n");
 
 	list_for_each_entry_safe(entry, next, modelist, list) {
-		const char *reason;
+		const char *reason = NULL;
+		mode = &entry->mode;
+		
+		if (mode->vmode & FB_VMODE_INTERLACED) {
+			reason = "interlaced";
+		} else if (mode->vmode & FB_VMODE_DOUBLE) {
+			reason = "doublescan";
+		} else if (mode->pixclock < tx->platform->pixclock) {
+			reason = "pixel clock exceeded";
+		} else if ((tx->sink.type == SINK_TYPE_HDMI) && mode->lower_margin < 2) {
+			/*
+			 * HDMI spec (§ 5.1.2) stipulates ≥2 lines of vsync
+			 *
+			 * We do not care so much on DVI, although it may be that the SII9022 cannot
+			 * actually display this mode. Requires testing!!
+			 */
+			reason = "insufficient margin";
+		} else {
+			const struct fb_videomode *match = _find_similar_mode(mode, modelist);
 
-		if (_remove_mode(tx, &entry->mode, &reason)) {
+			if (match) {
+				/*
+				 * Prefer detailed timings found in EDID.  Certain sinks support slight
+				 * variations of VESA/CEA timings, and using those allows us to support
+				 * a wider variety of monitors.
+				 */
+				if ((~(mode->flag) & FB_MODE_IS_DETAILED) &&
+					(match->flag & FB_MODE_IS_DETAILED)) {
+					reason = "detailed match present";
+				} else if ((~(mode->flag) & FB_MODE_IS_CEA) &&
+						   (match->flag & FB_MODE_IS_CEA)) {
+					if ((tx->sink.type == SINK_TYPE_HDMI) && !useitmodes) {
+						/*
+						 * for HDMI connections we want to remove any detailed timings
+						 * and leave in CEA mode timings. This is on the basis that you
+						 * would expect HDMI monitors to do better with CEA (TV) modes
+						 * than you would PC modes. No data is truly lost: these modes
+						 * are duplicated in terms of size and refresh but may have
+						 * subtle differences insofaras more compatible timings.
+						 *
+						 * That is, unless we want to prefer IT modes, since most TVs
+						 * will overscan CEA modes (720p, 1080p) by default, but display
+						 * IT (PC) modes to the edge of the screen.
+						 */
+						reason = "CEA match present";
+					} else {
+						/*
+						 * DVI connections are the opposite to the above; remove CEA
+						 * modes which duplicate normal modes, on the basis that a
+						 * DVI sink will better display a standard EDID mode but may
+						 * not be fully compatible with CEA timings. This is the
+						 * behavior on HDMI sinks if we want to prefer IT modes.
+						 *
+						 * All we do is copy the matched mode into the mode value
+						 * such that we remove the correct mode below.
+						 */
+						mode = match;
+						reason = "IT match present";
+					}
+				}
+			}
+		}
+
+		if (reason) {
 			struct fb_modelist *modelist =
-				container_of(&entry->mode, struct fb_modelist, mode);
+				container_of(mode, struct fb_modelist, mode);
 
-			removed++;
-			siihdmi_print_modeline(tx, &entry->mode, reason);
+			if (num_removed == 0) { // first time only
+				INFO("Unsupported modelines:\n");
+			}
+
+			siihdmi_print_modeline(tx, mode, reason);
 
 			list_del(&modelist->list);
 			kfree(&modelist->list);
+			num_removed++;
 		}
 	}
 
-	if (removed)
-		INFO("discarded %u incompatible modes\n", removed);
+	if (num_removed > 0) {
+		INFO("discarded %u incompatible modes\n", num_removed);
+	}		
 }
 
 static inline const struct fb_videomode *_match(const struct fb_videomode * const mode,
