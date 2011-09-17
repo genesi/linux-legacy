@@ -72,6 +72,10 @@ static unsigned int useitmodes	= 1;
 module_param(useitmodes, uint, 0644);
 MODULE_PARM_DESC(useitmodes, "prefer IT modes over CEA modes when sanitizing the modelist");
 
+static unsigned int modevic = 0;
+module_param_named(vic, modevic, uint, 0644);
+MODULE_PARM_DESC(modevic, "CEA VIC to try and match before autodetection");
+
 static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 {
 	u8 data;
@@ -842,7 +846,7 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 	list_for_each_entry_safe(entry, next, modelist, list) {
 		const char *reason = NULL;
 		mode = &entry->mode;
-		
+
 		if (mode->vmode & FB_VMODE_INTERLACED) {
 			reason = "interlaced";
 		} else if (mode->vmode & FB_VMODE_DOUBLE) {
@@ -921,7 +925,7 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 
 	if (num_removed > 0) {
 		INFO("discarded %u incompatible modes\n", num_removed);
-	}		
+	}
 }
 
 static inline const struct fb_videomode *_match(const struct fb_videomode * const mode,
@@ -939,19 +943,73 @@ static const struct fb_videomode *siihdmi_select_video_mode(const struct siihdmi
 {
 	const struct fb_videomode *mode = NULL;
 
+	/*
+	 * match a mode against a specific CEA VIC - closest mode wins, we don't bother
+	 * to check if the specified mode refresh, interlace or clocking is valid since
+	 * it can only return similar but working modes from the sanitized modelist
+	 * anyway
+	 */
+
+	if (modevic && modevic <= ARRAY_SIZE(cea_modes)) {
+		mode = _match(&cea_modes[modevic], &tx->info->modelist);
+		if (mode && (mode->xres == cea_modes[modevic].xres)
+			 && (mode->yres == cea_modes[modevic].yres))
+				return mode;
+	}
+
+	/*
+	 * The whole point of these two options (siihdmi.seventwenty & siihdmi.teneighty)
+	 * is that we want to find a mode which most displays will have optimized scalers for.
+
+	 * Even if the native panel resolution is not precisely 1080p or 720p, most TVs will
+	 * use high quality scaler for the standard HD display resolutions, but use more
+	 * crude algorithms for other more odd modes.
+	 *
+	 * That said..
+	 *
+	 * We specifically handle plasma screens and cheap TVs where the preferred mode is
+	 * so close to 1080p or 720p that we may as well try it by default as part of the
+	 * search, therefore we get better native panel resolution and similar performance
+	 * which should make people all the happier. There are a lot of HDMI monitors with
+	 * 1680x1050 or 1440x900 panels and most plasma screens come in at 1360x768 or even
+	 * 1024x768. The search is actually therefore "get as close to 1080p as my monitor
+	 * will manage" or "get as close to 720p without being blurry on my 62in monster".
+	 */
+
 	if (teneighty) {
+		if ((tx->sink.preferred_mode.xres == 1680 && tx->sink.preferred_mode.yres == 1050) ||
+		    (tx->sink.preferred_mode.xres == 1440 && tx->sink.preferred_mode.yres == 900)) {
+			mode = _match(&tx->sink.preferred_mode, &tx->info->modelist);
+			if (mode && (mode->xres == tx->sink.preferred_mode.xres)
+				 && (mode->yres == tx->sink.preferred_mode.yres))
+				return mode;
+		}
+
 		mode = _match(&cea_modes[34], &tx->info->modelist);
 		if (mode && (mode->xres == 1920) && (mode->yres == 1080))
 			return mode;
 	}
 
 	if (seventwenty) {
+		if ((tx->sink.preferred_mode.xres == 1360 ||
+		     tx->sink.preferred_mode.xres == 1366 ||
+		     tx->sink.preferred_mode.xres == 1024 ||
+		     tx->sink.preferred_mode.xres == 1280) &&
+		    (tx->sink.preferred_mode.yres == 768 ||
+		     tx->sink.preferred_mode.yres == 800) ) {
+			mode = _match(&tx->sink.preferred_mode, &tx->info->modelist);
+			if (mode && (mode->xres == tx->sink.preferred_mode.xres)
+				 && (mode->yres == tx->sink.preferred_mode.yres))
+				return mode;
+		}
+
 		mode = _match(&cea_modes[4], &tx->info->modelist);
 		if (mode && (mode->xres == 1280) && (mode->yres == 720))
 			return mode;
 	}
 
-	/* use the closest to the monitor preferred mode */
+	/* If we disabled or couldn't find a reasonable mode above, just look for and use the
+	 * closest to the monitor preferred mode - we don't care if it is not exact */
 	if (tx->sink.preferred_mode.xres && tx->sink.preferred_mode.yres)
 		if ((mode = _match(&tx->sink.preferred_mode, &tx->info->modelist)))
 			return mode;
