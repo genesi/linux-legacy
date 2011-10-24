@@ -1015,7 +1015,7 @@ static const struct fb_videomode *siihdmi_select_video_mode(const struct siihdmi
 			return mode;
 
 	/* if no matching mode was found, push 640x480@60 */
-	INFO("unable to select a suitable video mode, using CEA Mode 1\n");
+	INFO("unable to select a suitable video mode, using CEA Mode 1 (640x480@60)\n");
 	return &cea_modes[1];
 }
 
@@ -1040,11 +1040,11 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 	      (isr & SIIHDMI_ISR_DISPLAY_ATTACHED) ? "attached" : "detached",
 	      (isr & SIIHDMI_ISR_RECEIVER_SENSE) ? "on" : "off");
 
-	if (~isr & (SIIHDMI_ISR_DISPLAY_ATTACHED))
+	if (~isr & SIIHDMI_ISR_DISPLAY_ATTACHED)
 		return siihdmi_power_down(tx);
 
 	if (tx->info)
-		sysfs_remove_link(&tx->info->dev->kobj, "device");
+		sysfs_remove_link(&tx->info->dev->kobj, "phys-link");
 
 	for (i = 0, tx->info = NULL; i < num_registered_fb; i++) {
 		struct fb_info * const info = registered_fb[i];
@@ -1064,6 +1064,7 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 		ERROR("unable to find video framebuffer\n");
 		return -1;
 	}
+
 
 	/* use EDID to detect sink characteristics */
 	if ((ret = siihdmi_read_edid(tx, (u8 *) &block0, sizeof(block0))) < 0)
@@ -1087,8 +1088,8 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 	/* create monspecs from EDID for the basic stuff */
 	fb_edid_to_monspecs(tx->edid.data, &tx->info->monspecs);
 	fb_videomode_to_modelist(tx->info->monspecs.modedb,
-				 tx->info->monspecs.modedb_len,
-				 &tx->info->modelist);
+			 tx->info->monspecs.modedb_len,
+			 &tx->info->modelist);
 
 	if (block0.extensions)
 		siihdmi_process_extensions(tx);
@@ -1181,7 +1182,6 @@ static irqreturn_t siihdmi_hotplug_handler(int irq, void *dev_id)
 	struct siihdmi_tx *tx = ((struct siihdmi_tx *) dev_id);
 
 	schedule_work(&tx->hotplug.handler);
-	//msecs_to_jiffies(SIIHDMI_HOTPLUG_HANDLER_TIMEOUT));
 
 	return IRQ_HANDLED;
 }
@@ -1223,7 +1223,7 @@ static void siihdmi_hotplug_event(struct work_struct *work)
 					   power_off);
 	}
 
-	if (isr & (SIIHDMI_ISR_DISPLAY_ATTACHED | SIIHDMI_ISR_RECEIVER_SENSE)) {
+	if (isr & (SIIHDMI_ISR_DISPLAY_ATTACHED)) {
 		siihdmi_initialise(tx);
 		siihdmi_setup_display(tx);
 	} else {
