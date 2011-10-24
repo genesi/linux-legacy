@@ -270,7 +270,7 @@ static struct regulator_init_data vsd_init = {
 	.constraints = {
 		.name = "VSD",
 		.min_uV = mV_to_uV(1800),
-		.max_uV = mV_to_uV(3150),
+		.max_uV = mV_to_uV(3300),
 		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
 	}
 };
