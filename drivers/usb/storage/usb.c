@@ -257,6 +257,17 @@ void fill_inquiry_response(struct us_data *us, unsigned char *data,
 }
 EXPORT_SYMBOL_GPL(fill_inquiry_response);
 
+static int skip_ata_passthrough(struct us_data *us)
+{
+	int v = le16_to_cpu(us->pusb_dev->descriptor.idVendor);
+	int p = le16_to_cpu(us->pusb_dev->descriptor.idProduct);
+
+	/* GL830 || JMicron || LaCie chassis with JMicron chip */
+	return     (v == 0x05e3 && p == 0x0718)
+		|| (v == 0x152d && p == 0x2329)
+		|| (v == 0x059f && p == 0x1019);
+}
+
 static int usb_stor_control_thread(void * __us)
 {
 	struct us_data *us = (struct us_data *)__us;
@@ -315,7 +326,7 @@ static int usb_stor_control_thread(void * __us)
 			us->srb->result = DID_BAD_TARGET << 16;
 		}
 
-		/* Handle those devices which need us to fake 
+		/* Handle those devices which need us to fake
 		 * their inquiry data */
 		else if ((us->srb->cmnd[0] == INQUIRY) &&
 			    (us->fflags & US_FL_FIX_INQUIRY)) {
@@ -331,10 +342,12 @@ static int usb_stor_control_thread(void * __us)
 		/* we've got a command, let's do it! */
 		else {
 			US_DEBUGP(usb_stor_show_command(us->srb));
-#ifdef CONFIG_MACH_MX51_BABBAGE
-			if (us->srb->cmnd[0] != 0x85)
-#endif
+			if ((us->srb->cmnd[0] == 0x85) &&
+			    skip_ata_passthrough(us)) {
+				US_DEBUGP("Skip ATA PASS-THROUGH command\n");
+			} else {
 				us->proto_handler(us->srb, us);
+			}
 		}
 
 		/* lock access to the state */
