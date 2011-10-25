@@ -269,7 +269,7 @@ static struct regulator_init_data vaudio_init = {
 static struct regulator_init_data vsd_init = {
 	.constraints = {
 		.name = "VSD",
-		.min_uV = mV_to_uV(1800),
+		.min_uV = mV_to_uV(3300),
 		.max_uV = mV_to_uV(3300),
 		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
 	}
@@ -344,14 +344,14 @@ static int mc13892_regulator_init(struct mc13892 *mc13892)
 	unsigned int value, register_mask;
 
 	printk("Initializing regulators for Efika MX\n");
-	if (mxc_cpu_is_rev(CHIP_REV_2_0) < 0)
+	if (mxc_cpu_is_rev(CHIP_REV_2_0) < 0) {
 		sw2_init.constraints.state_mem.uV = 1100000;
-	else if (mxc_cpu_is_rev(CHIP_REV_2_0) == 1) {
+	} else if (mxc_cpu_is_rev(CHIP_REV_2_0) == 1) {
 		sw2_init.constraints.state_mem.uV = 1250000;
 		sw1_init.constraints.state_mem.uV = 1000000;
 	}
 
-	/* enable standby controll for all regulators */
+	/* enable standby control for all regulators */
 	pmic_read_reg(REG_MODE_0, &value, 0xffffff);
 	value |= REG_MODE_0_ALL_MASK;
 	pmic_write_reg(REG_MODE_0, value, 0xffffff);
