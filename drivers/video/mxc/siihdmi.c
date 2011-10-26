@@ -1,7 +1,7 @@
 /* vim: set noet ts=8 sts=8 sw=8 : */
 /*
  * Copyright © 2010 Saleem Abdulrasool <compnerd@compnerd.org>.
- * Copyright © 2010 Genesi USA, Inc. <matt@genesi-usa.com>.
+ * Copyright © 2010-2011 Genesi USA, Inc. <matt@genesi-usa.com>.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -76,6 +76,10 @@ static unsigned int modevic = 0;
 module_param_named(vic, modevic, uint, 0644);
 MODULE_PARM_DESC(modevic, "CEA VIC to try and match before autodetection");
 
+static unsigned int forcedvi = 0;
+module_param_named(dvi, forcedvi, uint, 0644);
+MODULE_PARM_DESC(forcedvi, "Force DVI sink mode");
+
 static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 {
 	u8 data;
@@ -140,8 +144,12 @@ static inline int siihdmi_power_down(struct siihdmi_tx *tx)
 	memset((void *) &tx->sink.current_mode, 0, sizeof(struct fb_videomode));
 
 	ctrl = SIIHDMI_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN;
+	/* this seems redundant since D2 will wipe the sink state, but just
+	 * in case we actually want to keep our display if D2 doesn't work
+	 */
 	if (tx->sink.type == SINK_TYPE_HDMI)
 		ctrl |= SIIHDMI_SYS_CTRL_OUTPUT_MODE_SELECT_HDMI;
+
 	ret = i2c_smbus_write_byte_data(tx->client,
 					SIIHDMI_TPI_REG_SYS_CTRL, ctrl);
 	if (ret < 0) {
@@ -207,78 +215,6 @@ static int siihdmi_initialise(struct siihdmi_tx *tx)
 	return ret;
 }
 
-static int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, size_t size)
-{
-	u8 offset, ctrl;
-	int ret;
-	unsigned long start;
-
-	struct i2c_msg request[] = {
-		{ .addr  = EDID_I2C_DDC_DATA_ADDRESS,
-		  .len   = sizeof(offset),
-		  .buf   = &offset, },
-		{ .addr  = EDID_I2C_DDC_DATA_ADDRESS,
-		  .flags = I2C_M_RD,
-		  .len   = size,
-		  .buf   = edid, },
-	};
-
-	/* step 1: (potentially) disable HDCP */
-
-	/* step 2: request the DDC bus */
-	ctrl = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_SYS_CTRL);
-	ret = i2c_smbus_write_byte_data(tx->client,
-					SIIHDMI_TPI_REG_SYS_CTRL,
-					ctrl | SIIHDMI_SYS_CTRL_DDC_BUS_REQUEST);
-	if (ret < 0) {
-		DEBUG("unable to request DDC bus\n");
-		return ret;
-	}
-
-	/* step 3: poll for bus grant */
-	start = jiffies;
-	do {
-		ctrl = i2c_smbus_read_byte_data(tx->client,
-						SIIHDMI_TPI_REG_SYS_CTRL);
-	} while ((~ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
-		 !time_after(jiffies, start + bus_timeout));
-
-	if (~ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED)
-		goto relinquish;
-
-	/* step 4: take ownership of the DDC bus */
-	ret = i2c_smbus_write_byte_data(tx->client,
-					SIIHDMI_TPI_REG_SYS_CTRL,
-					SIIHDMI_SYS_CTRL_DDC_BUS_REQUEST |
-					SIIHDMI_SYS_CTRL_DDC_BUS_OWNER_HOST);
-	if (ret < 0) {
-		DEBUG("unable to take ownership of the DDC bus\n");
-		goto relinquish;
-	}
-
-	/* step 5: read edid */
-	offset = 0;
-	ret = i2c_transfer(tx->client->adapter, request, ARRAY_SIZE(request));
-	if (ret != ARRAY_SIZE(request))
-		DEBUG("unable to read EDID block\n");
-
-relinquish:
-	/* step 6: relinquish ownership of the DDC bus */
-	start = jiffies;
-	do {
-		i2c_smbus_write_byte_data(tx->client,
-					  SIIHDMI_TPI_REG_SYS_CTRL,
-					  0x00);
-		ctrl = i2c_smbus_read_byte_data(tx->client,
-						SIIHDMI_TPI_REG_SYS_CTRL);
-	} while ((ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
-		 !time_after(jiffies, start + bus_timeout));
-
-	/* step 7: (potentially) enable HDCP */
-
-	return ret;
-}
-
 static inline void _process_cea861_vsdb(struct siihdmi_tx *tx,
 					const struct hdmi_vsdb * const vsdb)
 {
@@ -290,11 +226,16 @@ static inline void _process_cea861_vsdb(struct siihdmi_tx *tx,
 
 	max_tmds = KHZ2PICOS(vsdb->max_tmds_clock * 200);
 
-	if (tx->audio.available)
-		tx->sink.type = SINK_TYPE_HDMI;
-
 	DEBUG("HDMI VSDB detected (basic audio %ssupported)\n",
 	      tx->audio.available ? "" : "not ");
+
+	if (!forcedvi) {
+		tx->sink.type = SINK_TYPE_HDMI;
+	} else {
+		DEBUG("Sink type forced to DVI despite VSDB\n");
+		tx->sink.type = SINK_TYPE_DVI;
+	}
+
 	INFO("HDMI port configuration: %u.%u.%u.%u\n",
 	     vsdb->port_configuration_a, vsdb->port_configuration_b,
 	     vsdb->port_configuration_c, vsdb->port_configuration_d);
@@ -716,25 +657,32 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 
 	ctrl = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_SYS_CTRL);
 
-	/* setup the sink type */
+	/* make sure we keep writing the sink type */
 	if (tx->sink.type == SINK_TYPE_DVI)
 		ctrl &= ~SIIHDMI_SYS_CTRL_OUTPUT_MODE_SELECT_HDMI;
 	else
 		ctrl |= SIIHDMI_SYS_CTRL_OUTPUT_MODE_SELECT_HDMI;
 
-	/* step 1: (potentially) disable HDCP */
+	/* step 0: (potentially) disable HDCP */
 
-	/* step 2: (optionally) blank the display */
+	/* step 1: (optionally) blank the display */
 	/*
 	 * Note that if we set the AV Mute, switching to DVI could result in a
 	 * permanently muted display until a hardware reset.  Thus only do this
 	 * if the sink is a HDMI connection
 	 */
-	if (tx->sink.type == SINK_TYPE_HDMI)
+	if (tx->sink.type == SINK_TYPE_HDMI) {
 		ctrl |= SIIHDMI_SYS_CTRL_AV_MUTE_HDMI;
-	/* optimisation: merge the write into the next one */
+			ret = i2c_smbus_write_byte_data(tx->client,
+					SIIHDMI_TPI_REG_SYS_CTRL,
+					ctrl);
+		if (ret < 0)
+			DEBUG("unable to AV Mute!\n");
 
-	/* step 3: prepare for resolution change */
+		msleep(SIIHDMI_CTRL_INFO_FRAME_DRAIN_TIME);
+	}
+
+	/* step 2: prepare for resolution change */
 	ctrl |= SIIHDMI_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN;
 	ret = i2c_smbus_write_byte_data(tx->client,
 					SIIHDMI_TPI_REG_SYS_CTRL,
@@ -742,15 +690,17 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	if (ret < 0)
 		DEBUG("unable to prepare for resolution change\n");
 
-	msleep(SIIHDMI_CTRL_INFO_FRAME_DRAIN_TIME);
+	/*
+	 * step 3: change video resolution
+	 * and wait for it to stabilize (50-500ms);
+	 */
+	msleep(SIIHDMI_RESOLUTION_STABILIZE_TIME);
 
-	/* step 4: change video resolution */
-
-	/* step 5: set the vmode registers */
+	/* step 4: set the vmode registers */
 	siihdmi_set_vmode_registers(tx, mode);
 
 	/*
-	 * step 6:
+	 * step 5:
 	 *      [DVI]  clear AVI InfoFrame
 	 *      [HDMI] set AVI InfoFrame
 	 */
@@ -759,26 +709,32 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	else
 		siihdmi_clear_avi_info_frame(tx);
 
-	/* step 7: [HDMI] set new audio information */
+	/* step 6: [HDMI] set new audio information */
 	if (tx->sink.type == SINK_TYPE_HDMI) {
 		if (tx->audio.available)
 			siihdmi_configure_audio(tx);
 		siihdmi_set_spd_info_frame(tx);
 	}
 
-	/* step 8: enable display */
+	/* step 7: enable display */
 	ctrl &= ~SIIHDMI_SYS_CTRL_TMDS_OUTPUT_POWER_DOWN;
-	/* optimisation: merge the write into the next one */
-
-	/* step 9: (optionally) un-blank the display */
-	ctrl &= ~SIIHDMI_SYS_CTRL_AV_MUTE_HDMI;
 	ret = i2c_smbus_write_byte_data(tx->client,
 					SIIHDMI_TPI_REG_SYS_CTRL,
 					ctrl);
 	if (ret < 0)
 		DEBUG("unable to enable the display\n");
 
-	/* step 10: (potentially) enable HDCP */
+	/* step 8: (optionally) un-blank the display */
+	if (tx->sink.type == SINK_TYPE_HDMI) {
+		ctrl &= ~SIIHDMI_SYS_CTRL_AV_MUTE_HDMI;
+		ret = i2c_smbus_write_byte_data(tx->client,
+					SIIHDMI_TPI_REG_SYS_CTRL,
+					ctrl);
+		if (ret < 0)
+			DEBUG("unable to unmute the display\n");
+	}
+
+	/* step 9: (potentially) enable HDCP */
 
 	memcpy((void *) &tx->sink.current_mode, mode, sizeof(struct fb_videomode));
 
@@ -1019,16 +975,170 @@ static const struct fb_videomode *siihdmi_select_video_mode(const struct siihdmi
 	return &cea_modes[1];
 }
 
+static inline int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, int size)
+{
+	u8 offset = 0;
+	int ret;
+
+	struct i2c_msg request[] = {
+		{ .addr  = EDID_I2C_DDC_DATA_ADDRESS,
+		  .len   = sizeof(offset),
+		  .buf   = &offset, },
+		{ .addr  = EDID_I2C_DDC_DATA_ADDRESS,
+		  .flags = I2C_M_RD,
+		  .len = size,
+		  .buf = edid, },
+	};
+
+	ret = i2c_transfer(tx->client->adapter, request, ARRAY_SIZE(request));
+	if (ret != ARRAY_SIZE(request))
+		DEBUG("unable to read EDID block\n");
+	return ret;
+}
+
+static int siihdmi_detect_monitor(struct siihdmi_tx *tx)
+{
+	u8 ctrl;
+	int ret, length;
+	unsigned long start;
+	struct edid_block0 *block0;
+
+	BUILD_BUG_ON(sizeof(struct edid_block0) != EDID_BLOCK_SIZE);
+	BUILD_BUG_ON(sizeof(struct edid_extension) != EDID_BLOCK_SIZE);
+
+	/* step 1: (potentially) disable HDCP */
+
+	/* step 2: request the DDC bus */
+	ctrl = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_SYS_CTRL);
+	ret = i2c_smbus_write_byte_data(tx->client,
+					SIIHDMI_TPI_REG_SYS_CTRL,
+					ctrl | SIIHDMI_SYS_CTRL_DDC_BUS_REQUEST);
+	if (ret < 0) {
+		DEBUG("unable to request DDC bus\n");
+		return ret;
+	}
+
+	/* step 3: poll for bus grant */
+	start = jiffies;
+	do {
+		ctrl = i2c_smbus_read_byte_data(tx->client,
+						SIIHDMI_TPI_REG_SYS_CTRL);
+	} while ((~ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
+		 !time_after(jiffies, start + bus_timeout));
+
+	if (~ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED)
+		goto relinquish;
+
+	/* step 4: take ownership of the DDC bus */
+	ret = i2c_smbus_write_byte_data(tx->client,
+					SIIHDMI_TPI_REG_SYS_CTRL,
+					SIIHDMI_SYS_CTRL_DDC_BUS_REQUEST |
+					SIIHDMI_SYS_CTRL_DDC_BUS_OWNER_HOST);
+	if (ret < 0) {
+		DEBUG("unable to take ownership of the DDC bus\n");
+		goto relinquish;
+	}
+
+	/* step 5: read edid */
+	if (tx->edid.length < EDID_BLOCK_SIZE) {
+		if (tx->edid.data)
+				kfree(tx->edid.data);
+
+		tx->edid.data = kzalloc(EDID_BLOCK_SIZE, GFP_KERNEL);
+		if (!tx->edid.data) {
+			ret = -ENOMEM;
+			goto relinquish;
+		}
+		tx->edid.length = EDID_BLOCK_SIZE;
+	} else {
+		memset(tx->edid.data, tx->edid.length, 0);
+	}
+
+	ret = siihdmi_read_edid(tx, tx->edid.data, EDID_BLOCK_SIZE);
+	if (ret < 0) {
+		kfree(tx->edid.data);
+		tx->edid.length = 0;
+
+		goto relinquish;
+	}
+
+	if (!edid_verify_checksum((u8 *) tx->edid.data))
+		WARNING("EDID block 0 CRC mismatch\n");
+
+	block0 = (struct edid_block0 *) tx->edid.data;
+
+	/* need to allocate space for block 0 as well as the extensions */
+	length = (block0->extensions + 1) * EDID_BLOCK_SIZE;
+
+	if (length > tx->edid.length)
+		kfree(tx->edid.data);
+
+	tx->edid.data = kzalloc(length, GFP_KERNEL);
+	if (!tx->edid.data) {
+			ret = -ENOMEM;
+			goto relinquish;
+	}
+	tx->edid.length = length;
+
+	ret = siihdmi_read_edid(tx, tx->edid.data, tx->edid.length);
+	if (ret < 0) {
+		WARNING("failed to read extended EDID data\n");
+		/* cleanup */
+		kfree(tx->edid.data);
+		tx->edid.data = NULL;
+		tx->edid.length = 0;
+
+		goto relinquish;
+	}
+
+	/* create monspecs from EDID for the basic stuff */
+	fb_edid_to_monspecs(tx->edid.data, &tx->info->monspecs);
+	fb_videomode_to_modelist(tx->info->monspecs.modedb,
+			 tx->info->monspecs.modedb_len,
+			 &tx->info->modelist);
+
+	block0 = (struct edid_block0 *) tx->edid.data;
+	if (block0->extensions)
+		siihdmi_process_extensions(tx);
+
+	siihdmi_sanitize_modelist(tx);
+	siihdmi_dump_modelines(tx);
+
+relinquish:
+	/* step 6: relinquish ownership of the DDC bus while also setting
+	 * the correct sink type (as per manual)
+	 */
+	start = jiffies;
+	do {
+		i2c_smbus_write_byte_data(tx->client,
+					  SIIHDMI_TPI_REG_SYS_CTRL, 0x00);
+		ctrl = i2c_smbus_read_byte_data(tx->client,
+						SIIHDMI_TPI_REG_SYS_CTRL);
+	} while ((ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
+		 !time_after(jiffies, start + bus_timeout));
+
+	/* now, force the operational mode (HDMI or DVI) based on sink
+	 * type and make it stick with a power up request (pg 27)
+	 */
+	i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_SYS_CTRL,
+							(tx->sink.type == SINK_TYPE_HDMI) ?
+								SIIHDMI_SYS_CTRL_OUTPUT_MODE_SELECT_HDMI : 0x00
+							);
+
+	ret = siihdmi_power_up(tx);
+
+	/* step 7: (potentially) enable HDCP */
+
+	return ret;
+}
+
 static int siihdmi_setup_display(struct siihdmi_tx *tx)
 {
 	const struct fb_videomode *mode;
 	struct fb_var_screeninfo var = {0};
-	struct edid_block0 block0;
+
 	int i, ret;
 	u8 isr;
-
-	BUILD_BUG_ON(sizeof(struct edid_block0) != EDID_BLOCK_SIZE);
-	BUILD_BUG_ON(sizeof(struct edid_extension) != EDID_BLOCK_SIZE);
 
 	/* defaults */
 	tx->sink.scanning   = SCANNING_EXACT;
@@ -1065,37 +1175,10 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 		return -1;
 	}
 
-
 	/* use EDID to detect sink characteristics */
-	if ((ret = siihdmi_read_edid(tx, (u8 *) &block0, sizeof(block0))) < 0)
+	ret = siihdmi_detect_monitor(tx);
+	if (ret < 0)
 		return ret;
-
-	if (!edid_verify_checksum((u8 *) &block0))
-		WARNING("EDID block 0 CRC mismatch\n");
-
-	/* need to allocate space for block 0 as well as the extensions */
-	tx->edid.length = (block0.extensions + 1) * EDID_BLOCK_SIZE;
-
-	if (tx->edid.data)
-		kfree(tx->edid.data);
-	tx->edid.data = kzalloc(tx->edid.length, GFP_KERNEL);
-	if (!tx->edid.data)
-		return -ENOMEM;
-
-	if ((ret = siihdmi_read_edid(tx, tx->edid.data, tx->edid.length)) < 0)
-		return ret;
-
-	/* create monspecs from EDID for the basic stuff */
-	fb_edid_to_monspecs(tx->edid.data, &tx->info->monspecs);
-	fb_videomode_to_modelist(tx->info->monspecs.modedb,
-			 tx->info->monspecs.modedb_len,
-			 &tx->info->modelist);
-
-	if (block0.extensions)
-		siihdmi_process_extensions(tx);
-
-	siihdmi_sanitize_modelist(tx);
-	siihdmi_dump_modelines(tx);
 
 	mode = siihdmi_select_video_mode(tx);
 	if ((ret = siihdmi_set_resolution(tx, mode)) < 0)

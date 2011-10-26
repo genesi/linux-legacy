@@ -1,7 +1,7 @@
 /* vim: set noet ts=8 sts=8 sw=8 : */
 /*
  * Copyright © 2010 Saleem Abdulrasool <compnerd@compnerd.org>.
- * Copyright © 2010 Genesi USA, Inc. <matt@genesi-usa.com>.
+ * Copyright © 2010-2011 Genesi USA, Inc. <matt@genesi-usa.com>.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -220,6 +220,7 @@ enum cec_address {
 #define SIIHDMI_DEVICE_ID_902x				(0xb0)
 #define SIIHDMI_BASE_TPI_REVISION			(0x29)
 #define SIIHDMI_CTRL_INFO_FRAME_DRAIN_TIME		(0x80)
+#define SIIHDMI_RESOLUTION_STABILIZE_TIME		(0xFF)
 
 #define SIIHDMI_HOTPLUG_HANDLER_TIMEOUT			(0x32)
 
