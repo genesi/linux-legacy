@@ -269,8 +269,8 @@ static struct regulator_init_data vaudio_init = {
 static struct regulator_init_data vsd_init = {
 	.constraints = {
 		.name = "VSD",
-		.min_uV = mV_to_uV(3300),
-		.max_uV = mV_to_uV(3300),
+		.min_uV = mV_to_uV(3150),
+		.max_uV = mV_to_uV(3150),
 		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
 	}
 };
@@ -298,7 +298,7 @@ static struct regulator_init_data vgen1_init = {
 static struct regulator_init_data vgen2_init = {
 	.constraints = {
 		.name = "VGEN2",
-		.min_uV = mV_to_uV(1200),
+		.min_uV = mV_to_uV(3150),
 		.max_uV = mV_to_uV(3150),
 		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE,
 		.always_on = 1,
