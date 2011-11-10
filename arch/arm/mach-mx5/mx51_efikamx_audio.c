@@ -79,7 +79,8 @@ static int mx51_efikamx_audio_amp_enable(int enable)
 
 static int mx51_efikamx_audio_clock_enable(int enable)
 {
-	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_AUDIO_CLOCK_ENABLE), enable ? 0 : 1);
+	// WARNING: spdif relies on this clock for 48KHz!
+	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_AUDIO_CLOCK_ENABLE), /*enable ? 0 : 1*/ 0);
 	return 0;
 }
 
@@ -126,8 +127,7 @@ void mx51_efikamx_init_audio(void)
 {
 	CONFIG_IOMUX(mx51_efikamx_audio_iomux_pins);
 
-	/* turn the SGTL5000 off to start */
-	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_AUDIO_CLOCK_ENABLE), 1);
+	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_AUDIO_CLOCK_ENABLE), 0);
 	gpio_direction_output(IOMUX_TO_GPIO(EFIKAMX_AMP_ENABLE), 0);
 	gpio_direction_input(IOMUX_TO_GPIO(EFIKAMX_HP_DETECT));
 
