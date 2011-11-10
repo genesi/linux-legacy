@@ -64,11 +64,11 @@ static unsigned int seventwenty	= 1;
 module_param(seventwenty, uint, 0644);
 MODULE_PARM_DESC(seventwenty, "attempt to use 720p mode");
 
-static unsigned int teneighty    = 0;
+static unsigned int teneighty = 0;
 module_param(teneighty, uint, 0644);
 MODULE_PARM_DESC(teneighty, "attempt to use 1080p mode");
 
-static unsigned int useitmodes	= 1;
+static unsigned int useitmodes = 1;
 module_param(useitmodes, uint, 0644);
 MODULE_PARM_DESC(useitmodes, "prefer IT modes over CEA modes when sanitizing the modelist");
 
@@ -79,6 +79,25 @@ MODULE_PARM_DESC(modevic, "CEA VIC to try and match before autodetection");
 static unsigned int forcedvi = 0;
 module_param_named(dvi, forcedvi, uint, 0644);
 MODULE_PARM_DESC(forcedvi, "Force DVI sink mode");
+
+static unsigned int useavmute = 0;
+module_param(useavmute, uint, 0644);
+MODULE_PARM_DESC(useavmute, "perform HDMI AV Mute when blanking screen");
+
+static int siihdmi_read_internal(struct siihdmi_tx *tx, u8 page, u8 offset)
+{
+	i2c_smbus_write_byte_data(tx->client, SIIHDMI_INTERNAL_REG_SET_PAGE, page);
+	i2c_smbus_write_byte_data(tx->client, SIIHDMI_INTERNAL_REG_SET_OFFSET, offset);
+	return i2c_smbus_read_byte_data(tx->client, SIIHDMI_INTERNAL_REG_ACCESS);
+}
+
+static void siihdmi_write_internal(struct siihdmi_tx *tx, u8 page, u8 offset, u8 value)
+{
+	i2c_smbus_write_byte_data(tx->client, SIIHDMI_INTERNAL_REG_SET_PAGE, page);
+	i2c_smbus_write_byte_data(tx->client, SIIHDMI_INTERNAL_REG_SET_OFFSET, offset);
+	i2c_smbus_write_byte_data(tx->client, SIIHDMI_INTERNAL_REG_ACCESS, value);
+}
+
 
 static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 {
@@ -418,9 +437,10 @@ static int siihdmi_clear_avi_info_frame(struct siihdmi_tx *tx)
 	return ret;
 }
 
-static int siihdmi_set_avi_info_frame(struct siihdmi_tx *tx)
+static int siihdmi_set_avi_info_frame(struct siihdmi_tx *tx, int vic)
 {
 	int ret;
+
 	struct avi_info_frame avi = {
 		.header = {
 			.type    = INFO_FRAME_TYPE_AUXILIARY_VIDEO_INFO,
@@ -433,10 +453,12 @@ static int siihdmi_set_avi_info_frame(struct siihdmi_tx *tx)
 
 		.picture_aspect_ratio      = PICTURE_ASPECT_RATIO_UNSCALED,
 
-		.video_format              = VIDEO_FORMAT_UNKNOWN,
+		.video_format              = vic,
 	};
 
 	BUG_ON(tx->sink.type != SINK_TYPE_HDMI);
+
+	DEBUG("AVI InfoFrame sending Video Format %d\n", vic);
 
 	switch (tx->sink.scanning) {
 	case SCANNING_UNDERSCANNED:
@@ -639,6 +661,20 @@ static void siihdmi_print_modeline(const struct siihdmi_tx *tx,
 	CONTINUE("\n");
 }
 
+static int siihdmi_find_vic_from_modedb(const struct fb_videomode *mode)
+{
+	int vic;
+
+	for (vic = 1; vic <= 64; vic++)
+	{
+		if (!memcmp((void *)&cea_modes[vic], (void *)mode, sizeof(struct fb_videomode)))
+			return vic;
+	}
+	return 0;
+}
+
+
+
 static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 				  const struct fb_videomode *mode)
 {
@@ -672,13 +708,14 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	 * if the sink is a HDMI connection
 	 */
 	if (tx->sink.type == SINK_TYPE_HDMI) {
-		ctrl |= SIIHDMI_SYS_CTRL_AV_MUTE_HDMI;
-			ret = i2c_smbus_write_byte_data(tx->client,
-					SIIHDMI_TPI_REG_SYS_CTRL,
-					ctrl);
-		if (ret < 0)
-			DEBUG("unable to AV Mute!\n");
-
+		if (useavmute) {
+			ctrl |= SIIHDMI_SYS_CTRL_AV_MUTE_HDMI;
+				ret = i2c_smbus_write_byte_data(tx->client,
+						SIIHDMI_TPI_REG_SYS_CTRL,
+						ctrl);
+			if (ret < 0)
+				DEBUG("unable to AV Mute!\n");
+		}
 		msleep(SIIHDMI_CTRL_INFO_FRAME_DRAIN_TIME);
 	}
 
@@ -704,10 +741,12 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	 *      [DVI]  clear AVI InfoFrame
 	 *      [HDMI] set AVI InfoFrame
 	 */
-	if (tx->sink.type == SINK_TYPE_HDMI)
-		siihdmi_set_avi_info_frame(tx);
-	else
+	if (tx->sink.type == SINK_TYPE_HDMI) {
+		int vic = siihdmi_find_vic_from_modedb(mode);
+		siihdmi_set_avi_info_frame(tx, vic);
+	} else {
 		siihdmi_clear_avi_info_frame(tx);
+	}
 
 	/* step 6: [HDMI] set new audio information */
 	if (tx->sink.type == SINK_TYPE_HDMI) {
@@ -725,7 +764,7 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 		DEBUG("unable to enable the display\n");
 
 	/* step 8: (optionally) un-blank the display */
-	if (tx->sink.type == SINK_TYPE_HDMI) {
+	if (tx->sink.type == SINK_TYPE_HDMI && useavmute) {
 		ctrl &= ~SIIHDMI_SYS_CTRL_AV_MUTE_HDMI;
 		ret = i2c_smbus_write_byte_data(tx->client,
 					SIIHDMI_TPI_REG_SYS_CTRL,
