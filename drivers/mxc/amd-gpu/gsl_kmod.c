@@ -15,7 +15,7 @@
  * 02110-1301, USA.
  *
  */
- 
+
 #include "gsl_types.h"
 #include "gsl.h"
 #include "gsl_buildconfig.h"
@@ -40,6 +40,8 @@
 #include <linux/vmalloc.h>
 
 #include <linux/fsl_devices.h>
+
+//#define GSL_IOCTL_DEBUG
 
 int gpu_2d_irq, gpu_3d_irq;
 
@@ -101,6 +103,10 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_DEVICE_START:
         {
             kgsl_device_start_t param;
+
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_START\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_device_start_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -113,6 +119,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_DEVICE_STOP:
         {
             kgsl_device_stop_t param;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_STOP\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_device_stop_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -125,6 +134,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_DEVICE_IDLE:
         {
             kgsl_device_idle_t param;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_IDLE\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_device_idle_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -137,6 +149,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_DEVICE_ISIDLE:
         {
             kgsl_device_isidle_t param;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_ISIDLE\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_device_isidle_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -150,6 +165,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
         {
             kgsl_device_getproperty_t param;
             void *tmp;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_GETPROPERTY\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_device_getproperty_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -184,6 +202,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_DEVICE_SETPROPERTY:
         {
             kgsl_device_setproperty_t param;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_SETPROPERTY\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_device_setproperty_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -201,6 +222,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
         {
             kgsl_device_regread_t param;
             unsigned int tmp;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_REGREAD\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_device_regread_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -222,6 +246,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_DEVICE_REGWRITE:
         {
             kgsl_device_regwrite_t param;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_REGWRITE\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_device_regwrite_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -236,7 +263,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
             kgsl_device_waitirq_t param;
             unsigned int count;
 
-            printk(KERN_ERR "IOCTL_KGSL_DEVICE_WAITIRQ obsoleted!\n");
+            printk(KERN_ERR "%s: IOCTL_KGSL_DEVICE_WAITIRQ obsoleted!\n", __func__);
 //          kgslStatus = -ENOTTY; break;
 
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_device_waitirq_t)))
@@ -261,6 +288,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
         {
             kgsl_cmdstream_issueibcmds_t param;
             gsl_timestamp_t tmp;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CMDSTREAM_ISSUEIBCMDS\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_cmdstream_issueibcmds_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -283,6 +313,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
         {
             kgsl_cmdstream_readtimestamp_t param;
             gsl_timestamp_t tmp;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CMDSTREAM_READTIMESTAMP\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_cmdstream_readtimestamp_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -303,6 +336,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
         {
             int err;
             kgsl_cmdstream_freememontimestamp_t param;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_cmdstream_freememontimestamp_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -329,6 +365,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_CMDSTREAM_WAITTIMESTAMP:
         {
             kgsl_cmdstream_waittimestamp_t param;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CMDSTREAM_WAITTIMESTAMP\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_cmdstream_waittimestamp_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -341,6 +380,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_CMDWINDOW_WRITE:
         {
             kgsl_cmdwindow_write_t param;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CMDWINDOW_WRITE\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_cmdwindow_write_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -355,6 +397,10 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
             kgsl_context_create_t param;
             unsigned int tmp;
             int tmpStatus;
+
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CONTEXT_CREATE\n", __func__);
+#endif
 
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_context_create_t)))
             {
@@ -388,6 +434,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_CONTEXT_DESTROY:
         {
             kgsl_context_destroy_t param;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CONTEXT_DESTROY\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_context_destroy_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -401,6 +450,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_DRAWCTXT_BIND_GMEM_SHADOW:
         {
             kgsl_drawctxt_bind_gmem_shadow_t param;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DRAWCTX_BIND_GMEM_SHADOW\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_drawctxt_bind_gmem_shadow_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -415,6 +467,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
             kgsl_sharedmem_alloc_t param;
             gsl_memdesc_t tmp;
             int tmpStatus;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_ALLOC\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_sharedmem_alloc_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -444,6 +499,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
             kgsl_sharedmem_free_t param;
             gsl_memdesc_t tmp;
             int err;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_FREE\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_sharedmem_free_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -479,6 +537,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
         {
             kgsl_sharedmem_read_t param;
             gsl_memdesc_t memdesc;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_READ\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_sharedmem_read_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -502,6 +563,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
         {
             kgsl_sharedmem_write_t param;
             gsl_memdesc_t memdesc;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_WRITE\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_sharedmem_write_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -519,13 +583,16 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
             {
                 printk(KERN_ERR "%s: kgsl_sharedmem_write failed\n", __func__);
             }
-            
+
             break;
         }
     case IOCTL_KGSL_SHAREDMEM_SET:
         {
             kgsl_sharedmem_set_t param;
             gsl_memdesc_t memdesc;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_SET\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_sharedmem_set_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -545,7 +612,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
         {
             kgsl_sharedmem_largestfreeblock_t param;
             unsigned int largestfreeblock;
-
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_LARGESTFREEBLOCK\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_sharedmem_largestfreeblock_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -566,6 +635,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
         {
             kgsl_sharedmem_cacheoperation_t param;
             gsl_memdesc_t memdesc;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_CACHEOPERATION\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_sharedmem_cacheoperation_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -585,6 +657,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
         {
             kgsl_sharedmem_fromhostpointer_t param;
             gsl_memdesc_t memdesc;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_FROMHOSTPOINTER\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_sharedmem_fromhostpointer_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -604,6 +679,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
         {
             kgsl_add_timestamp_t param;
             gsl_timestamp_t tmp;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_ADD_TIMESTAMP\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_add_timestamp_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -620,10 +698,13 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
             kgslStatus = GSL_SUCCESS;
             break;
         }
-    
+
     case IOCTL_KGSL_DEVICE_CLOCK:
         {
             kgsl_device_clock_t param;
+#if defined(GSL_IOCTL_DEBUG)
+	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_CLOCK\n", __func__);
+#endif
             if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_device_clock_t)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
@@ -765,7 +846,6 @@ static irqreturn_t z430_irq_handler(int irq, void *dev_id)
 
 static int gpu_probe(struct platform_device *pdev)
 {
-    int i;
     struct resource *res;
     struct device *dev;
     struct mxc_gpu_platform_data *gpu_data = NULL;
@@ -778,48 +858,55 @@ static int gpu_probe(struct platform_device *pdev)
     z160_version = gpu_data->z160_revision;
     enable_mmu = gpu_data->enable_mmu;
 
-    for(i = 0; i < 2; i++){
-        res = platform_get_resource(pdev, IORESOURCE_IRQ, i);
-        if (!res) {
-            if (i == 0) {
-                printk(KERN_ERR "gpu: unable to get gpu irq\n");
-                return -ENODEV;
-            } else {
-                break;
-            }
-        }
-        if(strcmp(res->name, "gpu_2d_irq") == 0){
-            gpu_2d_irq = res->start;
-        }else if(strcmp(res->name, "gpu_3d_irq") == 0){
-            gpu_3d_irq = res->start;
-        }
+    res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "gpu_2d_irq");
+    if (!res) {
+	printk(KERN_ERR "gpu: unable to find 2D gpu irq\n");
+	goto nodev;
+    } else {
+	gpu_2d_irq = res->start;
     }
 
-    for(i = 0; i < 4; i++){
-        res = platform_get_resource(pdev, IORESOURCE_MEM, i);
-        if (!res) {
-            gpu_2d_regbase = 0;
-            gpu_2d_regsize = 0;
-            gpu_3d_regbase = 0;
-            gpu_2d_regsize = 0;
-            gmem_size = 0;
-            gpu_reserved_mem = 0;
-            gpu_reserved_mem_size = 0;
-            break;
-        }else{
-            if(strcmp(res->name, "gpu_2d_registers") == 0){
-                gpu_2d_regbase = res->start;
-                gpu_2d_regsize = res->end - res->start + 1;
-            }else if(strcmp(res->name, "gpu_3d_registers") == 0){
-                gpu_3d_regbase = res->start;
-                gpu_3d_regsize = res->end - res->start + 1;
-            }else if(strcmp(res->name, "gpu_graphics_mem") == 0){
-                gmem_size = res->end - res->start + 1;
-             }else if(strcmp(res->name, "gpu_reserved_mem") == 0){
-                gpu_reserved_mem = res->start;
-                gpu_reserved_mem_size = res->end - res->start + 1;
-            }
-        }
+    res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "gpu_3d_irq");
+    if (!res) {
+	printk(KERN_ERR "gpu: unable to find 3D gpu irq\n");
+	goto nodev;
+    } else {
+	gpu_3d_irq = res->start;
+    }
+
+    res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "gpu_2d_registers");
+    if (!res) {
+	printk(KERN_ERR "gpu: unable to find 2D gpu registers\n");
+	goto nodev;
+    } else {
+	gpu_2d_regbase = res->start;
+	gpu_2d_regsize = res->end - res->start + 1;
+    }
+
+    res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "gpu_3d_registers");
+    if (!res) {
+	printk(KERN_ERR "gpu: unable to find 2D gpu registers\n");
+	goto nodev;
+    } else {
+	gpu_3d_regbase = res->start;
+	gpu_3d_regsize = res->end - res->start + 1;
+    }
+
+    res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "gpu_graphics_mem");
+    if (!res) {
+	printk(KERN_ERR "gpu: unable to find gpu graphics memory\n");
+	goto nodev;
+    } else {
+	gmem_size = res->end - res->start + 1;
+    }
+
+    res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "gpu_reserved_mem");
+    if (!res) {
+	printk(KERN_ERR "gpu: unable to find gpu reserved memory\n");
+	goto nodev;
+    } else {
+	gpu_reserved_mem = res->start;
+	gpu_reserved_mem = res->end - res->start + 1;
     }
 
     if (gpu_3d_irq > 0)
@@ -864,7 +951,7 @@ static int gpu_probe(struct platform_device *pdev)
     #if(LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28))
         dev = device_create(gsl_kmod_class, NULL, MKDEV(gsl_kmod_major, 0), "gsl_kmod");
     #else
-        dev = device_create(gsl_kmod_class, NULL, MKDEV(gsl_kmod_major, 0), NULL,"gsl_kmod");
+        dev = device_create(gsl_kmod_class, NULL, MKDEV(gsl_kmod_major, 0), NULL, "gsl_kmod");
     #endif
 
     if (!IS_ERR(dev))
@@ -890,7 +977,17 @@ kgsl_driver_init_error:
 	free_irq(gpu_3d_irq, NULL);
     }
 request_irq_error:
-    return 0;   // TODO: return proper error code
+    return -ENXIO;
+
+nodev:
+    gpu_2d_regbase = 0;
+    gpu_2d_regsize = 0;
+    gpu_3d_regbase = 0;
+    gpu_2d_regsize = 0;
+    gmem_size = 0;
+    gpu_reserved_mem = 0;
+    gpu_reserved_mem_size = 0;
+    return -ENODEV;
 }
 
 static int gpu_remove(struct platform_device *pdev)
@@ -927,7 +1024,7 @@ static int gpu_suspend(struct platform_device *pdev, pm_message_t state)
                         GSL_PROP_DEVICE_POWER,
                         &power,
                         sizeof(gsl_powerprop_t));
-    }   
+    }
 
     return 0;
 }
@@ -945,7 +1042,7 @@ static int gpu_resume(struct platform_device *pdev)
                         GSL_PROP_DEVICE_POWER,
                         &power,
                         sizeof(gsl_powerprop_t));
-    }   
+    }
 
     return 0;
 }
