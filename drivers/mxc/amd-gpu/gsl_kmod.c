@@ -885,7 +885,7 @@ static int gpu_probe(struct platform_device *pdev)
 
     res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "gpu_3d_registers");
     if (!res) {
-	printk(KERN_ERR "gpu: unable to find 2D gpu registers\n");
+	printk(KERN_ERR "gpu: unable to find 3D gpu registers\n");
 	goto nodev;
     } else {
 	gpu_3d_regbase = res->start;
