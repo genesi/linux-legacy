@@ -16,13 +16,13 @@ const char hex_asc[] = "0123456789abcdef";
 EXPORT_SYMBOL(hex_asc);
 
 /**
- * hex_to_bin_old - convert a hex digit to its real value
+ * hex_to_bin - convert a hex digit to its real value
  * @ch: ascii character represents hex digit
  *
- * hex_to_bin_old() converts one hex digit to its actual value or -1 in case of bad
+ * hex_to_bin() converts one hex digit to its actual value or -1 in case of bad
  * input.
  */
-int hex_to_bin_old(char ch)
+int hex_to_bin(char ch)
 {
 	if ((ch >= '0') && (ch <= '9'))
 		return ch - '0';
@@ -31,7 +31,7 @@ int hex_to_bin_old(char ch)
 		return ch - 'a' + 10;
 	return -1;
 }
-EXPORT_SYMBOL(hex_to_bin_old);
+EXPORT_SYMBOL(hex_to_bin);
 
 /**
  * hex_dump_to_buffer - convert a blob of data to "hex ASCII" in memory

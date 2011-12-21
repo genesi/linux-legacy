@@ -2829,8 +2829,8 @@ void AtoH(char *src, u8 *dest, int destlen)
 	destTemp = (u8 *)dest;
 
 	while (destlen--) {
-		*destTemp = hex_to_bin_old(*srcptr++) << 4;	/* Put 1st ascii byte in upper nibble. */
-		*destTemp += hex_to_bin_old(*srcptr++);	/* Add 2nd ascii byte to above. */
+		*destTemp = hex_to_bin(*srcptr++) << 4;	/* Put 1st ascii byte in upper nibble. */
+		*destTemp += hex_to_bin(*srcptr++);	/* Add 2nd ascii byte to above. */
 		destTemp++;
 	}
 }
