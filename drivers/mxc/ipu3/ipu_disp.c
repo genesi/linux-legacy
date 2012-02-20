@@ -1061,7 +1061,7 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 	uint32_t field1_offset;
 	uint32_t reg;
 	uint32_t di_gen, vsync_cnt;
-	uint32_t div, rounded_pixel_clk;
+	uint32_t div, rounded_pixel_clk, rounded_parent_clk;
 	uint32_t h_total, v_total;
 	int map;
 	int ipu_freq_scaling_enabled = 0;
@@ -1103,12 +1103,18 @@ int32_t ipu_init_sync_panel(int disp, uint32_t pixel_clk,
 		 * so if the clk rate is not fit, try ext clk.
 		 */
 		if (!sig.int_clk &&
-			((rounded_pixel_clk >= pixel_clk + pixel_clk/16) ||
-			(rounded_pixel_clk <= pixel_clk - pixel_clk/16))) {
+			((rounded_pixel_clk >= pixel_clk + pixel_clk/200) ||
+			(rounded_pixel_clk <= pixel_clk - pixel_clk/200))) {
 			dev_dbg(g_ipu_dev, "try ipu ext di clk\n");
 			rounded_pixel_clk = pixel_clk * 2;
-			while (rounded_pixel_clk < 150000000)
-				rounded_pixel_clk += pixel_clk * 2;
+			rounded_parent_clk = clk_round_rate(di_parent, rounded_pixel_clk);
+			while (rounded_pixel_clk < rounded_parent_clk) {
+				/* the max divider from parent to di is 8 */
+				if (rounded_parent_clk / pixel_clk < 8)
+					rounded_pixel_clk += pixel_clk * 2;
+				else
+					rounded_pixel_clk *= 2;
+			}
 			clk_set_rate(di_parent, rounded_pixel_clk);
 			rounded_pixel_clk =
 				clk_round_rate(g_di_clk[disp], pixel_clk);
