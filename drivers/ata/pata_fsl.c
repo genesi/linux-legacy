@@ -721,7 +721,7 @@ static struct ata_port_operations pata_fsl_port_ops = {
 
 	.qc_prep = ata_noop_qc_prep,
 
-	.sff_data_xfer = ata_sff_data_xfer_noirq,
+	.sff_data_xfer = ata_sff_data_xfer,
 	.sff_irq_clear = ata_dummy_noret,
 	.sff_irq_on = ata_sff_irq_on,
 
