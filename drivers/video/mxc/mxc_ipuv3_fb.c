@@ -1674,11 +1674,10 @@ static int mxcfb_setup(struct fb_info *fbi, struct platform_device *pdev)
 
 	if (plat_data && !mxcfbi->ipu_di_pix_fmt) {
 		mxcfbi->ipu_di_pix_fmt = plat_data->interface_pix_fmt;
-#if 0
+
 		/* try and use a bit depth closest to the bit depth we use for the panel */
 		if (!mxcfbi->default_bpp)
 			mxcfbi->default_bpp = pixfmt_to_bpp(plat_data->interface_pix_fmt);
-#endif
 	}
 
 	if (!mxcfbi->default_bpp)
@@ -1699,6 +1698,17 @@ static int mxcfb_setup(struct fb_info *fbi, struct platform_device *pdev)
 					plat_data->num_modes, NULL, mxcfbi->default_bpp);
 	}
 
+	/*
+	 * provides the following; if int_clk was supplied in the video= line, actually
+	 * it would be more prudent to do exactly what the platform data says (as it
+	 * has far better knowledge of the board design than a kernel argument set by
+	 * a user). So, if the internal clock flag is true, but the platform data says
+	 * try an external clock, use the external clock. This will only happen anyway
+	 * if the clock can't be generated from the IPU clock within 1/200th of the
+	 * desired rate anyway
+	 */
+	if (mxcfbi->ipu_int_clk && plat_data && plat_data->external_clk)
+		mxcfbi->ipu_int_clk = !plat_data->external_clk;
 
 	mxcfb_check_var(&fbi->var, fbi);
 	mxcfb_set_fix(fbi);

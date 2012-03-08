@@ -328,6 +328,7 @@ struct mxc_fb_platform_data {
 	int num_modes;
 	char *mode_str;
 	u32 interface_pix_fmt;
+	u32 external_clk;
 };
 
 struct mxc_lcd_platform_data {
