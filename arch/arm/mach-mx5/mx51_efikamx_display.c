@@ -177,7 +177,7 @@ static struct i2c_board_info mx51_efikamx_i2c_display[] __initdata = {
 static struct mxc_fb_platform_data mx51_efikamx_display_data[] = {
 	[EFIKAMX_HDMI_DISPLAY_ID] = {
 		.interface_pix_fmt = IPU_PIX_FMT_RGB24,
-		.external_clk = true;
+		.external_clk = true,
 	},
 	[EFIKASB_LVDS_DISPLAY_ID] = {
 		.interface_pix_fmt = IPU_PIX_FMT_RGB565,
