@@ -571,6 +571,9 @@ KBUILD_CFLAGS	+= $(call cc-option,-fno-strict-overflow)
 # revert to pre-gcc-4.4 behaviour of .eh_frame
 KBUILD_CFLAGS	+= $(call cc-option,-fno-dwarf2-cfi-asm)
 
+# fix a Linaro gcc-4.6 bug (on Ubuntu Precise at least) that stops old ARM kernels booting
+KBUILD_CFLAGS   += $(call cc-option,-mno-unaligned-access)
+
 # Add user supplied CPPFLAGS, AFLAGS and CFLAGS as the last assignments
 # But warn user when we do so
 warn-assign = \
