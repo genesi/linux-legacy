@@ -1482,12 +1482,12 @@ static int __devexit siihdmi_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id siihdmi_device_table[] = {
-	{ "siihdmi", 0 },
+	{ SIIHDMI_NAME, 0 },
 	{ },
 };
 
 static struct i2c_driver siihdmi_driver = {
-	.driver   = { .name = "siihdmi" },
+	.driver   = { .name = SIIHDMI_NAME },
 	.probe    = siihdmi_probe,
 	.remove   = siihdmi_remove,
 	.id_table = siihdmi_device_table,
