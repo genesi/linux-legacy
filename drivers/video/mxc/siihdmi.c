@@ -65,38 +65,46 @@ static unsigned int seventwenty	= 1;
 module_param(seventwenty, uint, 0644);
 MODULE_PARM_DESC(seventwenty, "attempt to use 720p mode");
 
-static unsigned int teneighty = 0;
+static unsigned int teneighty;
 module_param(teneighty, uint, 0644);
 MODULE_PARM_DESC(teneighty, "attempt to use 1080p mode");
 
 static unsigned int useitmodes = 1;
 module_param(useitmodes, uint, 0644);
-MODULE_PARM_DESC(useitmodes, "prefer IT modes over CEA modes when sanitizing the modelist");
+MODULE_PARM_DESC(useitmodes,
+	"prefer IT modes over CEA modes when sanitizing the modelist");
 
-static unsigned int modevic = 0;
+static unsigned int modevic;
 module_param_named(vic, modevic, uint, 0644);
-MODULE_PARM_DESC(modevic, "CEA VIC to try and match before autodetection");
+MODULE_PARM_DESC(modevic,
+	"CEA VIC to try and match before autodetection");
 
-static unsigned int forcedvi = 0;
+static unsigned int forcedvi;
 module_param_named(dvi, forcedvi, uint, 0644);
 MODULE_PARM_DESC(forcedvi, "Force DVI sink mode");
 
-static unsigned int useavmute = 0;
+static unsigned int useavmute;
 module_param(useavmute, uint, 0644);
 MODULE_PARM_DESC(useavmute, "perform HDMI AV Mute when blanking screen");
 
 static int siihdmi_read_internal(struct siihdmi_tx *tx, u8 page, u8 offset)
 {
-	i2c_smbus_write_byte_data(tx->client, SIIHDMI_INTERNAL_REG_SET_PAGE, page);
-	i2c_smbus_write_byte_data(tx->client, SIIHDMI_INTERNAL_REG_SET_OFFSET, offset);
-	return i2c_smbus_read_byte_data(tx->client, SIIHDMI_INTERNAL_REG_ACCESS);
+	i2c_smbus_write_byte_data(tx->client,
+				SIIHDMI_INTERNAL_REG_SET_PAGE, page);
+	i2c_smbus_write_byte_data(tx->client,
+				SIIHDMI_INTERNAL_REG_SET_OFFSET, offset);
+	return i2c_smbus_read_byte_data(tx->client,
+				SIIHDMI_INTERNAL_REG_ACCESS);
 }
 
 static void siihdmi_write_internal(struct siihdmi_tx *tx, u8 page, u8 offset, u8 value)
 {
-	i2c_smbus_write_byte_data(tx->client, SIIHDMI_INTERNAL_REG_SET_PAGE, page);
-	i2c_smbus_write_byte_data(tx->client, SIIHDMI_INTERNAL_REG_SET_OFFSET, offset);
-	i2c_smbus_write_byte_data(tx->client, SIIHDMI_INTERNAL_REG_ACCESS, value);
+	i2c_smbus_write_byte_data(tx->client,
+				SIIHDMI_INTERNAL_REG_SET_PAGE, page);
+	i2c_smbus_write_byte_data(tx->client,
+				SIIHDMI_INTERNAL_REG_SET_OFFSET, offset);
+	i2c_smbus_write_byte_data(tx->client,
+				SIIHDMI_INTERNAL_REG_ACCESS, value);
 }
 
 
@@ -206,13 +214,15 @@ static int siihdmi_initialise(struct siihdmi_tx *tx)
 	}
 
 	/* step 2: detect revision */
-	if ((ret = siihdmi_detect_revision(tx)) < 0) {
+	ret = siihdmi_detect_revision(tx);
+	if (ret < 0) {
 		DBG("unable to detect device revision\n");
 		return ret;
 	}
 
 	/* step 3: power up transmitter */
-	if ((ret = siihdmi_power_up(tx)) < 0)
+	ret = siihdmi_power_up(tx);
+	if (ret < 0)
 		return ret;
 
 	/* step 4: configure input bus and pixel repetition */
@@ -679,8 +689,7 @@ static int siihdmi_find_vic_from_modedb(const struct fb_videomode *mode)
 {
 	int vic;
 
-	for (vic = 1; vic <= 64; vic++)
-	{
+	for (vic = 1; vic <= 64; vic++) {
 		/* for comment's sake, "CEA VIC nn" is 10 characters
 		 * watch out porting this as it relies the CEA VIC nn string
 		 * to be in the modedb
@@ -699,8 +708,8 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 	u8 ctrl;
 	int ret;
 
-	if (0 == memcmp((void *) &tx->sink.current_mode, (void *) mode, sizeof(struct fb_videomode)))
-	{
+	if (0 == memcmp((void *) &tx->sink.current_mode,
+			(void *) mode, sizeof(struct fb_videomode))) {
 		return 0;
 	}
 
@@ -852,9 +861,9 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 	const struct fb_videomode *mode;
 	int num_removed = 0;
 
-	if ((mode = fb_find_best_display(&tx->info->monspecs, modelist)))
+	mode = fb_find_best_display(&tx->info->monspecs, modelist);
+	if (mode)
 		tx->sink.preferred_mode = *mode;
-
 
 	list_for_each_entry_safe(entry, next, modelist, list) {
 		const char *reason = NULL;
@@ -928,9 +937,8 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 			struct fb_modelist *modelist =
 				container_of(mode, struct fb_modelist, mode);
 
-			if (num_removed == 0) { // first time only
+			if (num_removed == 0) /* first time only */
 				INFO("Unsupported modelines:\n");
-			}
 
 			siihdmi_print_modeline(tx, mode, reason);
 
@@ -940,9 +948,8 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 		}
 	}
 
-	if (num_removed > 0) {
+	if (num_removed > 0)
 		INFO("discarded %u incompatible modes\n", num_removed);
-	}
 }
 
 static inline const struct fb_videomode *_match(const struct fb_videomode * const mode,
@@ -950,7 +957,8 @@ static inline const struct fb_videomode *_match(const struct fb_videomode * cons
 {
 	const struct fb_videomode *match;
 
-	if ((match = fb_find_best_mode_at_most(mode, modelist)))
+	match = fb_find_best_mode_at_most(mode, modelist);
+	if (match)
 		return match;
 
 	return fb_find_nearest_mode(mode, modelist);
@@ -994,8 +1002,10 @@ static const struct fb_videomode *siihdmi_select_video_mode(const struct siihdmi
 	 */
 
 	if (teneighty) {
-		if ((tx->sink.preferred_mode.xres == 1680 && tx->sink.preferred_mode.yres == 1050) ||
-		    (tx->sink.preferred_mode.xres == 1440 && tx->sink.preferred_mode.yres == 900)) {
+		if ((tx->sink.preferred_mode.xres == 1680
+			&& tx->sink.preferred_mode.yres == 1050) ||
+		    (tx->sink.preferred_mode.xres == 1440
+			&& tx->sink.preferred_mode.yres == 900)) {
 			mode = _match(&tx->sink.preferred_mode, &tx->info->modelist);
 			if (mode && (mode->xres == tx->sink.preferred_mode.xres)
 				 && (mode->yres == tx->sink.preferred_mode.yres))
@@ -1013,7 +1023,7 @@ static const struct fb_videomode *siihdmi_select_video_mode(const struct siihdmi
 		     tx->sink.preferred_mode.xres == 1024 ||
 		     tx->sink.preferred_mode.xres == 1280) &&
 		    (tx->sink.preferred_mode.yres == 768 ||
-		     tx->sink.preferred_mode.yres == 800) ) {
+		     tx->sink.preferred_mode.yres == 800)) {
 			mode = _match(&tx->sink.preferred_mode, &tx->info->modelist);
 			if (mode && (mode->xres == tx->sink.preferred_mode.xres)
 				 && (mode->yres == tx->sink.preferred_mode.yres))
@@ -1027,10 +1037,11 @@ static const struct fb_videomode *siihdmi_select_video_mode(const struct siihdmi
 
 	/* If we disabled or couldn't find a reasonable mode above, just look for and use the
 	 * closest to the monitor preferred mode - we don't care if it is not exact */
-	if (tx->sink.preferred_mode.xres && tx->sink.preferred_mode.yres)
-		if ((mode = _match(&tx->sink.preferred_mode, &tx->info->modelist)))
+	if (tx->sink.preferred_mode.xres && tx->sink.preferred_mode.yres) {
+		mode = _match(&tx->sink.preferred_mode, &tx->info->modelist);
+		if (mode)
 			return mode;
-
+	}
 	/* if no matching mode was found, push 640x480@60 */
 	INFO("unable to select a suitable video mode, using CEA Mode 1 (640x480@60)\n");
 	return &cea_modes[1];
@@ -1102,8 +1113,7 @@ static int siihdmi_detect_monitor(struct siihdmi_tx *tx)
 
 	/* step 5: read edid */
 	if (tx->edid.length < EDID_BLOCK_SIZE) {
-		if (tx->edid.data)
-				kfree(tx->edid.data);
+		kfree(tx->edid.data);
 
 		tx->edid.data = kzalloc(EDID_BLOCK_SIZE, GFP_KERNEL);
 		if (!tx->edid.data) {
@@ -1251,7 +1261,8 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 		return ret;
 
 	mode = siihdmi_select_video_mode(tx);
-	if ((ret = siihdmi_set_resolution(tx, mode)) < 0)
+	ret = siihdmi_set_resolution(tx, mode);
+	if (ret < 0)
 		return ret;
 
 	/* activate the framebuffer */
@@ -1312,14 +1323,14 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 		break;
 	case FB_EVENT_BLANK:
 		switch (*((int *) event->data)) {
-			case FB_BLANK_POWERDOWN:
-				/* do NOT siihdmi_power_down() here */
-			case FB_BLANK_VSYNC_SUSPEND:
-			case FB_BLANK_HSYNC_SUSPEND:
-			case FB_BLANK_NORMAL:
-				return siihdmi_blank(tx);
-			case FB_BLANK_UNBLANK:
-				return siihdmi_unblank(tx);
+		case FB_BLANK_POWERDOWN:
+			/* do NOT siihdmi_power_down() here */
+		case FB_BLANK_VSYNC_SUSPEND:
+		case FB_BLANK_HSYNC_SUSPEND:
+		case FB_BLANK_NORMAL:
+			return siihdmi_blank(tx);
+		case FB_BLANK_UNBLANK:
+			return siihdmi_unblank(tx);
 		}
 		break;
 	default:
@@ -1442,7 +1453,8 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 		tx->hotplug.enabled = true;
 
 	/* initialise the device */
-	if ((ret = siihdmi_initialise(tx)) < 0)
+	ret = siihdmi_initialise(tx);
+	if (ret < 0)
 		goto error;
 
 	ret = siihdmi_setup_display(tx);
@@ -1499,8 +1511,7 @@ static int __devexit siihdmi_remove(struct i2c_client *client)
 		sysfs_remove_bin_file(&tx->client->dev.kobj, &tx->audio.attributes);
 #endif
 
-		if (tx->edid.data)
-			kfree(tx->edid.data);
+		kfree(tx->edid.data);
 
 		fb_unregister_client(&tx->nb);
 		siihdmi_power_down(tx);
