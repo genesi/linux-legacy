@@ -1068,7 +1068,7 @@ static int siihdmi_detect_monitor(struct siihdmi_tx *tx)
 		ctrl = i2c_smbus_read_byte_data(tx->client,
 						SIIHDMI_TPI_REG_SYS_CTRL);
 	} while ((~ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
-		 !time_after(jiffies, start + bus_timeout));
+		 !time_after(jiffies, start + msecs_to_jiffies(bus_timeout)));
 
 	if (~ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED)
 		goto relinquish;
@@ -1159,7 +1159,7 @@ relinquish:
 		ctrl = i2c_smbus_read_byte_data(tx->client,
 						SIIHDMI_TPI_REG_SYS_CTRL);
 	} while ((ctrl & SIIHDMI_SYS_CTRL_DDC_BUS_GRANTED) &&
-		 !time_after(jiffies, start + bus_timeout));
+		 !time_after(jiffies, start + msecs_to_jiffies(bus_timeout)));
 
 	/* now, force the operational mode (HDMI or DVI) based on sink
 	 * type and make it stick with a power up request (pg 27)
