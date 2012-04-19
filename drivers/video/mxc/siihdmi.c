@@ -48,11 +48,12 @@
 
 
 /* logging helpers */
-#define CONTINUE(fmt, ...)	printk(KERN_CONT    fmt, ## __VA_ARGS__)
-#define DEBUG(fmt, ...)		printk(KERN_DEBUG   "SIIHDMI: " fmt, ## __VA_ARGS__)
-#define ERROR(fmt, ...)		printk(KERN_ERR     "SIIHDMI: " fmt, ## __VA_ARGS__)
-#define WARNING(fmt, ...)	printk(KERN_WARNING "SIIHDMI: " fmt, ## __VA_ARGS__)
-#define INFO(fmt, ...)		printk(KERN_INFO    "SIIHDMI: " fmt, ## __VA_ARGS__)
+#define PR_PREFIX		SIIHDMI_NAME ": "
+#define CONTINUE(fmt, ...)	pr_cont(fmt, ## __VA_ARGS__)
+#define DBG(fmt, ...)		pr_debug(PR_PREFIX fmt, ## __VA_ARGS__)
+#define ERR(fmt, ...)		pr_err(PR_PREFIX fmt, ## __VA_ARGS__)
+#define WARNING(fmt, ...)	pr_warning(PR_PREFIX fmt, ## __VA_ARGS__)
+#define INFO(fmt, ...)		pr_info(PR_PREFIX fmt, ## __VA_ARGS__)
 
 
 /* module parameters */
@@ -150,7 +151,7 @@ static inline int siihdmi_power_up(struct siihdmi_tx *tx)
 					SIIHDMI_TPI_REG_PWR_STATE,
 					SIIHDMI_POWER_STATE_D0);
 	if (ret < 0)
-		ERROR("unable to power up transmitter\n");
+		ERR("unable to power up transmitter\n");
 
 	return ret;
 }
@@ -172,7 +173,7 @@ static inline int siihdmi_power_down(struct siihdmi_tx *tx)
 	ret = i2c_smbus_write_byte_data(tx->client,
 					SIIHDMI_TPI_REG_SYS_CTRL, ctrl);
 	if (ret < 0) {
-		ERROR("unable to power down transmitter\n");
+		ERR("unable to power down transmitter\n");
 		return ret;
 	}
 
@@ -180,7 +181,7 @@ static inline int siihdmi_power_down(struct siihdmi_tx *tx)
 					SIIHDMI_TPI_REG_PWR_STATE,
 					SIIHDMI_POWER_STATE_D2);
 	if (ret < 0) {
-		ERROR("unable to set transmitter into D2\n");
+		ERR("unable to set transmitter into D2\n");
 		return ret;
 	}
 
@@ -203,7 +204,7 @@ static int siihdmi_initialise(struct siihdmi_tx *tx)
 
 	/* step 2: detect revision */
 	if ((ret = siihdmi_detect_revision(tx)) < 0) {
-		DEBUG("unable to detect device revision\n");
+		DBG("unable to detect device revision\n");
 		return ret;
 	}
 
@@ -245,13 +246,13 @@ static inline void _process_cea861_vsdb(struct siihdmi_tx *tx,
 
 	max_tmds = KHZ2PICOS(vsdb->max_tmds_clock * 200);
 
-	DEBUG("HDMI VSDB detected (basic audio %ssupported)\n",
+	DBG("HDMI VSDB detected (basic audio %ssupported)\n",
 	      tx->audio.available ? "" : "not ");
 
 	if (!forcedvi) {
 		tx->sink.type = SINK_TYPE_HDMI;
 	} else {
-		DEBUG("Sink type forced to DVI despite VSDB\n");
+		DBG("Sink type forced to DVI despite VSDB\n");
 		tx->sink.type = SINK_TYPE_DVI;
 	}
 
@@ -281,7 +282,7 @@ static inline void _process_cea861_video(struct siihdmi_tx *tx,
 		}
 	}
 
-	DEBUG("%u modes parsed from CEA video data block\n", count);
+	DBG("%u modes parsed from CEA video data block\n", count);
 }
 
 static inline void _process_cea861_extended(struct siihdmi_tx *tx,
@@ -391,7 +392,7 @@ static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
 					     sizeof(vmode),
 					     (u8 *) vmode);
 	if (ret < 0)
-		DEBUG("unable to write video mode data\n");
+		DBG("unable to write video mode data\n");
 
 	/* input format */
 	format = SIIHDMI_INPUT_COLOR_SPACE_RGB
@@ -402,7 +403,7 @@ static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
 					SIIHDMI_TPI_REG_AVI_INPUT_FORMAT,
 					format);
 	if (ret < 0)
-		DEBUG("unable to set input format\n");
+		DBG("unable to set input format\n");
 
 	/* output format */
 	format = SIIHDMI_OUTPUT_VIDEO_RANGE_COMPRESSION_AUTO
@@ -418,7 +419,7 @@ static void siihdmi_set_vmode_registers(struct siihdmi_tx *tx,
 					SIIHDMI_TPI_REG_AVI_OUTPUT_FORMAT,
 					format);
 	if (ret < 0)
-		DEBUG("unable to set output format\n");
+		DBG("unable to set output format\n");
 }
 
 static int siihdmi_clear_avi_info_frame(struct siihdmi_tx *tx)
@@ -432,7 +433,7 @@ static int siihdmi_clear_avi_info_frame(struct siihdmi_tx *tx)
 					     SIIHDMI_TPI_REG_AVI_INFO_FRAME_BASE,
 					     sizeof(buffer), buffer);
 	if (ret < 0)
-		DEBUG("unable to clear avi info frame\n");
+		DBG("unable to clear avi info frame\n");
 
 	return ret;
 }
@@ -458,7 +459,7 @@ static int siihdmi_set_avi_info_frame(struct siihdmi_tx *tx, int vic)
 
 	BUG_ON(tx->sink.type != SINK_TYPE_HDMI);
 
-	DEBUG("AVI InfoFrame sending Video Format %d\n", vic);
+	DBG("AVI InfoFrame sending Video Format %d\n", vic);
 
 	switch (tx->sink.scanning) {
 	case SCANNING_UNDERSCANNED:
@@ -480,7 +481,7 @@ static int siihdmi_set_avi_info_frame(struct siihdmi_tx *tx, int vic)
 					     sizeof(avi) - SIIHDMI_AVI_INFO_FRAME_OFFSET,
 					     ((u8 *) &avi) + SIIHDMI_AVI_INFO_FRAME_OFFSET);
 	if (ret < 0)
-		DEBUG("unable to write avi info frame\n");
+		DBG("unable to write avi info frame\n");
 
 	return ret;
 }
@@ -525,7 +526,7 @@ static int siihdmi_set_audio_info_frame(struct siihdmi_tx *tx)
 					     sizeof(packet),
 					     (u8 *) &packet);
 	if (ret < 0)
-		DEBUG("unable to write audio info frame\n");
+		DBG("unable to write audio info frame\n");
 
 	return ret;
 }
@@ -567,7 +568,7 @@ static int siihdmi_set_spd_info_frame(struct siihdmi_tx *tx)
 					     sizeof(packet),
 					     (u8 *) &packet);
 	if (ret < 0)
-		DEBUG("unable to write SPD info frame\n");
+		DBG("unable to write SPD info frame\n");
 
 	return ret;
 }
@@ -714,7 +715,7 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 						SIIHDMI_TPI_REG_SYS_CTRL,
 						ctrl);
 			if (ret < 0)
-				DEBUG("unable to AV Mute!\n");
+				DBG("unable to AV Mute!\n");
 		}
 		msleep(SIIHDMI_CTRL_INFO_FRAME_DRAIN_TIME);
 	}
@@ -725,7 +726,7 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 					SIIHDMI_TPI_REG_SYS_CTRL,
 					ctrl);
 	if (ret < 0)
-		DEBUG("unable to prepare for resolution change\n");
+		DBG("unable to prepare for resolution change\n");
 
 	/*
 	 * step 3: change video resolution
@@ -761,7 +762,7 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 					SIIHDMI_TPI_REG_SYS_CTRL,
 					ctrl);
 	if (ret < 0)
-		DEBUG("unable to enable the display\n");
+		DBG("unable to enable the display\n");
 
 	/* step 8: (optionally) un-blank the display */
 	if (tx->sink.type == SINK_TYPE_HDMI && useavmute) {
@@ -770,7 +771,7 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 					SIIHDMI_TPI_REG_SYS_CTRL,
 					ctrl);
 		if (ret < 0)
-			DEBUG("unable to unmute the display\n");
+			DBG("unable to unmute the display\n");
 	}
 
 	/* step 9: (potentially) enable HDCP */
@@ -1031,7 +1032,7 @@ static inline int siihdmi_read_edid(struct siihdmi_tx *tx, u8 *edid, int size)
 
 	ret = i2c_transfer(tx->client->adapter, request, ARRAY_SIZE(request));
 	if (ret != ARRAY_SIZE(request))
-		DEBUG("unable to read EDID block\n");
+		DBG("unable to read EDID block\n");
 	return ret;
 }
 
@@ -1053,7 +1054,7 @@ static int siihdmi_detect_monitor(struct siihdmi_tx *tx)
 					SIIHDMI_TPI_REG_SYS_CTRL,
 					ctrl | SIIHDMI_SYS_CTRL_DDC_BUS_REQUEST);
 	if (ret < 0) {
-		DEBUG("unable to request DDC bus\n");
+		DBG("unable to request DDC bus\n");
 		return ret;
 	}
 
@@ -1074,7 +1075,7 @@ static int siihdmi_detect_monitor(struct siihdmi_tx *tx)
 					SIIHDMI_SYS_CTRL_DDC_BUS_REQUEST |
 					SIIHDMI_SYS_CTRL_DDC_BUS_OWNER_HOST);
 	if (ret < 0) {
-		DEBUG("unable to take ownership of the DDC bus\n");
+		DBG("unable to take ownership of the DDC bus\n");
 		goto relinquish;
 	}
 
@@ -1185,7 +1186,7 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 	tx->audio.available = false;
 
 	isr = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_ISR);
-	DEBUG("hotplug: display %s, powered %s\n",
+	DBG("hotplug: display %s, powered %s\n",
 	      (isr & SIIHDMI_ISR_DISPLAY_ATTACHED) ? "attached" : "detached",
 	      (isr & SIIHDMI_ISR_RECEIVER_SENSE) ? "on" : "off");
 
@@ -1203,14 +1204,14 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 			if (sysfs_create_link_nowarn(&tx->info->dev->kobj,
 					      &tx->client->dev.kobj,
 					      "phys-link") < 0)
-				ERROR("failed to create device symlink");
+				ERR("failed to create device symlink");
 
 			break;
 		}
 	}
 
 	if (tx->info == NULL) {
-		ERROR("unable to find video framebuffer\n");
+		ERR("unable to find video framebuffer\n");
 		return -1;
 	}
 
@@ -1292,7 +1293,7 @@ static int siihdmi_fb_event_handler(struct notifier_block *nb,
 		}
 		break;
 	default:
-		DEBUG("unhandled fb event 0x%lx", val);
+		DBG("unhandled fb event 0x%lx", val);
 		break;
 	}
 
@@ -1323,7 +1324,7 @@ static void siihdmi_hotplug_event(struct work_struct *work)
 	if (~isr & SIIHDMI_ISR_HOT_PLUG_EVENT)
 		goto complete;
 
-	DEBUG("hotplug: display %s, powered %s\n",
+	DBG("hotplug: display %s, powered %s\n",
 	      (isr & SIIHDMI_ISR_DISPLAY_ATTACHED) ? "attached" : "detached",
 	      (isr & SIIHDMI_ISR_RECEIVER_SENSE) ? "on" : "off");
 
