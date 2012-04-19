@@ -1236,6 +1236,15 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 		return -1;
 	}
 
+	/*
+	 * HDMI spec says we should use standard 640x480 while getting
+	 * the EDID - this helps a lot even if we don't care about the
+	 * standard as many dual/multi-input monitors run a round of
+	 * autodetection to find the active display port, which causes
+	 * some havoc with the hotplug handler
+	 */
+	siihdmi_set_resolution(tx, &vesa_modes[3]);
+
 	/* use EDID to detect sink characteristics */
 	ret = siihdmi_detect_monitor(tx);
 	if (ret < 0)
