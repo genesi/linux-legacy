@@ -678,7 +678,11 @@ static int siihdmi_find_vic_from_modedb(const struct fb_videomode *mode)
 
 	for (vic = 1; vic <= 64; vic++)
 	{
-		if (!memcmp((void *)&cea_modes[vic], (void *)mode, sizeof(struct fb_videomode)))
+		/* for comment's sake, "CEA VIC nn" is 10 characters
+		 * watch out porting this as it relies the CEA VIC nn string
+		 * to be in the modedb
+		 */
+		if (!strncmp(cea_modes[vic].name, mode->name, 10))
 			return vic;
 	}
 	return 0;
