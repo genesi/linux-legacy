@@ -1186,9 +1186,9 @@ static int siihdmi_setup_display(struct siihdmi_tx *tx)
 	tx->audio.available = false;
 
 	isr = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_ISR);
-	DBG("hotplug: display %s, powered %s\n",
+	DBG("setup: display %s, receiver sense %s\n",
 	      (isr & SIIHDMI_ISR_DISPLAY_ATTACHED) ? "attached" : "detached",
-	      (isr & SIIHDMI_ISR_RECEIVER_SENSE) ? "on" : "off");
+	      (isr & SIIHDMI_ISR_RECEIVER_SENSE) ? "active" : "inactive");
 
 	if (~isr & SIIHDMI_ISR_DISPLAY_ATTACHED)
 		return siihdmi_power_down(tx);
@@ -1324,9 +1324,9 @@ static void siihdmi_hotplug_event(struct work_struct *work)
 	if (~isr & SIIHDMI_ISR_HOT_PLUG_EVENT)
 		goto complete;
 
-	DBG("hotplug: display %s, powered %s\n",
+	DBG("hotplug: display %s, receiver sense %s\n",
 	      (isr & SIIHDMI_ISR_DISPLAY_ATTACHED) ? "attached" : "detached",
-	      (isr & SIIHDMI_ISR_RECEIVER_SENSE) ? "on" : "off");
+	      (isr & SIIHDMI_ISR_RECEIVER_SENSE) ? "active" : "inactive");
 
 	if (isr & SIIHDMI_ISR_HOT_PLUG_EVENT) {
 		if (isr & SIIHDMI_ISR_DISPLAY_ATTACHED)
