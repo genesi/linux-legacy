@@ -694,8 +694,9 @@ static int siihdmi_find_vic_from_modedb(const struct fb_videomode *mode)
 		 * watch out porting this as it relies the CEA VIC nn string
 		 * to be in the modedb
 		 */
-		if (!strncmp(cea_modes[vic].name, mode->name, 10))
-			return vic;
+		if (cea_modes[vic].name && mode->name)
+			if (!strncmp(cea_modes[vic].name, mode->name, 10))
+				return vic;
 	}
 	return 0;
 }
