@@ -222,7 +222,14 @@ static int siihdmi_initialise(struct siihdmi_tx *tx)
 
 	/* step 8: configure embedded sync extraction */
 
-	/* step 9: setup interrupt service */
+	/* step 9: setup interrupt service
+	 *
+	 * (SII9022 programmer's reference p42:
+	 *              Tplug_dly min. 400 typ. 480 max. 600ms)
+	 * do we need to wait here, or do we know this has already
+	 * happened in hardware?
+	 */
+
 	if (tx->hotplug.enabled) {
 		ret = i2c_smbus_write_byte_data(tx->client,
 						SIIHDMI_TPI_REG_IER,
