@@ -245,13 +245,16 @@ static int siihdmi_initialise(struct siihdmi_tx *tx)
 static inline void _process_cea861_vsdb(struct siihdmi_tx *tx,
 					const struct hdmi_vsdb * const vsdb)
 {
-	unsigned int max_tmds;
+	unsigned int max_tmds = 0;
 
 	if (memcmp(vsdb->ieee_registration, CEA861_OUI_REGISTRATION_ID_HDMI_LSB,
-		   sizeof(vsdb->ieee_registration)))
+		   sizeof(vsdb->ieee_registration))) {
+		WARNING("VSDB does not contain HDMI OUI\n");
 		return;
+	}
 
-	max_tmds = KHZ2PICOS(vsdb->max_tmds_clock * 200);
+	if (vsdb->max_tmds_clock)
+		max_tmds = KHZ2PICOS(vsdb->max_tmds_clock * 200);
 
 	DBG("HDMI VSDB detected (basic audio %ssupported)\n",
 	      tx->audio.available ? "" : "not ");
