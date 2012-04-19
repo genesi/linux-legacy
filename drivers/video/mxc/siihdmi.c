@@ -152,6 +152,8 @@ static inline int siihdmi_power_up(struct siihdmi_tx *tx)
 					SIIHDMI_POWER_STATE_D0);
 	if (ret < 0)
 		ERR("unable to power up transmitter\n");
+	else
+		WARNING("powered to D0\n");
 
 	return ret;
 }
@@ -183,7 +185,8 @@ static inline int siihdmi_power_down(struct siihdmi_tx *tx)
 	if (ret < 0) {
 		ERR("unable to set transmitter into D2\n");
 		return ret;
-	}
+	} else
+		WARNING("powered to D2\n");
 
 	return 0;
 }
