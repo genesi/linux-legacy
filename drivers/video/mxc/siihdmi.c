@@ -715,7 +715,7 @@ static int siihdmi_set_resolution(struct siihdmi_tx *tx,
 
 	memset((void *) &tx->sink.current_mode, 0, sizeof(struct fb_videomode));
 
-	INFO("selected configuration: \n");
+	INFO("selected configuration:\n");
 	siihdmi_print_modeline(tx, mode, NULL);
 
 	ctrl = i2c_smbus_read_byte_data(tx->client, SIIHDMI_TPI_REG_SYS_CTRL);
@@ -1122,7 +1122,7 @@ static int siihdmi_detect_monitor(struct siihdmi_tx *tx)
 		}
 		tx->edid.length = EDID_BLOCK_SIZE;
 	} else {
-		memset(tx->edid.data, tx->edid.length, 0);
+		memset(tx->edid.data, 0, tx->edid.length);
 	}
 
 	ret = siihdmi_read_edid(tx, tx->edid.data, EDID_BLOCK_SIZE);
