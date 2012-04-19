@@ -29,6 +29,7 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define DEBUG
 #include <linux/fb.h>
 #include <linux/i2c.h>
 #include <linux/delay.h>
