@@ -44,7 +44,7 @@
 
 extern void mx5_ipu_reset(void);
 static struct mxc_ipu_config mxc_ipu_data = {
-	.rev = 2,
+	.rev = 3,
 	.reset = mx5_ipu_reset,
 };
 
@@ -74,14 +74,6 @@ void mx51_efikamx_display_reset(void)
 	msleep(1);		/* SII9022 Treset >= 100us */
 
 	gpio_set_value(IOMUX_TO_GPIO(EFIKAMX_DISPLAY_RESET), 0);
-	/*
-	 * this is a very long time, but we need to wait this long for the
-	 * SII9022 to come out of reset *AND* for any hotplug events to have
-	 * registered and a sink detection to be absolutely accurate
-	 * (SII9022 programmer's reference p42:
-	 *		Tplug_dly min. 400 typ. 480 max. 600ms)
-	 */
-	msleep(600);
 }
 
 
