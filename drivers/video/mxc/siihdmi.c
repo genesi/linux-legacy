@@ -110,7 +110,7 @@ static int siihdmi_detect_revision(struct siihdmi_tx *tx)
 		data = i2c_smbus_read_byte_data(tx->client,
 						SIIHDMI_TPI_REG_DEVICE_ID);
 	} while (data != SIIHDMI_DEVICE_ID_902x &&
-		 !time_after(jiffies, start + bus_timeout));
+		 !time_after(jiffies, start + msecs_to_jiffies(bus_timeout)));
 
 	if (data != SIIHDMI_DEVICE_ID_902x)
 		return -ENODEV;
