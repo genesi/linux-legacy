@@ -35,6 +35,8 @@
 #include <linux/cea861.h>
 #include <linux/ioport.h>
 
+#define SIIHDMI_NAME "siihdmi"
+
 /* TPI registers */
 #define SIIHDMI_TPI_REG_VIDEO_MODE_DATA_BASE		(0x00)
 #define SIIHDMI_TPI_REG_PIXEL_CLOCK_LSB			(0x00)
