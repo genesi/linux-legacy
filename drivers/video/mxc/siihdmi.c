@@ -849,12 +849,16 @@ static void siihdmi_sanitize_modelist(struct siihdmi_tx * const tx)
 			reason = "doublescan";
 		} else if (mode->pixclock < tx->platform->pixclock) {
 			reason = "pixel clock exceeded";
-		} else if ((tx->sink.type == SINK_TYPE_HDMI) && mode->lower_margin < 2) {
+		} else if ((tx->sink.type == SINK_TYPE_HDMI)
+			&& (mode->lower_margin < 2)
+			&& (mode->xres == 800 && mode->yres == 600)) {
 			/*
 			 * HDMI spec (§ 5.1.2) stipulates ≥2 lines of vsync
 			 *
 			 * We do not care so much on DVI, although it may be that the SII9022 cannot
-			 * actually display this mode. Requires testing!!
+			 * actually display this mode. In any case it only seems to make a difference
+			 * on the VESA (actually old VGA timing) 800x600 mode common on some 7" panels
+			 * and not-so-modern monitors.
 			 */
 			reason = "insufficient margin";
 		} else {
