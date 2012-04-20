@@ -44,7 +44,7 @@
 
 extern void mx5_ipu_reset(void);
 static struct mxc_ipu_config mxc_ipu_data = {
-	.rev = 3,
+	.rev = 2, /* IPUv3EX (MX51) is 2, IPUv3M (MX53) is 3 */
 	.reset = mx5_ipu_reset,
 };
 
