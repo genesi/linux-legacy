@@ -60,20 +60,20 @@
 /* module parameters */
 static unsigned int bus_timeout = 50;
 module_param(bus_timeout, uint, 0644);
-MODULE_PARM_DESC(bus_timeout, "bus timeout in milliseconds");
+MODULE_PARM_DESC(bus_timeout, "Bus timeout in milliseconds");
 
 static unsigned int seventwenty	= 1;
 module_param(seventwenty, uint, 0644);
-MODULE_PARM_DESC(seventwenty, "attempt to use 720p mode");
+MODULE_PARM_DESC(seventwenty, "Attempt to use 720p mode");
 
 static unsigned int teneighty;
 module_param(teneighty, uint, 0644);
-MODULE_PARM_DESC(teneighty, "attempt to use 1080p mode");
+MODULE_PARM_DESC(teneighty, "Attempt to use 1080p mode");
 
 static unsigned int useitmodes = 1;
 module_param(useitmodes, uint, 0644);
 MODULE_PARM_DESC(useitmodes,
-	"prefer IT modes over CEA modes when sanitizing the modelist");
+	"Prefer IT modes over CEA modes when sanitizing the modelist");
 
 static unsigned int modevic;
 module_param_named(vic, modevic, uint, 0644);
@@ -86,7 +86,11 @@ MODULE_PARM_DESC(forcedvi, "Force DVI sink mode");
 
 static unsigned int useavmute;
 module_param(useavmute, uint, 0644);
-MODULE_PARM_DESC(useavmute, "perform HDMI AV Mute when blanking screen");
+MODULE_PARM_DESC(useavmute, "Perform HDMI AV Mute when blanking screen");
+
+static unsigned int nohotplug;
+module_param(nohotplug, uint, 0644);
+MODULE_PARM_DESC(nohotplug, "Do not install the cable hotplug handler, disabling detection of monitor changes");
 
 static int siihdmi_read_internal(struct siihdmi_tx *tx, u8 page, u8 offset)
 {
@@ -1444,17 +1448,20 @@ static int __devinit siihdmi_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, tx);
 
-	INIT_WORK(&tx->hotplug.handler, siihdmi_hotplug_event);
+	if (!nohotplug) {
 
-	BUG_ON(~tx->platform->hotplug.flags & IORESOURCE_IRQ);
+		INIT_WORK(&tx->hotplug.handler, siihdmi_hotplug_event);
 
-	ret = request_irq(tx->platform->hotplug.start, siihdmi_hotplug_handler,
+		BUG_ON(~tx->platform->hotplug.flags & IORESOURCE_IRQ);
+
+		ret = request_irq(tx->platform->hotplug.start, siihdmi_hotplug_handler,
 			  tx->platform->hotplug.flags & IRQF_TRIGGER_MASK,
 			  tx->platform->hotplug.name, tx);
-	if (ret < 0)
-		WARNING("failed to setup hotplug interrupt: %d\n", ret);
-	else
-		tx->hotplug.enabled = true;
+		if (ret < 0)
+			WARNING("failed to setup hotplug interrupt: %d\n", ret);
+		else
+			tx->hotplug.enabled = true;
+	}
 
 	/* initialise the device */
 	ret = siihdmi_initialise(tx);
