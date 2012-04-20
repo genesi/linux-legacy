@@ -205,8 +205,10 @@ static int siihdmi_initialise(struct siihdmi_tx *tx)
 	int ret;
 
 	/* step 1: reset and initialise */
-	if (tx->platform->reset)
+	if (tx->platform->reset) {
 		tx->platform->reset();
+		msleep(480);
+	}
 
 	ret = i2c_smbus_write_byte_data(tx->client, SIIHDMI_TPI_REG_RQB, 0x00);
 	if (ret < 0) {
