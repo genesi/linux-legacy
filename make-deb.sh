@@ -1,6 +1,6 @@
-#!/bin/bash
+#!/bin/bash -ex
 
-. arm-toolchain.sh
+. toolchain.sh
 
 target=$1
 
@@ -13,5 +13,5 @@ if [ ! -e .config ]; then
 	./config.sh
 fi
 
-make-kpkg --uc --us --initrd --cross-compile ${toolchain} --subarch efikamx --jobs=${numjobs} --rootcmd=fakeroot --arch armel --revision ${packagedate} ${target}
+V=1 CROSS_SUFFIX="${version}" fakeroot make-kpkg --uc --us --initrd --cross-compile ${toolchain} --subarch efikamx --jobs=${numjobs} --rootcmd=fakeroot --arch armel --revision ${packagedate} ${target}
 
