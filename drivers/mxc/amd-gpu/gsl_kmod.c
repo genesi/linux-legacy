@@ -906,7 +906,7 @@ static int gpu_probe(struct platform_device *pdev)
 	goto nodev;
     } else {
 	gpu_reserved_mem = res->start;
-	gpu_reserved_mem = res->end - res->start + 1;
+	gpu_reserved_mem_size = res->end - res->start + 1;
     }
 
     if (gpu_3d_irq > 0)
