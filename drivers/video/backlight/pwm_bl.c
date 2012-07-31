@@ -100,7 +100,7 @@ static void pwm_bl_blank(struct pwm_bl_data *pb, int type)
 static int pwm_backlight_check_fb(struct fb_info *info)
 {
 	char *id = info->fix.id;
-	if (!strcmp(id, "DISP3 BG"))
+	if (!strncmp(id, "DISP3 BG", 8))
 	    return 1;
 	else
 	return 0;
