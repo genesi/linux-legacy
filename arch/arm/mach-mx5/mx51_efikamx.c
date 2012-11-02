@@ -47,6 +47,7 @@
 #include <mach/gpio.h>
 #include <mach/mmc.h>
 #include <mach/mxc_dvfs.h>
+#include <linux/android_pmem.h>
 
 #include "devices.h"
 #include "iomux.h"
@@ -56,6 +57,18 @@
 
 #include "mx51_efikamx.h"
 
+
+/* android */
+static struct android_pmem_platform_data android_pmem_data = {
+	.name = "pmem_adsp",
+	.size = SZ_16M,
+};
+
+static struct android_pmem_platform_data android_pmem_gpu_data = {
+	.name = "pmem_gpu",
+	.size = SZ_32M,
+	.cached = 1,
+};
 
 int mx51_efikamx_id = 0; /* can't get less than 1.0 */
 int mx51_efikamx_mem = 0;
@@ -278,6 +291,10 @@ static void __init mx51_efikamx_board_init(void)
 					((mx51_efikamx_revision() == 1) ? 3 : 0)  ));
 		DBG(("Memory type %s\n", mx51_efikamx_memory() ));
 	}
+
+	// android
+	mxc_register_device(&mxc_android_pmem_device, &android_pmem_data);
+	mxc_register_device(&mxc_android_pmem_gpu_device, &android_pmem_gpu_data);
 }
 
 static struct sys_timer mx51_efikamx_timer = {
@@ -317,10 +334,55 @@ static void __init mx51_efikamx_fixup(struct machine_desc *desc, struct tag *tag
 	}
 }
 
+void __init mx51_efikamx_pmem_adjust_mem(unsigned int start)
+{
+	android_pmem_data.start = start;
+	android_pmem_gpu_data.start = start + android_pmem_data.size;
+}
+
+static void __init mx51_efikamx_android_fixup(struct machine_desc *desc, struct tag *tags,
+				   char **cmdline, struct meminfo *mi)
+{
+	struct tag *mem_tag = 0;
+	int total_mem = SZ_512M;
+	int fb_mem = SZ_16M;
+	int gpu_mem = SZ_32M;
+	int pmem_mem = android_pmem_data.size + android_pmem_gpu_data.size;
+	int sys_mem;
+
+	mxc_set_cpu_type(MXC_CPU_MX51);
+
+	get_cpu_wp = mx51_efikamx_get_cpu_wp;
+	set_num_cpu_wp = mx51_efikamx_set_num_cpu_wp;
+
+	for_each_tag(mem_tag, tags) {
+		if (mem_tag->hdr.tag == ATAG_MEM) {
+			total_mem = mem_tag->u.mem.size;
+			break;
+		}
+	}
+
+	sys_mem = total_mem - gpu_mem - fb_mem - pmem_mem;
+
+	if (mem_tag) {
+		unsigned int fb_start = mem_tag->u.mem.start + sys_mem;
+		unsigned int gpu_start = fb_start + fb_mem;
+		unsigned int pmem_start = gpu_start + gpu_mem;
+
+		mem_tag->u.mem.size = sys_mem;
+		mx51_efikamx_display_adjust_mem(fb_start, fb_mem);
+		mx51_efikamx_gpu_adjust_mem(gpu_start, gpu_mem);
+		mx51_efikamx_pmem_adjust_mem(pmem_start);
+	}
+}
 
 MACHINE_START(MX51_EFIKAMX, "Genesi Efika MX (Smarttop)")
 	/* Maintainer: Genesi USA, Inc. */
+#ifdef CONFIG_ANDROID_PMEM
+	.fixup = mx51_efikamx_android_fixup,
+#else
 	.fixup = mx51_efikamx_fixup,
+#endif
 	.map_io = mx5_map_io,
 	.init_irq = mx5_init_irq,
 	.init_machine =  mx51_efikamx_board_init,
@@ -329,7 +391,11 @@ MACHINE_END
 
 MACHINE_START(MX51_EFIKASB, "Genesi Efika MX (Smartbook)")
 	/* Maintainer: Genesi, Inc. */
+#ifdef CONFIG_ANDROID_PMEM
+	.fixup = mx51_efikamx_android_fixup,
+#else
 	.fixup = mx51_efikamx_fixup,
+#endif
 	.map_io = mx5_map_io,
 	.init_irq = mx5_init_irq,
 	.init_machine = mx51_efikamx_board_init,
