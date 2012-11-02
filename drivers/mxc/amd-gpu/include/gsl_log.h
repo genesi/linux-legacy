@@ -50,16 +50,24 @@
 
 #ifdef GSL_LOG
 
-int kgsl_log_finish(void);
-int kgsl_log_start( unsigned int log_flags );
+int kgsl_log_init(void);
+int kgsl_log_close(void);
+int kgsl_log_open_stdout( unsigned int log_flags );
 int kgsl_log_write( unsigned int log_flags, char* format, ... );
+int kgsl_log_open_membuf( int* memBufId, unsigned int log_flags );
+int kgsl_log_open_file( char* filename, unsigned int log_flags );
+int kgsl_log_flush_membuf( char* filename, int memBufId );
 
 #else
 
 // Empty function definitions
-static __inline int kgsl_log_finish(void) { return GSL_SUCCESS; }
-static __inline int kgsl_log_start( unsigned int log_flags ) { (void)log_flags; return GSL_SUCCESS; }
-static __inline int kgsl_log_write( unsigned int log_flags, char* format, ... ) { (void)log_flags; (void)format; return GSL_SUCCESS; }
+OSINLINE int kgsl_log_init(void) { return GSL_SUCCESS; }
+OSINLINE int kgsl_log_close(void) { return GSL_SUCCESS; }
+OSINLINE int kgsl_log_open_stdout( unsigned int log_flags ) { (void)log_flags; return GSL_SUCCESS; }
+OSINLINE int kgsl_log_write( unsigned int log_flags, char* format, ... ) { (void)log_flags; (void)format; return GSL_SUCCESS; }
+OSINLINE int kgsl_log_open_membuf( int* memBufId, unsigned int log_flags ) { (void)memBufId; (void)log_flags; return GSL_SUCCESS; }
+OSINLINE int kgsl_log_open_file( char* filename, unsigned int log_flags ) { (void)filename; (void)log_flags; return GSL_SUCCESS; }
+OSINLINE int kgsl_log_flush_membuf( char* filename, int memBufId ) { (void) filename; (void) memBufId; return GSL_SUCCESS; }
 
 #endif
 

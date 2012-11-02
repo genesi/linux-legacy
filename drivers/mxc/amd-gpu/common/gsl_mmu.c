@@ -16,9 +16,6 @@
  *
  */
 
-#include <linux/slab.h>
-#include <linux/sched.h>
-
 #include "gsl.h"
 #include "gsl_hal.h"
 
@@ -66,6 +63,18 @@ const unsigned int GSL_PT_PAGE_AP[4] = {(GSL_PT_PAGE_READ | GSL_PT_PAGE_WRITE), 
 /////////////////////////////////////////////////////////////////////////////
 // macros
 //////////////////////////////////////////////////////////////////////////////
+#ifdef GSL_LOCKING_FINEGRAIN
+#define GSL_MMU_MUTEX_CREATE()              mmu->mutex = kos_mutex_create("gsl_mmu"); \
+                                            if (!mmu->mutex) {return (GSL_FAILURE);}
+#define GSL_MMU_LOCK()                      kos_mutex_lock(mmu->mutex)
+#define GSL_MMU_UNLOCK()                    kos_mutex_unlock(mmu->mutex)
+#define GSL_MMU_MUTEX_FREE()                kos_mutex_free(mmu->mutex); mmu->mutex = 0;
+#else
+#define GSL_MMU_MUTEX_CREATE()
+#define GSL_MMU_LOCK()
+#define GSL_MMU_UNLOCK()
+#define GSL_MMU_MUTEX_FREE()
+#endif
 
 #define GSL_PT_ENTRY_GET(va)                ((va - pagetable->va_base) >> GSL_PAGESIZE_SHIFT)
 #define GSL_PT_VIRT_GET(pte)                (pagetable->va_base + (pte * GSL_PAGESIZE))
@@ -90,13 +99,13 @@ const unsigned int GSL_PT_PAGE_AP[4] = {(GSL_PT_PAGE_READ | GSL_PT_PAGE_WRITE), 
 #define GSL_TLBFLUSH_FILTER_GET(superpte)       *((unsigned char *)(((unsigned int)mmu->tlbflushfilter.base) + (superpte / GSL_TLBFLUSH_FILTER_ENTRY_NUMBITS)))
 #define GSL_TLBFLUSH_FILTER_SETDIRTY(superpte)  (GSL_TLBFLUSH_FILTER_GET((superpte)) |= 1 << (superpte % GSL_TLBFLUSH_FILTER_ENTRY_NUMBITS))
 #define GSL_TLBFLUSH_FILTER_ISDIRTY(superpte)   (GSL_TLBFLUSH_FILTER_GET((superpte)) & (1 << (superpte % GSL_TLBFLUSH_FILTER_ENTRY_NUMBITS)))
-#define GSL_TLBFLUSH_FILTER_RESET()             memset(mmu->tlbflushfilter.base, 0, mmu->tlbflushfilter.size)
+#define GSL_TLBFLUSH_FILTER_RESET()             kos_memset(mmu->tlbflushfilter.base, 0, mmu->tlbflushfilter.size)
 
 
 //////////////////////////////////////////////////////////////////////////////
 // process index in pagetable object table
 //////////////////////////////////////////////////////////////////////////////
-static __inline int
+OSINLINE int
 kgsl_mmu_getprocessindex(unsigned int pid, int *pindex)
 {
     int status = GSL_SUCCESS;
@@ -115,7 +124,7 @@ kgsl_mmu_getprocessindex(unsigned int pid, int *pindex)
 //////////////////////////////////////////////////////////////////////////////
 // pagetable object for current caller process
 //////////////////////////////////////////////////////////////////////////////
-static __inline gsl_pagetable_t*
+OSINLINE gsl_pagetable_t*
 kgsl_mmu_getpagetableobject(gsl_mmu_t *mmu, unsigned int pid)
 {
     int pindex = 0;
@@ -163,7 +172,7 @@ kgsl_mmu_debug(gsl_mmu_t *mmu, gsl_mmu_debug_t *regs)
 {
     unsigned int  devindex = mmu->device->id-1;         // device_id is 1 based
 
-    memset(regs, 0, sizeof(gsl_mmu_debug_t));
+    kos_memset(regs, 0, sizeof(gsl_mmu_debug_t));
 
     mmu->device->ftbl.device_regread(mmu->device, gsl_cfg_mmu_reg[devindex].CONFIG,     &regs->config);
     mmu->device->ftbl.device_regread(mmu->device, gsl_cfg_mmu_reg[devindex].MPU_BASE,   &regs->mpu_base);
@@ -190,7 +199,7 @@ kgsl_mmu_checkconsistency(gsl_pagetable_t *pagetable)
 
     if (pagetable->last_superpte % GSL_PT_SUPER_PTE != 0)
     {
-        DEBUG_ASSERT(0);
+        KOS_ASSERT(0);
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_checkconsistency. Return value %B\n", GSL_FAILURE );
         return (GSL_FAILURE);
     }
@@ -226,7 +235,7 @@ kgsl_mmu_destroypagetableobject(gsl_mmu_t *mmu, unsigned int pid)
     int              pindex;
     gsl_pagetable_t  *pagetable;
 
-    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> gsl_pagetable_t* kgsl_mmu_destroypagetableobject(gsl_mmu_t *mmu=0x%08x, uint pid=0x%08x)\n", mmu, pid );
+    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> gsl_pagetable_t* kgsl_mmu_destroypagetableobject(gsl_mmu_t *mmu=0x%08x, unsigned int pid=0x%08x)\n", mmu, pid );
 
     if (kgsl_mmu_getprocessindex(pid, &pindex) != GSL_SUCCESS)
     {
@@ -248,9 +257,9 @@ kgsl_mmu_destroypagetableobject(gsl_mmu_t *mmu, unsigned int pid)
             {
                 /* many dumpx test cases forcefully exit, and thus trigger this assert. */
                 /* Because it is an annoyance for HW guys, it is disabled for dumpx */
-                if(!(gsl_driver.flags_debug & GSL_DBGFLAGS_DUMPX))
+                if(!gsl_driver.flags_debug & GSL_DBGFLAGS_DUMPX)
                 {
-                    DEBUG_ASSERT(0);
+                    KOS_ASSERT(0);
                     return (GSL_FAILURE);
                 }
             }
@@ -258,10 +267,10 @@ kgsl_mmu_destroypagetableobject(gsl_mmu_t *mmu, unsigned int pid)
 
             if (pagetable->base.gpuaddr)
             {
-                kgsl_sharedmem_free0(&pagetable->base, current->tgid);
+                kgsl_sharedmem_free0(&pagetable->base, GSL_CALLER_PROCESSID_GET());
             }
 
-            kfree(pagetable);
+            kos_free(pagetable);
 
             // clear pagetable object reference for all "device mmu"/"current caller process" combinations
             for (tmp_id = GSL_DEVICE_ANY + 1; tmp_id <= GSL_DEVICE_MAX; tmp_id++)
@@ -297,7 +306,7 @@ kgsl_mmu_createpagetableobject(gsl_mmu_t *mmu, unsigned int pid)
     int              pindex;
     gsl_flags_t      flags;
 
-    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> gsl_pagetable_t* kgsl_mmu_createpagetableobject(gsl_mmu_t *mmu=0x%08x, uint pid=0x%08x)\n", mmu, pid );
+    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> gsl_pagetable_t* kgsl_mmu_createpagetableobject(gsl_mmu_t *mmu=0x%08x, unsigned int pid=0x%08x)\n", mmu, pid );
 
     status = kgsl_mmu_getprocessindex(pid, &pindex);
     if (status != GSL_SUCCESS)
@@ -326,8 +335,8 @@ kgsl_mmu_createpagetableobject(gsl_mmu_t *mmu, unsigned int pid)
         // pagetable object exists
         if (tmp_pagetable)
         {
-            DEBUG_ASSERT(tmp_pagetable->va_base  == mmu->va_base);
-            DEBUG_ASSERT(tmp_pagetable->va_range == mmu->va_range);
+            KOS_ASSERT(tmp_pagetable->va_base  == mmu->va_base);
+            KOS_ASSERT(tmp_pagetable->va_range == mmu->va_range);
 
             // set pagetable object reference
             mmu->pagetable[pindex] = tmp_pagetable;
@@ -335,7 +344,7 @@ kgsl_mmu_createpagetableobject(gsl_mmu_t *mmu, unsigned int pid)
         // create new pagetable object
         else
         {
-            mmu->pagetable[pindex] = (void *)kmalloc(sizeof(gsl_pagetable_t), GFP_KERNEL);
+            mmu->pagetable[pindex] = (void *)kos_malloc(sizeof(gsl_pagetable_t));
             if (!mmu->pagetable[pindex])
             {
                 kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: Unable to allocate pagetable object.\n" );
@@ -343,7 +352,7 @@ kgsl_mmu_createpagetableobject(gsl_mmu_t *mmu, unsigned int pid)
                 return (NULL);
             }
 
-            memset(mmu->pagetable[pindex], 0, sizeof(gsl_pagetable_t));
+            kos_memset(mmu->pagetable[pindex], 0, sizeof(gsl_pagetable_t));
 
 			mmu->pagetable[pindex]->pid           = pid;
             mmu->pagetable[pindex]->refcnt        = 0;
@@ -390,6 +399,8 @@ kgsl_mmu_setpagetable(gsl_device_t *device, unsigned int pid)
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> gsl_pagetable_t* kgsl_mmu_setpagetable(gsl_device_t *device=0x%08x)\n", device );
 
+    GSL_MMU_LOCK();
+
     if (mmu->flags & GSL_FLAGS_STARTED)
     {
 #ifdef GSL_MMU_PAGETABLE_PERPROCESS
@@ -427,6 +438,8 @@ kgsl_mmu_setpagetable(gsl_device_t *device, unsigned int pid)
 			GSL_MMU_STATS(mmu->stats.tlbflushes++);
 		}
 	}
+
+    GSL_MMU_UNLOCK();
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_setpagetable. Return value %B\n", status );
 
@@ -497,8 +510,8 @@ kgsl_mmu_init(gsl_device_t *device)
         device->ftbl.device_idle(device, GSL_TIMEOUT_DEFAULT);
 
         // make sure aligned to pagesize
-        DEBUG_ASSERT((mmu->mpu_base & ((1 << GSL_PAGESIZE_SHIFT)-1)) == 0);
-        DEBUG_ASSERT(((mmu->mpu_base + mmu->mpu_range) & ((1 << GSL_PAGESIZE_SHIFT)-1)) == 0);
+        KOS_ASSERT((mmu->mpu_base & ((1 << GSL_PAGESIZE_SHIFT)-1)) == 0);
+        KOS_ASSERT(((mmu->mpu_base + mmu->mpu_range) & ((1 << GSL_PAGESIZE_SHIFT)-1)) == 0);
 
         // define physical memory range accessible by the core
         device->ftbl.device_regwrite(device, gsl_cfg_mmu_reg[devindex].MPU_BASE, mmu->mpu_base);
@@ -513,11 +526,13 @@ kgsl_mmu_init(gsl_device_t *device)
         // sub-client MMU lookups require address translation
         if ((mmu->config & ~0x1) > 0)
         {
+            GSL_MMU_MUTEX_CREATE();
+
             // make sure virtual address range is a multiple of 64Kb
-            DEBUG_ASSERT((mmu->va_range & ((1 << 16)-1)) == 0);
+            KOS_ASSERT((mmu->va_range & ((1 << 16)-1)) == 0);
 
             // setup pagetable object
-            pagetable = kgsl_mmu_createpagetableobject(mmu, current->tgid);
+            pagetable = kgsl_mmu_createpagetableobject(mmu, GSL_CALLER_PROCESSID_GET());
             if (!pagetable)
             {
                 kgsl_mmu_close(device);
@@ -529,7 +544,7 @@ kgsl_mmu_init(gsl_device_t *device)
 
             // create tlb flush filter to track dirty superPTE's -- one bit per superPTE
             mmu->tlbflushfilter.size = (mmu->va_range / (GSL_PAGESIZE * GSL_PT_SUPER_PTE * 8)) + 1;
-            mmu->tlbflushfilter.base = (unsigned int *)kmalloc(mmu->tlbflushfilter.size, GFP_KERNEL);
+            mmu->tlbflushfilter.base = (unsigned int *)kos_malloc(mmu->tlbflushfilter.size);
             if (!mmu->tlbflushfilter.base)
             {
                 kgsl_mmu_close(device);
@@ -589,15 +604,15 @@ kgsl_mmu_map(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, const gsl_scatterlist_t *sca
     gsl_pagetable_t  *pagetable;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_mmu_map(gsl_mmu_t *mmu=0x%08x, gpuaddr_t gpubaseaddr=0x%08x, gsl_scatterlist_t *scatterlist=%S, gsl_flags_t flags=%x, uint pid=0x%08x)\n",
+                    "--> int kgsl_mmu_map(gsl_mmu_t *mmu=0x%08x, gpuaddr_t gpubaseaddr=0x%08x, gsl_scatterlist_t *scatterlist=%M, gsl_flags_t flags=%d, unsigned int pid=%d)\n",
                     mmu, gpubaseaddr, scatterlist, flags, pid );
 
-    DEBUG_ASSERT(scatterlist);
+    KOS_ASSERT(scatterlist);
 
     if (scatterlist->num <= 0)
     {
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: num pages is too small.\n" );
-        DEBUG_ASSERT(0);
+        KOS_ASSERT(0);
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_map. Return value %B\n", GSL_FAILURE );
         return (GSL_FAILURE);
     }
@@ -605,9 +620,12 @@ kgsl_mmu_map(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, const gsl_scatterlist_t *sca
     // get gpu access permissions
     ap = GSL_PT_PAGE_AP[((flags & GSL_MEMFLAGS_GPUAP_MASK) >> GSL_MEMFLAGS_GPUAP_SHIFT)];
 
+    GSL_MMU_LOCK();
+
     pagetable = kgsl_mmu_getpagetableobject(mmu, pid);
     if (!pagetable)
     {
+        GSL_MMU_UNLOCK();
         return (GSL_FAILURE);
     }
 
@@ -678,9 +696,11 @@ kgsl_mmu_map(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, const gsl_scatterlist_t *sca
     {
         // this should never happen
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_FATAL, "FATAL: This should never happen.\n" );
-        DEBUG_ASSERT(0);
+        KOS_ASSERT(0);
         status = GSL_FAILURE;
     }
+
+    GSL_MMU_UNLOCK();
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_map. Return value %B\n", GSL_SUCCESS );
 
@@ -711,13 +731,13 @@ kgsl_mmu_unmap(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, int range, unsigned int pi
     unsigned int     pte, ptefirst, ptelast, superpte;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_mmu_unmap(gsl_mmu_t *mmu=0x%08x, gpuaddr_t gpubaseaddr=0x%08x, int range=%d, uint pid=0x%08x)\n",
+                    "--> int kgsl_mmu_unmap(gsl_mmu_t *mmu=0x%08x, gpuaddr_t gpubaseaddr=0x%08x, int range=%d, unsigned int pid=%d)\n",
                     mmu, gpubaseaddr, range, pid );
 
     if (range <= 0)
     {
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: Range is too small.\n" );
-        DEBUG_ASSERT(0);
+        KOS_ASSERT(0);
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_unmap. Return value %B\n", GSL_FAILURE );
         return (GSL_FAILURE);
     }
@@ -728,9 +748,12 @@ kgsl_mmu_unmap(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, int range, unsigned int pi
         numpages++;
     }
 
+    GSL_MMU_LOCK();
+
     pagetable = kgsl_mmu_getpagetableobject(mmu, pid);
     if (!pagetable)
     {
+        GSL_MMU_UNLOCK();
         return (GSL_FAILURE);
     }
 
@@ -778,12 +801,14 @@ kgsl_mmu_unmap(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, int range, unsigned int pi
     {
         // this should never happen
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_FATAL, "FATAL: This should never happen.\n" );
-        DEBUG_ASSERT(0);
+        KOS_ASSERT(0);
         status = GSL_FAILURE;
     }
 
     // invalidate tlb, debug only
 	KGSL_DEBUG(GSL_DBGFLAGS_MMU, mmu->device->ftbl.mmu_tlbinvalidate(mmu->device, gsl_cfg_mmu_reg[mmu->device->id-1].INVALIDATE, pagetable->pid));
+
+    GSL_MMU_UNLOCK();
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_unmap. Return value %B\n", GSL_SUCCESS );
 
@@ -814,14 +839,17 @@ kgsl_mmu_getmap(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, int range, gsl_scatterlis
     if (range <= 0 || scatterlist->num != numpages)
     {
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: Range is too small.\n" );
-        DEBUG_ASSERT(0);
+        KOS_ASSERT(0);
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_getmap. Return value %B\n", GSL_FAILURE );
         return (GSL_FAILURE);
     }
 
+    GSL_MMU_LOCK();
+
     pagetable = kgsl_mmu_getpagetableobject(mmu, pid);
     if (!pagetable)
     {
+        GSL_MMU_UNLOCK();
         return (GSL_FAILURE);
     }
 
@@ -855,6 +883,8 @@ kgsl_mmu_getmap(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, int range, gsl_scatterlis
         scatterlist->pages[0] = GSL_PT_MAP_GETADDR(ptefirst);
     }
 
+    GSL_MMU_UNLOCK();
+
     scatterlist->contiguous = contiguous;
 
     return (GSL_SUCCESS);
@@ -883,7 +913,7 @@ kgsl_mmu_close(gsl_device_t *device)
         if (mmu->flags & GSL_FLAGS_STARTED)
         {
             // terminate pagetable object
-            kgsl_mmu_destroypagetableobject(mmu, current->tgid);
+            kgsl_mmu_destroypagetableobject(mmu, GSL_CALLER_PROCESSID_GET());
         }
 
         // no more processes attached to current device mmu
@@ -897,9 +927,9 @@ kgsl_mmu_close(gsl_device_t *device)
                 {
                     /* many dumpx test cases forcefully exit, and thus trigger this assert. */
                     /* Because it is an annoyance for HW guys, it is disabled for dumpx */
-                    if(!(gsl_driver.flags_debug & GSL_DBGFLAGS_DUMPX))
+                    if(!gsl_driver.flags_debug & GSL_DBGFLAGS_DUMPX)
                     {
-                        DEBUG_ASSERT(0);
+                        KOS_ASSERT(0);
                         return (GSL_FAILURE);
                     }
                 }
@@ -916,13 +946,15 @@ kgsl_mmu_close(gsl_device_t *device)
 
             if (mmu->tlbflushfilter.base)
             {
-                kfree(mmu->tlbflushfilter.base);
+                kos_free(mmu->tlbflushfilter.base);
             }
 
             if (mmu->dummyspace.gpuaddr)
             {
-                kgsl_sharedmem_free0(&mmu->dummyspace, current->tgid);
+                kgsl_sharedmem_free0(&mmu->dummyspace, GSL_CALLER_PROCESSID_GET());
             }
+
+            GSL_MMU_MUTEX_FREE();
 
             mmu->flags &= ~GSL_FLAGS_STARTED;
             mmu->flags &= ~GSL_FLAGS_INITIALIZED;
@@ -948,7 +980,9 @@ kgsl_mmu_attachcallback(gsl_mmu_t *mmu, unsigned int pid)
     int              status = GSL_SUCCESS;
     gsl_pagetable_t  *pagetable;
 
-    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_mmu_attachcallback(gsl_mmu_t *mmu=0x%08x, uint pid=0x%08x)\n", mmu, pid );
+    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_mmu_attachcallback(gsl_mmu_t *mmu=0x%08x, unsigned int pid=0x%08x)\n", mmu, pid );
+
+    GSL_MMU_LOCK();
 
     if (mmu->flags & GSL_FLAGS_INITIALIZED0)
     {
@@ -970,6 +1004,8 @@ kgsl_mmu_attachcallback(gsl_mmu_t *mmu, unsigned int pid)
         }
     }
 
+    GSL_MMU_UNLOCK();
+
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_attachcallback. Return value %B\n", status );
 
     return (status);
@@ -986,7 +1022,9 @@ kgsl_mmu_detachcallback(gsl_mmu_t *mmu, unsigned int pid)
     int              status = GSL_SUCCESS;
     gsl_pagetable_t  *pagetable;
 
-    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_mmu_detachcallback(gsl_mmu_t *mmu=0x%08x, uint pid=0x%08x)\n", mmu, pid );
+    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_mmu_detachcallback(gsl_mmu_t *mmu=0x%08x, unsigned int pid=0x%08x)\n", mmu, pid );
+
+    GSL_MMU_LOCK();
 
     if (mmu->flags & GSL_FLAGS_INITIALIZED0)
     {
@@ -1008,6 +1046,8 @@ kgsl_mmu_detachcallback(gsl_mmu_t *mmu, unsigned int pid)
         }
     }
 
+    GSL_MMU_UNLOCK();
+
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_detachcallback. Return value %B\n", status );
 
     return (status);
@@ -1021,16 +1061,20 @@ kgsl_mmu_querystats(gsl_mmu_t *mmu, gsl_mmustats_t *stats)
 #ifdef GSL_STATS_MMU
     int              status = GSL_SUCCESS;
 
-    DEBUG_ASSERT(stats);
+    KOS_ASSERT(stats);
+
+    GSL_MMU_LOCK();
 
     if (mmu->flags & GSL_FLAGS_STARTED)
     {
-		memcpy(stats, &mmu->stats, sizeof(gsl_mmustats_t));
+		kos_memcpy(stats, &mmu->stats, sizeof(gsl_mmustats_t));
     }
     else
     {
-		memset(stats, 0, sizeof(gsl_mmustats_t));
+		kos_memset(stats, 0, sizeof(gsl_mmustats_t));
     }
+
+    GSL_MMU_UNLOCK();
 
     return (status);
 #else

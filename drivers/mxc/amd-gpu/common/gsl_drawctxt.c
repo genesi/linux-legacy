@@ -16,11 +16,11 @@
  *
  */
 
-#include <linux/sched.h>
-#include <asm/div64.h>
-
 #include "gsl.h"
 #include "gsl_hal.h"
+#ifdef _LINUX
+#include <asm/div64.h>
+#endif
 
 #ifdef GSL_BLD_YAMATO
 
@@ -110,6 +110,23 @@
 #define CONTEXT_SIZE            (SHADER_OFFSET + 3 * SHADER_SHADOW_SIZE)
 
 
+/////////////////////////////////////////////////////////////////////////////
+// macros
+//////////////////////////////////////////////////////////////////////////////
+#ifdef GSL_LOCKING_FINEGRAIN
+#define GSL_CONTEXT_MUTEX_CREATE()          device->drawctxt_mutex = kos_mutex_create("gsl_drawctxt"); \
+                                            if (!device->drawctxt_mutex) {return (GSL_FAILURE);}
+#define GSL_CONTEXT_MUTEX_LOCK()            kos_mutex_lock(device->drawctxt_mutex)
+#define GSL_CONTEXT_MUTEX_UNLOCK()          kos_mutex_unlock(device->drawctxt_mutex)
+#define GSL_CONTEXT_MUTEX_FREE()            kos_mutex_free(device->drawctxt_mutex); device->drawctxt_mutex = 0;
+#else
+#define GSL_CONTEXT_MUTEX_CREATE()
+#define GSL_CONTEXT_MUTEX_LOCK()
+#define GSL_CONTEXT_MUTEX_UNLOCK()
+#define GSL_CONTEXT_MUTEX_FREE()
+#endif
+
+
 //////////////////////////////////////////////////////////////////////////////
 // temporary work structure
 //////////////////////////////////////////////////////////////////////////////
@@ -135,26 +152,32 @@ typedef struct
 }
 ctx_t;
 
-/* Helper function to calculate IEEE754 single precision float values
- * without FPU
- */
+//////////////////////////////////////////////////////////////////////////////
+// Helper function to calculate IEEE754 single precision float values without FPU
+//////////////////////////////////////////////////////////////////////////////
 unsigned int uint2float( unsigned int uintval )
 {
-    unsigned int exp, frac = 0;
+    unsigned int exp = 0;
+    unsigned int frac = 0;
+    unsigned int u = uintval;
 
-    if( uintval == 0 )
-	return 0;
+    // Handle zero separately
+    if( uintval == 0 ) return 0;
 
-    exp = ilog2(uintval);
+    // Find log2 of u
+    if(u>=0x10000) { exp+=16; u>>=16; }
+    if(u>=0x100  ) { exp+=8;  u>>=8;  }
+    if(u>=0x10   ) { exp+=4;  u>>=4;  }
+    if(u>=0x4    ) { exp+=2;  u>>=2;  }
+    if(u>=0x2    ) { exp+=1;  u>>=1;  }
 
-    /* Calculate fraction */
-    if (23 > exp)
-	frac = ( uintval & ( ~( 1 << exp ) ) ) << ( 23 - exp );
+    // Calculate fraction
+    frac = ( uintval & ( ~( 1 << exp ) ) ) << ( 23 - exp );
 
-    /* Exp is biased by 127 and shifted 23 bits */
+    // Exp is biased by 127 and shifted 23 bits
     exp = ( exp + 127 ) << 23;
 
-    return exp | frac;
+    return ( exp | frac );
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -162,18 +185,26 @@ unsigned int uint2float( unsigned int uintval )
 //////////////////////////////////////////////////////////////////////////////
 unsigned int uintdivide(unsigned int a, unsigned int b)
 {
+#ifdef _LINUX
     uint64_t a_fixed = a << 16;
     uint64_t b_fixed = b << 16;
-
+#else
+    unsigned int a_fixed = a << 16;
+    unsigned int b_fixed = b << 16;
+#endif
     // Assume the result is 0.fraction
     unsigned int fraction;
     unsigned int exp = 126;
 
     if( b == 0 ) return 0;
 
+#ifdef _LINUX
     a_fixed = a_fixed << 32;
 	do_div(a_fixed, b_fixed);
     fraction = (unsigned int)a_fixed;
+#else
+    fraction = ((unsigned int)((((__int64)a_fixed) << 32) / (__int64)b_fixed));
+#endif
 
     if( fraction == 0 ) return 0;
 
@@ -481,7 +512,7 @@ program_shader(unsigned int *cmds, int vtxfrag, const unsigned int *shader_pgm, 
     *cmds++ = vtxfrag;                      // 0=vertex shader, 1=fragment shader
     *cmds++ = ( (0 << 16) | dwords );       // instruction start & size (in 32-bit words)
 
-    memcpy(cmds, shader_pgm, dwords<<2);
+    kos_memcpy(cmds, shader_pgm, dwords<<2);
     cmds += dwords;
 
     return cmds;
@@ -586,10 +617,6 @@ build_regsave_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
     // Copy Tex constants
     cmd = reg_to_mem(cmd, (drawctxt->gpustate.gpuaddr + TEX_OFFSET) & 0xFFFFE000, mmSQ_FETCH_0, TEX_CONSTANTS);
 #else
-    // insert a wait for idle (adreno.c:542 from qualcomm kernel)
-    *cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
-    *cmd++ = 0;
-
     // H/w registers are already shadowed; just need to disable shadowing to prevent corruption.
     *cmd++ = pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, 3);
     *cmd++ = (drawctxt->gpustate.gpuaddr + REG_OFFSET) & 0xFFFFE000;
@@ -658,10 +685,6 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
     *cmds++ = pm4_type0_packet(mmTP0_CHICKEN, 1);
     *cmds++ = 0x00000000;
 
-    /* Set PA_SC_AA_CONFIG to 0 - from Qualcomm*/
-    //*cmds++ = pm4_type0_packet(mmPA_SC_AA_CONFIG, 1);
-    //*cmds++ = 0x00000000;
-
     // --------------
     // program shader
     // --------------
@@ -718,7 +741,7 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
     // RB_COLOR_INFO        Endian=none, Linear, Format=RGBA8888, Swap=0, Base=gmem_base
     if( ctx )
     {
-        DEBUG_ASSERT((ctx->gmem_base & 0xFFF) == 0);   // gmem base assumed 4K aligned.
+        KOS_ASSERT((ctx->gmem_base & 0xFFF) == 0);   // gmem base assumed 4K aligned.
         *cmds++ = (shadow->format << RB_COLOR_INFO__COLOR_FORMAT__SHIFT) | ctx->gmem_base;
     }
     else
@@ -771,18 +794,13 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
 		*cmds++ = shadow->pitch >> 5;  // RB_COPY_DEST_PITCH
 		*cmds++ = 0x0003c008 | (shadow->format << RB_COPY_DEST_INFO__COPY_DEST_FORMAT__SHIFT); // Endian=none, Linear, Format=RGBA8888,Swap=0,!Dither,MaskWrite:R=G=B=A=1
 
-        DEBUG_ASSERT( (offset & 0xfffff000) == 0 ); // Make sure we stay in offsetx field.
+        KOS_ASSERT( (offset & 0xfffff000) == 0 ); // Make sure we stay in offsetx field.
 		*cmds++ = offset;
     }
 
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
     *cmds++ = PM4_REG(mmRB_MODECONTROL);
     *cmds++ = 0x6;                          // EDRAM copy
-
-    // gleaned from qualcomm source
-    //*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    //*cmds++ = PM4_REG(mmPA_CL_CLIP_CNTL);
-    //*cmds++ = 0x00010000;
 
     // queue the draw packet
     *cmds++ = pm4_type3_packet(PM4_DRAW_INDX, 2);
@@ -825,10 +843,6 @@ build_sys2gmem_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
     // Set TP0_CHICKEN to zero
     *cmds++ = pm4_type0_packet(mmTP0_CHICKEN, 1);
     *cmds++ = 0x00000000;
-
-    /* Set PA_SC_AA_CONFIG to 0 */
-    //*cmds++ = pm4_type0_packet(mmPA_SC_AA_CONFIG, 1);
-    //*cmds++ = 0x00000000;
 
     // ----------------
     // shader constants
@@ -906,7 +920,7 @@ build_sys2gmem_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
     // texture constants
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, (SYS2GMEM_TEX_CONST_LEN + 1));
     *cmds++ = (0x1 << 16) | (0 * 6);
-    memcpy(cmds, sys2gmem_tex_const, SYS2GMEM_TEX_CONST_LEN<<2);
+    kos_memcpy(cmds, sys2gmem_tex_const, SYS2GMEM_TEX_CONST_LEN<<2);
     cmds[0] |= (shadow->pitch >> 5) << 22;
     cmds[1] |= shadow->gmemshadow.gpuaddr | surface_format_table[shadow->format];
     cmds[2] |= (shadow->width+shadow->offset_x-1) | (shadow->height+shadow->offset_y-1) << 13;
@@ -1113,10 +1127,10 @@ static void set_gmem_copy_quad( gmem_shadow_t* shadow )
     gmem_copy_texcoord[5] = gmem_copy_texcoord[7] = tex_offset[1];
 
     // copy quad data to vertex buffer
-    memcpy(shadow->quad_vertices.hostptr, gmem_copy_quad, QUAD_LEN << 2);
+    kos_memcpy(shadow->quad_vertices.hostptr, gmem_copy_quad, QUAD_LEN << 2);
 
     // copy tex coord data to tex coord buffer
-    memcpy(shadow->quad_texcoords.hostptr, gmem_copy_texcoord, TEXCOORD_LEN << 2);
+    kos_memcpy(shadow->quad_texcoords.hostptr, gmem_copy_texcoord, TEXCOORD_LEN << 2);
 }
 
 
@@ -1353,7 +1367,7 @@ create_gmem_shadow(gsl_device_t *device, gsl_drawctxt_t *drawctxt, ctx_t *ctx)
     }
     else
     {
-        memset( &drawctxt->context_gmem_shadow.gmemshadow, 0, sizeof( gsl_memdesc_t ) );
+        kos_memset( &drawctxt->context_gmem_shadow.gmemshadow, 0, sizeof( gsl_memdesc_t ) );
     }
 
     // build quad vertex buffer
@@ -1392,6 +1406,8 @@ create_gmem_shadow(gsl_device_t *device, gsl_drawctxt_t *drawctxt, ctx_t *ctx)
 int
 kgsl_drawctxt_init(gsl_device_t *device)
 {
+    GSL_CONTEXT_MUTEX_CREATE();
+
     return (GSL_SUCCESS);
 }
 
@@ -1403,6 +1419,8 @@ kgsl_drawctxt_init(gsl_device_t *device)
 int
 kgsl_drawctxt_close(gsl_device_t *device)
 {
+    GSL_CONTEXT_MUTEX_FREE();
+
     return (GSL_SUCCESS);
 }
 
@@ -1419,9 +1437,11 @@ kgsl_drawctxt_create(gsl_device_t* device, gsl_context_type_t type, unsigned int
     ctx_t           ctx;
 
     kgsl_device_active(device);
-
+    
+    GSL_CONTEXT_MUTEX_LOCK();
     if (device->drawctxt_count >= GSL_CONTEXT_MAX)
     {
+        GSL_CONTEXT_MUTEX_UNLOCK();
         return (GSL_FAILURE);
     }
 
@@ -1437,14 +1457,15 @@ kgsl_drawctxt_create(gsl_device_t* device, gsl_context_type_t type, unsigned int
 
     if (index >= GSL_CONTEXT_MAX)
     {
-	return (GSL_FAILURE);
+        GSL_CONTEXT_MUTEX_UNLOCK();
+        return (GSL_FAILURE);
     }
 
     drawctxt = &device->drawctxt[index];
 
-    memset( &drawctxt->context_gmem_shadow, 0, sizeof( gmem_shadow_t ) );
+    kos_memset( &drawctxt->context_gmem_shadow, 0, sizeof( gmem_shadow_t ) );
 
-	drawctxt->pid   = current->tgid;
+	drawctxt->pid   = GSL_CALLER_PROCESSID_GET();
     drawctxt->flags = CTXT_FLAGS_IN_USE;
     drawctxt->type  = type;
 
@@ -1456,7 +1477,7 @@ kgsl_drawctxt_create(gsl_device_t* device, gsl_context_type_t type, unsigned int
         if (create_gpustate_shadow(device, drawctxt, &ctx) != GSL_SUCCESS)
         {
             kgsl_drawctxt_destroy(device, index);
-
+            GSL_CONTEXT_MUTEX_UNLOCK();
             return (GSL_FAILURE);
         }
 
@@ -1464,21 +1485,22 @@ kgsl_drawctxt_create(gsl_device_t* device, gsl_context_type_t type, unsigned int
         drawctxt->flags |= ( CTXT_FLAGS_SHADER_SAVE | CTXT_FLAGS_GMEM_SHADOW );
 
         // Clear out user defined GMEM shadow buffer structs
-        memset( drawctxt->user_gmem_shadow, 0, sizeof(gmem_shadow_t)*GSL_MAX_GMEM_SHADOW_BUFFERS );
+        kos_memset( drawctxt->user_gmem_shadow, 0, sizeof(gmem_shadow_t)*GSL_MAX_GMEM_SHADOW_BUFFERS );
 
         // create gmem shadow
         if (create_gmem_shadow(device, drawctxt, &ctx) != GSL_SUCCESS)
         {
             kgsl_drawctxt_destroy(device, index);
-
+            GSL_CONTEXT_MUTEX_UNLOCK();
             return (GSL_FAILURE);
         }
 
-        DEBUG_ASSERT(ctx.cmd - ctx.start <= CMD_BUFFER_LEN);
+        KOS_ASSERT(ctx.cmd - ctx.start <= CMD_BUFFER_LEN);
     }
 
     *drawctxt_id = index;
 
+    GSL_CONTEXT_MUTEX_UNLOCK();
     return (GSL_SUCCESS);
 }
 
@@ -1491,6 +1513,8 @@ int
 kgsl_drawctxt_destroy(gsl_device_t* device, unsigned int drawctxt_id)
 {
     gsl_drawctxt_t *drawctxt;
+
+    GSL_CONTEXT_MUTEX_LOCK();
 
     drawctxt = &device->drawctxt[drawctxt_id];
 
@@ -1509,13 +1533,13 @@ kgsl_drawctxt_destroy(gsl_device_t* device, unsigned int drawctxt_id)
 
         // destroy state shadow, if allocated
         if (drawctxt->flags & CTXT_FLAGS_STATE_SHADOW)
-            kgsl_sharedmem_free0(&drawctxt->gpustate, current->tgid);
+            kgsl_sharedmem_free0(&drawctxt->gpustate, GSL_CALLER_PROCESSID_GET());
 
 
         // destroy gmem shadow, if allocated
         if (drawctxt->context_gmem_shadow.gmemshadow.size > 0)
         {
-            kgsl_sharedmem_free0(&drawctxt->context_gmem_shadow.gmemshadow, current->tgid);
+            kgsl_sharedmem_free0(&drawctxt->context_gmem_shadow.gmemshadow, GSL_CALLER_PROCESSID_GET());
             drawctxt->context_gmem_shadow.gmemshadow.size = 0;
         }
 
@@ -1523,8 +1547,10 @@ kgsl_drawctxt_destroy(gsl_device_t* device, unsigned int drawctxt_id)
 		drawctxt->pid   = 0;
 
         device->drawctxt_count--;
-        DEBUG_ASSERT(device->drawctxt_count >= 0);
+        KOS_ASSERT(device->drawctxt_count >= 0);
     }
+
+    GSL_CONTEXT_MUTEX_UNLOCK();
 
     return (GSL_SUCCESS);
 }
@@ -1551,14 +1577,15 @@ kgsl_drawctxt_destroy(gsl_device_t* device, unsigned int drawctxt_id)
 //
 //
 //////////////////////////////////////////////////////////////////////////////
-int kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned int drawctxt_id, const gsl_rect_t* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const gsl_buffer_desc_t* shadow_buffer, unsigned int buffer_id)
+KGSL_API int kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned int drawctxt_id, const gsl_rect_t* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const gsl_buffer_desc_t* shadow_buffer, unsigned int buffer_id)
 {
     gsl_device_t   *device = &gsl_driver.device[device_id-1];
     gsl_drawctxt_t *drawctxt = &device->drawctxt[drawctxt_id];
     gmem_shadow_t  *shadow = &drawctxt->user_gmem_shadow[buffer_id];
     unsigned int    i;
 
-    mutex_lock(&gsl_driver.lock);
+    GSL_API_MUTEX_LOCK();
+    GSL_CONTEXT_MUTEX_LOCK();
 
 	if( !shadow_buffer->enabled )
     {
@@ -1568,23 +1595,23 @@ int kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned int drawct
     else
     {
 		// Sanity checks
-		DEBUG_ASSERT((gmem_rect->x % 2) == 0);      // Needs to be a multiple of 2
-		DEBUG_ASSERT((gmem_rect->y % 2) == 0);      // Needs to be a multiple of 2
-		DEBUG_ASSERT((gmem_rect->width % 2) == 0);  // Needs to be a multiple of 2
-		DEBUG_ASSERT((gmem_rect->height % 2) == 0); // Needs to be a multiple of 2
-		DEBUG_ASSERT((gmem_rect->pitch % 32) == 0); // Needs to be a multiple of 32
+		KOS_ASSERT((gmem_rect->x % 2) == 0);      // Needs to be a multiple of 2
+		KOS_ASSERT((gmem_rect->y % 2) == 0);      // Needs to be a multiple of 2
+		KOS_ASSERT((gmem_rect->width % 2) == 0);  // Needs to be a multiple of 2
+		KOS_ASSERT((gmem_rect->height % 2) == 0); // Needs to be a multiple of 2
+		KOS_ASSERT((gmem_rect->pitch % 32) == 0); // Needs to be a multiple of 32
 
-		DEBUG_ASSERT((shadow_x % 2) == 0);  // Needs to be a multiple of 2
-		DEBUG_ASSERT((shadow_y % 2) == 0);  // Needs to be a multiple of 2
+		KOS_ASSERT((shadow_x % 2) == 0);  // Needs to be a multiple of 2
+		KOS_ASSERT((shadow_y % 2) == 0);  // Needs to be a multiple of 2
 
-		DEBUG_ASSERT(shadow_buffer->format >= COLORX_4_4_4_4);
-		DEBUG_ASSERT(shadow_buffer->format <= COLORX_32_32_32_32_FLOAT);
-		DEBUG_ASSERT((shadow_buffer->pitch % 32) == 0); // Needs to be a multiple of 32
-		DEBUG_ASSERT(buffer_id >= 0);
-		DEBUG_ASSERT(buffer_id < GSL_MAX_GMEM_SHADOW_BUFFERS);
+		KOS_ASSERT(shadow_buffer->format >= COLORX_4_4_4_4);
+		KOS_ASSERT(shadow_buffer->format <= COLORX_32_32_32_32_FLOAT);
+		KOS_ASSERT((shadow_buffer->pitch % 32) == 0); // Needs to be a multiple of 32
+		KOS_ASSERT(buffer_id >= 0);
+		KOS_ASSERT(buffer_id < GSL_MAX_GMEM_SHADOW_BUFFERS);
 
 		// Set up GMEM shadow regions
-        memcpy( &shadow->gmemshadow, &shadow_buffer->data, sizeof( gsl_memdesc_t ) );
+        kos_memcpy( &shadow->gmemshadow, &shadow_buffer->data, sizeof( gsl_memdesc_t ) );
         shadow->size = shadow->gmemshadow.size;
 
 		shadow->width = shadow_buffer->width;
@@ -1614,7 +1641,7 @@ int kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned int drawct
         // Release context GMEM shadow if found
         if (drawctxt->context_gmem_shadow.gmemshadow.size > 0)
         {
-            kgsl_sharedmem_free0(&drawctxt->context_gmem_shadow.gmemshadow, current->tgid);
+            kgsl_sharedmem_free0(&drawctxt->context_gmem_shadow.gmemshadow, GSL_CALLER_PROCESSID_GET());
             drawctxt->context_gmem_shadow.gmemshadow.size = 0;
         }
     }
@@ -1629,7 +1656,8 @@ int kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned int drawct
         }
     }
 
-    mutex_unlock(&gsl_driver.lock);
+    GSL_CONTEXT_MUTEX_UNLOCK();
+    GSL_API_MUTEX_UNLOCK();
 
     return (GSL_SUCCESS);
 }
@@ -1766,6 +1794,8 @@ kgsl_drawctxt_destroyall(gsl_device_t *device)
     int             i;
     gsl_drawctxt_t  *drawctxt;
 
+    GSL_CONTEXT_MUTEX_LOCK();
+
     for (i = 0; i < GSL_CONTEXT_MAX; i++)
     {
         drawctxt = &device->drawctxt[i];
@@ -1774,21 +1804,23 @@ kgsl_drawctxt_destroyall(gsl_device_t *device)
         {
             // destroy state shadow, if allocated
             if (drawctxt->flags & CTXT_FLAGS_STATE_SHADOW)
-                kgsl_sharedmem_free0(&drawctxt->gpustate, current->tgid);
+                kgsl_sharedmem_free0(&drawctxt->gpustate, GSL_CALLER_PROCESSID_GET());
 
             // destroy gmem shadow, if allocated
             if (drawctxt->context_gmem_shadow.gmemshadow.size > 0)
             {
-                kgsl_sharedmem_free0(&drawctxt->context_gmem_shadow.gmemshadow, current->tgid);
+                kgsl_sharedmem_free0(&drawctxt->context_gmem_shadow.gmemshadow, GSL_CALLER_PROCESSID_GET());
                 drawctxt->context_gmem_shadow.gmemshadow.size = 0;
             }
 
             drawctxt->flags = CTXT_FLAGS_NOT_IN_USE;
 
             device->drawctxt_count--;
-            DEBUG_ASSERT(device->drawctxt_count >= 0);
+            KOS_ASSERT(device->drawctxt_count >= 0);
         }
     }
+
+    GSL_CONTEXT_MUTEX_UNLOCK();
 
     return (GSL_SUCCESS);
 }

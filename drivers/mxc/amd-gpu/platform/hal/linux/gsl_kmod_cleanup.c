@@ -28,7 +28,7 @@
  */
 static u32 device_id_to_device_index(gsl_deviceid_t device_id)
 {
-    DEBUG_ASSERT((GSL_DEVICE_ANY < device_id) && 
+    KOS_ASSERT((GSL_DEVICE_ANY < device_id) && 
                (device_id <= GSL_DEVICE_MAX));
     return (u32)(device_id - 1);
 }
@@ -40,9 +40,9 @@ static struct gsl_kmod_per_fd_data *get_fd_private_data(struct file *fd)
 {
     struct gsl_kmod_per_fd_data *datp; 
 
-    DEBUG_ASSERT(fd);
+    KOS_ASSERT(fd);
     datp = (struct gsl_kmod_per_fd_data *)fd->private_data;
-    DEBUG_ASSERT(datp);
+    KOS_ASSERT(datp);
     return datp;
 }
 
@@ -53,8 +53,8 @@ static s8 *find_first_entry_with(s8 *subarray, s8 context_id)
 
 //printk(KERN_DEBUG "At %s, ctx_id = %d\n", __func__, context_id);
 
-    DEBUG_ASSERT(context_id >= EMPTY_ENTRY);    
-    DEBUG_ASSERT(context_id <= GSL_CONTEXT_MAX);  // TODO: check the bound.
+    KOS_ASSERT(context_id >= EMPTY_ENTRY);    
+    KOS_ASSERT(context_id <= GSL_CONTEXT_MAX);  // TODO: check the bound.
 
     for(i = 0; i < GSL_CONTEXT_MAX; i++)        // TODO: check the bound.
     {
@@ -85,12 +85,12 @@ int add_memblock_to_allocated_list(struct file *fd,
     struct gsl_kmod_alloc_list *lisp;
     struct list_head *head;
 
-    DEBUG_ASSERT(allocated_block);
+    KOS_ASSERT(allocated_block);
 
     datp = get_fd_private_data(fd);
 
     head = &datp->allocated_blocks_head;
-    DEBUG_ASSERT(head);
+    KOS_ASSERT(head);
 
     /* allocate and put new entry in the list of allocated memory descriptors */
     lisp = (struct gsl_kmod_alloc_list *)kzalloc(sizeof(struct gsl_kmod_alloc_list), GFP_KERNEL);
@@ -127,14 +127,14 @@ int del_memblock_from_allocated_list(struct file *fd,
     struct list_head *head;
 //    int is_different;
 
-    DEBUG_ASSERT(freed_block);
+    KOS_ASSERT(freed_block);
 
     datp = get_fd_private_data(fd);
 
     head = &datp->allocated_blocks_head;
-    DEBUG_ASSERT(head);
+    KOS_ASSERT(head);
 
-    DEBUG_ASSERT(datp->number_of_allocated_blocks > 0);
+    KOS_ASSERT(datp->number_of_allocated_blocks > 0);
 
     if(!list_empty(head))
     {
@@ -143,7 +143,7 @@ int del_memblock_from_allocated_list(struct file *fd,
             if(cursor->allocated_block.gpuaddr == freed_block->gpuaddr)
             {
 //                is_different = memcmp(&cursor->allocated_block, freed_block, sizeof(gsl_memdesc_t));
-//                DEBUG_ASSERT(!is_different);
+//                KOS_ASSERT(!is_different);
 
                 list_del(&cursor->node);
 //                printk(KERN_DEBUG "List entry #%u freed\n", cursor->allocation_number);
@@ -166,7 +166,7 @@ int del_all_memblocks_from_allocated_list(struct file *fd)
     datp = get_fd_private_data(fd);
 
     head = &datp->allocated_blocks_head;
-    DEBUG_ASSERT(head);
+    KOS_ASSERT(head);
 
     if(!list_empty(head))
     {
@@ -180,7 +180,7 @@ int del_all_memblocks_from_allocated_list(struct file *fd)
         }
     }
 
-    DEBUG_ASSERT(list_empty(head));
+    KOS_ASSERT(list_empty(head));
     datp->number_of_allocated_blocks = 0;
 
     return 0;
@@ -206,10 +206,10 @@ void add_device_context_to_array(struct file *fd,
     subarray = datp->created_contexts_array[device_index];
     entry = find_first_entry_with(subarray, EMPTY_ENTRY);
 
-    DEBUG_ASSERT(entry);
-    DEBUG_ASSERT((datp->created_contexts_array[device_index] <= entry) &&
+    KOS_ASSERT(entry);
+    KOS_ASSERT((datp->created_contexts_array[device_index] <= entry) &&
                (entry < datp->created_contexts_array[device_index] + GSL_CONTEXT_MAX));
-    DEBUG_ASSERT(context_id < 127);
+    KOS_ASSERT(context_id < 127);
     *entry = (s8)context_id;
 }
 
@@ -224,11 +224,11 @@ void del_device_context_from_array(struct file *fd,
 
     datp = get_fd_private_data(fd);
 
-    DEBUG_ASSERT(context_id < 127);
+    KOS_ASSERT(context_id < 127);
     subarray = &(datp->created_contexts_array[device_index][0]);
     entry = find_first_entry_with(subarray, context_id);
-    DEBUG_ASSERT(entry);
-    DEBUG_ASSERT((datp->created_contexts_array[device_index] <= entry) &&
+    KOS_ASSERT(entry);
+    KOS_ASSERT((datp->created_contexts_array[device_index] <= entry) &&
                (entry < datp->created_contexts_array[device_index] + GSL_CONTEXT_MAX));
     *entry = EMPTY_ENTRY;
 }

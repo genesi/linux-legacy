@@ -16,9 +16,6 @@
  *
  */
 
-#include <linux/slab.h>
-#include <linux/sched.h>
-
 #include "gsl.h"
 #include "gsl_hal.h"
 
@@ -33,11 +30,11 @@
 
 #define GSL_MEMFLAGS_APERTURE_GET(flags, aperture_id)                                                       \
     aperture_id = (gsl_apertureid_t)((flags & GSL_MEMFLAGS_APERTURE_MASK) >> GSL_MEMFLAGS_APERTURE_SHIFT);  \
-    DEBUG_ASSERT(aperture_id < GSL_APERTURE_MAX);
+    KOS_ASSERT(aperture_id < GSL_APERTURE_MAX);
 
 #define GSL_MEMFLAGS_CHANNEL_GET(flags, channel_id)                                                     \
     channel_id = (gsl_channelid_t)((flags & GSL_MEMFLAGS_CHANNEL_MASK) >> GSL_MEMFLAGS_CHANNEL_SHIFT);  \
-    DEBUG_ASSERT(channel_id < GSL_CHANNEL_MAX);
+    KOS_ASSERT(channel_id < GSL_CHANNEL_MAX);
 
 #define GSL_MEMDESC_APERTURE_SET(memdesc, aperture_index)   \
     memdesc->priv = (memdesc->priv & ~GSL_APERTURE_MASK) | ((aperture_index << GSL_APERTURE_SHIFT) & GSL_APERTURE_MASK);
@@ -49,14 +46,14 @@
     memdesc->priv = (memdesc->priv & ~GSL_EXTALLOC_MASK) | ((flag << GSL_EXTALLOC_SHIFT) & GSL_EXTALLOC_MASK);
 
 #define GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index)                           \
-    DEBUG_ASSERT(memdesc);                                                            \
+    KOS_ASSERT(memdesc);                                                            \
     aperture_index = ((memdesc->priv & GSL_APERTURE_MASK) >> GSL_APERTURE_SHIFT);   \
-    DEBUG_ASSERT(aperture_index < GSL_SHMEM_MAX_APERTURES);
+    KOS_ASSERT(aperture_index < GSL_SHMEM_MAX_APERTURES);
 
 #define GSL_MEMDESC_DEVICE_GET(memdesc, device_id)                                              \
-    DEBUG_ASSERT(memdesc);                                                                        \
+    KOS_ASSERT(memdesc);                                                                        \
     device_id = (gsl_deviceid_t)((memdesc->priv & GSL_DEVICEID_MASK) >> GSL_DEVICEID_SHIFT);    \
-    DEBUG_ASSERT(device_id <= GSL_DEVICE_MAX);
+    KOS_ASSERT(device_id <= GSL_DEVICE_MAX);
 
 #define GSL_MEMDESC_EXTALLOC_ISMARKED(memdesc)  \
     ((memdesc->priv & GSL_EXTALLOC_MASK) >> GSL_EXTALLOC_SHIFT)
@@ -65,10 +62,10 @@
 //////////////////////////////////////////////////////////////////////////////
 // aperture index in shared memory object
 //////////////////////////////////////////////////////////////////////////////
-static __inline int
+OSINLINE int
 kgsl_sharedmem_getapertureindex(gsl_sharedmem_t *shmem, gsl_apertureid_t aperture_id, gsl_channelid_t channel_id)
 {
-    DEBUG_ASSERT(shmem->aperturelookup[aperture_id][channel_id] < shmem->numapertures);
+    KOS_ASSERT(shmem->aperturelookup[aperture_id][channel_id] < shmem->numapertures);
 
     return (shmem->aperturelookup[aperture_id][channel_id]);
 }
@@ -126,7 +123,7 @@ kgsl_sharedmem_init(gsl_sharedmem_t *shmem)
         }
 
         // make sure aligned to page size
-        DEBUG_ASSERT((gpubaseaddr & ((1 << GSL_PAGESIZE_SHIFT) - 1)) == 0);
+        KOS_ASSERT((gpubaseaddr & ((1 << GSL_PAGESIZE_SHIFT) - 1)) == 0);
 
         // make a multiple of page size
         sizebytes = (sizebytes & ~((1 << GSL_PAGESIZE_SHIFT) - 1));
@@ -193,7 +190,7 @@ kgsl_sharedmem_close(gsl_sharedmem_t *shmem)
             }
         }
 
-        memset(shmem, 0, sizeof(gsl_sharedmem_t));
+        kos_memset(shmem, 0, sizeof(gsl_sharedmem_t));
     }
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_sharedmem_close. Return value %B\n", result );
@@ -215,16 +212,16 @@ kgsl_sharedmem_alloc0(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes
     gsl_sharedmem_t   *shmem  = &gsl_driver.shmem;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_alloc(gsl_deviceid_t device_id=%D, gsl_flags_t flags=%x, int sizebytes=%d, gsl_memdesc_t *memdesc=%M)\n",
+                    "--> int kgsl_sharedmem_alloc(gsl_deviceid_t device_id=%D, gsl_flags_t flags=0x%08x, int sizebytes=%d, gsl_memdesc_t *memdesc=%M)\n",
                     device_id, flags, sizebytes, memdesc );
 
-    DEBUG_ASSERT(sizebytes);
-    DEBUG_ASSERT(memdesc);
+    KOS_ASSERT(sizebytes);
+    KOS_ASSERT(memdesc);
 
     GSL_MEMFLAGS_APERTURE_GET(flags, aperture_id);
     GSL_MEMFLAGS_CHANNEL_GET(flags, channel_id);
 
-    memset(memdesc, 0, sizeof(gsl_memdesc_t));
+    kos_memset(memdesc, 0, sizeof(gsl_memdesc_t));
 
     if (!(shmem->flags & GSL_FLAGS_INITIALIZED))
     {
@@ -271,7 +268,7 @@ kgsl_sharedmem_alloc0(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes
         }
     }
 
-    DEBUG_ASSERT(device_id > GSL_DEVICE_ANY && device_id <= GSL_DEVICE_MAX);
+    KOS_ASSERT(device_id > GSL_DEVICE_ANY && device_id <= GSL_DEVICE_MAX);
 
     // get mmu reference
     mmu = &gsl_driver.device[device_id-1].mmu;
@@ -350,21 +347,21 @@ kgsl_sharedmem_alloc0(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes
                 scatterlist.num++;
             }
 
-            scatterlist.pages = kmalloc(sizeof(unsigned int) * scatterlist.num, GFP_KERNEL);
+            scatterlist.pages = kos_malloc(sizeof(unsigned int) * scatterlist.num);
             if (scatterlist.pages)
             {
                 // allocate physical pages
                 result = kgsl_hal_allocphysical(memdesc->gpuaddr, scatterlist.num, scatterlist.pages);
                 if (result == GSL_SUCCESS)
                 {
-                    result = kgsl_mmu_map(mmu, memdesc->gpuaddr, &scatterlist, flags, current->tgid);
+                    result = kgsl_mmu_map(mmu, memdesc->gpuaddr, &scatterlist, flags, GSL_CALLER_PROCESSID_GET());
                     if (result != GSL_SUCCESS)
                     {
                         kgsl_hal_freephysical(memdesc->gpuaddr, scatterlist.num, scatterlist.pages);
                     }
                 }
 
-                kfree(scatterlist.pages);
+                kos_free(scatterlist.pages);
             }
             else
             {
@@ -387,13 +384,13 @@ kgsl_sharedmem_alloc0(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_sharedmem_alloc(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes, gsl_memdesc_t *memdesc)
 {
 	int status = GSL_SUCCESS;
-	mutex_lock(&gsl_driver.lock);
+	GSL_API_MUTEX_LOCK();
 	status = kgsl_sharedmem_alloc0(device_id, flags, sizebytes, memdesc);
-	mutex_unlock(&gsl_driver.lock);
+	GSL_API_MUTEX_UNLOCK();
 	return status;
 }
 
@@ -429,7 +426,7 @@ kgsl_sharedmem_free0(gsl_memdesc_t *memdesc, unsigned int pid)
         kgsl_memarena_free(shmem->apertures[aperture_index].memarena, memdesc);
 
         // clear descriptor
-        memset(memdesc, 0, sizeof(gsl_memdesc_t));
+        kos_memset(memdesc, 0, sizeof(gsl_memdesc_t));
     }
     else
     {
@@ -443,14 +440,14 @@ kgsl_sharedmem_free0(gsl_memdesc_t *memdesc, unsigned int pid)
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_sharedmem_free(gsl_memdesc_t *memdesc)
 {
 	int status = GSL_SUCCESS;
-	mutex_lock(&gsl_driver.lock);
-	status = kgsl_sharedmem_free0(memdesc, current->tgid);
-	mutex_unlock(&gsl_driver.lock);
-	return status;
+    GSL_API_MUTEX_LOCK();
+    status = kgsl_sharedmem_free0(memdesc, GSL_CALLER_PROCESSID_GET());
+    GSL_API_MUTEX_UNLOCK();
+    return status;
 }
 
 //----------------------------------------------------------------------------
@@ -463,7 +460,7 @@ kgsl_sharedmem_read0(const gsl_memdesc_t *memdesc, void *dst, unsigned int offse
     unsigned int     gpuoffsetbytes;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_read(gsl_memdesc_t *memdesc=%M, void *dst=0x%08x, uint offsetbytes=%u, uint sizebytes=%u)\n",
+                    "--> int kgsl_sharedmem_read(gsl_memdesc_t *memdesc=%M, void *dst=0x%08x, unsigned int offsetbytes=%d, unsigned int sizebytes=%d)\n",
                     memdesc, dst, offsetbytes, sizebytes );
 
     GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
@@ -483,8 +480,8 @@ kgsl_sharedmem_read0(const gsl_memdesc_t *memdesc, void *dst, unsigned int offse
         return (GSL_FAILURE);
     }
 
-    DEBUG_ASSERT(dst);
-    DEBUG_ASSERT(sizebytes);
+    KOS_ASSERT(dst);
+    KOS_ASSERT(sizebytes);
 
     if (memdesc->gpuaddr < shmem->apertures[aperture_index].memarena->gpubaseaddr)
     {
@@ -507,13 +504,13 @@ kgsl_sharedmem_read0(const gsl_memdesc_t *memdesc, void *dst, unsigned int offse
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_sharedmem_read(const gsl_memdesc_t *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace)
 {
 	int status = GSL_SUCCESS;
-	mutex_lock(&gsl_driver.lock);
+	GSL_API_MUTEX_LOCK();
 	status = kgsl_sharedmem_read0(memdesc, dst, offsetbytes, sizebytes, touserspace);
-	mutex_unlock(&gsl_driver.lock);
+	GSL_API_MUTEX_UNLOCK();
 	return status;
 }
 
@@ -527,7 +524,7 @@ kgsl_sharedmem_write0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, vo
     unsigned int     gpuoffsetbytes;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_write(gsl_memdesc_t *memdesc=%M, uint offsetbytes=%u, void *src=0x%08x, uint sizebytes=%u)\n",
+                    "--> int kgsl_sharedmem_write(gsl_memdesc_t *memdesc=%M, unsigned int offsetbytes=%d, void *src=0x%08x, unsigned int sizebytes=%d)\n",
                     memdesc, offsetbytes, src, sizebytes );
 
     GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
@@ -547,10 +544,10 @@ kgsl_sharedmem_write0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, vo
         return (GSL_FAILURE);
     }
 
-    DEBUG_ASSERT(src);
-    DEBUG_ASSERT(sizebytes);
-    DEBUG_ASSERT(memdesc->gpuaddr >= shmem->apertures[aperture_index].memarena->gpubaseaddr);
-    DEBUG_ASSERT((memdesc->gpuaddr + sizebytes) <= (shmem->apertures[aperture_index].memarena->gpubaseaddr + shmem->apertures[aperture_index].memarena->sizebytes));
+    KOS_ASSERT(src);
+    KOS_ASSERT(sizebytes);
+    KOS_ASSERT(memdesc->gpuaddr >= shmem->apertures[aperture_index].memarena->gpubaseaddr);
+    KOS_ASSERT((memdesc->gpuaddr + sizebytes) <= (shmem->apertures[aperture_index].memarena->gpubaseaddr + shmem->apertures[aperture_index].memarena->sizebytes));
 
     gpuoffsetbytes = (memdesc->gpuaddr - shmem->apertures[aperture_index].memarena->gpubaseaddr) + offsetbytes;
 
@@ -567,13 +564,13 @@ kgsl_sharedmem_write0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, vo
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_sharedmem_write(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace)
 {
 	int status = GSL_SUCCESS;
-	mutex_lock(&gsl_driver.lock);
+	GSL_API_MUTEX_LOCK();
 	status = kgsl_sharedmem_write0(memdesc, offsetbytes, src, sizebytes, fromuserspace);
-	mutex_unlock(&gsl_driver.lock);
+	GSL_API_MUTEX_UNLOCK();
 	return status;
 }
 
@@ -607,9 +604,9 @@ kgsl_sharedmem_set0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsi
         return (GSL_FAILURE);
     }
 
-    DEBUG_ASSERT(sizebytes);
-    DEBUG_ASSERT(memdesc->gpuaddr >= shmem->apertures[aperture_index].memarena->gpubaseaddr);
-    DEBUG_ASSERT((memdesc->gpuaddr + sizebytes) <= (shmem->apertures[aperture_index].memarena->gpubaseaddr + shmem->apertures[aperture_index].memarena->sizebytes));
+    KOS_ASSERT(sizebytes);
+    KOS_ASSERT(memdesc->gpuaddr >= shmem->apertures[aperture_index].memarena->gpubaseaddr);
+    KOS_ASSERT((memdesc->gpuaddr + sizebytes) <= (shmem->apertures[aperture_index].memarena->gpubaseaddr + shmem->apertures[aperture_index].memarena->sizebytes));
 
     gpuoffsetbytes = (memdesc->gpuaddr - shmem->apertures[aperture_index].memarena->gpubaseaddr) + offsetbytes;
 
@@ -626,19 +623,19 @@ kgsl_sharedmem_set0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsi
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_sharedmem_set(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes)
 {
 	int status = GSL_SUCCESS;
-	mutex_lock(&gsl_driver.lock);
+	GSL_API_MUTEX_LOCK();
 	status = kgsl_sharedmem_set0(memdesc, offsetbytes, value, sizebytes);
-	mutex_unlock(&gsl_driver.lock);
+	GSL_API_MUTEX_UNLOCK();
 	return status;
 }
 
 //----------------------------------------------------------------------------
 
-unsigned int
+KGSL_API unsigned int
 kgsl_sharedmem_largestfreeblock(gsl_deviceid_t device_id, gsl_flags_t flags)
 {
     gsl_apertureid_t  aperture_id;
@@ -653,20 +650,20 @@ kgsl_sharedmem_largestfreeblock(gsl_deviceid_t device_id, gsl_flags_t flags)
     (void) device_id;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_largestfreeblock(gsl_deviceid_t device_id=%D, gsl_flags_t flags=%x)\n",
+                    "--> int kgsl_sharedmem_largestfreeblock(gsl_deviceid_t device_id=%D, gsl_flags_t flags=0x%08x)\n",
                     device_id, flags );
 
     GSL_MEMFLAGS_APERTURE_GET(flags, aperture_id);
     GSL_MEMFLAGS_CHANNEL_GET(flags, channel_id);
 
-    mutex_lock(&gsl_driver.lock);
+    GSL_API_MUTEX_LOCK();
 
     shmem = &gsl_driver.shmem;
 
     if (!(shmem->flags & GSL_FLAGS_INITIALIZED))
     {
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: Shared memory not initialized.\n" );
-        mutex_unlock(&gsl_driver.lock);
+        GSL_API_MUTEX_UNLOCK();
         kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_sharedmem_largestfreeblock. Return value %d\n", 0 );
         return (0);
     }
@@ -678,7 +675,7 @@ kgsl_sharedmem_largestfreeblock(gsl_deviceid_t device_id, gsl_flags_t flags)
         result = kgsl_memarena_getlargestfreeblock(shmem->apertures[aperture_index].memarena, flags);
     }
 
-    mutex_unlock(&gsl_driver.lock);
+    GSL_API_MUTEX_UNLOCK();
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_sharedmem_largestfreeblock. Return value %d\n", result );
 
@@ -687,7 +684,7 @@ kgsl_sharedmem_largestfreeblock(gsl_deviceid_t device_id, gsl_flags_t flags)
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_sharedmem_map(gsl_deviceid_t device_id, gsl_flags_t flags, const gsl_scatterlist_t *scatterlist, gsl_memdesc_t *memdesc)
 {
     int              status = GSL_FAILURE;
@@ -696,7 +693,7 @@ kgsl_sharedmem_map(gsl_deviceid_t device_id, gsl_flags_t flags, const gsl_scatte
     gsl_deviceid_t   tmp_id;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_map(gsl_deviceid_t device_id=%D, gsl_flags_t flags=%x, gsl_scatterlist_t scatterlist=%S, gsl_memdesc_t *memdesc=%M)\n",
+                    "--> int kgsl_sharedmem_map(gsl_deviceid_t device_id=%D, gsl_flags_t flags=0x%08x, gsl_scatterlist_t scatterlist=%M, gsl_memdesc_t *memdesc=%M)\n",
                     device_id, flags, memdesc, scatterlist );
 
     // execute pending device action
@@ -737,7 +734,7 @@ kgsl_sharedmem_map(gsl_deviceid_t device_id, gsl_flags_t flags, const gsl_scatte
         }
     }
 
-    DEBUG_ASSERT(device_id > GSL_DEVICE_ANY && device_id <= GSL_DEVICE_MAX);
+    KOS_ASSERT(device_id > GSL_DEVICE_ANY && device_id <= GSL_DEVICE_MAX);
 
     if (shmem->flags & GSL_FLAGS_INITIALIZED)
     {
@@ -745,8 +742,8 @@ kgsl_sharedmem_map(gsl_deviceid_t device_id, gsl_flags_t flags, const gsl_scatte
 
         if (kgsl_memarena_isvirtualized(shmem->apertures[aperture_index].memarena))
         {
-            DEBUG_ASSERT(scatterlist->num);
-            DEBUG_ASSERT(scatterlist->pages);
+            KOS_ASSERT(scatterlist->num);
+            KOS_ASSERT(scatterlist->pages);
 
             status = kgsl_memarena_alloc(shmem->apertures[aperture_index].memarena, flags, scatterlist->num *GSL_PAGESIZE, memdesc);
             if (status == GSL_SUCCESS)
@@ -757,7 +754,7 @@ kgsl_sharedmem_map(gsl_deviceid_t device_id, gsl_flags_t flags, const gsl_scatte
                 // mark descriptor's memory as externally allocated -- i.e. outside GSL
                 GSL_MEMDESC_EXTALLOC_SET(memdesc, 1);
 
-                status = kgsl_mmu_map(&gsl_driver.device[device_id-1].mmu, memdesc->gpuaddr, scatterlist, flags, current->tgid);
+                status = kgsl_mmu_map(&gsl_driver.device[device_id-1].mmu, memdesc->gpuaddr, scatterlist, flags, GSL_CALLER_PROCESSID_GET());
                 if (status != GSL_SUCCESS)
                 {
                     kgsl_memarena_free(shmem->apertures[aperture_index].memarena, memdesc);
@@ -773,15 +770,15 @@ kgsl_sharedmem_map(gsl_deviceid_t device_id, gsl_flags_t flags, const gsl_scatte
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_sharedmem_unmap(gsl_memdesc_t *memdesc)
 {
-    return (kgsl_sharedmem_free0(memdesc, current->tgid));
+    return (kgsl_sharedmem_free0(memdesc, GSL_CALLER_PROCESSID_GET()));
 }
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_sharedmem_getmap(const gsl_memdesc_t *memdesc, gsl_scatterlist_t *scatterlist)
 {
     int              status = GSL_SUCCESS;
@@ -790,7 +787,7 @@ kgsl_sharedmem_getmap(const gsl_memdesc_t *memdesc, gsl_scatterlist_t *scatterli
     gsl_sharedmem_t  *shmem;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_getmap(gsl_memdesc_t *memdesc=%M, gsl_scatterlist_t scatterlist=%S)\n",
+                    "--> int kgsl_sharedmem_getmap(gsl_memdesc_t *memdesc=%M, gsl_scatterlist_t scatterlist=%M)\n",
                     memdesc, scatterlist );
 
     GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
@@ -800,16 +797,16 @@ kgsl_sharedmem_getmap(const gsl_memdesc_t *memdesc, gsl_scatterlist_t *scatterli
 
     if (shmem->flags & GSL_FLAGS_INITIALIZED)
     {
-        DEBUG_ASSERT(scatterlist->num);
-        DEBUG_ASSERT(scatterlist->pages);
-        DEBUG_ASSERT(memdesc->gpuaddr >= shmem->apertures[aperture_index].memarena->gpubaseaddr);
-        DEBUG_ASSERT((memdesc->gpuaddr + memdesc->size) <= (shmem->apertures[aperture_index].memarena->gpubaseaddr + shmem->apertures[aperture_index].memarena->sizebytes));
+        KOS_ASSERT(scatterlist->num);
+        KOS_ASSERT(scatterlist->pages);
+        KOS_ASSERT(memdesc->gpuaddr >= shmem->apertures[aperture_index].memarena->gpubaseaddr);
+        KOS_ASSERT((memdesc->gpuaddr + memdesc->size) <= (shmem->apertures[aperture_index].memarena->gpubaseaddr + shmem->apertures[aperture_index].memarena->sizebytes));
 
-        memset(scatterlist->pages, 0, sizeof(unsigned int) * scatterlist->num);
+        kos_memset(scatterlist->pages, 0, sizeof(unsigned int) * scatterlist->num);
 
         if (kgsl_memarena_isvirtualized(shmem->apertures[aperture_index].memarena))
         {
-            status = kgsl_mmu_getmap(&gsl_driver.device[device_id-1].mmu, memdesc->gpuaddr, memdesc->size, scatterlist, current->tgid);
+            status = kgsl_mmu_getmap(&gsl_driver.device[device_id-1].mmu, memdesc->gpuaddr, memdesc->size, scatterlist, GSL_CALLER_PROCESSID_GET());
         }
         else
         {
@@ -833,7 +830,7 @@ kgsl_sharedmem_querystats(gsl_sharedmem_t *shmem, gsl_sharedmem_stats_t *stats)
     int  status = GSL_SUCCESS;
     int  i;
 
-    DEBUG_ASSERT(stats);
+    KOS_ASSERT(stats);
 
     if (shmem->flags & GSL_FLAGS_INITIALIZED)
     {
@@ -850,7 +847,7 @@ kgsl_sharedmem_querystats(gsl_sharedmem_t *shmem, gsl_sharedmem_stats_t *stats)
     }
     else
     {
-        memset(stats, 0, sizeof(gsl_sharedmem_stats_t));
+        kos_memset(stats, 0, sizeof(gsl_sharedmem_stats_t));
     }
 
     return (status);
@@ -907,7 +904,7 @@ kgsl_sharedmem_convertaddr(unsigned int addr, int type)
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_sharedmem_cacheoperation(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsigned int sizebytes, unsigned int operation)
 {
     int status  = GSL_FAILURE;
@@ -925,7 +922,7 @@ kgsl_sharedmem_cacheoperation(const gsl_memdesc_t *memdesc, unsigned int offsetb
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_sharedmem_fromhostpointer(gsl_deviceid_t device_id, gsl_memdesc_t *memdesc, void* hostptr)
 {
     int status  = GSL_FAILURE;

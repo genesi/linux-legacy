@@ -20,44 +20,88 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
-#include <linux/slab.h>
-#include <linux/string.h>
-#include <linux/mutex.h>
-
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
 #include "gsl.h"
+
+#define KGSL_OUTPUT_TYPE_MEMBUF 0
+#define KGSL_OUTPUT_TYPE_STDOUT 1
+#define KGSL_OUTPUT_TYPE_FILE   2
 
 #define REG_OUTPUT( X ) case X: b += sprintf( b, "%s", #X ); break;
 #define INTRID_OUTPUT( X ) case X: b += sprintf( b, "%s", #X ); break;
 
 typedef struct log_output
 {
+    unsigned char       type;
     unsigned int        flags;
+    oshandle_t         file;
+
     struct log_output*  next;
 } log_output_t;
 
 static log_output_t* outputs = NULL;
 
-static struct mutex   log_mutex;
-static char         buffer[1024];
-static char         buffer2[1024];
+static oshandle_t   log_mutex = NULL;
+static char         buffer[256];
+static char         buffer2[256];
 static int          log_initialized = 0;
 
 //----------------------------------------------------------------------------
 
-int kgsl_log_start( unsigned int log_flags )
+int kgsl_log_init()
+{
+    log_mutex = kos_mutex_create( "log_mutex" );
+
+    log_initialized = 1;
+    
+    return GSL_SUCCESS;
+}
+
+//----------------------------------------------------------------------------
+
+int kgsl_log_close()
+{
+    if( !log_initialized ) return GSL_SUCCESS;
+
+    // Go throught output list and free every node
+    while( outputs != NULL )
+    {
+        log_output_t* temp = outputs->next;
+        
+        switch( outputs->type )
+        {
+            case KGSL_OUTPUT_TYPE_FILE:
+                kos_fclose( outputs->file );
+            break;
+        }
+
+        kos_free( outputs );
+        outputs = temp;
+    }
+
+    kos_mutex_free( log_mutex );
+
+    log_initialized = 0;
+
+    return GSL_SUCCESS;
+}
+
+//----------------------------------------------------------------------------
+
+int kgsl_log_open_stdout( unsigned int log_flags )
 {
     log_output_t* output;
-
-    if( log_initialized ) return GSL_SUCCESS;
-
-    mutex_init(&log_mutex);
-    log_initialized = 1;
-
-    output = kmalloc( sizeof( log_output_t ), GFP_KERNEL );
+    
+    if( !log_initialized ) return GSL_SUCCESS;
+    
+    output = kos_malloc( sizeof( log_output_t ) );
+    output->type = KGSL_OUTPUT_TYPE_STDOUT;
     output->flags = log_flags;
 
     // Add to the list
-    if( outputs == NULL )
+    if( outputs == NULL )    
     {
         // First node in the list.
         outputs = output;
@@ -75,24 +119,51 @@ int kgsl_log_start( unsigned int log_flags )
 
 //----------------------------------------------------------------------------
 
-int kgsl_log_finish()
+int kgsl_log_open_membuf( int* memBufId, unsigned int log_flags )
 {
-    if( !log_initialized ) return GSL_SUCCESS;
-
-    // Go throught output list and free every node
-    while( outputs != NULL )
-    {
-        log_output_t* temp = outputs->next;
-
-        kfree( outputs );
-        outputs = temp;
-    }
-
-    log_initialized = 0;
+    // TODO
 
     return GSL_SUCCESS;
 }
 
+//----------------------------------------------------------------------------
+
+int kgsl_log_open_file( char* filename, unsigned int log_flags )
+{
+    log_output_t* output;
+    
+    if( !log_initialized ) return GSL_SUCCESS;
+    
+    output = kos_malloc( sizeof( log_output_t ) );
+    output->type = KGSL_OUTPUT_TYPE_FILE;
+    output->flags = log_flags;
+    output->file = kos_fopen( filename, "w" );
+
+    // Add to the list
+    if( outputs == NULL )    
+    {
+        // First node in the list.
+        outputs = output;
+        output->next = NULL;
+    }
+    else
+    {
+        // Add to the start of the list
+        output->next = outputs;
+        outputs = output;
+    }
+
+    return GSL_SUCCESS;
+}
+
+//----------------------------------------------------------------------------
+
+int kgsl_log_flush_membuf( char* filename, int memBufId )
+{
+    // TODO
+
+    return GSL_SUCCESS;
+}
 //----------------------------------------------------------------------------
 
 int kgsl_log_write( unsigned int log_flags, char* format, ... )
@@ -106,7 +177,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
     if( !log_initialized ) return GSL_SUCCESS;
 
     // Acquire mutex lock as we are using shared buffer for the string parsing
-    mutex_lock(&log_mutex);
+    kos_mutex_lock( log_mutex );
 
     // Add separator
     *(b++) = '|'; *(b++) = ' ';
@@ -117,7 +188,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
     {
         // Find the first occurence of %
         p1 = strchr( c, '%' );
-        if( !p1 )
+        if( !p1 ) 
         {
             // No more % characters -> copy rest of the string
             strcpy( b, c );
@@ -132,7 +203,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
         if( !p2 ) p2 = strchr( p1+1, '\0' );
 
         // Break the string to this point
-        memcpy( buffer2, c, p2-c );
+        kos_memcpy( buffer2, c, p2-c );
         *(buffer2+(unsigned int)(p2-c)) = '\0';
 
         switch( *(p1+1) )
@@ -140,14 +211,14 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
             // gsl_memdesc_t
             case 'M':
             {
-                gsl_memdesc_t *val = va_arg( arguments, gsl_memdesc_t *);
+                gsl_memdesc_t val = va_arg( arguments, gsl_memdesc_t );
                 // Handle string before %M
-                memcpy( b, c, p1-c );
+                kos_memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;
                 // Replace %M
-                b += sprintf( b, "[hostptr=0x%08x,gpuaddr=0x%08x,size=%u,flags=%x]", val->hostptr, val->gpuaddr, val->size, (unsigned int) val->priv );
+                b += sprintf( b, "[hostptr=0x%08x, gpuaddr=0x%08x]", val.hostptr, val.gpuaddr );
                 // Handle string after %M
-                memcpy( b, p1+2, p2-(p1+2) );
+                kos_memcpy( b, p1+2, p2-(p1+2) );
                 b += (unsigned int)p2-(unsigned int)(p1+2);
                 *b = '\0';
             }
@@ -157,23 +228,16 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
             case 'B':
             {
                 int val = va_arg( arguments, int );
-		char *s;
                 // Handle string before %B
-                memcpy( b, c, p1-c );
+                kos_memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;
                 // Replace %B
-		switch (val) {
-			case GSL_SUCCESS:
-				s = "GSL_SUCCESS";
-				break;
-			case GSL_FAILURE:
-			default:
-				s = "GSL_FAILURE";
-				break;
-		}
-		b += sprintf( b, "%s", s );
+                if( val == GSL_SUCCESS )
+                    b += sprintf( b, "%s", "GSL_SUCCESS" );
+                else
+                    b += sprintf( b, "%s", "GSL_FAILURE" );
                 // Handle string after %B
-                memcpy( b, p1+2, p2-(p1+2) );
+                kos_memcpy( b, p1+2, p2-(p1+2) );
                 b += (unsigned int)p2-(unsigned int)(p1+2);
                 *b = '\0';
             }
@@ -184,7 +248,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
             {
                 gsl_deviceid_t val = va_arg( arguments, gsl_deviceid_t );
                 // Handle string before %D
-                memcpy( b, c, p1-c );
+                kos_memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;
                 // Replace %D
                 switch( val )
@@ -203,18 +267,18 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
                     break;
                 }
                 // Handle string after %D
-                memcpy( b, p1+2, p2-(p1+2) );
+                kos_memcpy( b, p1+2, p2-(p1+2) );
                 b += (unsigned int)p2-(unsigned int)(p1+2);
                 *b = '\0';
             }
             break;
-
+            
             // gsl_intrid_t
             case 'I':
             {
                 unsigned int val = va_arg( arguments, unsigned int );
                 // Handle string before %I
-                memcpy( b, c, p1-c );
+                kos_memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;
                 // Replace %I
                 switch( val )
@@ -253,7 +317,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
                     break;
                 }
                 // Handle string after %I
-                memcpy( b, p1+2, p2-(p1+2) );
+                kos_memcpy( b, p1+2, p2-(p1+2) );
                 b += (unsigned int)p2-(unsigned int)(p1+2);
                 *b = '\0';
             }
@@ -263,9 +327,9 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
             case 'R':
             {
                 unsigned int val = va_arg( arguments, unsigned int );
-
+                
                 // Handle string before %R
-                memcpy( b, c, p1-c );
+                kos_memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;
                 // Replace %R
                 switch( val )
@@ -446,67 +510,12 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
                     break;
                 }
                 // Handle string after %R
-                memcpy( b, p1+2, p2-(p1+2) );
+                kos_memcpy( b, p1+2, p2-(p1+2) );
                 b += (unsigned int)p2-(unsigned int)(p1+2);
                 *b = '\0';
             }
             break;
 
-	    // gsl_scatterlist_t
-	    case 'S':
-	    {
-		gsl_scatterlist_t *val = va_arg(arguments, gsl_scatterlist_t *);
-		// handle string before %S
-                memcpy( b, c, p1-c );
-                b += (unsigned int)p1-(unsigned int)c;
-                // Replace %S
-                b += sprintf( b, "[contiguous=%d,num=%u]",val->contiguous,val->num);
-                // Handle string after %S
-                memcpy( b, p1+2, p2-(p1+2) );
-                b += (unsigned int)p2-(unsigned int)(p1+2);
-                *b = '\0';
-	    }
-	    break;
-
-	    // gsl_property_type_t
-	    case 'T':
-	    {
-		char *prop;
-		gsl_property_type_t val = va_arg(arguments, gsl_property_type_t);
-		// handle string before %T
-                memcpy( b, c, p1-c );
-                b += (unsigned int)p1-(unsigned int)c;
-                // Replace %T
-		switch (val) {
-			case GSL_PROP_DEVICE_INFO:
-				prop = "GSL_PROP_DEVICE_INFO";
-			break;
-			case GSL_PROP_DEVICE_SHADOW:
-				prop = "GSL_PROP_DEVICE_SHADOW";
-			break;
-			case GSL_PROP_DEVICE_POWER:
-				prop = "GSL_PROP_DEVICE_POWER";
-			break;
-			case GSL_PROP_SHMEM:
-				prop = "GSL_PROP_SHMEM";
-			break;
-			case GSL_PROP_SHMEM_APERTURES:
-				prop = "GSL_PROP_SHMEM_APERTURES";
-			break;
-			case GSL_PROP_DEVICE_DMI:
-				prop = "GSL_PROP_DEVICE_DMI";
-			break;
-			default:
-				prop = "????????";
-			break;
-		}
-                b += sprintf( b, "%s",prop);
-                // Handle string after %T
-                memcpy( b, p1+2, p2-(p1+2) );
-                b += (unsigned int)p2-(unsigned int)(p1+2);
-                *b = '\0';
-	    }
-	    break;
 
             default:
             {
@@ -516,6 +525,7 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
             }
             break;
         }
+        
 
         c = p2;
     }
@@ -528,7 +538,14 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
         // Filter according to the flags
         if( ( output->flags & log_flags ) == log_flags )
         {
-		/*
+            // Passed the filter. Now commit this message.
+            switch( output->type )
+            {
+                case KGSL_OUTPUT_TYPE_MEMBUF:
+                    // TODO
+                break;
+
+                case KGSL_OUTPUT_TYPE_STDOUT:
                     // Write timestamp if enabled
                     if( output->flags & KGSL_LOG_TIMESTAMP )
                         printf( "[Timestamp: %d] ", kos_timestamp() );
@@ -538,17 +555,34 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
                     // Write thread id if enabled
                     if( output->flags & KGSL_LOG_THREAD_ID )
                         printf( "[Thread ID: %d] ", kos_thread_getid() );
-		*/
-		// Write the message
-		printk( buffer );
-        }
 
+                    // Write the message
+                    printf( buffer );
+                break;
+                
+                case KGSL_OUTPUT_TYPE_FILE:
+                    // Write timestamp if enabled
+                    if( output->flags & KGSL_LOG_TIMESTAMP )
+                        kos_fprintf( output->file, "[Timestamp: %d] ", kos_timestamp() );
+                    // Write process id if enabled
+                    if( output->flags & KGSL_LOG_PROCESS_ID )
+                        kos_fprintf( output->file, "[Process ID: %d] ", kos_process_getid() );
+                    // Write thread id if enabled
+                    if( output->flags & KGSL_LOG_THREAD_ID )
+                        kos_fprintf( output->file, "[Thread ID: %d] ", kos_thread_getid() );
+
+                    // Write the message
+                    kos_fprintf( output->file, buffer );
+                break;
+            }
+        }
+            
         output = output->next;
     }
 
     va_end( arguments );
 
-    mutex_unlock(&log_mutex );
+    kos_mutex_unlock( log_mutex );
 
     return GSL_SUCCESS;
 }

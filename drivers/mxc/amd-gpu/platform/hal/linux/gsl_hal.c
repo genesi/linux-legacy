@@ -36,9 +36,9 @@
 
 #define GSL_HAL_MEM1                        0
 #define GSL_HAL_MEM2                        1
-//#define GSL_HAL_MEM3                        2
+#define GSL_HAL_MEM3                        2
 
-#define GSL_HAL_DEBUG
+/* #define GSL_HAL_DEBUG */
 
 extern phys_addr_t gpu_2d_regbase;
 extern int gpu_2d_regsize;
@@ -90,25 +90,20 @@ KGSLHAL_API int
 kgsl_hal_init(void)
 {
     gsl_hal_t *hal;
-    unsigned long res_size;
+    unsigned long totalsize, mem1size;
     unsigned int va, pa;
-
-    if (!gpu_reserved_mem || !gpu_reserved_mem_size) {
-	printk(KERN_ERR "%s: no GPU reserved memory! Cannot continue!\n", __func__);
-	return GSL_FAILURE_SYSTEMERROR;
-    }
 
     if (gsl_driver.hal) {
 	return GSL_FAILURE_ALREADYINITIALIZED;
     }
 
-    gsl_driver.hal = (void *)kmalloc(sizeof(gsl_hal_t), GFP_KERNEL);
+    gsl_driver.hal = (void *)kos_malloc(sizeof(gsl_hal_t));
 
     if (!gsl_driver.hal) {
 	return GSL_FAILURE_OUTOFMEM;
     }
 
-    memset(gsl_driver.hal, 0, sizeof(gsl_hal_t));
+    kos_memset(gsl_driver.hal, 0, sizeof(gsl_hal_t));
 
 
     /* overlay structure on hal memory */
@@ -162,66 +157,96 @@ kgsl_hal_init(void)
     }
 
     if (gsl_driver.enable_mmu) {
-	printk(KERN_INFO "GPU MMU enabled\n");
-	pa = gpu_reserved_mem;
-	va = (unsigned int)ioremap_wc(gpu_reserved_mem, gpu_reserved_mem_size);
-	res_size = gpu_reserved_mem_size;
-   } else {
-	printk(KERN_INFO "GPU MMU disabled\n");
-	pa = gpu_reserved_mem;
-	va = (unsigned int)ioremap(gpu_reserved_mem, gpu_reserved_mem_size);
-	res_size = gpu_reserved_mem_size - GSL_HAL_SHMEM_SIZE_EMEM_NOMMU;
+	printk(KERN_INFO "gpu mmu enabled\n");
+	totalsize = GSL_HAL_SHMEM_SIZE_EMEM2_MMU + GSL_HAL_SHMEM_SIZE_PHYS_MMU;
+	mem1size = GSL_HAL_SHMEM_SIZE_EMEM1_MMU;
+	if (gpu_reserved_mem && gpu_reserved_mem_size >= totalsize) {
+	    pa = gpu_reserved_mem;
+	    va = (unsigned int)ioremap(gpu_reserved_mem, totalsize);
+	} else {
+	    va = (unsigned int)dma_alloc_coherent(0, totalsize, (dma_addr_t *)&pa, GFP_DMA | GFP_KERNEL);
+	}
+    } else {
+	printk(KERN_INFO "gpu mmu disabled\n");
+	if (gpu_reserved_mem && gpu_reserved_mem_size >= SZ_8M) {
+	    totalsize = gpu_reserved_mem_size;
+	    pa = gpu_reserved_mem;
+	    va = (unsigned int)ioremap(gpu_reserved_mem, gpu_reserved_mem_size);
+	} else {
+	    gpu_reserved_mem = 0;
+	    totalsize = GSL_HAL_SHMEM_SIZE_EMEM1_NOMMU + GSL_HAL_SHMEM_SIZE_EMEM2_NOMMU + GSL_HAL_SHMEM_SIZE_PHYS_NOMMU;
+	    va = (unsigned int)dma_alloc_coherent(0, totalsize, (dma_addr_t *)&pa, GFP_DMA | GFP_KERNEL);
+	}
+	mem1size = totalsize - (GSL_HAL_SHMEM_SIZE_EMEM2_NOMMU + GSL_HAL_SHMEM_SIZE_PHYS_NOMMU);
     }
 
     if (va) {
-	memset((void *)va, 0, res_size);
+	kos_memset((void *)va, 0, totalsize);
 
-	/* set up a "memchunk" so we know what we can iounmap on exit */
 	hal->memchunk.mmio_virt_base = (void *)va;
 	hal->memchunk.mmio_phys_base = pa;
-	hal->memchunk.sizebytes      = gpu_reserved_mem_size;
+	hal->memchunk.sizebytes      = totalsize;
 
 #ifdef GSL_HAL_DEBUG
-	printk(KERN_INFO "Reserved memory: pa = 0x%p va = 0x%p size = 0x%08x\n",
-				(void *)hal->memchunk.mmio_phys_base,
-				(void *)hal->memchunk.mmio_virt_base,
-					hal->memchunk.sizebytes);
+	printk(KERN_INFO "%s: hal->memchunk.mmio_phys_base = 0x%p\n", __func__, (void *)hal->memchunk.mmio_phys_base);
+	printk(KERN_INFO "%s: hal->memchunk.mmio_virt_base = 0x%p\n", __func__, (void *)hal->memchunk.mmio_virt_base);
+	printk(KERN_INFO "%s: hal->memchunk.sizebytes      = 0x%08x\n", __func__, hal->memchunk.sizebytes);
 #endif
 
 	hal->memspace[GSL_HAL_MEM2].mmio_virt_base = (void *) va;
 	hal->memspace[GSL_HAL_MEM2].gpu_base       = pa;
-	hal->memspace[GSL_HAL_MEM2].sizebytes      = res_size;
-	va += res_size;
-	pa += res_size;
+	if (gsl_driver.enable_mmu) {
+	    hal->memspace[GSL_HAL_MEM2].sizebytes  = GSL_HAL_SHMEM_SIZE_EMEM2_MMU;
+	    va += GSL_HAL_SHMEM_SIZE_EMEM2_MMU;
+	    pa += GSL_HAL_SHMEM_SIZE_EMEM2_MMU;
+	} else {
+	    hal->memspace[GSL_HAL_MEM2].sizebytes  = GSL_HAL_SHMEM_SIZE_EMEM2_NOMMU;
+	    va += GSL_HAL_SHMEM_SIZE_EMEM2_NOMMU;
+	    pa += GSL_HAL_SHMEM_SIZE_EMEM2_NOMMU;
+	}
 
 #ifdef GSL_HAL_DEBUG
-	printk(KERN_INFO "GSL_HAL_MEM2 aperture (PHYS) pa = 0x%p va = 0x%p size = 0x%08x\n",
-								(void *)hal->memspace[GSL_HAL_MEM2].gpu_base,
-								(void *)hal->memspace[GSL_HAL_MEM2].mmio_virt_base,
-								hal->memspace[GSL_HAL_MEM2].sizebytes
-								);
+	printk(KERN_INFO "%s: hal->memspace[GSL_HAL_MEM2].gpu_base       = 0x%p\n", __func__, (void *)hal->memspace[GSL_HAL_MEM2].gpu_base);
+	printk(KERN_INFO "%s: hal->memspace[GSL_HAL_MEM2].mmio_virt_base = 0x%p\n", __func__, (void *)hal->memspace[GSL_HAL_MEM2].mmio_virt_base);
+	printk(KERN_INFO "%s: hal->memspace[GSL_HAL_MEM2].sizebytes      = 0x%08x\n", __func__, hal->memspace[GSL_HAL_MEM2].sizebytes);
+#endif
+
+	hal->memspace[GSL_HAL_MEM3].mmio_virt_base  = (void *) va;
+	hal->memspace[GSL_HAL_MEM3].gpu_base        = pa;
+	if (gsl_driver.enable_mmu) {
+	    hal->memspace[GSL_HAL_MEM3].sizebytes   = GSL_HAL_SHMEM_SIZE_PHYS_MMU;
+	    va += GSL_HAL_SHMEM_SIZE_PHYS_MMU;
+	    pa += GSL_HAL_SHMEM_SIZE_PHYS_MMU;
+	} else {
+	    hal->memspace[GSL_HAL_MEM3].sizebytes   = GSL_HAL_SHMEM_SIZE_PHYS_NOMMU;
+	    va += GSL_HAL_SHMEM_SIZE_PHYS_NOMMU;
+	    pa += GSL_HAL_SHMEM_SIZE_PHYS_NOMMU;
+	}
+
+#ifdef GSL_HAL_DEBUG
+	printk(KERN_INFO "%s: hal->memspace[GSL_HAL_MEM3].gpu_base       = 0x%p\n", __func__, (void *)hal->memspace[GSL_HAL_MEM3].gpu_base);
+	printk(KERN_INFO "%s: hal->memspace[GSL_HAL_MEM3].mmio_virt_base = 0x%p\n", __func__, (void *)hal->memspace[GSL_HAL_MEM3].mmio_virt_base);
+	printk(KERN_INFO "%s: hal->memspace[GSL_HAL_MEM3].sizebytes      = 0x%08x\n", __func__, hal->memspace[GSL_HAL_MEM3].sizebytes);
 #endif
 
 	if (gsl_driver.enable_mmu) {
 	    gsl_linux_map_init();
 	    hal->memspace[GSL_HAL_MEM1].mmio_virt_base = (void *)GSL_LINUX_MAP_RANGE_START;
 	    hal->memspace[GSL_HAL_MEM1].gpu_base       = GSL_LINUX_MAP_RANGE_START;
-	    hal->memspace[GSL_HAL_MEM1].sizebytes      = GSL_HAL_SHMEM_SIZE_EMEM_MMU;
+	    hal->memspace[GSL_HAL_MEM1].sizebytes      = mem1size;
 	} else {
 	    hal->memspace[GSL_HAL_MEM1].mmio_virt_base = (void *) va;
 	    hal->memspace[GSL_HAL_MEM1].gpu_base       = pa;
-	    hal->memspace[GSL_HAL_MEM1].sizebytes	= GSL_HAL_SHMEM_SIZE_EMEM_NOMMU;
+	    hal->memspace[GSL_HAL_MEM1].sizebytes      = mem1size;
 	}
 
 #ifdef GSL_HAL_DEBUG
-	printk(KERN_INFO "GSL_HAL_MEM1 aperture (%s) pa = 0x%p va = 0x%p size = 0x%08x\n",
-								gsl_driver.enable_mmu ? "MMU" : "EMEM",
-								(void *)hal->memspace[GSL_HAL_MEM1].gpu_base,
-								(void *)hal->memspace[GSL_HAL_MEM1].mmio_virt_base,
-								hal->memspace[GSL_HAL_MEM1].sizebytes
-								);
+	printk(KERN_INFO "%s: hal->memspace[GSL_HAL_MEM1].gpu_base       = 0x%p\n", __func__, (void *)hal->memspace[GSL_HAL_MEM1].gpu_base);
+	printk(KERN_INFO "%s: hal->memspace[GSL_HAL_MEM1].mmio_virt_base = 0x%p\n", __func__, (void *)hal->memspace[GSL_HAL_MEM1].mmio_virt_base);
+	printk(KERN_INFO "%s: hal->memspace[GSL_HAL_MEM1].sizebytes      = 0x%08x\n", __func__, hal->memspace[GSL_HAL_MEM1].sizebytes);
 #endif
     } else {
+	kgsl_hal_close();
 	return GSL_FAILURE_SYSTEMERROR;
     }
 
@@ -234,7 +259,6 @@ KGSLHAL_API int
 kgsl_hal_close(void)
 {
     gsl_hal_t  *hal;
-    printk(KERN_INFO "kgsl_hal_close\n");
 
     if (gsl_driver.hal) {
 	/* overlay structure on hal memory */
@@ -261,8 +285,8 @@ kgsl_hal_close(void)
 	}
 
 	/* release hal struct */
-	memset(hal, 0, sizeof(gsl_hal_t));
-	kfree(gsl_driver.hal);
+	kos_memset(hal, 0, sizeof(gsl_hal_t));
+	kos_free(gsl_driver.hal);
 	gsl_driver.hal = NULL;
     }
 
@@ -277,7 +301,7 @@ kgsl_hal_getshmemconfig(gsl_shmemconfig_t *config)
     int        status = GSL_FAILURE_DEVICEERROR;
     gsl_hal_t  *hal   = (gsl_hal_t *) gsl_driver.hal;
 
-    memset(config, 0, sizeof(gsl_shmemconfig_t));
+    kos_memset(config, 0, sizeof(gsl_shmemconfig_t));
 
     if (hal) {
 	config->numapertures = GSL_SHMEM_MAX_APERTURES;
@@ -292,11 +316,17 @@ kgsl_hal_getshmemconfig(gsl_shmemconfig_t *config)
 	config->apertures[0].gpubase   = hal->memspace[GSL_HAL_MEM1].gpu_base;
 	config->apertures[0].sizebytes = hal->memspace[GSL_HAL_MEM1].sizebytes;
 
-	config->apertures[1].id        = GSL_APERTURE_PHYS;
-	config->apertures[1].channel   = GSL_CHANNEL_1;
+	config->apertures[1].id        = GSL_APERTURE_EMEM;
+	config->apertures[1].channel   = GSL_CHANNEL_2;
 	config->apertures[1].hostbase  = (unsigned int)hal->memspace[GSL_HAL_MEM2].mmio_virt_base;
 	config->apertures[1].gpubase   = hal->memspace[GSL_HAL_MEM2].gpu_base;
 	config->apertures[1].sizebytes = hal->memspace[GSL_HAL_MEM2].sizebytes;
+
+	config->apertures[2].id        = GSL_APERTURE_PHYS;
+	config->apertures[2].channel   = GSL_CHANNEL_1;
+	config->apertures[2].hostbase  = (unsigned int)hal->memspace[GSL_HAL_MEM3].mmio_virt_base;
+	config->apertures[2].gpubase   = hal->memspace[GSL_HAL_MEM3].gpu_base;
+	config->apertures[2].sizebytes = hal->memspace[GSL_HAL_MEM3].sizebytes;
 
 	status = GSL_SUCCESS;
     }
@@ -312,7 +342,7 @@ kgsl_hal_getdevconfig(gsl_deviceid_t device_id, gsl_devconfig_t *config)
     int        status = GSL_FAILURE_DEVICEERROR;
     gsl_hal_t  *hal   = (gsl_hal_t *) gsl_driver.hal;
 
-    memset(config, 0, sizeof(gsl_devconfig_t));
+    kos_memset(config, 0, sizeof(gsl_devconfig_t));
 
     if (hal) {
 	switch (device_id) {
@@ -434,10 +464,6 @@ kgsl_hal_getchipid(gsl_deviceid_t device_id)
 	patchid = ((revid >> 16) & 0xFF);
 
 	chipid = ((coreid << 24) | (majorid << 16) | (minorid << 8) | (patchid << 0));
-
-#ifdef GSL_HAL_DEBUG
-	printk(KERN_INFO "Z430 found: core %u major %u minor %u patch %u (chipid 0x%08x)\n", coreid, majorid, minorid, patchid, chipid);
-#endif
     }
 
     return chipid;

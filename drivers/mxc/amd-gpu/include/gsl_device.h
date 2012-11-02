@@ -29,8 +29,10 @@
 #ifndef __GSL_DEVICE_H
 #define __GSL_DEVICE_H
 
+#ifdef _LINUX
 #include <linux/wait.h>
 #include <linux/workqueue.h>
+#endif
 
 //////////////////////////////////////////////////////////////////////////////
 //  types
@@ -40,76 +42,96 @@
 // function table
 // --------------
 typedef struct _gsl_functable_t {
-	int (*device_init)            (gsl_device_t *device);
-	int (*device_close)           (gsl_device_t *device);
-	int (*device_destroy)         (gsl_device_t *device);
-	int (*device_start)           (gsl_device_t *device, gsl_flags_t flags);
-	int (*device_stop)            (gsl_device_t *device);
-	int (*device_getproperty)     (gsl_device_t *device, gsl_property_type_t type, void *value, unsigned int sizebytes);
-	int (*device_setproperty)     (gsl_device_t *device, gsl_property_type_t type, void *value, unsigned int sizebytes);
-	int (*device_idle)            (gsl_device_t *device, unsigned int timeout);
-	int (*device_regread)         (gsl_device_t *device, unsigned int offsetwords, unsigned int *value);
-	int (*device_regwrite)        (gsl_device_t *device, unsigned int offsetwords, unsigned int value);
-	int (*device_waitirq)         (gsl_device_t *device, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout);
+    int (*device_init)            (gsl_device_t *device);
+    int (*device_close)           (gsl_device_t *device);
+    int (*device_destroy)         (gsl_device_t *device);
+    int (*device_start)           (gsl_device_t *device, gsl_flags_t flags);
+    int (*device_stop)            (gsl_device_t *device);
+    int (*device_getproperty)     (gsl_device_t *device, gsl_property_type_t type, void *value, unsigned int sizebytes);
+    int (*device_setproperty)     (gsl_device_t *device, gsl_property_type_t type, void *value, unsigned int sizebytes);
+    int (*device_idle)            (gsl_device_t *device, unsigned int timeout);
+    int (*device_regread)         (gsl_device_t *device, unsigned int offsetwords, unsigned int *value);
+    int (*device_regwrite)        (gsl_device_t *device, unsigned int offsetwords, unsigned int value);
+    int (*device_waitirq)         (gsl_device_t *device, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout);
 	int (*device_waittimestamp)   (gsl_device_t *device, gsl_timestamp_t timestamp, unsigned int timeout);
-	int (*device_runpending)      (gsl_device_t *device);
-	int (*device_addtimestamp)    (gsl_device_t *device_id, gsl_timestamp_t *timestamp);
-	int (*intr_isr)               (gsl_device_t *device);
+    int (*device_runpending)      (gsl_device_t *device);
+    int (*device_addtimestamp)    (gsl_device_t *device_id, gsl_timestamp_t *timestamp);
+    int (*intr_isr)               (gsl_device_t *device);
 	int (*mmu_tlbinvalidate)      (gsl_device_t *device, unsigned int reg_invalidate, unsigned int pid);
 	int (*mmu_setpagetable)       (gsl_device_t *device, unsigned int reg_ptbase, gpuaddr_t ptbase, unsigned int pid);
-	int (*cmdstream_issueibcmds)  (gsl_device_t *device, int drawctxt_index, gpuaddr_t ibaddr, int sizedwords, gsl_timestamp_t *timestamp, gsl_flags_t flags);
-	int (*context_create)         (gsl_device_t *device, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags);
-	int (*context_destroy)        (gsl_device_t *device_id, unsigned int drawctxt_id);
+    int (*cmdstream_issueibcmds)  (gsl_device_t *device, int drawctxt_index, gpuaddr_t ibaddr, int sizedwords, gsl_timestamp_t *timestamp, gsl_flags_t flags);
+    int (*context_create)         (gsl_device_t *device, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags);
+    int (*context_destroy)        (gsl_device_t *device_id, unsigned int drawctxt_id);
 } gsl_functable_t;
 
-// device object
+// -------------
+// device object 
+// -------------
 struct _gsl_device_t {
-	unsigned int      refcnt;
-	unsigned int      callerprocess[GSL_CALLER_PROCESS_MAX];    // caller process table
-	gsl_functable_t   ftbl;
-	gsl_flags_t       flags;
-	gsl_deviceid_t    id;
-	unsigned int      chip_id;
-	gsl_memregion_t   regspace;
-	gsl_intr_t        intr;
-	gsl_memdesc_t     memstore;
-	gsl_memqueue_t    memqueue; // queue of memfrees pending timestamp elapse
+
+    unsigned int      refcnt;
+    unsigned int      callerprocess[GSL_CALLER_PROCESS_MAX];    // caller process table
+    gsl_functable_t   ftbl;
+    gsl_flags_t       flags;
+    gsl_deviceid_t    id;
+    unsigned int      chip_id;
+    gsl_memregion_t   regspace;
+    gsl_intr_t        intr;
+    gsl_memdesc_t     memstore;
+    gsl_memqueue_t    memqueue; // queue of memfrees pending timestamp elapse 
 
 #ifdef  GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
-	unsigned int      memstoreshadow[GSL_CALLER_PROCESS_MAX];
+    unsigned int      memstoreshadow[GSL_CALLER_PROCESS_MAX];
 #endif // GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
 
 #ifndef GSL_NO_MMU
-	gsl_mmu_t         mmu;
+    gsl_mmu_t         mmu;
 #endif // GSL_NO_MMU
 
 #ifdef GSL_BLD_YAMATO
-	gsl_memregion_t   gmemspace;
-	gsl_ringbuffer_t  ringbuffer;
-	unsigned int      drawctxt_count;
-	gsl_drawctxt_t    *drawctxt_active;
-	gsl_drawctxt_t    drawctxt[GSL_CONTEXT_MAX];
+    gsl_memregion_t   gmemspace;
+    gsl_ringbuffer_t  ringbuffer;
+#ifdef GSL_LOCKING_FINEGRAIN
+    oshandle_t        drawctxt_mutex;
+#endif
+    unsigned int      drawctxt_count;
+    gsl_drawctxt_t    *drawctxt_active;
+    gsl_drawctxt_t    drawctxt[GSL_CONTEXT_MAX];
 #endif // GSL_BLD_YAMATO
 
 #ifdef GSL_BLD_G12
-	unsigned int		intrcnt[GSL_G12_INTR_COUNT];
-	gsl_timestamp_t		current_timestamp;
-	gsl_timestamp_t		timestamp;
+#ifdef GSL_LOCKING_FINEGRAIN
+    oshandle_t        cmdwindow_mutex;
+#endif
+    unsigned int      intrcnt[GSL_G12_INTR_COUNT];
+    gsl_timestamp_t   current_timestamp;
+    gsl_timestamp_t   timestamp;
+#ifndef _LINUX	
+    unsigned int      irq_thread;
+    oshandle_t        irq_thread_handle;
+#endif
 #ifdef IRQTHREAD_POLL
-	struct completion	irqthread_event;
+    oshandle_t        irqthread_event;
 #endif
 #endif // GSL_BLD_G12
-
+#ifdef GSL_LOCKING_FINEGRAIN
+    oshandle_t        cmdstream_mutex;
+#endif
+#ifndef _LINUX	
+    oshandle_t        timestamp_event;
+#else
 	wait_queue_head_t timestamp_waitq;
 	struct workqueue_struct	*irq_workq;
-	struct work_struct irq_work;
+	struct work_struct irq_work;	
 	struct work_struct irq_err_work;
-
-	void              *autogate;
+#endif
+    void              *autogate;
 };
 
 
+//////////////////////////////////////////////////////////////////////////////
 //  prototypes
+//////////////////////////////////////////////////////////////////////////////
 int     kgsl_device_init(gsl_device_t *device, gsl_deviceid_t device_id);
 int     kgsl_device_close(gsl_device_t *device);
 int     kgsl_device_destroy(gsl_device_t *device);

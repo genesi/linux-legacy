@@ -15,10 +15,7 @@
  * 02110-1301, USA.
  *
  */
-
-#include <linux/slab.h>
-#include <linux/string.h>
-
+ 
 #include "gsl.h"
 
 //////////////////////////////////////////////////////////////////////////////
@@ -31,18 +28,18 @@
 // functions
 //////////////////////////////////////////////////////////////////////////////
 
-static const gsl_intrblock_reg_t *
+static const gsl_intrblock_reg_t * 
 kgsl_intr_id2block(gsl_intrid_t id)
 {
     const gsl_intrblock_reg_t  *block;
     int                        i;
 
     // interrupt id to hw block
-    for (i = 0; i < GSL_INTR_BLOCK_COUNT; i++)
+    for (i = 0; i < GSL_INTR_BLOCK_COUNT; i++) 
     {
         block = &gsl_cfg_intrblock_reg[i];
 
-        if (block->first_id <= id && id <= block->last_id)
+        if (block->first_id <= id && id <= block->last_id) 
         {
             return (block);
         }
@@ -75,7 +72,7 @@ kgsl_intr_decode(gsl_device_t *device, gsl_intrblock_t block_id)
     device->ftbl.device_regwrite(device, block->clear_reg, status);
 
     // loop through the block's masks, determine which interrupt bits are active, and call callback (or TODO queue DPC)
-    for (id = block->first_id; id <= block->last_id; id++)
+    for (id = block->first_id; id <= block->last_id; id++) 
     {
         if (status & gsl_cfg_intr_mask[id])
         {
@@ -86,7 +83,7 @@ kgsl_intr_decode(gsl_device_t *device, gsl_intrblock_t block_id)
 
 //----------------------------------------------------------------------------
 
-void
+KGSL_API void
 kgsl_intr_isr(gsl_device_t *device)
 {
     if (device->intr.flags & GSL_FLAGS_INITIALIZED) {
@@ -128,14 +125,14 @@ int kgsl_intr_close(gsl_device_t *device)
     if (device->intr.flags & GSL_FLAGS_INITIALIZED)
     {
         // check if there are any enabled interrupts lingering around
-        for (i = 0; i < GSL_INTR_BLOCK_COUNT; i++)
+        for (i = 0; i < GSL_INTR_BLOCK_COUNT; i++) 
         {
-            if (device->intr.enabled[i])
+            if (device->intr.enabled[i]) 
             {
                 block = &gsl_cfg_intrblock_reg[i];
 
                 // loop through the block's masks, disable interrupts which active
-                for (id = block->first_id; id <= block->last_id; id++)
+                for (id = block->first_id; id <= block->last_id; id++) 
                 {
                     if (device->intr.enabled[i] & gsl_cfg_intr_mask[id])
                     {
@@ -145,7 +142,7 @@ int kgsl_intr_close(gsl_device_t *device)
             }
         }
 
-        memset(&device->intr, 0, sizeof(gsl_intr_t));
+        kos_memset(&device->intr, 0, sizeof(gsl_intr_t));
     }
 
     return (GSL_SUCCESS);
@@ -159,18 +156,18 @@ int kgsl_intr_enable(gsl_intr_t *intr, gsl_intrid_t id)
     unsigned int               mask;
     unsigned int               enabled;
 
-    if (GSL_INTRID_VALIDATE(id))
+    if (GSL_INTRID_VALIDATE(id)) 
     {
         return (GSL_FAILURE_BADPARAM);
     }
 
-    if (intr->handler[id].callback == NULL)
+    if (intr->handler[id].callback == NULL) 
     {
         return (GSL_FAILURE_NOTINITIALIZED);
     }
 
     block = kgsl_intr_id2block(id);
-    if (block == NULL)
+    if (block == NULL) 
     {
         return (GSL_FAILURE_SYSTEMERROR);
     }
@@ -180,7 +177,7 @@ int kgsl_intr_enable(gsl_intr_t *intr, gsl_intrid_t id)
 
     if (mask && !(enabled & mask))
     {
-	init_completion(&intr->evnt[id]);
+        intr->evnt[id] = kos_event_create(0);
 
         enabled                 |= mask;
         intr->enabled[block->id] = enabled;
@@ -203,13 +200,13 @@ int kgsl_intr_disable(gsl_intr_t *intr, gsl_intrid_t id)
         return (GSL_FAILURE_BADPARAM);
     }
 
-    if (intr->handler[id].callback == NULL)
+    if (intr->handler[id].callback == NULL) 
     {
         return (GSL_FAILURE_NOTINITIALIZED);
     }
 
     block = kgsl_intr_id2block(id);
-    if (block == NULL)
+    if (block == NULL) 
     {
         return (GSL_FAILURE_SYSTEMERROR);
     }
@@ -217,13 +214,15 @@ int kgsl_intr_disable(gsl_intr_t *intr, gsl_intrid_t id)
     mask    = gsl_cfg_intr_mask[id];
     enabled = intr->enabled[block->id];
 
-    if (enabled & mask)
+    if (enabled & mask) 
     {
         enabled                 &= ~mask;
         intr->enabled[block->id] = enabled;
         intr->device->ftbl.device_regwrite(intr->device, block->mask_reg, enabled);
 
-        complete_all(&intr->evnt[id]); // wake up waiting threads before destroying the event
+        kos_event_signal(intr->evnt[id]); // wake up waiting threads before destroying the event
+        kos_event_destroy(intr->evnt[id]);
+        intr->evnt[id] = 0;
     }
 
     return (GSL_SUCCESS);
@@ -234,18 +233,18 @@ int kgsl_intr_disable(gsl_intr_t *intr, gsl_intrid_t id)
 int
 kgsl_intr_attach(gsl_intr_t *intr, gsl_intrid_t id, gsl_intr_callback_t callback, void *cookie)
 {
-    if (GSL_INTRID_VALIDATE(id) || callback == NULL)
+    if (GSL_INTRID_VALIDATE(id) || callback == NULL) 
     {
         return (GSL_FAILURE_BADPARAM);
     }
 
-    if (intr->handler[id].callback != NULL)
+    if (intr->handler[id].callback != NULL) 
     {
-        if (intr->handler[id].callback == callback && intr->handler[id].cookie == cookie)
+        if (intr->handler[id].callback == callback && intr->handler[id].cookie == cookie) 
         {
             return (GSL_FAILURE_ALREADYINITIALIZED);
-        }
-        else
+        } 
+        else 
         {
             return (GSL_FAILURE_NOMOREAVAILABLE);
         }
@@ -262,12 +261,12 @@ kgsl_intr_attach(gsl_intr_t *intr, gsl_intrid_t id, gsl_intr_callback_t callback
 int
 kgsl_intr_detach(gsl_intr_t *intr, gsl_intrid_t id)
 {
-    if (GSL_INTRID_VALIDATE(id))
+    if (GSL_INTRID_VALIDATE(id)) 
     {
         return (GSL_FAILURE_BADPARAM);
     }
 
-    if (intr->handler[id].callback == NULL)
+    if (intr->handler[id].callback == NULL) 
     {
         return (GSL_FAILURE_NOTINITIALIZED);
     }

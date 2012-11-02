@@ -30,8 +30,6 @@
 #define __GSL_MEMMGR_H
 
 
-#include <linux/mutex.h>
-
 //////////////////////////////////////////////////////////////////////////////
 // defines
 //////////////////////////////////////////////////////////////////////////////
@@ -50,13 +48,13 @@
 // memory arena stats
 // ------------------
 typedef struct _gsl_memarena_stats_t {
-    __s64  bytes_read;
-    __s64  bytes_written;
-    __s64  allocs_success;
-    __s64  allocs_fail;
-    __s64  frees;
-    __s64  allocs_pagedistribution[GSL_MEMARENA_PAGE_DIST_MAX]; // 0=0--(4K-1), 1=4--(8K-1), 2=8--(16K-1),... max-1=(GSL_PAGESIZE<<(max-1))--infinity
-    __s64  frees_pagedistribution[GSL_MEMARENA_PAGE_DIST_MAX];
+    __int64  bytes_read;
+    __int64  bytes_written;
+    __int64  allocs_success;
+    __int64  allocs_fail;
+    __int64  frees;
+    __int64  allocs_pagedistribution[GSL_MEMARENA_PAGE_DIST_MAX]; // 0=0--(4K-1), 1=4--(8K-1), 2=8--(16K-1),... max-1=(GSL_PAGESIZE<<(max-1))--infinity
+    __int64  frees_pagedistribution[GSL_MEMARENA_PAGE_DIST_MAX];
 } gsl_memarena_stats_t;
 
 // ------------
@@ -93,7 +91,7 @@ typedef struct _gsl_nodepool_t {
 // memory arena object
 // -------------------
 typedef struct _gsl_memarena_t {
-    struct mutex    lock;
+    oshandle_t      mutex;
     unsigned int    gpubaseaddr;
     unsigned int    hostbaseaddr;
     unsigned int    sizebytes;

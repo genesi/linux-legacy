@@ -34,6 +34,9 @@
 #endif
 
 #if defined(_YDX14)
+#if defined(_WIN32) && !defined(__SYMBIAN32__)
+#pragma message("YDX 14 header files\r\n")
+#endif
 #include "yamato/14/yamato_enum.h"
 #include "yamato/14/yamato_ipt.h"
 #include "yamato/14/yamato_mask.h"
@@ -45,6 +48,9 @@
 #define _YAMATO_GENENUM_H           "reg/yamato/14/yamato_genenum.h"
 #define _YAMATO_GENREG_H            "reg/yamato/14/yamato_genreg.h"
 #else
+#if defined(_WIN32) && !defined(__SYMBIAN32__)
+#pragma message("YDX 22 header files\r\n")
+#endif
 #include "yamato/22/yamato_enum.h"
 #include "yamato/22/yamato_ipt.h"
 #include "yamato/22/yamato_mask.h"

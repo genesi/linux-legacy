@@ -16,31 +16,56 @@
  *
  */
 
-#include <linux/sched.h>
-
 #include "gsl.h"
 #include "gsl_hal.h"
 
 #ifdef GSL_BLD_G12
 
-//  defines
+//////////////////////////////////////////////////////////////////////////////
+//  defines                    
+//////////////////////////////////////////////////////////////////////////////
 #define GSL_CMDWINDOW_TARGET_MASK       0x000000FF
 #define GSL_CMDWINDOW_ADDR_MASK         0x00FFFF00
 #define GSL_CMDWINDOW_TARGET_SHIFT      0
 #define GSL_CMDWINDOW_ADDR_SHIFT        8
 
+
+//////////////////////////////////////////////////////////////////////////////
+// macros
+//////////////////////////////////////////////////////////////////////////////
+#ifdef GSL_LOCKING_FINEGRAIN
+#define GSL_CMDWINDOW_MUTEX_CREATE()        device->cmdwindow_mutex = kos_mutex_create("gsl_cmdwindow"); \
+                                            if (!device->cmdwindow_mutex) return (GSL_FAILURE);
+#define GSL_CMDWINDOW_MUTEX_LOCK()          kos_mutex_lock(device->cmdwindow_mutex)
+#define GSL_CMDWINDOW_MUTEX_UNLOCK()        kos_mutex_unlock(device->cmdwindow_mutex)
+#define GSL_CMDWINDOW_MUTEX_FREE()          kos_mutex_free(device->cmdwindow_mutex); device->cmdwindow_mutex = 0;
+#else
+#define GSL_CMDWINDOW_MUTEX_CREATE()
+#define GSL_CMDWINDOW_MUTEX_LOCK()
+#define GSL_CMDWINDOW_MUTEX_UNLOCK()
+#define GSL_CMDWINDOW_MUTEX_FREE()
+#endif
+
+
+//////////////////////////////////////////////////////////////////////////////
 // functions
+//////////////////////////////////////////////////////////////////////////////
+
 int
 kgsl_cmdwindow_init(gsl_device_t *device)
 {
+    GSL_CMDWINDOW_MUTEX_CREATE();
+
     return (GSL_SUCCESS);
 }
 
 //----------------------------------------------------------------------------
 
-int
+int 
 kgsl_cmdwindow_close(gsl_device_t *device)
 {
+    GSL_CMDWINDOW_MUTEX_FREE();
+
     return (GSL_SUCCESS);
 }
 
@@ -57,7 +82,7 @@ kgsl_cmdwindow_write0(gsl_deviceid_t device_id, gsl_cmdwindow_t target, unsigned
     unsigned int  cmdstream;
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_cmdwindow_write( gsl_device_id_t device_id=%D, gsl_cmdwindow_t target=%d, uint addr=0x%08x, uint data=0x%08x)\n", device_id, target, addr, data );
+                    "--> int kgsl_cmdwindow_write( gsl_device_id_t device_id=%d, gsl_cmdwindow_t target=%d, unsigned int addr=0x%08x, unsigned int data=0x%08x)\n", device_id, target, addr, data );
 
     device = &gsl_driver.device[device_id-1];       // device_id is 1 based
 
@@ -94,9 +119,11 @@ kgsl_cmdwindow_write0(gsl_deviceid_t device_id, gsl_cmdwindow_t target, unsigned
     cmdwinaddr  = ((target << GSL_CMDWINDOW_TARGET_SHIFT) & GSL_CMDWINDOW_TARGET_MASK);
     cmdwinaddr |= ((addr   << GSL_CMDWINDOW_ADDR_SHIFT)   & GSL_CMDWINDOW_ADDR_MASK);
 
+    GSL_CMDWINDOW_MUTEX_LOCK();
+
 #ifndef GSL_NO_MMU
     // set mmu pagetable
-	kgsl_mmu_setpagetable(device, current->tgid);
+	kgsl_mmu_setpagetable(device, GSL_CALLER_PROCESSID_GET());
 #endif
 
     // write command window address
@@ -104,6 +131,8 @@ kgsl_cmdwindow_write0(gsl_deviceid_t device_id, gsl_cmdwindow_t target, unsigned
 
     // write data
     device->ftbl.device_regwrite(device, (cmdstream)>>2, data);
+
+    GSL_CMDWINDOW_MUTEX_UNLOCK();
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_cmdwindow_write. Return value %B\n", GSL_SUCCESS );
 
@@ -121,12 +150,12 @@ kgsl_cmdwindow_write0(gsl_deviceid_t device_id, gsl_cmdwindow_t target, unsigned
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_cmdwindow_write(gsl_deviceid_t device_id, gsl_cmdwindow_t target, unsigned int addr, unsigned int data)
 {
 	int status = GSL_SUCCESS;
-	mutex_lock(&gsl_driver.lock);
+	GSL_API_MUTEX_LOCK();
 	status = kgsl_cmdwindow_write0(device_id, target, addr, data);
-	mutex_unlock(&gsl_driver.lock);
+	GSL_API_MUTEX_UNLOCK();
 	return status;
 }

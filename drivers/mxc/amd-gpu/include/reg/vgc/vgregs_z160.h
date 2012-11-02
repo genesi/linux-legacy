@@ -30,8 +30,12 @@
 #ifndef __REGS_G4X_DRIVER_H
 #define __REGS_G4X_DRIVER_H
 
+#ifndef _LINUX
+#include <assert.h>
+#else
 #ifndef assert
 #define assert(expr)
+#endif
 #endif
 
 //-----------------------------------------------------
@@ -1045,7 +1049,7 @@ typedef struct _REG_MH_ARBITER_CONFIG {
     unsigned L1_ARB_ENABLE       : 1;
     unsigned L1_ARB_HOLD_ENABLE  : 1;
     unsigned L2_ARB_CONTROL      : 1;
-    unsigned MH_PAGE_SIZE        : 3;
+    unsigned PAGE_SIZE           : 3;
     unsigned TC_REORDER_ENABLE   : 1;
     unsigned TC_ARB_HOLD_ENABLE  : 1;
     unsigned IN_FLIGHT_LIMIT_ENABLE : 1;

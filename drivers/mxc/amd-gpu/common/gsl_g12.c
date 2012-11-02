@@ -16,12 +16,13 @@
  *
  */
 
-#include <linux/delay.h>
-#include <linux/sched.h>
-
 #include "gsl.h"
 #include "gsl_hal.h"
+#include "kos_libapi.h"
 #include "gsl_cmdstream.h"
+#ifdef _LINUX
+#include <linux/sched.h>
+#endif
 
 #ifdef CONFIG_ARCH_MX35
 #define V3_SYNC
@@ -109,6 +110,9 @@ static int kgsl_g12_context_create(gsl_device_t* device, gsl_context_type_t type
 static int kgsl_g12_context_destroy(gsl_device_t* device, unsigned int drawctxt_id);
 static unsigned int drawctx_id  = 0;
 static int kgsl_g12_idle(gsl_device_t *device, unsigned int timeout);
+#ifndef _LINUX
+static void irq_thread(void);
+#endif
 
 //----------------------------------------------------------------------------
 
@@ -121,14 +125,16 @@ kgsl_g12_intrcallback(gsl_intrid_t id, void *cookie)
     {
         // non-error condition interrupt
         case GSL_INTR_G12_G2D:
+#ifdef _LINUX
 			queue_work(device->irq_workq, &(device->irq_work));
 			break;
+#endif		
 #ifndef _Z180
         case GSL_INTR_G12_FBC:
-            // signal intr completion event
-            complete_all(&device->intr.evnt[id]);
-            break;
 #endif //_Z180
+            // signal intr completion event
+            kos_event_signal(device->intr.evnt[id]);
+            break;
 
         // error condition interrupt
         case GSL_INTR_G12_FIFO:
@@ -221,6 +227,7 @@ kgsl_g12_setpagetable(gsl_device_t *device, unsigned int reg_ptbase, gpuaddr_t p
 
 //----------------------------------------------------------------------------
 
+#ifdef _LINUX
 static void kgsl_g12_updatetimestamp(gsl_device_t *device)
 {
 	unsigned int count = 0;
@@ -252,7 +259,7 @@ static void kgsl_g12_irqerr(struct work_struct *work)
 	gsl_device_t *device = &gsl_driver.device[GSL_DEVICE_G12-1];
 	device->ftbl.device_destroy(device);
 }
-
+#endif
 
 //----------------------------------------------------------------------------
 
@@ -295,7 +302,7 @@ kgsl_g12_init(gsl_device_t *device)
 
 #ifdef IRQTHREAD_POLL
     // Create event to trigger IRQ polling thread
-    init_completion(&device->irqthread_event);
+    device->irqthread_event = kos_event_create(0);
 #endif
 
     // enable interrupts
@@ -310,9 +317,16 @@ kgsl_g12_init(gsl_device_t *device)
 #endif //_Z180
 
     // create thread for IRQ handling
-    device->irq_workq = create_singlethread_workqueue("z160_workqueue");
-    INIT_WORK(&device->irq_work, kgsl_g12_irqtask);
-    INIT_WORK(&device->irq_err_work, kgsl_g12_irqerr);
+#if defined(__SYMBIAN32__)
+    kos_thread_create( (oshandle_t)irq_thread, &(device->irq_thread) );
+#elif defined(_LINUX)
+	device->irq_workq = create_singlethread_workqueue("z1xx_workq");
+	INIT_WORK(&device->irq_work, kgsl_g12_irqtask);
+	INIT_WORK(&device->irq_err_work, kgsl_g12_irqerr);
+#else
+    #pragma warning(disable:4152)
+    device->irq_thread_handle = kos_thread_create( (oshandle_t)irq_thread, &(device->irq_thread) );
+#endif
 
     return (status);
 }
@@ -330,9 +344,13 @@ kgsl_g12_close(gsl_device_t *device)
         // empty irq counters. Otherwise there's a possibility to have them in
         // registers next time systems starts up and this results in a hang.
         status = device->ftbl.device_idle(device, 1000);
-        DEBUG_ASSERT(status == GSL_SUCCESS);
+        KOS_ASSERT(status == GSL_SUCCESS);
 
-	destroy_workqueue(device->irq_workq);
+#ifndef _LINUX
+        kos_thread_destroy(device->irq_thread_handle);
+#else
+		destroy_workqueue(device->irq_workq);
+#endif
 
         // shutdown command window
         kgsl_cmdwindow_close(device);
@@ -356,11 +374,15 @@ kgsl_g12_close(gsl_device_t *device)
 
         device->flags &= ~GSL_FLAGS_INITIALIZED;
 
+#if defined(__SYMBIAN32__)
+        while(device->irq_thread)
+        {
+            kos_sleep(20);
+        }
+#endif
         drawctx_id = 0;
 
-        DEBUG_ASSERT(g_z1xx.numcontext == 0);
-
-	memset(&g_z1xx, 0, sizeof(gsl_z1xx_t));
+        KOS_ASSERT(g_z1xx.numcontext == 0);
     }
 
     return (GSL_SUCCESS);
@@ -376,7 +398,7 @@ kgsl_g12_destroy(gsl_device_t *device)
 
 #ifdef _DEBUG
     // for now, signal catastrophic failure in a brute force way
-    DEBUG_ASSERT(0);
+    KOS_ASSERT(0);
 #endif // _DEBUG
 
     //todo: hard reset core?
@@ -415,7 +437,7 @@ kgsl_g12_start(gsl_device_t *device, gsl_flags_t flags)
         return (status);
     }
 
-    DEBUG_ASSERT(g_z1xx.numcontext == 0);
+    KOS_ASSERT(g_z1xx.numcontext == 0);
 
     device->flags |= GSL_FLAGS_STARTED;
 
@@ -429,11 +451,11 @@ kgsl_g12_stop(gsl_device_t *device)
 {
     int status;
 
-    DEBUG_ASSERT(device->refcnt == 0);
+    KOS_ASSERT(device->refcnt == 0);
 
     /* wait for device to idle before setting it's clock off */
     status = device->ftbl.device_idle(device, 1000);
-    DEBUG_ASSERT(status == GSL_SUCCESS);
+    KOS_ASSERT(status == GSL_SUCCESS);
 
     status = kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_CLK_OFF, 0);
     device->flags &= ~GSL_FLAGS_STARTED;
@@ -454,7 +476,7 @@ kgsl_g12_getproperty(gsl_device_t *device, gsl_property_type_t type, void *value
     {
         gsl_devinfo_t  *devinfo = (gsl_devinfo_t *) value;
 
-        DEBUG_ASSERT(sizebytes == sizeof(gsl_devinfo_t));
+        KOS_ASSERT(sizebytes == sizeof(gsl_devinfo_t));
 
         devinfo->device_id   = device->id;
         devinfo->chip_id     = (gsl_chipid_t)device->chip_id;
@@ -480,13 +502,13 @@ kgsl_g12_setproperty(gsl_device_t *device, gsl_property_type_t type, void *value
     int  status = GSL_FAILURE;
 
     // unreferenced formal parameters
-    (void) device;
+    (void) device;          
 
     if (type == GSL_PROP_DEVICE_POWER)
     {
         gsl_powerprop_t  *power = (gsl_powerprop_t *) value;
 
-        DEBUG_ASSERT(sizebytes == sizeof(gsl_powerprop_t));
+        KOS_ASSERT(sizebytes == sizeof(gsl_powerprop_t));
 
         if (!(device->flags & GSL_FLAGS_SAFEMODE))
         {
@@ -500,7 +522,7 @@ kgsl_g12_setproperty(gsl_device_t *device, gsl_property_type_t type, void *value
 
 //----------------------------------------------------------------------------
 
-int
+int             
 kgsl_g12_idle(gsl_device_t *device, unsigned int timeout)
 {
 	if ( device->flags & GSL_FLAGS_STARTED )
@@ -511,7 +533,7 @@ kgsl_g12_idle(gsl_device_t *device, unsigned int timeout)
 			gsl_timestamp_t ts_diff = retired - device->current_timestamp;
 			if ( ts_diff >= 0 || ts_diff < -GSL_TIMESTAMP_EPSILON )
 				break;
-			msleep(10);
+			kos_sleep(10);
 		}
 	}
 
@@ -520,7 +542,7 @@ kgsl_g12_idle(gsl_device_t *device, unsigned int timeout)
 
 //----------------------------------------------------------------------------
 
-int
+int    
 kgsl_g12_regread(gsl_device_t *device, unsigned int offsetwords, unsigned int *value)
 {
     // G12 MH register values can only be retrieved via dedicated read registers
@@ -574,7 +596,9 @@ int
 kgsl_g12_waitirq(gsl_device_t *device, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout)
 {
     int  status = GSL_FAILURE_NOTSUPPORTED;
-    int complete = 0;
+#ifdef VG_HDK
+    (void)timeout;
+#endif
 
 #ifndef _Z180
     if (intr_id == GSL_INTR_G12_G2D || intr_id == GSL_INTR_G12_FBC)
@@ -582,30 +606,29 @@ kgsl_g12_waitirq(gsl_device_t *device, gsl_intrid_t intr_id, unsigned int *count
         if (intr_id == GSL_INTR_G12_G2D)
 #endif //_Z180
         {
+#ifndef VG_HDK
             if (kgsl_intr_isenabled(&device->intr, intr_id) == GSL_SUCCESS)
+#endif
             {
-                // wait until intr completion event is received and check that
+                // wait until intr completion event is received and check that 
                 // the interrupt is still enabled. If event is received, but
-                // interrupt is not enabled any more, the driver is shutting
+                // interrupt is not enabled any more, the driver is shutting 
                 // down and event structure is not valid anymore.
-
-		if (timeout != OS_INFINITE)
-			complete = wait_for_completion_timeout(&device->intr.evnt[intr_id], msecs_to_jiffies(timeout));
-		else
-			complete = wait_for_completion_killable(&device->intr.evnt[intr_id]);
-
-                if (complete && kgsl_intr_isenabled(&device->intr, intr_id) == GSL_SUCCESS)
+#ifndef VG_HDK
+                if (kos_event_wait(device->intr.evnt[intr_id], timeout) == OS_SUCCESS && kgsl_intr_isenabled(&device->intr, intr_id) == GSL_SUCCESS)
+#endif
                 {
                     unsigned int cntrs;
                     int          i;
-		    struct completion *comp = &device->intr.evnt[intr_id];
-
                     kgsl_device_active(device);
-
-                    INIT_COMPLETION(*comp);
+#ifndef VG_HDK
+                    kos_event_reset(device->intr.evnt[intr_id]);
                     device->ftbl.device_regread(device, (ADDR_VGC_IRQ_ACTIVE_CNT >> 2), &cntrs);
+#else
+                    device->ftbl.device_regread(device, (0x38 >> 2), &cntrs);
+#endif
 
-                    for (i = 0; i < GSL_G12_INTR_COUNT; i++)
+                    for (i = 0; i < GSL_G12_INTR_COUNT; i++) 
                     {
                         int intrcnt = cntrs >> ((8 * i)) & 255;
 
@@ -620,17 +643,19 @@ kgsl_g12_waitirq(gsl_device_t *device, gsl_intrid_t intr_id, unsigned int *count
                     device->intrcnt[intr_id - GSL_INTR_G12_MH] = 0;
                     status = GSL_SUCCESS;
                 }
+#ifndef VG_HDK
                 else
                 {
                     status = GSL_FAILURE_TIMEOUT;
                 }
+#endif
             }
         }
     else if(intr_id == GSL_INTR_FOOBAR)
     {
         if (kgsl_intr_isenabled(&device->intr, GSL_INTR_G12_G2D) == GSL_SUCCESS)
         {
-            complete_all(&device->intr.evnt[GSL_INTR_G12_G2D]);
+            kos_event_signal(device->intr.evnt[GSL_INTR_G12_G2D]);
         }
     }
 
@@ -642,6 +667,9 @@ kgsl_g12_waitirq(gsl_device_t *device, gsl_intrid_t intr_id, unsigned int *count
 int
 kgsl_g12_waittimestamp(gsl_device_t *device, gsl_timestamp_t timestamp, unsigned int timeout)
 {
+#ifndef _LINUX
+	return kos_event_wait( device->timestamp_event, timeout );
+#else
 	int status = wait_event_interruptible_timeout(device->timestamp_waitq,
 	                                              kgsl_cmdstream_check_timestamp(device->id, timestamp),
 												  msecs_to_jiffies(timeout));
@@ -649,6 +677,7 @@ kgsl_g12_waittimestamp(gsl_device_t *device, gsl_timestamp_t timestamp, unsigned
 		return GSL_SUCCESS;
 	else
 		return GSL_FAILURE;
+#endif
 }
 
 int
@@ -682,7 +711,7 @@ kgsl_g12_getfunctable(gsl_functable_t *ftbl)
 
 static void addmarker(gsl_z1xx_t* z1xx)
 {
-    DEBUG_ASSERT(z1xx);
+    KOS_ASSERT(z1xx);
     {
         unsigned int *p = z1xx->cmdbuf[z1xx->curr];
         /* todo: use symbolic values */
@@ -703,7 +732,7 @@ static void addmarker(gsl_z1xx_t* z1xx)
 static void beginpacket(gsl_z1xx_t* z1xx, gpuaddr_t cmd, unsigned int nextcnt)
 {
     unsigned int *p = z1xx->cmdbuf[z1xx->curr];
-
+   
     p[z1xx->offs++] = 0x7C000176;
     p[z1xx->offs++] = 5;
     p[z1xx->offs++] = ADDR_VGV3_LAST<<24;
@@ -723,7 +752,7 @@ kgsl_g12_issueibcmds(gsl_device_t* device, int drawctxt_index, gpuaddr_t ibaddr,
 {
     unsigned int ofs      = PACKETSIZE_STATESTREAM*sizeof(unsigned int);
     unsigned int cnt      = 5;
-    unsigned int cmd      = ibaddr;
+    unsigned int cmd      = ibaddr; 
     unsigned int nextbuf  = (g_z1xx.curr+1)%GSL_HAL_NUMCMDBUFFERS;
     unsigned int nextaddr = g_z1xx.cmdbufdesc[nextbuf].gpuaddr;
     unsigned int nextcnt  = 0x9000|5;
@@ -738,17 +767,22 @@ kgsl_g12_issueibcmds(gsl_device_t* device, int drawctxt_index, gpuaddr_t ibaddr,
 	/* wait for the next buffer's timestamp to occur */
     while(processed_timestamp < g_z1xx.timestamp[nextbuf])
     {
+#ifndef _LINUX	
+		kos_event_wait(device->timestamp_event, 1000);
+		kos_event_reset(device->timestamp_event);
+#else
 		kgsl_cmdstream_waittimestamp(device->id, g_z1xx.timestamp[nextbuf], 1000);
+#endif		
 		GSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, (int *)&processed_timestamp);
     }
-
+	
     *timestamp = g_z1xx.timestamp[nextbuf] = device->current_timestamp + 1;
 
     /* context switch */
     if (drawctxt_index != (int)g_z1xx.prevctx)
     {
         cnt = PACKETSIZE_STATESTREAM;
-        ofs = 0;
+        ofs = 0; 
     }
     g_z1xx.prevctx = drawctxt_index;
 
@@ -759,7 +793,7 @@ kgsl_g12_issueibcmds(gsl_device_t* device, int drawctxt_index, gpuaddr_t ibaddr,
     kgsl_sharedmem_write0(&tmp, 4, &nextaddr, 4, false);
     kgsl_sharedmem_write0(&tmp, 8, &nextcnt,  4, false);
 
-    /* sync mem */
+    /* sync mem */ 
     kgsl_sharedmem_write0((const gsl_memdesc_t *)&g_z1xx.cmdbufdesc[g_z1xx.curr], 0, g_z1xx.cmdbuf[g_z1xx.curr], (512 + 13) * sizeof(unsigned int), false);
 
     g_z1xx.offs = 0;
@@ -798,26 +832,26 @@ kgsl_g12_context_create(gsl_device_t* device, gsl_context_type_t type, unsigned 
     (void) type;
     //(void) drawctxt_id;
     (void) flags;
-
+    
     kgsl_device_active(device);
-
+    
     if (g_z1xx.numcontext==0)
     {
 	g_z1xx.nextUniqueContextID = 0;
-         /* todo: move this to device create or start. Error checking!! */
+         /* todo: move this to device create or start. Error checking!! */ 
         for (i=0;i<GSL_HAL_NUMCMDBUFFERS;i++)
         {
             status = kgsl_sharedmem_alloc0(GSL_DEVICE_ANY, gslflags, GSL_HAL_CMDBUFFERSIZE, &g_z1xx.cmdbufdesc[i]);
-            DEBUG_ASSERT(status == GSL_SUCCESS);
-            g_z1xx.cmdbuf[i]=kmalloc(GSL_HAL_CMDBUFFERSIZE, GFP_KERNEL);
-            DEBUG_ASSERT(g_z1xx.cmdbuf[i]);
-            memset((void*)g_z1xx.cmdbuf[i], 0, GSL_HAL_CMDBUFFERSIZE);
-
+            KOS_ASSERT(status == GSL_SUCCESS);          
+            g_z1xx.cmdbuf[i]=kos_malloc(GSL_HAL_CMDBUFFERSIZE);
+            KOS_ASSERT(g_z1xx.cmdbuf[i]);
+            kos_memset((void*)g_z1xx.cmdbuf[i], 0, GSL_HAL_CMDBUFFERSIZE);
+                  
             g_z1xx.curr = i;
             g_z1xx.offs = 0;
             addmarker(&g_z1xx);
             status = kgsl_sharedmem_write0(&g_z1xx.cmdbufdesc[i],0, g_z1xx.cmdbuf[i],  (512 + 13) * sizeof(unsigned int), false);
-            DEBUG_ASSERT(status == GSL_SUCCESS);
+            KOS_ASSERT(status == GSL_SUCCESS);
         }
         g_z1xx.curr = 0;
         cmd = (int)(((VGV3_NEXTCMD_JUMP) & VGV3_NEXTCMD_NEXTCMD_FMASK)<< VGV3_NEXTCMD_NEXTCMD_FSHIFT);
@@ -827,11 +861,11 @@ kgsl_g12_context_create(gsl_device_t* device, gsl_context_type_t type, unsigned 
         status |= kgsl_cmdwindow_write0(GSL_DEVICE_G12, GSL_CMDWINDOW_2D, ADDR_VGV3_NEXTADDR, g_z1xx.cmdbufdesc[0].gpuaddr );
         status |= kgsl_cmdwindow_write0(GSL_DEVICE_G12, GSL_CMDWINDOW_2D, ADDR_VGV3_NEXTCMD,  cmd | 5);
 
-        DEBUG_ASSERT(status == GSL_SUCCESS);
+        KOS_ASSERT(status == GSL_SUCCESS);
 
-        /* Edge buffer setup todo: move register setup to own function.
+        /* Edge buffer setup todo: move register setup to own function. 
            This function can be then called, if power managemnet is used and clocks are turned off and then on.
-        */
+        */ 
         status |= kgsl_sharedmem_alloc0(GSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE0BUFSIZE, &g_z1xx.e0);
         status |= kgsl_sharedmem_alloc0(GSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE1BUFSIZE, &g_z1xx.e1);
         status |= kgsl_sharedmem_set0(&g_z1xx.e0, 0, 0, GSL_HAL_EDGE0BUFSIZE);
@@ -843,9 +877,9 @@ kgsl_g12_context_create(gsl_device_t* device, gsl_context_type_t type, unsigned 
         kgsl_sharedmem_alloc0(GSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE2BUFSIZE, &g_z1xx.e2);
         kgsl_sharedmem_set0(&g_z1xx.e2, 0, 0, GSL_HAL_EDGE2BUFSIZE);
         kgsl_cmdwindow_write0(GSL_DEVICE_G12, GSL_CMDWINDOW_2D, GSL_HAL_EDGE2REG, g_z1xx.e2.gpuaddr);
-#endif
-        DEBUG_ASSERT(status == GSL_SUCCESS);
-    }
+#endif  
+        KOS_ASSERT(status == GSL_SUCCESS);
+    } 
 
     if(g_z1xx.numcontext < GSL_CONTEXT_MAX)
     {
@@ -884,26 +918,108 @@ kgsl_g12_context_destroy(gsl_device_t* device, unsigned int drawctxt_id)
         int i;
         for (i=0;i<GSL_HAL_NUMCMDBUFFERS;i++)
         {
-            kgsl_sharedmem_free0(&g_z1xx.cmdbufdesc[i], current->tgid);
-            kfree(g_z1xx.cmdbuf[i]);
+            kgsl_sharedmem_free0(&g_z1xx.cmdbufdesc[i], GSL_CALLER_PROCESSID_GET());
+            kos_free(g_z1xx.cmdbuf[i]);
         }
-        kgsl_sharedmem_free0(&g_z1xx.e0, current->tgid);
-        kgsl_sharedmem_free0(&g_z1xx.e1, current->tgid);
+        kgsl_sharedmem_free0(&g_z1xx.e0, GSL_CALLER_PROCESSID_GET());
+        kgsl_sharedmem_free0(&g_z1xx.e1, GSL_CALLER_PROCESSID_GET());
 #ifdef _Z180
-        kgsl_sharedmem_free0(&g_z1xx.e2, current->tgid);
+        kgsl_sharedmem_free0(&g_z1xx.e2, GSL_CALLER_PROCESSID_GET());
 #endif
+        kos_memset(&g_z1xx,0,sizeof(gsl_z1xx_t));
     }
     return (GSL_SUCCESS);
 }
 
 //----------------------------------------------------------------------------
+#if !defined GSL_BLD_YAMATO && (!defined __SYMBIAN32__ || defined __WINSCW__)
+KGSL_API int kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned int drawctxt_id, const gsl_rect_t* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const gsl_buffer_desc_t* shadow_buffer, unsigned int buffer_id)
+{
+    (void)device_id;
+    (void)drawctxt_id;
+    (void)gmem_rect;
+    (void)shadow_x;
+    (void)shadow_y;
+    (void)shadow_buffer;
+    (void)buffer_id;
+    return (GSL_FAILURE);
+}
+#endif
+//----------------------------------------------------------------------------
+
+#ifndef _LINUX
+static void irq_thread(void)
+{
+	int error = 0;
+    unsigned int irq_count;
+    gsl_device_t* device  = &gsl_driver.device[GSL_DEVICE_G12-1];
+    gsl_timestamp_t timestamp;
+
+    while( !error )
+    {
+#ifdef IRQTHREAD_POLL
+        if(kos_event_wait(device->irqthread_event, GSL_IRQ_TIMEOUT)==GSL_SUCCESS)
+        {
+            kgsl_g12_waitirq(device, GSL_INTR_G12_G2D, &irq_count, GSL_IRQ_TIMEOUT);
+#else
+
+        if( kgsl_g12_waitirq(device, GSL_INTR_G12_G2D, &irq_count, GSL_IRQ_TIMEOUT) == GSL_SUCCESS )
+        {
+#endif
+            /* Read a timestamp value */
+#ifdef VG_HDK            
+            timestamp = device->timestamp;
+#else
+            GSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, (int *)&timestamp);
+#endif
+            /* Increase the timestamp value */
+            timestamp += irq_count;
+
+            /* Write the new timestamp value */
+            device->timestamp = timestamp;
+            kgsl_sharedmem_write0(&device->memstore, GSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp), &timestamp, 4, false);
+
+#ifdef V3_SYNC
+        	if (device->current_timestamp > device->timestamp)
+        	{
+        	    kgsl_cmdwindow_write0(2, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 2);
+        	    kgsl_cmdwindow_write0(2, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 0);
+        	}
+#endif
+
+            /* Notify timestamp event */
+#ifndef _LINUX
+            kos_event_signal( device->timestamp_event );
+#else
+            wake_up_interruptible_all(&(device->timestamp_waitq));
+#endif
+        }
+        else
+        {
+            /* Timeout */
+
+           
+            if(!(device->flags&GSL_FLAGS_INITIALIZED))
+            {
+                /* if device is closed -> thread exit */
+#if defined(__SYMBIAN32__)
+                device->irq_thread = 0;
+#endif
+                return;
+            }
+        }
+    }
+}
+#endif
+
+//----------------------------------------------------------------------------
 
 static int
 kgsl_g12_addtimestamp(gsl_device_t* device, gsl_timestamp_t *timestamp)
-{
+{    
     device->current_timestamp++;
     *timestamp = device->current_timestamp;
-
+ 
     return (GSL_SUCCESS);
 }
 #endif

@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2010, Advanced Micro Devices. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -7,7 +7,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of Code Aurora Forum nor
+ *     * Neither the name of Advanced Micro Devices nor
  *       the names of its contributors may be used to endorse or promote
  *       products derived from this software without specific prior written
  *       permission.
@@ -26,54 +26,21 @@
  *
  */
 
-#ifndef __GSL_H
-#define __GSL_H
+#ifndef __GSL_LINUX_MAP_H__
+#define __GSL_LINUX_MAP_H__
 
-//#define __KGSLLIB_EXPORTS
-#define __KERNEL_MODE__
+#include "gsl_halconfig.h"
 
+#define GSL_LINUX_MAP_RANGE_START (1024*1024)
+#define GSL_LINUX_MAP_RANGE_END (GSL_LINUX_MAP_RANGE_START+GSL_HAL_SHMEM_SIZE_EMEM1_MMU)
 
-//////////////////////////////////////////////////////////////////////////////
-//  forward typedefs
-//////////////////////////////////////////////////////////////////////////////
-//struct _gsl_device_t;
-typedef struct _gsl_device_t    gsl_device_t;
+int gsl_linux_map_init(void);
+void *gsl_linux_map_alloc(unsigned int gpu_addr, unsigned int size);
+void gsl_linux_map_free(unsigned int gpu_addr);
+void *gsl_linux_map_find(unsigned int gpu_addr);
+void *gsl_linux_map_read(void *dst, unsigned int gpuoffset, unsigned int sizebytes, unsigned int touserspace);
+void *gsl_linux_map_write(void *src, unsigned int gpuoffset, unsigned int sizebytes, unsigned int fromuserspace);
+void *gsl_linux_map_set(unsigned int gpuoffset, unsigned int value, unsigned int sizebytes);
+int gsl_linux_map_destroy(void);
 
-
-//////////////////////////////////////////////////////////////////////////////
-//  includes
-//////////////////////////////////////////////////////////////////////////////
-#include "gsl_buildconfig.h"
-
-#include "kos_libapi.h"
-
-#include "gsl_klibapi.h"
-
-#ifdef GSL_BLD_YAMATO
-#include <reg/yamato.h>
-
-#include "gsl_pm4types.h"
-#include "gsl_utils.h"
-#include "gsl_drawctxt.h"
-#include "gsl_ringbuffer.h"
 #endif
-
-#ifdef GSL_BLD_G12
-#include <reg/g12_reg.h>
-
-#include "gsl_cmdwindow.h"
-#endif
-
-#include "gsl_debug.h"
-#include "gsl_mmu.h"
-#include "gsl_memmgr.h"
-#include "gsl_sharedmem.h"
-#include "gsl_intrmgr.h"
-#include "gsl_cmdstream.h"
-#include "gsl_device.h"
-#include "gsl_driver.h"
-#include "gsl_log.h"
-
-#include "gsl_config.h"
-
-#endif // __GSL_H

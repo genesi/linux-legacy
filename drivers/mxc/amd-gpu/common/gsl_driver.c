@@ -16,8 +16,6 @@
  *
  */
 
-#include <linux/sched.h>
-
 #include "gsl.h"
 #include "gsl_hal.h"
 
@@ -55,11 +53,16 @@ kgsl_driver_init0(gsl_flags_t flags, gsl_flags_t flags_debug)
     if (!(gsl_driver_initialized & GSL_FLAGS_INITIALIZED0))
     {
 #ifdef GSL_LOG
-        kgsl_log_start( KGSL_LOG_GROUP_ALL | KGSL_LOG_LEVEL_ALL | KGSL_LOG_TIMESTAMP
-                              | KGSL_LOG_THREAD_ID | KGSL_LOG_PROCESS_ID );
+        // Uncomment these to enable logging.
+        //kgsl_log_init();
+        //kgsl_log_open_stdout( KGSL_LOG_GROUP_ALL | KGSL_LOG_LEVEL_ALL | KGSL_LOG_TIMESTAMP
+        //                      | KGSL_LOG_THREAD_ID | KGSL_LOG_PROCESS_ID );
+        //kgsl_log_open_file( "c:\\kgsl_log.txt", KGSL_LOG_GROUP_ALL | KGSL_LOG_LEVEL_ALL | KGSL_LOG_TIMESTAMP
+        //                      | KGSL_LOG_THREAD_ID | KGSL_LOG_PROCESS_ID );
 #endif
-        memset(&gsl_driver, 0, sizeof(gsl_driver_t));
-	mutex_init(&gsl_driver.lock);
+        kos_memset(&gsl_driver, 0, sizeof(gsl_driver_t));
+
+        GSL_API_MUTEX_CREATE();
     }
 
 #ifdef _DEBUG
@@ -80,7 +83,7 @@ kgsl_driver_init0(gsl_flags_t flags, gsl_flags_t flags_debug)
 
     if (!(gsl_driver_initialized & GSL_FLAGS_INITIALIZED0))
     {
-	mutex_lock(&gsl_driver.lock);
+        GSL_API_MUTEX_LOCK();
 
         // init hal
         status = kgsl_hal_init();
@@ -91,7 +94,7 @@ kgsl_driver_init0(gsl_flags_t flags, gsl_flags_t flags_debug)
             gsl_driver_initialized |= GSL_FLAGS_INITIALIZED0;
         }
 
-	mutex_unlock(&gsl_driver.lock);
+        GSL_API_MUTEX_UNLOCK();
     }
 
     return (status);
@@ -106,13 +109,17 @@ kgsl_driver_close0(gsl_flags_t flags)
 
     if ((gsl_driver_initialized & GSL_FLAGS_INITIALIZED0) && (gsl_driver_initialized & flags))
     {
-	mutex_lock(&gsl_driver.lock);
-        // close hal
+        GSL_API_MUTEX_LOCK();
+
+        // close hall
         status = kgsl_hal_close();
-	mutex_unlock(&gsl_driver.lock);
+
+        GSL_API_MUTEX_UNLOCK();
+
+        GSL_API_MUTEX_FREE();
 
 #ifdef GSL_LOG
-        kgsl_log_finish();
+        kgsl_log_close();
 #endif
 
         gsl_driver_initialized &= ~flags;
@@ -131,7 +138,7 @@ kgsl_driver_close0(gsl_flags_t flags)
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_driver_init()
 {
     // only an external (platform specific device driver) component should call this
@@ -141,7 +148,7 @@ kgsl_driver_init()
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_driver_close()
 {
     // only an external (platform specific device driver) component should call this
@@ -151,7 +158,7 @@ kgsl_driver_close()
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_driver_entry(gsl_flags_t flags)
 {
     int           status = GSL_FAILURE;
@@ -160,14 +167,15 @@ kgsl_driver_entry(gsl_flags_t flags)
 
     if (kgsl_driver_init0(GSL_DRVFLAGS_INTERNAL, flags) != GSL_SUCCESS)
     {
+        printk("kgsl_driver_init0 failed.\n");
         return (GSL_FAILURE);
     }
 
-    kgsl_log_write( KGSL_LOG_GROUP_DRIVER | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_driver_entry( gsl_flags_t flags=%x )\n", flags );
+    kgsl_log_write( KGSL_LOG_GROUP_DRIVER | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_driver_entry( gsl_flags_t flags=%d )\n", flags );
 
-    mutex_lock(&gsl_driver.lock);
+    GSL_API_MUTEX_LOCK();
 
-    pid = current->tgid;
+    pid = GSL_CALLER_PROCESSID_GET();
 
     // if caller process has not already opened access
     status = kgsl_driver_getcallerprocessindex(pid, &index);
@@ -179,7 +187,8 @@ kgsl_driver_entry(gsl_flags_t flags)
         {
             gsl_driver.callerprocess[index] = pid;
             gsl_driver.refcnt++;
-        }
+        } else
+            printk("kgsl_driver_getcallerprocessindex failed.\n");
     }
 
     if (status == GSL_SUCCESS)
@@ -196,9 +205,12 @@ kgsl_driver_entry(gsl_flags_t flags)
                 {
 		    if (kgsl_device_init(&gsl_driver.device[i], (gsl_deviceid_t)(i + 1)) == GSL_SUCCESS) {
 			status = GSL_SUCCESS;
-		    }
+		    } else
+                        printk("kgsl_device_init failed.\n");
                 }
-            }
+            } else
+                printk("kgsl_sharedmem_init failed.\n");
+
 
             if (status == GSL_SUCCESS)
             {
@@ -214,6 +226,7 @@ kgsl_driver_entry(gsl_flags_t flags)
                 status = kgsl_device_attachcallback(&gsl_driver.device[i], pid);
                 if (status != GSL_SUCCESS)
                 {
+                    printk("kgsl_device_attachcallback failed.\n");
                     break;
                 }
             }
@@ -227,11 +240,12 @@ kgsl_driver_entry(gsl_flags_t flags)
             {
                 gsl_driver.callerprocess[index] = GSL_PROCESSID_NONE;
                 gsl_driver.refcnt--;
-            }
+            } else
+                printk("kgsl_driver_getcallerprocessindex failed.\n");
         }
     }
 
-    mutex_unlock(&gsl_driver.lock);
+    GSL_API_MUTEX_UNLOCK();
 
     kgsl_log_write( KGSL_LOG_GROUP_DRIVER | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_driver_entry. Return value: %B\n", status );
 
@@ -246,7 +260,7 @@ kgsl_driver_exit0(unsigned int pid)
     int  status = GSL_SUCCESS;
     int  index, i;
 
-    mutex_lock(&gsl_driver.lock);
+    GSL_API_MUTEX_LOCK();
 
     if (gsl_driver_initialized & GSL_FLAGS_INITIALIZED)
     {
@@ -287,7 +301,7 @@ kgsl_driver_exit0(unsigned int pid)
         }
     }
 
-    mutex_unlock(&gsl_driver.lock);
+    GSL_API_MUTEX_UNLOCK();
 
     if (!(gsl_driver_initialized & GSL_FLAGS_INITIALIZED))
     {
@@ -299,14 +313,14 @@ kgsl_driver_exit0(unsigned int pid)
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_driver_exit(void)
 {
     int status;
 
     kgsl_log_write( KGSL_LOG_GROUP_DRIVER | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_driver_exit()\n" );
 
-    status = kgsl_driver_exit0(current->tgid);
+    status = kgsl_driver_exit0(GSL_CALLER_PROCESSID_GET());
 
     kgsl_log_write( KGSL_LOG_GROUP_DRIVER | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_driver_exit(). Return value: %B\n", status );
 
@@ -315,7 +329,7 @@ kgsl_driver_exit(void)
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_driver_destroy(unsigned int pid)
 {
     return (kgsl_driver_exit0(pid));

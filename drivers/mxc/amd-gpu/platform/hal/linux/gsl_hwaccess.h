@@ -29,13 +29,15 @@
 #ifndef __GSL_HWACCESS_LINUX_H
 #define __GSL_HWACCESS_LINUX_H
 
+#ifdef _LINUX
+#include "gsl_linux_map.h"
+#endif
+
 #include <linux/io.h>
 #include <asm/system.h>
 #include <asm/uaccess.h>
 
-#include "gsl_linux_map.h"
-
-static __inline void
+OSINLINE void
 kgsl_hwaccess_memread(void *dst, unsigned int gpubase, unsigned int gpuoffset, unsigned int sizebytes, unsigned int touserspace)
 {
     if (gsl_driver.enable_mmu && (gpubase >= GSL_LINUX_MAP_RANGE_START) && (gpubase < GSL_LINUX_MAP_RANGE_END)) {
@@ -52,7 +54,7 @@ kgsl_hwaccess_memread(void *dst, unsigned int gpubase, unsigned int gpuoffset, u
         }
         else
         {
-            memcpy(dst, (void *) (gpubase + gpuoffset), sizebytes);
+            kos_memcpy(dst, (void *) (gpubase + gpuoffset), sizebytes);
         }
         mb();
         dsb();
@@ -61,7 +63,7 @@ kgsl_hwaccess_memread(void *dst, unsigned int gpubase, unsigned int gpuoffset, u
 
 //----------------------------------------------------------------------------
 
-static __inline void
+OSINLINE void
 kgsl_hwaccess_memwrite(unsigned int gpubase, unsigned int gpuoffset, void *src, unsigned int sizebytes, unsigned int fromuserspace)
 {
     if (gsl_driver.enable_mmu && (gpubase >= GSL_LINUX_MAP_RANGE_START) && (gpubase < GSL_LINUX_MAP_RANGE_END)) {
@@ -78,7 +80,7 @@ kgsl_hwaccess_memwrite(unsigned int gpubase, unsigned int gpuoffset, void *src, 
         }
         else
         {
-            memcpy((void *)(gpubase + gpuoffset), src, sizebytes);
+            kos_memcpy((void *)(gpubase + gpuoffset), src, sizebytes);
         }
         mb();
         dsb();
@@ -87,7 +89,7 @@ kgsl_hwaccess_memwrite(unsigned int gpubase, unsigned int gpuoffset, void *src, 
 
 //----------------------------------------------------------------------------
 
-static __inline void
+OSINLINE void
 kgsl_hwaccess_memset(unsigned int gpubase, unsigned int gpuoffset, unsigned int value, unsigned int sizebytes)
 {
     if (gsl_driver.enable_mmu && (gpubase >= GSL_LINUX_MAP_RANGE_START) && (gpubase < GSL_LINUX_MAP_RANGE_END)) {
@@ -95,7 +97,7 @@ kgsl_hwaccess_memset(unsigned int gpubase, unsigned int gpuoffset, unsigned int 
     } else {
         mb();
         dsb();
-        memset((void *)(gpubase + gpuoffset), value, sizebytes);
+        kos_memset((void *)(gpubase + gpuoffset), value, sizebytes);
         mb();
         dsb();
     }
@@ -103,7 +105,7 @@ kgsl_hwaccess_memset(unsigned int gpubase, unsigned int gpuoffset, unsigned int 
 
 //----------------------------------------------------------------------------
 
-static __inline void
+OSINLINE void
 kgsl_hwaccess_regread(gsl_deviceid_t device_id, unsigned int gpubase, unsigned int offsetwords, unsigned int *data)
 {
     unsigned int *reg;
@@ -122,7 +124,7 @@ kgsl_hwaccess_regread(gsl_deviceid_t device_id, unsigned int gpubase, unsigned i
 
 //----------------------------------------------------------------------------
 
-static __inline void
+OSINLINE void
 kgsl_hwaccess_regwrite(gsl_deviceid_t device_id, unsigned int gpubase, unsigned int offsetwords, unsigned int data)
 {
     unsigned int *reg;

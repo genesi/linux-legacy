@@ -18,18 +18,19 @@
 
 #include "gsl.h"
 #include "gsl_hal.h"
+#include "gsl_context.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // functions
 //////////////////////////////////////////////////////////////////////////////
 
-int
+KGSL_API int
 kgsl_context_create(gsl_deviceid_t device_id, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags)
 {
     gsl_device_t* device  = &gsl_driver.device[device_id-1];
     int status;
 
-    mutex_lock(&gsl_driver.lock);
+    GSL_API_MUTEX_LOCK();
 
     if (device->ftbl.context_create)
     {
@@ -40,20 +41,20 @@ kgsl_context_create(gsl_deviceid_t device_id, gsl_context_type_t type, unsigned 
         status = GSL_FAILURE;
     }
 
-    mutex_unlock(&gsl_driver.lock);
+    GSL_API_MUTEX_UNLOCK();
 
     return status;
 }
 
 //----------------------------------------------------------------------------
 
-int
+KGSL_API int
 kgsl_context_destroy(gsl_deviceid_t device_id, unsigned int drawctxt_id)
 {
     gsl_device_t* device  = &gsl_driver.device[device_id-1];
     int status;
 
-    mutex_lock(&gsl_driver.lock);
+    GSL_API_MUTEX_LOCK();
 
     if (device->ftbl.context_destroy)
     {
@@ -64,7 +65,7 @@ kgsl_context_destroy(gsl_deviceid_t device_id, unsigned int drawctxt_id)
         status = GSL_FAILURE;
     }
 
-    mutex_unlock(&gsl_driver.lock);
+    GSL_API_MUTEX_UNLOCK();
 
     return status;
 }
