@@ -1012,6 +1012,8 @@ static const struct fb_videomode *siihdmi_select_video_mode(const struct siihdmi
 	if (teneighty) {
 		if ((tx->sink.preferred_mode.xres == 1680
 			&& tx->sink.preferred_mode.yres == 1050) ||
+		    (tx->sink.preferred_mode.xres == 1600
+			&& tx->sink.preferred_mode.yres == 900) ||
 		    (tx->sink.preferred_mode.xres == 1440
 			&& tx->sink.preferred_mode.yres == 900)) {
 			mode = _match(&tx->sink.preferred_mode, &tx->info->modelist);
