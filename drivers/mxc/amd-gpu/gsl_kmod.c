@@ -491,7 +491,10 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
                 {
                     add_memblock_to_allocated_list(fd, &tmp);
                 }
-            }
+            } else {
+		pr_err("amd-gpu: kgsl_sharedmem_alloc ioctl failed!\n");
+	    }
+
             break;
         }
     case IOCTL_KGSL_SHAREDMEM_FREE:
