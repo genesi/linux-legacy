@@ -262,8 +262,7 @@ void __init mx51_efikamx_init_display(void)
 
 	mxc_register_device(&mxc_ipu_device, &mxc_ipu_data);
 	mxc_register_device(&mxcvpu_device, &mxc_vpu_data);
-	//neko
-	//mxc_gpu_data.enable_mmu = 0;
+	mxc_gpu_data.enable_mmu = 0;
 	mxc_register_device(&gpu_device, &mxc_gpu_data);
 	mxc_register_device(&mxc_v4l2out_device, NULL);
 
