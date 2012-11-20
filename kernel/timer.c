@@ -1153,7 +1153,8 @@ void update_process_times(int user_tick)
 	struct task_struct *p = current;
 	int cpu = smp_processor_id();
 
-	/* Accounting is done within sched_bfs.c */
+	/* Note: this timer irq context must be accounted for as well. */
+	account_process_tick(p, user_tick);
 	run_local_timers();
 	if (rcu_pending(cpu))
 		rcu_check_callbacks(cpu, user_tick);
@@ -1197,7 +1198,7 @@ void do_timer(unsigned long ticks)
 {
 	jiffies_64 += ticks;
 	update_wall_time();
-	calc_global_load();
+	calc_global_load(ticks);
 }
 
 #ifdef __ARCH_WANT_SYS_ALARM
