@@ -177,26 +177,29 @@ The first is the local copy of the running process' data to the CPU it's running
 on to allow that data to be updated lockless where possible. Then there is
 deference paid to the last CPU a task was running on, by trying that CPU first
 when looking for an idle CPU to use the next time it's scheduled. Finally there
-is the notion of "sticky" tasks that are flagged when they are involuntarily
-descheduled, meaning they still want further CPU time. This sticky flag is
-used to bias heavily against those tasks being scheduled on a different CPU
-unless that CPU would be otherwise idle. When a cpu frequency governor is used
-that scales with CPU load, such as ondemand, sticky tasks are not scheduled
-on a different CPU at all, preferring instead to go idle. This means the CPU
-they were bound to is more likely to increase its speed while the other CPU
-will go idle, thus speeding up total task execution time and likely decreasing
-power usage. This is the only scenario where BFS will allow a CPU to go idle
-in preference to scheduling a task on the earliest available spare CPU.
-
-The real cost of migrating a task from one CPU to another is entirely dependant
-on the cache footprint of the task, how cache intensive the task is, how long
-it's been running on that CPU to take up the bulk of its cache, how big the CPU
-cache is, how fast and how layered the CPU cache is, how fast a context switch
-is... and so on. In other words, it's close to random in the real world where we
-do more than just one sole workload. The only thing we can be sure of is that
-it's not free. So BFS uses the principle that an idle CPU is a wasted CPU and
-utilising idle CPUs is more important than cache locality, and cache locality
-only plays a part after that.
+is the notion of cache locality beyond the last running CPU. The sched_domains
+information is used to determine the relative virtual "cache distance" that
+other CPUs have from the last CPU a task was running on. CPUs with shared
+caches, such as SMT siblings, or multicore CPUs with shared caches, are treated
+as cache local. CPUs without shared caches are treated as not cache local, and
+CPUs on different NUMA nodes are treated as very distant. This "relative cache
+distance" is used by modifying the virtual deadline value when doing lookups.
+Effectively, the deadline is unaltered between "cache local" CPUs, doubled for
+"cache distant" CPUs, and quadrupled for "very distant" CPUs. The reasoning
+behind the doubling of deadlines is as follows. The real cost of migrating a
+task from one CPU to another is entirely dependant on the cache footprint of
+the task, how cache intensive the task is, how long it's been running on that
+CPU to take up the bulk of its cache, how big the CPU cache is, how fast and
+how layered the CPU cache is, how fast a context switch is... and so on. In
+other words, it's close to random in the real world where we do more than just
+one sole workload. The only thing we can be sure of is that it's not free. So
+BFS uses the principle that an idle CPU is a wasted CPU and utilising idle CPUs
+is more important than cache locality, and cache locality only plays a part
+after that. Doubling the effective deadline is based on the premise that the
+"cache local" CPUs will tend to work on the same tasks up to double the number
+of cache local CPUs, and once the workload is beyond that amount, it is likely
+that none of the tasks are cache warm anywhere anyway. The quadrupling for NUMA
+is a value I pulled out of my arse.
 
 Early benchmarking of BFS suggested scalability dropped off at the 16 CPU mark.
 However this benchmarking was performed on an earlier design that was far less
@@ -228,21 +231,22 @@ accessed in
 
 	/proc/sys/kernel/rr_interval
 
-The value is in milliseconds, and the default value is set to 6ms. Valid values
-are from 1 to 1000. Decreasing the value will decrease latencies at the cost of
-decreasing throughput, while increasing it will improve throughput, but at the
-cost of worsening latencies. The accuracy of the rr interval is limited by HZ
-resolution of the kernel configuration. Thus, the worst case latencies are
-usually slightly higher than this actual value. BFS uses "dithering" to try and
-minimise the effect the Hz limitation has. The default value of 6 is not an
-arbitrary one. It is based on the fact that humans can detect jitter at
-approximately 7ms, so aiming for much lower latencies is pointless under most
-circumstances. It is worth noting this fact when comparing the latency
-performance of BFS to other schedulers. Worst case latencies being higher than
-7ms are far worse than average latencies not being in the microsecond range.
-Experimentation has shown that rr intervals being increased up to 300 can
-improve throughput but beyond that, scheduling noise from elsewhere prevents
-further demonstrable throughput.
+The value is in milliseconds, and the default value is set to 6 on a
+uniprocessor machine, and automatically set to a progressively higher value on
+multiprocessor machines. The reasoning behind increasing the value on more CPUs
+is that the effective latency is decreased by virtue of there being more CPUs on
+BFS (for reasons explained above), and increasing the value allows for less
+cache contention and more throughput. Valid values are from 1 to 1000
+Decreasing the value will decrease latencies at the cost of decreasing
+throughput, while increasing it will improve throughput, but at the cost of
+worsening latencies. The accuracy of the rr interval is limited by HZ resolution
+of the kernel configuration. Thus, the worst case latencies are usually slightly
+higher than this actual value. The default value of 6 is not an arbitrary one.
+It is based on the fact that humans can detect jitter at approximately 7ms, so
+aiming for much lower latencies is pointless under most circumstances. It is
+worth noting this fact when comparing the latency performance of BFS to other
+schedulers. Worst case latencies being higher than 7ms are far worse than
+average latencies not being in the microsecond range.
 
 Isochronous scheduling.
 
@@ -323,4 +327,4 @@ of total wall clock time taken and total work done, rather than the reported
 "cpu usage".
 
 
-Con Kolivas <kernel@kolivas.org> Tue, 5 Apr 2011
+Con Kolivas <kernel@kolivas.org> Fri Aug 27 2010
