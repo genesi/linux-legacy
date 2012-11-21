@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2010, Advanced Micro Devices. All rights reserved.
+ * Copyright (C) 2008-2011 Freescale Semiconductor, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,15 +32,14 @@
 #include <linux/fs.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
-#include <asm/uaccess.h>
 #include <linux/mm.h>
 #include <linux/mutex.h>
 #include <linux/cdev.h>
-
 #include <linux/platform_device.h>
 #include <linux/vmalloc.h>
+#include <linux/uaccess.h>
 
-#include <linux/fsl_devices.h>
+#include <mach/mxc_gpu.h>
 
 int gpu_2d_irq, gpu_3d_irq;
 
@@ -51,11 +51,10 @@ int gmem_size;
 phys_addr_t gpu_reserved_mem;
 int gpu_reserved_mem_size;
 int z160_version;
-int enable_mmu;
 
 static ssize_t gsl_kmod_read(struct file *fd, char __user *buf, size_t len, loff_t *ptr);
 static ssize_t gsl_kmod_write(struct file *fd, const char __user *buf, size_t len, loff_t *ptr);
-static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, unsigned long arg);
+static long gsl_kmod_ioctl(struct file *fd, unsigned int cmd, unsigned long arg);
 static int gsl_kmod_mmap(struct file *fd, struct vm_area_struct *vma);
 static int gsl_kmod_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
 static int gsl_kmod_open(struct inode *inode, struct file *fd);
@@ -72,7 +71,7 @@ static const struct file_operations gsl_kmod_fops =
     .owner = THIS_MODULE,
     .read = gsl_kmod_read,
     .write = gsl_kmod_write,
-    .ioctl = gsl_kmod_ioctl,
+    .unlocked_ioctl = gsl_kmod_ioctl,
     .mmap = gsl_kmod_mmap,
     .open = gsl_kmod_open,
     .release = gsl_kmod_release
@@ -93,7 +92,7 @@ static ssize_t gsl_kmod_write(struct file *fd, const char __user *buf, size_t le
     return 0;
 }
 
-static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, unsigned long arg)
+static long gsl_kmod_ioctl(struct file *fd, unsigned int cmd, unsigned long arg)
 {
     int kgslStatus = GSL_FAILURE;
 
@@ -436,7 +435,9 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
                 {
                     add_memblock_to_allocated_list(fd, &tmp);
                 }
-            }
+	    } else {
+		    printk(KERN_ERR "GPU %s:%d kgsl_sharedmem_alloc failed!\n", __func__, __LINE__);
+	    }
             break;
         }
     case IOCTL_KGSL_SHAREDMEM_FREE:
@@ -768,15 +769,14 @@ static int gpu_probe(struct platform_device *pdev)
     int i;
     struct resource *res;
     struct device *dev;
-    struct mxc_gpu_platform_data *gpu_data = NULL;
+    struct mxc_gpu_platform_data *pdata;
 
-    gpu_data = (struct mxc_gpu_platform_data *)pdev->dev.platform_data;
-
-    if (gpu_data == NULL)
-	return 0;
-
-    z160_version = gpu_data->z160_revision;
-    enable_mmu = gpu_data->enable_mmu;
+    pdata = pdev->dev.platform_data;
+    if (pdata) {
+	z160_version = pdata->z160_revision;
+	gpu_reserved_mem = pdata->reserved_mem_base;
+	gpu_reserved_mem_size = pdata->reserved_mem_size;
+    }
 
     for(i = 0; i < 2; i++){
         res = platform_get_resource(pdev, IORESOURCE_IRQ, i);
@@ -795,7 +795,7 @@ static int gpu_probe(struct platform_device *pdev)
         }
     }
 
-    for(i = 0; i < 4; i++){
+    for (i = 0; i < 3; i++) {
         res = platform_get_resource(pdev, IORESOURCE_MEM, i);
         if (!res) {
             gpu_2d_regbase = 0;
@@ -815,9 +815,6 @@ static int gpu_probe(struct platform_device *pdev)
                 gpu_3d_regsize = res->end - res->start + 1;
             }else if(strcmp(res->name, "gpu_graphics_mem") == 0){
                 gmem_size = res->end - res->start + 1;
-             }else if(strcmp(res->name, "gpu_reserved_mem") == 0){
-                gpu_reserved_mem = res->start;
-                gpu_reserved_mem_size = res->end - res->start + 1;
             }
         }
     }

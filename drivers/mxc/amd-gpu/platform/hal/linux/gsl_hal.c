@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2010, Advanced Micro Devices. All rights reserved.
+ * Copyright (C) 2008-2011 Freescale Semiconductor, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +18,7 @@
  */
 
 /*
- * Copyright (C) 2010-2011 Freescale Semiconductor, Inc. All Rights Reserved.
+ * Copyright (C) 2010 Freescale Semiconductor, Inc. All Rights Reserved.
  */
 
 #include "gsl_hal.h"
@@ -38,7 +39,7 @@
 #define GSL_HAL_MEM2                        1
 #define GSL_HAL_MEM3                        2
 
-/* #define GSL_HAL_DEBUG */
+#define GSL_HAL_DEBUG
 
 extern phys_addr_t gpu_2d_regbase;
 extern int gpu_2d_regsize;
@@ -48,7 +49,6 @@ extern int gmem_size;
 extern phys_addr_t gpu_reserved_mem;
 extern int gpu_reserved_mem_size;
 extern int gpu_2d_irq, gpu_3d_irq;
-extern int enable_mmu;
 
 
 KGSLHAL_API int
@@ -121,7 +121,8 @@ kgsl_hal_init(void)
 	hal->has_z160 = 0;
     }
 
-    gsl_driver.enable_mmu = enable_mmu;
+    /* there is still some problem to enable mmu currently */
+    gsl_driver.enable_mmu = 0;
 
     /* setup register space */
     if (hal->has_z430) {
@@ -130,6 +131,7 @@ kgsl_hal_init(void)
 	hal->z430_regspace.mmio_virt_base = (unsigned char *)ioremap(hal->z430_regspace.mmio_phys_base, hal->z430_regspace.sizebytes);
 
 	if (hal->z430_regspace.mmio_virt_base == NULL) {
+	    printk(KERN_ERR "GPU: %s:%d ioremap failed!\n", __func__, __LINE__);
 	    return GSL_FAILURE_SYSTEMERROR;
 	}
 
@@ -146,6 +148,7 @@ kgsl_hal_init(void)
 	hal->z160_regspace.mmio_virt_base = (unsigned char *)ioremap(hal->z160_regspace.mmio_phys_base, hal->z160_regspace.sizebytes);
 
 	if (hal->z160_regspace.mmio_virt_base == NULL) {
+	    printk(KERN_ERR "GPU: %s:%d ioremap failed!\n", __func__, __LINE__);
 	    return GSL_FAILURE_SYSTEMERROR;
 	}
 
@@ -157,25 +160,33 @@ kgsl_hal_init(void)
     }
 
     if (gsl_driver.enable_mmu) {
-	printk(KERN_INFO "gpu mmu enabled\n");
 	totalsize = GSL_HAL_SHMEM_SIZE_EMEM2_MMU + GSL_HAL_SHMEM_SIZE_PHYS_MMU;
 	mem1size = GSL_HAL_SHMEM_SIZE_EMEM1_MMU;
-	if (gpu_reserved_mem && gpu_reserved_mem_size >= totalsize) {
+	if (/*gpu_reserved_mem &&*/ gpu_reserved_mem_size >= totalsize) {
 	    pa = gpu_reserved_mem;
 	    va = (unsigned int)ioremap(gpu_reserved_mem, totalsize);
+	    if (!va) {
+		    printk(KERN_ERR "GPU: %s:%d ioremap failed!\n", __func__, __LINE__);
+		    return GSL_FAILURE_SYSTEMERROR;
+	   }
 	} else {
 	    va = (unsigned int)dma_alloc_coherent(0, totalsize, (dma_addr_t *)&pa, GFP_DMA | GFP_KERNEL);
 	}
     } else {
-	printk(KERN_INFO "gpu mmu disabled\n");
-	if (gpu_reserved_mem && gpu_reserved_mem_size >= SZ_8M) {
+	if (/*gpu_reserved_mem &&*/ gpu_reserved_mem_size >= SZ_8M) {
 	    totalsize = gpu_reserved_mem_size;
 	    pa = gpu_reserved_mem;
 	    va = (unsigned int)ioremap(gpu_reserved_mem, gpu_reserved_mem_size);
+	    printk("!!!!!!!! SZ > 8M\n");
+	    if (!va) {
+		    printk(KERN_ERR "GPU: %s:%d ioremap failed!\n", __func__, __LINE__);
+		    return GSL_FAILURE_SYSTEMERROR;
+	   }
 	} else {
 	    gpu_reserved_mem = 0;
 	    totalsize = GSL_HAL_SHMEM_SIZE_EMEM1_NOMMU + GSL_HAL_SHMEM_SIZE_EMEM2_NOMMU + GSL_HAL_SHMEM_SIZE_PHYS_NOMMU;
 	    va = (unsigned int)dma_alloc_coherent(0, totalsize, (dma_addr_t *)&pa, GFP_DMA | GFP_KERNEL);
+	    printk("!!!!!!!! SZ < 8M %u %u\n", gpu_reserved_mem, gpu_reserved_mem_size);
 	}
 	mem1size = totalsize - (GSL_HAL_SHMEM_SIZE_EMEM2_NOMMU + GSL_HAL_SHMEM_SIZE_PHYS_NOMMU);
     }
@@ -274,7 +285,7 @@ kgsl_hal_close(void)
 	}
 
 	/* free physical block */
-	if (hal->memchunk.mmio_virt_base && gpu_reserved_mem) {
+	if (hal->memchunk.mmio_virt_base && gpu_reserved_mem_size) {
 	    iounmap(hal->memchunk.mmio_virt_base);
 	} else {
 	    dma_free_coherent(0, hal->memchunk.sizebytes, hal->memchunk.mmio_virt_base, hal->memchunk.mmio_phys_base);

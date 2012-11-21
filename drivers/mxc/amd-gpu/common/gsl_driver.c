@@ -167,7 +167,6 @@ kgsl_driver_entry(gsl_flags_t flags)
 
     if (kgsl_driver_init0(GSL_DRVFLAGS_INTERNAL, flags) != GSL_SUCCESS)
     {
-        printk("kgsl_driver_init0 failed.\n");
         return (GSL_FAILURE);
     }
 
@@ -187,8 +186,7 @@ kgsl_driver_entry(gsl_flags_t flags)
         {
             gsl_driver.callerprocess[index] = pid;
             gsl_driver.refcnt++;
-        } else
-            printk("kgsl_driver_getcallerprocessindex failed.\n");
+        }
     }
 
     if (status == GSL_SUCCESS)
@@ -205,12 +203,9 @@ kgsl_driver_entry(gsl_flags_t flags)
                 {
 		    if (kgsl_device_init(&gsl_driver.device[i], (gsl_deviceid_t)(i + 1)) == GSL_SUCCESS) {
 			status = GSL_SUCCESS;
-		    } else
-                        printk("kgsl_device_init failed.\n");
+		    }
                 }
-            } else
-                printk("kgsl_sharedmem_init failed.\n");
-
+            }
 
             if (status == GSL_SUCCESS)
             {
@@ -226,7 +221,6 @@ kgsl_driver_entry(gsl_flags_t flags)
                 status = kgsl_device_attachcallback(&gsl_driver.device[i], pid);
                 if (status != GSL_SUCCESS)
                 {
-                    printk("kgsl_device_attachcallback failed.\n");
                     break;
                 }
             }
@@ -240,8 +234,7 @@ kgsl_driver_entry(gsl_flags_t flags)
             {
                 gsl_driver.callerprocess[index] = GSL_PROCESSID_NONE;
                 gsl_driver.refcnt--;
-            } else
-                printk("kgsl_driver_getcallerprocessindex failed.\n");
+            }
         }
     }
 

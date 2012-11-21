@@ -146,11 +146,6 @@ struct fsl_ata_platform_data {
 	   char    *core_reg;
 };
 
-struct mxc_gpu_platform_data {
-	int z160_revision;
-	int enable_mmu;
-};
-
 struct mpc8xx_pcmcia_ops {
 	void(*hw_ctrl)(int slot, int enable);
 	int(*voltage_set)(int slot, int vcc, int vpp);

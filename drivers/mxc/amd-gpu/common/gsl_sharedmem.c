@@ -390,6 +390,11 @@ kgsl_sharedmem_alloc(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes,
 	int status = GSL_SUCCESS;
 	GSL_API_MUTEX_LOCK();
 	status = kgsl_sharedmem_alloc0(device_id, flags, sizebytes, memdesc);
+	if (status != GSL_SUCCESS) {
+	    int ap;
+	    GSL_MEMDESC_APERTURE_GET(memdesc, ap);
+	    printk("kgsl_sharedmem_alloc0 failed: sz:%u ap:%u\n", sizebytes, ap);
+	}
 	GSL_API_MUTEX_UNLOCK();
 	return status;
 }
