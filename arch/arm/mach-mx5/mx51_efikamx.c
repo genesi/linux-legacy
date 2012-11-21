@@ -62,6 +62,7 @@
 static struct android_pmem_platform_data android_pmem_data = {
 	.name = "pmem_adsp",
 	.size = SZ_16M,
+	//.cached = 1,
 };
 
 static struct android_pmem_platform_data android_pmem_gpu_data = {
@@ -307,7 +308,7 @@ static void __init mx51_efikamx_fixup(struct machine_desc *desc, struct tag *tag
 	struct tag *mem_tag = 0;
 	int total_mem = SZ_512M;
 	int fb_mem = SZ_16M;
-	int gpu_mem = SZ_32M;
+	int gpu_mem = SZ_32M + SZ_16M;
 	int sys_mem;
 
 	mxc_set_cpu_type(MXC_CPU_MX51);
@@ -345,8 +346,8 @@ static void __init mx51_efikamx_android_fixup(struct machine_desc *desc, struct 
 {
 	struct tag *mem_tag = 0;
 	int total_mem = SZ_512M;
-	int fb_mem = SZ_16M;
-	int gpu_mem = SZ_32M;
+	int fb_mem = SZ_8M;
+	int gpu_mem = SZ_32M + SZ_16M;
 	int pmem_mem = android_pmem_data.size + android_pmem_gpu_data.size;
 	int sys_mem;
 

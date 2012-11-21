@@ -32,6 +32,7 @@
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <mach/gpio.h>
+#include <mach/mxc_gpu.h>
 
 #include "devices.h"
 #include "iomux.h"
@@ -196,8 +197,10 @@ void __init mx51_efikamx_display_adjust_mem(unsigned int start, unsigned int siz
 
 void __init mx51_efikamx_gpu_adjust_mem(unsigned int start, unsigned int size)
 {
-	gpu_device.resource[5].start = start;
-	gpu_device.resource[5].end = start + size - 1;
+	//gpu_device.resource[5].start = start;
+	//gpu_device.resource[5].end = start + size - 1;
+	mxc_gpu_data.reserved_mem_base = start;
+	mxc_gpu_data.reserved_mem_size = size;
 }
 
 void __init mx51_efikamx_init_display(void)
@@ -255,7 +258,7 @@ void __init mx51_efikamx_init_display(void)
 
 	mxc_register_device(&mxc_ipu_device, &mxc_ipu_data);
 	mxc_register_device(&mxcvpu_device, &mxc_vpu_data);
-	mxc_gpu_data.enable_mmu = 0;
+//	mxc_gpu_data.enable_mmu = 0;
 	mxc_register_device(&gpu_device, &mxc_gpu_data);
 	mxc_register_device(&mxc_v4l2out_device, NULL);
 
