@@ -37,171 +37,171 @@
 //////////////////////////////////////////////////////////////////////////////
 
 typedef struct _kgsl_device_start_t {
-    gsl_deviceid_t  device_id;
+    unsigned int  device_id;
     gsl_flags_t flags;
 } kgsl_device_start_t;
 
 typedef struct _kgsl_device_stop_t {
-    gsl_deviceid_t  device_id;
+    unsigned int  device_id;
 } kgsl_device_stop_t;
 
 typedef struct _kgsl_device_idle_t {
-    gsl_deviceid_t  device_id;
+    unsigned int  device_id;
     unsigned int    timeout;
 } kgsl_device_idle_t;
 
 typedef struct _kgsl_device_isidle_t {
-    gsl_deviceid_t  device_id;
+    unsigned int  device_id;
 } kgsl_device_isidle_t;
 
 typedef struct _kgsl_device_getproperty_t {
-    gsl_deviceid_t  device_id;
+    unsigned int  device_id;
     gsl_property_type_t type;
     unsigned int    *value;
     unsigned int    sizebytes;
 } kgsl_device_getproperty_t;
 
 typedef struct _kgsl_device_setproperty_t {
-    gsl_deviceid_t  device_id;
+    unsigned int  device_id;
     gsl_property_type_t type;
     void        *value;
     unsigned int    sizebytes;
 } kgsl_device_setproperty_t;
 
 typedef struct _kgsl_device_regread_t {
-    gsl_deviceid_t  device_id;
+    unsigned int  device_id;
     unsigned int    offsetwords;
     unsigned int    *value;
 } kgsl_device_regread_t;
 
 typedef struct _kgsl_device_regwrite_t {
-    gsl_deviceid_t  device_id;
+    unsigned int  device_id;
     unsigned int    offsetwords;
     unsigned int    value;
 } kgsl_device_regwrite_t;
 
 typedef struct _kgsl_device_waitirq_t {
-    gsl_deviceid_t  device_id;
+    unsigned int  device_id;
     gsl_intrid_t    intr_id;
     unsigned int    *count;
     unsigned int    timeout;
 } kgsl_device_waitirq_t;
 
 typedef struct _kgsl_cmdstream_issueibcmds_t {
-    gsl_deviceid_t  device_id;
+    unsigned int  device_id;
     int     drawctxt_index;
-    gpuaddr_t   ibaddr;
+    uint32_t   ibaddr;
     int     sizedwords;
-    gsl_timestamp_t *timestamp;
+    unsigned int *timestamp;
     gsl_flags_t flags;
 } kgsl_cmdstream_issueibcmds_t;
 
 typedef struct _kgsl_cmdstream_readtimestamp_t {
-    gsl_deviceid_t  device_id;
-    gsl_timestamp_type_t    type;
-    gsl_timestamp_t *timestamp;
+    unsigned int  device_id;
+    enum kgsl_timestamp_type    type;
+    unsigned int *timestamp;
 } kgsl_cmdstream_readtimestamp_t;
 
 typedef struct _kgsl_cmdstream_freememontimestamp_t {
-    gsl_deviceid_t  device_id;
-    gsl_memdesc_t   *memdesc;
-    gsl_timestamp_t timestamp;
-    gsl_timestamp_type_t    type;
+    unsigned int  device_id;
+    struct kgsl_memdesc   *memdesc;
+    unsigned int timestamp;
+    enum kgsl_timestamp_type    type;
 } kgsl_cmdstream_freememontimestamp_t;
 
 typedef struct _kgsl_cmdstream_waittimestamp_t {
-    gsl_deviceid_t  device_id;
-	gsl_timestamp_t timestamp;
+    unsigned int  device_id;
+	unsigned int timestamp;
     unsigned int    timeout;
 } kgsl_cmdstream_waittimestamp_t;
 
 typedef struct _kgsl_cmdwindow_write_t {
-    gsl_deviceid_t  device_id;
-    gsl_cmdwindow_t target;
+    unsigned int  device_id;
+    enum kgsl_cmdwindow_type target;
     unsigned int    addr;
     unsigned int    data;
 } kgsl_cmdwindow_write_t;
 
 typedef struct _kgsl_context_create_t {
-    gsl_deviceid_t  device_id;
+    unsigned int  device_id;
     gsl_context_type_t  type;
     unsigned int    *drawctxt_id;
     gsl_flags_t flags;
 } kgsl_context_create_t;
 
 typedef struct _kgsl_context_destroy_t {
-    gsl_deviceid_t  device_id;
+    unsigned int  device_id;
     unsigned int    drawctxt_id;
 } kgsl_context_destroy_t;
 
 typedef struct _kgsl_drawctxt_bind_gmem_shadow_t {
-    gsl_deviceid_t device_id;
+    unsigned int device_id;
     unsigned int drawctxt_id;
-    const gsl_rect_t* gmem_rect;
+    const struct kgsl_gmem_desc* gmem_rect;
     unsigned int shadow_x;
     unsigned int shadow_y;
-    const gsl_buffer_desc_t* shadow_buffer;
+    const struct kgsl_buffer_desc* shadow_buffer;
     unsigned int buffer_id;
 } kgsl_drawctxt_bind_gmem_shadow_t;
 
 typedef struct _kgsl_sharedmem_alloc_t {
-    gsl_deviceid_t  device_id;
+    unsigned int  device_id;
     gsl_flags_t flags;
     int     sizebytes;
-    gsl_memdesc_t   *memdesc;
+    struct kgsl_memdesc   *memdesc;
 } kgsl_sharedmem_alloc_t;
 
 typedef struct _kgsl_sharedmem_free_t {
-    gsl_memdesc_t   *memdesc;
+    struct kgsl_memdesc   *memdesc;
 } kgsl_sharedmem_free_t;
 
 typedef struct _kgsl_sharedmem_read_t {
-    const gsl_memdesc_t *memdesc;
+    const struct kgsl_memdesc *memdesc;
     unsigned int    *dst;
     unsigned int    offsetbytes;
     unsigned int    sizebytes;
 } kgsl_sharedmem_read_t;
 
 typedef struct _kgsl_sharedmem_write_t {
-    const gsl_memdesc_t *memdesc;
+    const struct kgsl_memdesc *memdesc;
     unsigned int    offsetbytes;
     unsigned int    *src;
     unsigned int    sizebytes;
 } kgsl_sharedmem_write_t;
 
 typedef struct _kgsl_sharedmem_set_t {
-    const gsl_memdesc_t *memdesc;
+    const struct kgsl_memdesc *memdesc;
     unsigned int    offsetbytes;
     unsigned int    value;
     unsigned int    sizebytes;
 } kgsl_sharedmem_set_t;
 
 typedef struct _kgsl_sharedmem_largestfreeblock_t {
-    gsl_deviceid_t  device_id;
+    unsigned int  device_id;
     gsl_flags_t flags;
     unsigned int    *largestfreeblock;
 } kgsl_sharedmem_largestfreeblock_t;
 
 typedef struct _kgsl_sharedmem_cacheoperation_t {
-    const gsl_memdesc_t *memdesc;
+    const struct kgsl_memdesc *memdesc;
     unsigned int    offsetbytes;
     unsigned int    sizebytes;
     unsigned int    operation;
 } kgsl_sharedmem_cacheoperation_t;
 
 typedef struct _kgsl_sharedmem_fromhostpointer_t {
-    gsl_deviceid_t  device_id;
-    gsl_memdesc_t   *memdesc;
+    unsigned int  device_id;
+    struct kgsl_memdesc   *memdesc;
     void        *hostptr;
 } kgsl_sharedmem_fromhostpointer_t;
 
 typedef struct _kgsl_add_timestamp_t {
-    gsl_deviceid_t device_id;
-    gsl_timestamp_t *timestamp;
+    unsigned int device_id;
+    unsigned int *timestamp;
 } kgsl_add_timestamp_t;
 
 typedef struct _kgsl_device_clock_t {
-    gsl_deviceid_t device; /* GSL_DEVICE_YAMATO = 1, GSL_DEVICE_G12 = 2 */
+    unsigned int device; /* GSL_DEVICE_YAMATO = 1, GSL_DEVICE_G12 = 2 */
     int enable; /* 0: disable, 1: enable */
 } kgsl_device_clock_t;
 

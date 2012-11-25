@@ -55,7 +55,7 @@
 
 #define GSL_MEMDESC_DEVICE_GET(memdesc, device_id)                                              \
     DEBUG_ASSERT(memdesc);                                                                        \
-    device_id = (gsl_deviceid_t)((memdesc->priv & GSL_DEVICEID_MASK) >> GSL_DEVICEID_SHIFT);    \
+    device_id = (unsigned int)((memdesc->priv & GSL_DEVICEID_MASK) >> GSL_DEVICEID_SHIFT);    \
     DEBUG_ASSERT(device_id <= GSL_DEVICE_MAX);
 
 #define GSL_MEMDESC_EXTALLOC_ISMARKED(memdesc)  \
@@ -88,7 +88,7 @@ kgsl_sharedmem_init(gsl_sharedmem_t *shmem)
     gsl_apertureid_t   aperture_id;
     gsl_channelid_t    channel_id;
     unsigned int       hostbaseaddr;
-    gpuaddr_t          gpubaseaddr;
+    uint32_t          gpubaseaddr;
     int                sizebytes;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_sharedmem_init(gsl_sharedmem_t *shmem=0x%08x)\n", shmem );
@@ -204,18 +204,18 @@ kgsl_sharedmem_close(gsl_sharedmem_t *shmem)
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_alloc0(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes, gsl_memdesc_t *memdesc)
+kgsl_sharedmem_alloc0(unsigned int device_id, gsl_flags_t flags, int sizebytes, struct kgsl_memdesc *memdesc)
 {
     gsl_apertureid_t  aperture_id;
     gsl_channelid_t   channel_id;
-    gsl_deviceid_t    tmp_id;
+    unsigned int    tmp_id;
     int               aperture_index, org_index;
     int               result  = GSL_FAILURE;
-    gsl_mmu_t         *mmu    = NULL;
+    struct kgsl_mmu         *mmu    = NULL;
     gsl_sharedmem_t   *shmem  = &gsl_driver.shmem;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_alloc(gsl_deviceid_t device_id=%D, gsl_flags_t flags=%x, int sizebytes=%d, gsl_memdesc_t *memdesc=%M)\n",
+                    "--> int kgsl_sharedmem_alloc(unsigned int device_id=%D, gsl_flags_t flags=%x, int sizebytes=%d, struct kgsl_memdesc *memdesc=%M)\n",
                     device_id, flags, sizebytes, memdesc );
 
     DEBUG_ASSERT(sizebytes);
@@ -224,7 +224,7 @@ kgsl_sharedmem_alloc0(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes
     GSL_MEMFLAGS_APERTURE_GET(flags, aperture_id);
     GSL_MEMFLAGS_CHANNEL_GET(flags, channel_id);
 
-    memset(memdesc, 0, sizeof(gsl_memdesc_t));
+    memset(memdesc, 0, sizeof(struct kgsl_memdesc));
 
     if (!(shmem->flags & GSL_FLAGS_INITIALIZED))
     {
@@ -388,7 +388,7 @@ kgsl_sharedmem_alloc0(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_alloc(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes, gsl_memdesc_t *memdesc)
+kgsl_sharedmem_alloc(unsigned int device_id, gsl_flags_t flags, int sizebytes, struct kgsl_memdesc *memdesc)
 {
 	int status = GSL_SUCCESS;
 	mutex_lock(&gsl_driver.lock);
@@ -400,14 +400,14 @@ kgsl_sharedmem_alloc(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes,
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_free0(gsl_memdesc_t *memdesc, unsigned int pid)
+kgsl_sharedmem_free0(struct kgsl_memdesc *memdesc, unsigned int pid)
 {
     int              status = GSL_SUCCESS;
     int              aperture_index;
-    gsl_deviceid_t   device_id;
+    unsigned int   device_id;
     gsl_sharedmem_t  *shmem;
 
-    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_sharedmem_free(gsl_memdesc_t *memdesc=%M)\n", memdesc );
+    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_sharedmem_free(struct kgsl_memdesc *memdesc=%M)\n", memdesc );
 
     GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
     GSL_MEMDESC_DEVICE_GET(memdesc, device_id);
@@ -429,7 +429,7 @@ kgsl_sharedmem_free0(gsl_memdesc_t *memdesc, unsigned int pid)
         kgsl_memarena_free(shmem->apertures[aperture_index].memarena, memdesc);
 
         // clear descriptor
-        memset(memdesc, 0, sizeof(gsl_memdesc_t));
+        memset(memdesc, 0, sizeof(struct kgsl_memdesc));
     }
     else
     {
@@ -444,7 +444,7 @@ kgsl_sharedmem_free0(gsl_memdesc_t *memdesc, unsigned int pid)
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_free(gsl_memdesc_t *memdesc)
+kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 {
 	int status = GSL_SUCCESS;
 	mutex_lock(&gsl_driver.lock);
@@ -456,14 +456,14 @@ kgsl_sharedmem_free(gsl_memdesc_t *memdesc)
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_read0(const gsl_memdesc_t *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace)
+kgsl_sharedmem_read0(const struct kgsl_memdesc *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace)
 {
     int              aperture_index;
     gsl_sharedmem_t  *shmem;
     unsigned int     gpuoffsetbytes;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_read(gsl_memdesc_t *memdesc=%M, void *dst=0x%08x, uint offsetbytes=%u, uint sizebytes=%u)\n",
+                    "--> int kgsl_sharedmem_read(struct kgsl_memdesc *memdesc=%M, void *dst=0x%08x, uint offsetbytes=%u, uint sizebytes=%u)\n",
                     memdesc, dst, offsetbytes, sizebytes );
 
     GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
@@ -498,7 +498,7 @@ kgsl_sharedmem_read0(const gsl_memdesc_t *memdesc, void *dst, unsigned int offse
 
     gpuoffsetbytes = (memdesc->gpuaddr - shmem->apertures[aperture_index].memarena->gpubaseaddr) + offsetbytes;
 
-    GSL_HAL_MEM_READ(dst, shmem->apertures[aperture_index].memarena->hostbaseaddr, gpuoffsetbytes, sizebytes, touserspace);
+    kgsl_hwaccess_memread(dst, shmem->apertures[aperture_index].memarena->hostbaseaddr, gpuoffsetbytes, sizebytes, touserspace);
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_sharedmem_read. Return value %B\n", GSL_SUCCESS );
 
@@ -508,7 +508,7 @@ kgsl_sharedmem_read0(const gsl_memdesc_t *memdesc, void *dst, unsigned int offse
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_read(const gsl_memdesc_t *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace)
+kgsl_sharedmem_read(const struct kgsl_memdesc *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace)
 {
 	int status = GSL_SUCCESS;
 	mutex_lock(&gsl_driver.lock);
@@ -520,14 +520,14 @@ kgsl_sharedmem_read(const gsl_memdesc_t *memdesc, void *dst, unsigned int offset
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_write0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace)
+kgsl_sharedmem_write0(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace)
 {
     int              aperture_index;
     gsl_sharedmem_t  *shmem;
     unsigned int     gpuoffsetbytes;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_write(gsl_memdesc_t *memdesc=%M, uint offsetbytes=%u, void *src=0x%08x, uint sizebytes=%u)\n",
+                    "--> int kgsl_sharedmem_write(struct kgsl_memdesc *memdesc=%M, uint offsetbytes=%u, void *src=0x%08x, uint sizebytes=%u)\n",
                     memdesc, offsetbytes, src, sizebytes );
 
     GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
@@ -554,7 +554,7 @@ kgsl_sharedmem_write0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, vo
 
     gpuoffsetbytes = (memdesc->gpuaddr - shmem->apertures[aperture_index].memarena->gpubaseaddr) + offsetbytes;
 
-    GSL_HAL_MEM_WRITE(shmem->apertures[aperture_index].memarena->hostbaseaddr, gpuoffsetbytes, src, sizebytes, fromuserspace);
+    kgsl_hwaccess_memwrite(shmem->apertures[aperture_index].memarena->hostbaseaddr, gpuoffsetbytes, src, sizebytes, fromuserspace);
 
     KGSL_DEBUG(GSL_DBGFLAGS_PM4MEM, KGSL_DEBUG_DUMPMEMWRITE((memdesc->gpuaddr + offsetbytes), sizebytes, src));
 
@@ -568,7 +568,7 @@ kgsl_sharedmem_write0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, vo
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_write(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace)
+kgsl_sharedmem_write(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace)
 {
 	int status = GSL_SUCCESS;
 	mutex_lock(&gsl_driver.lock);
@@ -580,14 +580,14 @@ kgsl_sharedmem_write(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, voi
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_set0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes)
+kgsl_sharedmem_set0(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes)
 {
     int              aperture_index;
     gsl_sharedmem_t  *shmem;
     unsigned int     gpuoffsetbytes;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_set(gsl_memdesc_t *memdesc=%M, unsigned int offsetbytes=%d, unsigned int value=0x%08x, unsigned int sizebytes=%d)\n",
+                    "--> int kgsl_sharedmem_set(struct kgsl_memdesc *memdesc=%M, unsigned int offsetbytes=%d, unsigned int value=0x%08x, unsigned int sizebytes=%d)\n",
                     memdesc, offsetbytes, value, sizebytes );
 
     GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
@@ -613,7 +613,7 @@ kgsl_sharedmem_set0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsi
 
     gpuoffsetbytes = (memdesc->gpuaddr - shmem->apertures[aperture_index].memarena->gpubaseaddr) + offsetbytes;
 
-    GSL_HAL_MEM_SET(shmem->apertures[aperture_index].memarena->hostbaseaddr, gpuoffsetbytes, value, sizebytes);
+    kgsl_hwaccess_memset(shmem->apertures[aperture_index].memarena->hostbaseaddr, gpuoffsetbytes, value, sizebytes);
 
     KGSL_DEBUG(GSL_DBGFLAGS_PM4MEM, KGSL_DEBUG_DUMPMEMSET((memdesc->gpuaddr + offsetbytes), sizebytes, value));
 
@@ -627,7 +627,7 @@ kgsl_sharedmem_set0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsi
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_set(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes)
+kgsl_sharedmem_set(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes)
 {
 	int status = GSL_SUCCESS;
 	mutex_lock(&gsl_driver.lock);
@@ -639,7 +639,7 @@ kgsl_sharedmem_set(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsig
 //----------------------------------------------------------------------------
 
 unsigned int
-kgsl_sharedmem_largestfreeblock(gsl_deviceid_t device_id, gsl_flags_t flags)
+kgsl_sharedmem_largestfreeblock(unsigned int device_id, gsl_flags_t flags)
 {
     gsl_apertureid_t  aperture_id;
     gsl_channelid_t   channel_id;
@@ -653,7 +653,7 @@ kgsl_sharedmem_largestfreeblock(gsl_deviceid_t device_id, gsl_flags_t flags)
     (void) device_id;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_largestfreeblock(gsl_deviceid_t device_id=%D, gsl_flags_t flags=%x)\n",
+                    "--> int kgsl_sharedmem_largestfreeblock(unsigned int device_id=%D, gsl_flags_t flags=%x)\n",
                     device_id, flags );
 
     GSL_MEMFLAGS_APERTURE_GET(flags, aperture_id);
@@ -688,15 +688,15 @@ kgsl_sharedmem_largestfreeblock(gsl_deviceid_t device_id, gsl_flags_t flags)
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_map(gsl_deviceid_t device_id, gsl_flags_t flags, const gsl_scatterlist_t *scatterlist, gsl_memdesc_t *memdesc)
+kgsl_sharedmem_map(unsigned int device_id, gsl_flags_t flags, const gsl_scatterlist_t *scatterlist, struct kgsl_memdesc *memdesc)
 {
     int              status = GSL_FAILURE;
     gsl_sharedmem_t  *shmem = &gsl_driver.shmem;
     int              aperture_index;
-    gsl_deviceid_t   tmp_id;
+    unsigned int   tmp_id;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_map(gsl_deviceid_t device_id=%D, gsl_flags_t flags=%x, gsl_scatterlist_t scatterlist=%S, gsl_memdesc_t *memdesc=%M)\n",
+                    "--> int kgsl_sharedmem_map(unsigned int device_id=%D, gsl_flags_t flags=%x, gsl_scatterlist_t scatterlist=%S, struct kgsl_memdesc *memdesc=%M)\n",
                     device_id, flags, memdesc, scatterlist );
 
     // execute pending device action
@@ -774,7 +774,7 @@ kgsl_sharedmem_map(gsl_deviceid_t device_id, gsl_flags_t flags, const gsl_scatte
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_unmap(gsl_memdesc_t *memdesc)
+kgsl_sharedmem_unmap(struct kgsl_memdesc *memdesc)
 {
     return (kgsl_sharedmem_free0(memdesc, current->tgid));
 }
@@ -782,15 +782,15 @@ kgsl_sharedmem_unmap(gsl_memdesc_t *memdesc)
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_getmap(const gsl_memdesc_t *memdesc, gsl_scatterlist_t *scatterlist)
+kgsl_sharedmem_getmap(const struct kgsl_memdesc *memdesc, gsl_scatterlist_t *scatterlist)
 {
     int              status = GSL_SUCCESS;
     int              aperture_index;
-    gsl_deviceid_t   device_id;
+    unsigned int   device_id;
     gsl_sharedmem_t  *shmem;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_getmap(gsl_memdesc_t *memdesc=%M, gsl_scatterlist_t scatterlist=%S)\n",
+                    "--> int kgsl_sharedmem_getmap(struct kgsl_memdesc *memdesc=%M, gsl_scatterlist_t scatterlist=%S)\n",
                     memdesc, scatterlist );
 
     GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
@@ -908,7 +908,7 @@ kgsl_sharedmem_convertaddr(unsigned int addr, int type)
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_cacheoperation(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsigned int sizebytes, unsigned int operation)
+kgsl_sharedmem_cacheoperation(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int sizebytes, unsigned int operation)
 {
     int status  = GSL_FAILURE;
 
@@ -926,11 +926,11 @@ kgsl_sharedmem_cacheoperation(const gsl_memdesc_t *memdesc, unsigned int offsetb
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_fromhostpointer(gsl_deviceid_t device_id, gsl_memdesc_t *memdesc, void* hostptr)
+kgsl_sharedmem_fromhostpointer(unsigned int device_id, struct kgsl_memdesc *memdesc, void* hostptr)
 {
     int status  = GSL_FAILURE;
 
-    memdesc->gpuaddr = (gpuaddr_t)hostptr;  /* map physical address with hostptr    */
+    memdesc->gpuaddr = (uint32_t)hostptr;  /* map physical address with hostptr    */
     memdesc->hostptr = hostptr;             /* set virtual address also in memdesc  */
 
     /* unreferenced formal parameter */

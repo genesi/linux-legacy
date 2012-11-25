@@ -45,7 +45,7 @@ typedef struct _gsl_driver_t {
     struct mutex     lock;                                 // global API mutex
     void             *hal;
     gsl_sharedmem_t  shmem;
-    gsl_device_t     device[GSL_DEVICE_MAX];
+    struct kgsl_device     device[GSL_DEVICE_MAX];
     int              dmi_state;     //  OS_TRUE = enabled, OS_FALSE otherwise
     gsl_flags_t      dmi_mode;      //  single, double, or triple buffering
     int              dmi_frame;     //  set to -1 when DMI is enabled

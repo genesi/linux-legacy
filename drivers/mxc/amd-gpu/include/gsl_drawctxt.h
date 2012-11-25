@@ -55,7 +55,7 @@
 
 typedef struct _gmem_shadow_t
 {
-    gsl_memdesc_t   gmemshadow;     // Shadow buffer address
+    struct kgsl_memdesc   gmemshadow;     // Shadow buffer address
 
     // 256 KB GMEM surface = 4 bytes-per-pixel x 256 pixels/row x 256 rows.
     // width & height must be a multiples of 32, in case tiled textures are used.
@@ -82,8 +82,8 @@ typedef struct _gmem_shadow_t
     unsigned int    gmem_save[3];
     unsigned int    gmem_restore[3];
 
-    gsl_memdesc_t   quad_vertices;
-    gsl_memdesc_t   quad_texcoords;
+    struct kgsl_memdesc   quad_vertices;
+    struct kgsl_memdesc   quad_texcoords;
 } gmem_shadow_t;
 
 #define GSL_MAX_GMEM_SHADOW_BUFFERS 2
@@ -92,7 +92,7 @@ typedef struct _gsl_drawctxt_t {
 	unsigned int        pid;
     gsl_flags_t         flags;
     gsl_context_type_t  type;
-    gsl_memdesc_t       gpustate;
+    struct kgsl_memdesc       gpustate;
     
     unsigned int        reg_save[3];
     unsigned int        reg_restore[3];
@@ -108,11 +108,11 @@ typedef struct _gsl_drawctxt_t {
 //////////////////////////////////////////////////////////////////////////////
 //  prototypes
 //////////////////////////////////////////////////////////////////////////////
-int     kgsl_drawctxt_init(gsl_device_t *device);
-int     kgsl_drawctxt_close(gsl_device_t *device);
-int     kgsl_drawctxt_destroyall(gsl_device_t *device);
-void    kgsl_drawctxt_switch(gsl_device_t *device, gsl_drawctxt_t *drawctxt, gsl_flags_t flags);
-int     kgsl_drawctxt_create(gsl_device_t* device, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags);
-int     kgsl_drawctxt_destroy(gsl_device_t* device, unsigned int drawctxt_id);
+int     kgsl_drawctxt_init(struct kgsl_device *device);
+int     kgsl_drawctxt_close(struct kgsl_device *device);
+int     kgsl_drawctxt_destroyall(struct kgsl_device *device);
+void    kgsl_drawctxt_switch(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, gsl_flags_t flags);
+int     kgsl_drawctxt_create(struct kgsl_device* device, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags);
+int     kgsl_drawctxt_destroy(struct kgsl_device* device, unsigned int drawctxt_id);
 
 #endif  // __GSL_DRAWCTXT_H

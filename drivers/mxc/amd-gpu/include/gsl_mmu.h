@@ -113,15 +113,15 @@ typedef struct _gsl_mmustats_t {
 // -----------------
 // page table object
 // -----------------
-typedef struct _gsl_pagetable_t {
+struct kgsl_pagetable {
 	unsigned int   pid;
     unsigned int   refcnt;
-    gsl_memdesc_t  base;
-    gpuaddr_t      va_base;
+    struct kgsl_memdesc  base;
+    uint32_t      va_base;
     unsigned int   va_range;
     unsigned int   last_superpte;
     unsigned int   max_entries;
-} gsl_pagetable_t;
+};
 
 // -------------------------
 // tlb flush filter object
@@ -134,30 +134,30 @@ typedef struct _gsl_tlbflushfilter_t {
 // ----------
 // mmu object
 // ----------
-typedef struct _gsl_mmu_t {
+struct kgsl_mmu {
     unsigned int          refcnt;
     gsl_flags_t           flags;
-    gsl_device_t          *device;
+    struct kgsl_device          *device;
     unsigned int          config;
-    gpuaddr_t             mpu_base;
+    uint32_t             mpu_base;
     int                   mpu_range;
-    gpuaddr_t             va_base;
+    uint32_t             va_base;
     unsigned int          va_range;
-    gsl_memdesc_t         dummyspace;
+    struct kgsl_memdesc         dummyspace;
     gsl_tlbflushfilter_t  tlbflushfilter;
-    gsl_pagetable_t       *hwpagetable;                     // current page table object being used by device mmu
-    gsl_pagetable_t       *pagetable[GSL_MMU_PAGETABLE_MAX];    // page table object table
+    struct kgsl_pagetable       *hwpagetable;                     // current page table object being used by device mmu
+    struct kgsl_pagetable       *pagetable[GSL_MMU_PAGETABLE_MAX];    // page table object table
 #ifdef GSL_STATS_MMU
 	gsl_mmustats_t        stats;
 #endif  // GSL_STATS_MMU
-} gsl_mmu_t;
+};
 
 
 //////////////////////////////////////////////////////////////////////////////
 //  inline functions
 //////////////////////////////////////////////////////////////////////////////
 static __inline int
-kgsl_mmu_isenabled(gsl_mmu_t *mmu)
+kgsl_mmu_isenabled(struct kgsl_mmu *mmu)
 {
     // address translation enabled
     int enabled = ((mmu)->flags & GSL_FLAGS_STARTED) ? 1 : 0;
@@ -169,15 +169,15 @@ kgsl_mmu_isenabled(gsl_mmu_t *mmu)
 //////////////////////////////////////////////////////////////////////////////
 //  prototypes
 //////////////////////////////////////////////////////////////////////////////
-int    kgsl_mmu_init(gsl_device_t *device);
-int    kgsl_mmu_close(gsl_device_t *device);
-int    kgsl_mmu_attachcallback(gsl_mmu_t *mmu, unsigned int pid);
-int    kgsl_mmu_detachcallback(gsl_mmu_t *mmu, unsigned int pid);
-int    kgsl_mmu_setpagetable(gsl_device_t *device, unsigned int pid);
-int    kgsl_mmu_map(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, const gsl_scatterlist_t *scatterlist, gsl_flags_t flags, unsigned int pid);
-int    kgsl_mmu_unmap(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, int range, unsigned int pid);
-int    kgsl_mmu_getmap(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, int range, gsl_scatterlist_t *scatterlist, unsigned int pid);
-int    kgsl_mmu_querystats(gsl_mmu_t *mmu, gsl_mmustats_t *stats);
-int    kgsl_mmu_bist(gsl_mmu_t *mmu);
+int    kgsl_mmu_init(struct kgsl_device *device);
+int    kgsl_mmu_close(struct kgsl_device *device);
+int    kgsl_mmu_attachcallback(struct kgsl_mmu *mmu, unsigned int pid);
+int    kgsl_mmu_detachcallback(struct kgsl_mmu *mmu, unsigned int pid);
+int    kgsl_mmu_setpagetable(struct kgsl_device *device, unsigned int pid);
+int    kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t *scatterlist, gsl_flags_t flags, unsigned int pid);
+int    kgsl_mmu_unmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, unsigned int pid);
+int    kgsl_mmu_getmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, gsl_scatterlist_t *scatterlist, unsigned int pid);
+int    kgsl_mmu_querystats(struct kgsl_mmu *mmu, gsl_mmustats_t *stats);
+int    kgsl_mmu_bist(struct kgsl_mmu *mmu);
 
 #endif // __GSL_MMU_H

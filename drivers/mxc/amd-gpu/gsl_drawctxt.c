@@ -120,18 +120,18 @@ typedef struct
     unsigned int    *cmd;           // Next available dword in C&V buffer
 
     // address of buffers, needed when creating IB1 command buffers.
-    gpuaddr_t       bool_shadow;    // Address where bool constants are shadowed
-    gpuaddr_t       loop_shadow;    // Address where loop constants are shadowed
+    uint32_t       bool_shadow;    // Address where bool constants are shadowed
+    uint32_t       loop_shadow;    // Address where loop constants are shadowed
 
 #if defined(PM4_IM_STORE)
-    gpuaddr_t       shader_shared;  // Address of shared shader instruction shadow
-    gpuaddr_t       shader_vertex;  // Address of vertex shader instruction shadow
-    gpuaddr_t       shader_pixel;   // Address of pixel shader instruction shadow
+    uint32_t       shader_shared;  // Address of shared shader instruction shadow
+    uint32_t       shader_vertex;  // Address of vertex shader instruction shadow
+    uint32_t       shader_pixel;   // Address of pixel shader instruction shadow
 #endif
 
-    gpuaddr_t       reg_values[2];  // Addresses in command buffer where separately handled registers are saved
-    gpuaddr_t       chicken_restore;// Address where the TP0_CHICKEN register value is written
-    gpuaddr_t       gmem_base;      // Base gpu address of GMEM
+    uint32_t       reg_values[2];  // Addresses in command buffer where separately handled registers are saved
+    uint32_t       chicken_restore;// Address where the TP0_CHICKEN register value is written
+    uint32_t       gmem_base;      // Base gpu address of GMEM
 }
 ctx_t;
 
@@ -454,7 +454,7 @@ config_gmemsize(gmem_shadow_t *shadow, int gmem_size)
 //////////////////////////////////////////////////////////////////////////////
 
 static unsigned int
-gpuaddr(unsigned int *cmd, gsl_memdesc_t *memdesc)
+gpuaddr(unsigned int *cmd, struct kgsl_memdesc *memdesc)
 {
     return memdesc->gpuaddr + ((char *)cmd - (char *)memdesc->hostptr);
 }
@@ -491,7 +491,7 @@ program_shader(unsigned int *cmds, int vtxfrag, const unsigned int *shader_pgm, 
 //////////////////////////////////////////////////////////////////////////////
 
 static unsigned int *
-reg_to_mem(unsigned int *cmds, gpuaddr_t dst, gpuaddr_t src, int dwords)
+reg_to_mem(unsigned int *cmds, uint32_t dst, uint32_t src, int dwords)
 {
     while (dwords-- > 0)
     {
@@ -1288,7 +1288,7 @@ build_shader_save_restore_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
 //////////////////////////////////////////////////////////////////////////////
 
 static int
-create_gpustate_shadow(gsl_device_t *device, gsl_drawctxt_t *drawctxt, ctx_t *ctx)
+create_gpustate_shadow(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, ctx_t *ctx)
 {
     gsl_flags_t flags;
 
@@ -1321,7 +1321,7 @@ create_gpustate_shadow(gsl_device_t *device, gsl_drawctxt_t *drawctxt, ctx_t *ct
 // Allocate GMEM shadow buffer
 //////////////////////////////////////////////////////////////////////////////
 static int
-allocate_gmem_shadow_buffer(gsl_device_t *device, gsl_drawctxt_t *drawctxt)
+allocate_gmem_shadow_buffer(struct kgsl_device *device, gsl_drawctxt_t *drawctxt)
 {
     // allocate memory for GMEM shadow
     if (kgsl_sharedmem_alloc0(device->id, (GSL_MEMFLAGS_CONPHYS | GSL_MEMFLAGS_ALIGN8K),
@@ -1340,7 +1340,7 @@ allocate_gmem_shadow_buffer(gsl_device_t *device, gsl_drawctxt_t *drawctxt)
 //////////////////////////////////////////////////////////////////////////////
 
 static int
-create_gmem_shadow(gsl_device_t *device, gsl_drawctxt_t *drawctxt, ctx_t *ctx)
+create_gmem_shadow(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, ctx_t *ctx)
 {
     unsigned int i;
     config_gmemsize(&drawctxt->context_gmem_shadow, device->gmemspace.sizebytes);
@@ -1353,7 +1353,7 @@ create_gmem_shadow(gsl_device_t *device, gsl_drawctxt_t *drawctxt, ctx_t *ctx)
     }
     else
     {
-        memset( &drawctxt->context_gmem_shadow.gmemshadow, 0, sizeof( gsl_memdesc_t ) );
+        memset( &drawctxt->context_gmem_shadow.gmemshadow, 0, sizeof( struct kgsl_memdesc ) );
     }
 
     // build quad vertex buffer
@@ -1390,7 +1390,7 @@ create_gmem_shadow(gsl_device_t *device, gsl_drawctxt_t *drawctxt, ctx_t *ctx)
 //////////////////////////////////////////////////////////////////////////////
 
 int
-kgsl_drawctxt_init(gsl_device_t *device)
+kgsl_drawctxt_init(struct kgsl_device *device)
 {
     return (GSL_SUCCESS);
 }
@@ -1401,7 +1401,7 @@ kgsl_drawctxt_init(gsl_device_t *device)
 //////////////////////////////////////////////////////////////////////////////
 
 int
-kgsl_drawctxt_close(gsl_device_t *device)
+kgsl_drawctxt_close(struct kgsl_device *device)
 {
     return (GSL_SUCCESS);
 }
@@ -1412,7 +1412,7 @@ kgsl_drawctxt_close(gsl_device_t *device)
 //////////////////////////////////////////////////////////////////////////////
 
 int
-kgsl_drawctxt_create(gsl_device_t* device, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags)
+kgsl_drawctxt_create(struct kgsl_device* device, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags)
 {
     gsl_drawctxt_t  *drawctxt;
     int             index;
@@ -1488,7 +1488,7 @@ kgsl_drawctxt_create(gsl_device_t* device, gsl_context_type_t type, unsigned int
 //////////////////////////////////////////////////////////////////////////////
 
 int
-kgsl_drawctxt_destroy(gsl_device_t* device, unsigned int drawctxt_id)
+kgsl_drawctxt_destroy(struct kgsl_device* device, unsigned int drawctxt_id)
 {
     gsl_drawctxt_t *drawctxt;
 
@@ -1505,7 +1505,7 @@ kgsl_drawctxt_destroy(gsl_device_t* device, unsigned int drawctxt_id)
             kgsl_drawctxt_switch(device, GSL_CONTEXT_NONE, 0);
         }
 
-        device->ftbl.device_idle(device, GSL_TIMEOUT_DEFAULT);
+        device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT);
 
         // destroy state shadow, if allocated
         if (drawctxt->flags & CTXT_FLAGS_STATE_SHADOW)
@@ -1551,9 +1551,9 @@ kgsl_drawctxt_destroy(gsl_device_t* device, unsigned int drawctxt_id)
 //
 //
 //////////////////////////////////////////////////////////////////////////////
-int kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned int drawctxt_id, const gsl_rect_t* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const gsl_buffer_desc_t* shadow_buffer, unsigned int buffer_id)
+int kgsl_drawctxt_bind_gmem_shadow(unsigned int device_id, unsigned int drawctxt_id, const struct kgsl_gmem_desc* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const struct kgsl_buffer_desc* shadow_buffer, unsigned int buffer_id)
 {
-    gsl_device_t   *device = &gsl_driver.device[device_id-1];
+    struct kgsl_device   *device = &gsl_driver.device[device_id-1];
     gsl_drawctxt_t *drawctxt = &device->drawctxt[drawctxt_id];
     gmem_shadow_t  *shadow = &drawctxt->user_gmem_shadow[buffer_id];
     unsigned int    i;
@@ -1584,7 +1584,7 @@ int kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned int drawct
 		DEBUG_ASSERT(buffer_id < GSL_MAX_GMEM_SHADOW_BUFFERS);
 
 		// Set up GMEM shadow regions
-        memcpy( &shadow->gmemshadow, &shadow_buffer->data, sizeof( gsl_memdesc_t ) );
+        memcpy( &shadow->gmemshadow, &shadow_buffer->data, sizeof( struct kgsl_memdesc ) );
         shadow->size = shadow->gmemshadow.size;
 
 		shadow->width = shadow_buffer->width;
@@ -1641,7 +1641,7 @@ int kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned int drawct
 //////////////////////////////////////////////////////////////////////////////
 
 void
-kgsl_drawctxt_switch(gsl_device_t *device, gsl_drawctxt_t *drawctxt, gsl_flags_t flags)
+kgsl_drawctxt_switch(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, gsl_flags_t flags)
 {
     gsl_drawctxt_t *active_ctxt = device->drawctxt_active;
 
@@ -1761,7 +1761,7 @@ kgsl_drawctxt_switch(gsl_device_t *device, gsl_drawctxt_t *drawctxt, gsl_flags_t
 // destroy all drawing contexts
 //////////////////////////////////////////////////////////////////////////////
 int
-kgsl_drawctxt_destroyall(gsl_device_t *device)
+kgsl_drawctxt_destroyall(struct kgsl_device *device)
 {
     int             i;
     gsl_drawctxt_t  *drawctxt;

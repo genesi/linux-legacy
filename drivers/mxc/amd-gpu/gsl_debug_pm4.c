@@ -498,7 +498,7 @@ Yamato_DumpSwapBuffers(unsigned int dwAddress, unsigned int dwWidth,
 //----------------------------------------------------------------------------
 
 void
-Yamato_DumpRegSpace(gsl_device_t *device)
+Yamato_DumpRegSpace(struct kgsl_device *device)
 {
     int           regsPerLine = 0x20;
     unsigned int  dwOffset;
@@ -513,7 +513,7 @@ Yamato_DumpRegSpace(gsl_device_t *device)
            printString( "    0x%08x   ", dwOffset);
         }
 
-        GSL_HAL_REG_READ(device->id, (unsigned int) device->regspace.mmio_virt_base, (dwOffset >> 2), &value);
+        kgsl_hwaccess_regread(device->id, (unsigned int) device->regspace.mmio_virt_base, (dwOffset >> 2), &value);
 
         printString( " 0x%08x", value);
 
@@ -721,7 +721,7 @@ Yamato_DumpRegisterWrite(unsigned int dwAddress, unsigned int value)
 //----------------------------------------------------------------------------
 
 void
-Yamato_DumpFbStart(gsl_device_t *device)
+Yamato_DumpFbStart(struct kgsl_device *device)
 {
     static int firstCall = 0;
 
@@ -886,7 +886,7 @@ static int kgsl_dumpx_handle_type3(unsigned int* hostaddr, int count)
            
 // Traverse IBs and dump them to test vector. Detect swap by inspecting register 
 // writes, keeping note of the current state, and dump framebuffer config to test vector 
-int kgsl_dumpx_parse_ibs(gpuaddr_t gpuaddr, int sizedwords)
+int kgsl_dumpx_parse_ibs(uint32_t gpuaddr, int sizedwords)
 {
     static unsigned int level = 0; //recursion level
 

@@ -46,7 +46,7 @@ static const s8 EMPTY_ENTRY = -1;
 struct gsl_kmod_alloc_list
 {
     struct list_head node;
-    gsl_memdesc_t allocated_block;
+    struct kgsl_memdesc allocated_block;
     u32 allocation_number;
 };
 
@@ -66,10 +66,10 @@ struct gsl_kmod_per_fd_data
 
 /* allocated memory block tracking */
 int add_memblock_to_allocated_list(struct file *fd,
-                                   gsl_memdesc_t *allocated_block);
+                                   struct kgsl_memdesc *allocated_block);
 
 int del_memblock_from_allocated_list(struct file *fd,
-                                     gsl_memdesc_t *freed_block);
+                                     struct kgsl_memdesc *freed_block);
 
 int del_all_memblocks_from_allocated_list(struct file *fd);
 
@@ -77,11 +77,11 @@ int del_all_memblocks_from_allocated_list(struct file *fd);
 void init_created_contexts_array(s8 *array);
 
 void add_device_context_to_array(struct file *fd,
-                                 gsl_deviceid_t device_id,
+                                 unsigned int device_id,
                                  unsigned int context_id);
 
 void del_device_context_from_array(struct file *fd, 
-                                   gsl_deviceid_t device_id,
+                                   unsigned int device_id,
                                    unsigned int context_id);
 
 void del_all_devices_contexts(struct file *fd);

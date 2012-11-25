@@ -310,12 +310,12 @@ kgsl_hal_getshmemconfig(gsl_shmemconfig_t *config)
 /* ---------------------------------------------------------------------------- */
 
 KGSLHAL_API int
-kgsl_hal_getdevconfig(gsl_deviceid_t device_id, gsl_devconfig_t *config)
+kgsl_hal_getdevconfig(unsigned int device_id, struct kgsl_devconfig *config)
 {
     int        status = GSL_FAILURE_DEVICEERROR;
     gsl_hal_t  *hal   = (gsl_hal_t *) gsl_driver.hal;
 
-    memset(config, 0, sizeof(gsl_devconfig_t));
+    memset(config, 0, sizeof(struct kgsl_devconfig));
 
     if (hal) {
 	switch (device_id) {
@@ -415,22 +415,22 @@ kgsl_hal_getdevconfig(gsl_deviceid_t device_id, gsl_devconfig_t *config)
  * The proper platform method, build from RBBM_PERIPHIDx and RBBM_PATCH_RELEASE
  *----------------------------------------------------------------------------
  */
-KGSLHAL_API gsl_chipid_t
-kgsl_hal_getchipid(gsl_deviceid_t device_id)
+KGSLHAL_API unsigned int
+kgsl_hal_getchipid(unsigned int device_id)
 {
     gsl_hal_t *hal = (gsl_hal_t *) gsl_driver.hal;
-    gsl_device_t *device = &gsl_driver.device[device_id-1];
-    gsl_chipid_t chipid = 0;
+    struct kgsl_device *device = &gsl_driver.device[device_id-1];
+    unsigned int chipid = 0;
     unsigned int coreid, majorid, minorid, patchid, revid;
 
     if (hal->has_z430 && (device_id == GSL_DEVICE_YAMATO)) {
-	device->ftbl.device_regread(device, mmRBBM_PERIPHID1, &coreid);
+	device->ftbl.regread(device, mmRBBM_PERIPHID1, &coreid);
 	coreid &= 0xF;
 
-	device->ftbl.device_regread(device, mmRBBM_PERIPHID2, &majorid);
+	device->ftbl.regread(device, mmRBBM_PERIPHID2, &majorid);
 	majorid = (majorid >> 4) & 0xF;
 
-	device->ftbl.device_regread(device, mmRBBM_PATCH_RELEASE, &revid);
+	device->ftbl.regread(device, mmRBBM_PATCH_RELEASE, &revid);
 
 	minorid = ((revid >> 0) & 0xFF); /* this is a 16bit field, but extremely unlikely it would ever get this high */
 
@@ -449,9 +449,9 @@ kgsl_hal_getchipid(gsl_deviceid_t device_id)
 /* --------------------------------------------------------------------------- */
 
 KGSLHAL_API int
-kgsl_hal_setpowerstate(gsl_deviceid_t device_id, int state, unsigned int value)
+kgsl_hal_setpowerstate(unsigned int device_id, int state, unsigned int value)
 {
-	gsl_device_t *device = &gsl_driver.device[device_id-1];
+	struct kgsl_device *device = &gsl_driver.device[device_id-1];
 	struct clk *gpu_clk = NULL;
 	struct clk *garb_clk = NULL;
 	struct clk *emi_garb_clk = NULL;
@@ -492,7 +492,7 @@ kgsl_hal_setpowerstate(gsl_deviceid_t device_id, int state, unsigned int value)
 	case GSL_PWRFLAGS_CLK_OFF:
 		break;
 	case GSL_PWRFLAGS_POWER_OFF:
-		if (device->ftbl.device_idle(device, GSL_TIMEOUT_DEFAULT) != GSL_SUCCESS) {
+		if (device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT) != GSL_SUCCESS) {
 			return GSL_FAILURE_DEVICEERROR;
 		}
 		kgsl_device_autogate_exit(&gsl_driver.device[device_id-1]);
@@ -511,7 +511,7 @@ kgsl_hal_setpowerstate(gsl_deviceid_t device_id, int state, unsigned int value)
 	return GSL_SUCCESS;
 }
 
-KGSLHAL_API int kgsl_clock(gsl_deviceid_t dev, int enable)
+KGSLHAL_API int kgsl_clock(unsigned int dev, int enable)
 {
 	struct clk *gpu_clk = NULL;
 	struct clk *garb_clk = NULL;

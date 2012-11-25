@@ -114,10 +114,10 @@ void            Yamato_DumpPM4(unsigned int *cmds, unsigned int sizedwords);
 void            Yamato_DumpRegisterWrite(unsigned int dwAddress, unsigned int value);
 void            Yamato_DumpWriteMemory(unsigned int dwAddress, unsigned int dwSize, void* pData);
 void            Yamato_DumpSetMemory(unsigned int dwAddress, unsigned int dwSize, unsigned int pData);
-void            Yamato_DumpFbStart(gsl_device_t *device);
-void            Yamato_DumpRegSpace(gsl_device_t *device);
+void            Yamato_DumpFbStart(struct kgsl_device *device);
+void            Yamato_DumpRegSpace(struct kgsl_device *device);
 #endif
 #ifdef _DEBUG
-int             kgsl_dumpx_parse_ibs(gpuaddr_t gpuaddr, int sizedwords);
+int             kgsl_dumpx_parse_ibs(uint32_t gpuaddr, int sizedwords);
 #endif //_DEBUG
 #endif // __GSL_DRIVER_H

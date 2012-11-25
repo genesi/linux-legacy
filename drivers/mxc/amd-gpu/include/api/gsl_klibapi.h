@@ -56,56 +56,56 @@ int                kgsl_driver_destroy(unsigned int pid);
 ////////////////////////////////////////////////////////////////////////////
 //  device API
 ////////////////////////////////////////////////////////////////////////////
-int                kgsl_device_start(gsl_deviceid_t device_id, gsl_flags_t flags);
-int                kgsl_device_stop(gsl_deviceid_t device_id);
-int                kgsl_device_idle(gsl_deviceid_t device_id, unsigned int timeout);
-int                kgsl_device_isidle(gsl_deviceid_t device_id);
-int                kgsl_device_getproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void *value, unsigned int sizebytes);
-int                kgsl_device_setproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void *value, unsigned int sizebytes);
-int                kgsl_device_regread(gsl_deviceid_t device_id, unsigned int offsetwords, unsigned int *value);
-int                kgsl_device_regwrite(gsl_deviceid_t device_id, unsigned int offsetwords, unsigned int value);
-int                kgsl_device_waitirq(gsl_deviceid_t device_id, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout);
+int                kgsl_device_start(unsigned int device_id, gsl_flags_t flags);
+int                kgsl_device_stop(unsigned int device_id);
+int                kgsl_device_idle(unsigned int device_id, unsigned int timeout);
+int                kgsl_device_isidle(unsigned int device_id);
+int                kgsl_device_getproperty(unsigned int device_id, gsl_property_type_t type, void *value, unsigned int sizebytes);
+int                kgsl_device_setproperty(unsigned int device_id, gsl_property_type_t type, void *value, unsigned int sizebytes);
+int                kgsl_device_regread(unsigned int device_id, unsigned int offsetwords, unsigned int *value);
+int                kgsl_device_regwrite(unsigned int device_id, unsigned int offsetwords, unsigned int value);
+int                kgsl_device_waitirq(unsigned int device_id, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout);
 
 
 ////////////////////////////////////////////////////////////////////////////
 //  command API
 ////////////////////////////////////////////////////////////////////////////
-int                kgsl_cmdstream_issueibcmds(gsl_deviceid_t device_id, int drawctxt_index, gpuaddr_t ibaddr, int sizedwords, gsl_timestamp_t *timestamp, gsl_flags_t flags);
-gsl_timestamp_t    kgsl_cmdstream_readtimestamp(gsl_deviceid_t device_id, gsl_timestamp_type_t type);
-int                kgsl_cmdstream_freememontimestamp(gsl_deviceid_t device_id, gsl_memdesc_t *memdesc, gsl_timestamp_t timestamp, gsl_timestamp_type_t type);
-int                kgsl_cmdstream_waittimestamp(gsl_deviceid_t device_id, gsl_timestamp_t timestamp, unsigned int timeout);
-int                kgsl_cmdwindow_write(gsl_deviceid_t device_id, gsl_cmdwindow_t target, unsigned int addr, unsigned int data);
-int                kgsl_add_timestamp(gsl_deviceid_t device_id, gsl_timestamp_t *timestamp);
-int                kgsl_cmdstream_check_timestamp(gsl_deviceid_t device_id, gsl_timestamp_t timestamp);
+int                kgsl_cmdstream_issueibcmds(unsigned int device_id, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, gsl_flags_t flags);
+unsigned int    kgsl_cmdstream_readtimestamp(unsigned int device_id, enum kgsl_timestamp_type type);
+int                kgsl_cmdstream_freememontimestamp(unsigned int device_id, struct kgsl_memdesc *memdesc, unsigned int timestamp, enum kgsl_timestamp_type type);
+int                kgsl_cmdstream_waittimestamp(unsigned int device_id, unsigned int timestamp, unsigned int timeout);
+int                kgsl_cmdwindow_write(unsigned int device_id, enum kgsl_cmdwindow_type target, unsigned int addr, unsigned int data);
+int                kgsl_add_timestamp(unsigned int device_id, unsigned int *timestamp);
+int                kgsl_cmdstream_check_timestamp(unsigned int device_id, unsigned int timestamp);
 
 ////////////////////////////////////////////////////////////////////////////
 //  context API
 ////////////////////////////////////////////////////////////////////////////
-int                kgsl_context_create(gsl_deviceid_t device_id, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags);
-int                kgsl_context_destroy(gsl_deviceid_t device_id, unsigned int drawctxt_id);
-int                kgsl_drawctxt_bind_gmem_shadow(gsl_deviceid_t device_id, unsigned int drawctxt_id, const gsl_rect_t* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const gsl_buffer_desc_t* shadow_buffer, unsigned int buffer_id);
+int                kgsl_context_create(unsigned int device_id, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags);
+int                kgsl_context_destroy(unsigned int device_id, unsigned int drawctxt_id);
+int                kgsl_drawctxt_bind_gmem_shadow(unsigned int device_id, unsigned int drawctxt_id, const struct kgsl_gmem_desc* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const struct kgsl_buffer_desc* shadow_buffer, unsigned int buffer_id);
 
 
 ////////////////////////////////////////////////////////////////////////////
 //  sharedmem API
 ////////////////////////////////////////////////////////////////////////////
-int                kgsl_sharedmem_alloc(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes, gsl_memdesc_t *memdesc);
-int                kgsl_sharedmem_free(gsl_memdesc_t *memdesc);
-int                kgsl_sharedmem_read(const gsl_memdesc_t *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace);
-int                kgsl_sharedmem_write(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace);
-int                kgsl_sharedmem_set(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes);
-unsigned int       kgsl_sharedmem_largestfreeblock(gsl_deviceid_t device_id, gsl_flags_t flags);
-int                kgsl_sharedmem_map(gsl_deviceid_t device_id, gsl_flags_t flags, const gsl_scatterlist_t *scatterlist, gsl_memdesc_t *memdesc);
-int                kgsl_sharedmem_unmap(gsl_memdesc_t *memdesc);
-int                kgsl_sharedmem_getmap(const gsl_memdesc_t *memdesc, gsl_scatterlist_t *scatterlist);
-int                kgsl_sharedmem_cacheoperation(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsigned int sizebytes, unsigned int operation);
-int                kgsl_sharedmem_fromhostpointer(gsl_deviceid_t device_id, gsl_memdesc_t *memdesc, void* hostptr);
+int                kgsl_sharedmem_alloc(unsigned int device_id, gsl_flags_t flags, int sizebytes, struct kgsl_memdesc *memdesc);
+int                kgsl_sharedmem_free(struct kgsl_memdesc *memdesc);
+int                kgsl_sharedmem_read(const struct kgsl_memdesc *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace);
+int                kgsl_sharedmem_write(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace);
+int                kgsl_sharedmem_set(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes);
+unsigned int       kgsl_sharedmem_largestfreeblock(unsigned int device_id, gsl_flags_t flags);
+int                kgsl_sharedmem_map(unsigned int device_id, gsl_flags_t flags, const gsl_scatterlist_t *scatterlist, struct kgsl_memdesc *memdesc);
+int                kgsl_sharedmem_unmap(struct kgsl_memdesc *memdesc);
+int                kgsl_sharedmem_getmap(const struct kgsl_memdesc *memdesc, gsl_scatterlist_t *scatterlist);
+int                kgsl_sharedmem_cacheoperation(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int sizebytes, unsigned int operation);
+int                kgsl_sharedmem_fromhostpointer(unsigned int device_id, struct kgsl_memdesc *memdesc, void* hostptr);
 
 
 ////////////////////////////////////////////////////////////////////////////
 //  interrupt API
 ////////////////////////////////////////////////////////////////////////////
-void               kgsl_intr_isr(gsl_device_t *device);
+void               kgsl_intr_isr(struct kgsl_device *device);
 
 
 ////////////////////////////////////////////////////////////////////////////

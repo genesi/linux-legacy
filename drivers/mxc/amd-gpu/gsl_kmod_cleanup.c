@@ -26,7 +26,7 @@
  * Local helper functions to check and convert device/context id's (1 based)
  * to index (0 based).
  */
-static u32 device_id_to_device_index(gsl_deviceid_t device_id)
+static u32 device_id_to_device_index(unsigned int device_id)
 {
     DEBUG_ASSERT((GSL_DEVICE_ANY < device_id) && 
                (device_id <= GSL_DEVICE_MAX));
@@ -75,10 +75,10 @@ static s8 *find_first_entry_with(s8 *subarray, s8 context_id)
  * list). Traces of tiger, tiger_ri and VG11 CTs should be analysed to make
  * informed choice.
  *
- * NOTE! gsl_memdesc_ts are COPIED so user space should NOT change them.
+ * NOTE! struct kgsl_memdescs are COPIED so user space should NOT change them.
  */
 int add_memblock_to_allocated_list(struct file *fd,
-                                   gsl_memdesc_t *allocated_block)
+                                   struct kgsl_memdesc *allocated_block)
 {
     int err = 0;
     struct gsl_kmod_per_fd_data *datp;
@@ -100,7 +100,7 @@ int add_memblock_to_allocated_list(struct file *fd,
 
         /* builds FIFO (list_add() would build LIFO) */
         list_add_tail(&lisp->node, head);
-        memcpy(&lisp->allocated_block, allocated_block, sizeof(gsl_memdesc_t));
+        memcpy(&lisp->allocated_block, allocated_block, sizeof(struct kgsl_memdesc));
         lisp->allocation_number = datp->maximum_number_of_blocks;
 //        printk(KERN_DEBUG "List entry #%u allocated\n", lisp->allocation_number);
 
@@ -120,7 +120,7 @@ int add_memblock_to_allocated_list(struct file *fd,
 
 /* Delete a previously allocated memdesc from a list of allocated memory blocks */
 int del_memblock_from_allocated_list(struct file *fd,
-                                     gsl_memdesc_t *freed_block)
+                                     struct kgsl_memdesc *freed_block)
 {
     struct gsl_kmod_per_fd_data *datp;
     struct gsl_kmod_alloc_list *cursor, *next;
@@ -142,7 +142,7 @@ int del_memblock_from_allocated_list(struct file *fd,
         {
             if(cursor->allocated_block.gpuaddr == freed_block->gpuaddr)
             {
-//                is_different = memcmp(&cursor->allocated_block, freed_block, sizeof(gsl_memdesc_t));
+//                is_different = memcmp(&cursor->allocated_block, freed_block, sizeof(struct kgsl_memdesc));
 //                DEBUG_ASSERT(!is_different);
 
                 list_del(&cursor->node);
@@ -193,7 +193,7 @@ void init_created_contexts_array(s8 *array)
 
 
 void add_device_context_to_array(struct file *fd,
-                                 gsl_deviceid_t device_id,
+                                 unsigned int device_id,
                                  unsigned int context_id)
 {
     struct gsl_kmod_per_fd_data *datp;
@@ -214,7 +214,7 @@ void add_device_context_to_array(struct file *fd,
 }
 
 void del_device_context_from_array(struct file *fd, 
-                                   gsl_deviceid_t device_id,
+                                   unsigned int device_id,
                                    unsigned int context_id)
 {
     struct gsl_kmod_per_fd_data *datp;
@@ -236,7 +236,7 @@ void del_device_context_from_array(struct file *fd,
 void del_all_devices_contexts(struct file *fd)
 {
     struct gsl_kmod_per_fd_data *datp;
-    gsl_deviceid_t id;
+    unsigned int id;
     u32 device_index;
     u32 ctx_array_index;
     s8 ctx;

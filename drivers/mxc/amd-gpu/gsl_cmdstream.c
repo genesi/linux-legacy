@@ -25,34 +25,34 @@
 
 // functions
 
-int kgsl_cmdstream_init(gsl_device_t *device)
+int kgsl_cmdstream_init(struct kgsl_device *device)
 {
 	return GSL_SUCCESS;
 }
 
-int kgsl_cmdstream_close(gsl_device_t *device)
+int kgsl_cmdstream_close(struct kgsl_device *device)
 {
 	return GSL_SUCCESS;
 }
 
-gsl_timestamp_t kgsl_cmdstream_readtimestamp0(gsl_deviceid_t device_id, gsl_timestamp_type_t type)
+unsigned int kgsl_cmdstream_readtimestamp0(unsigned int device_id, enum kgsl_timestamp_type type)
 {
-    gsl_timestamp_t   timestamp = -1;
-    gsl_device_t* device  = &gsl_driver.device[device_id-1];
+    unsigned int   timestamp = 0;
+    struct kgsl_device* device  = &gsl_driver.device[device_id-1];
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> gsl_timestamp_t kgsl_cmdstream_readtimestamp(gsl_deviceid_t device_id=%D gsl_timestamp_type_t type=%d)\n", device_id, type );
+                    "--> unsigned int kgsl_cmdstream_readtimestamp(unsigned int device_id=%D kgsl_timestamp_type type=%d)\n", device_id, type );
 #if (defined(GSL_BLD_G12) && defined(IRQTHREAD_POLL))
     complete_all(&device->irqthread_event);
 #endif
     if (type == GSL_TIMESTAMP_CONSUMED)
     {
         // start-of-pipeline timestamp
-        GSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, (unsigned int*)&timestamp);
+        GSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, &timestamp);
     }
     else if (type == GSL_TIMESTAMP_RETIRED)
     {
 		// end-of-pipeline timestamp
-		GSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, (unsigned int*)&timestamp);
+		GSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, &timestamp);
     }
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_readtimestamp. Return value %d\n", timestamp );
     return (timestamp);
@@ -60,10 +60,10 @@ gsl_timestamp_t kgsl_cmdstream_readtimestamp0(gsl_deviceid_t device_id, gsl_time
 
 //----------------------------------------------------------------------------
 
-gsl_timestamp_t
-kgsl_cmdstream_readtimestamp(gsl_deviceid_t device_id, gsl_timestamp_type_t type)
+unsigned int
+kgsl_cmdstream_readtimestamp(unsigned int device_id, enum kgsl_timestamp_type type)
 {
-	gsl_timestamp_t timestamp = -1;
+	unsigned int timestamp = -1;
 
 	mutex_lock(&gsl_driver.lock);
 
@@ -77,9 +77,9 @@ kgsl_cmdstream_readtimestamp(gsl_deviceid_t device_id, gsl_timestamp_type_t type
 //----------------------------------------------------------------------------
 
 int
-kgsl_cmdstream_issueibcmds(gsl_deviceid_t device_id, int drawctxt_index, gpuaddr_t ibaddr, int sizedwords, gsl_timestamp_t *timestamp, unsigned int flags)
+kgsl_cmdstream_issueibcmds(unsigned int device_id, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags)
 {
-    gsl_device_t* device  = &gsl_driver.device[device_id-1];
+    struct kgsl_device* device  = &gsl_driver.device[device_id-1];
     int status = GSL_FAILURE;
 
     mutex_lock(&gsl_driver.lock);
@@ -99,16 +99,16 @@ kgsl_cmdstream_issueibcmds(gsl_deviceid_t device_id, int drawctxt_index, gpuaddr
 //----------------------------------------------------------------------------
 
 int
-kgsl_add_timestamp(gsl_deviceid_t device_id, gsl_timestamp_t *timestamp)
+kgsl_add_timestamp(unsigned int device_id, unsigned int *timestamp)
 {
-    gsl_device_t* device  = &gsl_driver.device[device_id-1];
+    struct kgsl_device* device  = &gsl_driver.device[device_id-1];
     int status = GSL_FAILURE;
 
     mutex_lock(&gsl_driver.lock);
 
-    if (device->ftbl.device_addtimestamp)
+    if (device->ftbl.addtimestamp)
     {
-        status = device->ftbl.device_addtimestamp(device, timestamp);
+        status = device->ftbl.addtimestamp(device, timestamp);
     }
 
     mutex_unlock(&gsl_driver.lock);
@@ -117,13 +117,13 @@ kgsl_add_timestamp(gsl_deviceid_t device_id, gsl_timestamp_t *timestamp)
 
 //----------------------------------------------------------------------------
 
-int kgsl_cmdstream_waittimestamp(gsl_deviceid_t device_id, gsl_timestamp_t timestamp, unsigned int timeout)
+int kgsl_cmdstream_waittimestamp(unsigned int device_id, unsigned int timestamp, unsigned int timeout)
 {
-    gsl_device_t* device  = &gsl_driver.device[device_id-1];
+    struct kgsl_device* device  = &gsl_driver.device[device_id-1];
 	int status = GSL_FAILURE;
-	if (device->ftbl.device_waittimestamp)
+	if (device->ftbl.waittimestamp)
     {
-        status = device->ftbl.device_waittimestamp(device, timestamp, timeout);
+        status = device->ftbl.waittimestamp(device, timestamp, timeout);
     }
     return status;
 }
@@ -131,10 +131,10 @@ int kgsl_cmdstream_waittimestamp(gsl_deviceid_t device_id, gsl_timestamp_t times
 //----------------------------------------------------------------------------
 
 void
-kgsl_cmdstream_memqueue_drain(gsl_device_t *device)
+kgsl_cmdstream_memqueue_drain(struct kgsl_device *device)
 {
     gsl_memnode_t     *memnode, *nextnode, *freehead;
-    gsl_timestamp_t   timestamp, ts_processed;
+    unsigned int   timestamp, ts_processed;
     gsl_memqueue_t    *memqueue = &device->memqueue;
 
     // check head
@@ -187,10 +187,10 @@ kgsl_cmdstream_memqueue_drain(gsl_device_t *device)
 //----------------------------------------------------------------------------
 
 int
-kgsl_cmdstream_freememontimestamp(gsl_deviceid_t device_id, gsl_memdesc_t *memdesc, gsl_timestamp_t timestamp, gsl_timestamp_type_t type)
+kgsl_cmdstream_freememontimestamp(unsigned int device_id, struct kgsl_memdesc *memdesc, unsigned int timestamp, enum kgsl_timestamp_type type)
 {
     gsl_memnode_t  *memnode;
-    gsl_device_t   *device = &gsl_driver.device[device_id-1];
+    struct kgsl_device   *device = &gsl_driver.device[device_id-1];
     gsl_memqueue_t *memqueue;
     (void)type; // unref. For now just use EOP timestamp
 
@@ -209,7 +209,7 @@ kgsl_cmdstream_freememontimestamp(gsl_deviceid_t device_id, gsl_memdesc_t *memde
     memnode->timestamp = timestamp;
     memnode->pid       = current->tgid;
     memnode->next      = NULL;
-    memcpy(&memnode->memdesc, memdesc, sizeof(gsl_memdesc_t));
+    memcpy(&memnode->memdesc, memdesc, sizeof(struct kgsl_memdesc));
 
     // add to end of queue
     if (memqueue->tail != NULL)
@@ -229,15 +229,15 @@ kgsl_cmdstream_freememontimestamp(gsl_deviceid_t device_id, gsl_memdesc_t *memde
     return (GSL_SUCCESS);
 }
 
-static int kgsl_cmdstream_timestamp_cmp(gsl_timestamp_t ts_new, gsl_timestamp_t ts_old)
+static int kgsl_cmdstream_timestamp_cmp(unsigned int ts_new, unsigned int ts_old)
 {
-	gsl_timestamp_t ts_diff = ts_new - ts_old;
+	unsigned int ts_diff = ts_new - ts_old;
 	return (ts_diff >= 0) || (ts_diff < -GSL_TIMESTAMP_EPSILON);
 }
 
-int kgsl_cmdstream_check_timestamp(gsl_deviceid_t device_id, gsl_timestamp_t timestamp)
+int kgsl_cmdstream_check_timestamp(unsigned int device_id, unsigned int timestamp)
 {
-	gsl_timestamp_t ts_processed;
+	unsigned int ts_processed;
 	ts_processed = kgsl_cmdstream_readtimestamp0(device_id, GSL_TIMESTAMP_RETIRED);
 	return kgsl_cmdstream_timestamp_cmp(ts_processed, timestamp);
 }

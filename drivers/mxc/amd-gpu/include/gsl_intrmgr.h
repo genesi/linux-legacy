@@ -83,7 +83,7 @@ typedef struct _gsl_intr_handler_t
 typedef struct _gsl_intr_t
 {
     gsl_flags_t         flags;
-    gsl_device_t        *device;
+    struct kgsl_device        *device;
     unsigned int        enabled[GSL_INTR_BLOCK_COUNT];
     gsl_intr_handler_t  handler[GSL_INTR_COUNT];
     struct completion   evnt[GSL_INTR_COUNT];
@@ -93,13 +93,13 @@ typedef struct _gsl_intr_t
 //////////////////////////////////////////////////////////////////////////////
 //  prototypes
 //////////////////////////////////////////////////////////////////////////////
-int             kgsl_intr_init(gsl_device_t *device);
-int             kgsl_intr_close(gsl_device_t *device);
+int             kgsl_intr_init(struct kgsl_device *device);
+int             kgsl_intr_close(struct kgsl_device *device);
 int             kgsl_intr_attach(gsl_intr_t *intr, gsl_intrid_t id, gsl_intr_callback_t callback, void *cookie);
 int             kgsl_intr_detach(gsl_intr_t *intr, gsl_intrid_t id);
 int             kgsl_intr_enable(gsl_intr_t *intr, gsl_intrid_t id);
 int             kgsl_intr_disable(gsl_intr_t *intr, gsl_intrid_t id);
 int             kgsl_intr_isenabled(gsl_intr_t *intr, gsl_intrid_t id);
-void            kgsl_intr_decode(gsl_device_t *device, gsl_intrblock_t block_id);
+void            kgsl_intr_decode(struct kgsl_device *device, gsl_intrblock_t block_id);
 
 #endif  // __GSL_INTMGR_H

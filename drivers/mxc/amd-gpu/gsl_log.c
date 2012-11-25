@@ -137,10 +137,10 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
 
         switch( *(p1+1) )
         {
-            // gsl_memdesc_t
+            // struct kgsl_memdesc
             case 'M':
             {
-                gsl_memdesc_t *val = va_arg( arguments, gsl_memdesc_t *);
+                struct kgsl_memdesc *val = va_arg( arguments, struct kgsl_memdesc *);
                 // Handle string before %M
                 memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;
@@ -179,10 +179,10 @@ int kgsl_log_write( unsigned int log_flags, char* format, ... )
             }
             break;
 
-            // gsl_deviceid_t
+            // unsigned int
             case 'D':
             {
-                gsl_deviceid_t val = va_arg( arguments, gsl_deviceid_t );
+                unsigned int val = va_arg( arguments, unsigned int );
                 // Handle string before %D
                 memcpy( b, c, p1-c );
                 b += (unsigned int)p1-(unsigned int)c;

@@ -31,7 +31,7 @@
 
 // functions
 int
-kgsl_cmdwindow_init(gsl_device_t *device)
+kgsl_cmdwindow_init(struct kgsl_device *device)
 {
     return (GSL_SUCCESS);
 }
@@ -39,7 +39,7 @@ kgsl_cmdwindow_init(gsl_device_t *device)
 //----------------------------------------------------------------------------
 
 int
-kgsl_cmdwindow_close(gsl_device_t *device)
+kgsl_cmdwindow_close(struct kgsl_device *device)
 {
     return (GSL_SUCCESS);
 }
@@ -49,15 +49,15 @@ kgsl_cmdwindow_close(gsl_device_t *device)
 //----------------------------------------------------------------------------
 
 int
-kgsl_cmdwindow_write0(gsl_deviceid_t device_id, gsl_cmdwindow_t target, unsigned int addr, unsigned int data)
+kgsl_cmdwindow_write0(unsigned int device_id, enum kgsl_cmdwindow_type target, unsigned int addr, unsigned int data)
 {
 #ifdef GSL_BLD_G12
-    gsl_device_t  *device;
+    struct kgsl_device  *device;
     unsigned int  cmdwinaddr;
     unsigned int  cmdstream;
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_cmdwindow_write( gsl_device_id_t device_id=%D, gsl_cmdwindow_t target=%d, uint addr=0x%08x, uint data=0x%08x)\n", device_id, target, addr, data );
+                    "--> int kgsl_cmdwindow_write( gsl_device_id_t device_id=%D, enum kgsl_cmdwindow_type target=%d, uint addr=0x%08x, uint data=0x%08x)\n", device_id, target, addr, data );
 
     device = &gsl_driver.device[device_id-1];       // device_id is 1 based
 
@@ -100,10 +100,10 @@ kgsl_cmdwindow_write0(gsl_deviceid_t device_id, gsl_cmdwindow_t target, unsigned
 #endif
 
     // write command window address
-    device->ftbl.device_regwrite(device, (cmdstream)>>2, cmdwinaddr);
+    device->ftbl.regwrite(device, (cmdstream)>>2, cmdwinaddr);
 
     // write data
-    device->ftbl.device_regwrite(device, (cmdstream)>>2, data);
+    device->ftbl.regwrite(device, (cmdstream)>>2, data);
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_cmdwindow_write. Return value %B\n", GSL_SUCCESS );
 
@@ -122,7 +122,7 @@ kgsl_cmdwindow_write0(gsl_deviceid_t device_id, gsl_cmdwindow_t target, unsigned
 //----------------------------------------------------------------------------
 
 int
-kgsl_cmdwindow_write(gsl_deviceid_t device_id, gsl_cmdwindow_t target, unsigned int addr, unsigned int data)
+kgsl_cmdwindow_write(unsigned int device_id, enum kgsl_cmdwindow_type target, unsigned int addr, unsigned int data)
 {
 	int status = GSL_SUCCESS;
 	mutex_lock(&gsl_driver.lock);

@@ -287,7 +287,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_CMDSTREAM_ISSUEIBCMDS:
         {
             kgsl_cmdstream_issueibcmds_t param;
-            gsl_timestamp_t tmp;
+            unsigned int tmp;
 #if defined(GSL_IOCTL_DEBUG)
 	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CMDSTREAM_ISSUEIBCMDS\n", __func__);
 #endif
@@ -300,7 +300,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
             kgslStatus = kgsl_cmdstream_issueibcmds(param.device_id, param.drawctxt_index, param.ibaddr, param.sizedwords, &tmp, param.flags);
             if (kgslStatus == GSL_SUCCESS)
             {
-                if (copy_to_user(param.timestamp, &tmp, sizeof(gsl_timestamp_t)))
+                if (copy_to_user(param.timestamp, &tmp, sizeof(unsigned int)))
                 {
                     printk(KERN_ERR "%s: copy_to_user error\n", __func__);
                     kgslStatus = GSL_FAILURE;
@@ -312,7 +312,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_CMDSTREAM_READTIMESTAMP:
         {
             kgsl_cmdstream_readtimestamp_t param;
-            gsl_timestamp_t tmp;
+            unsigned int tmp;
 #if defined(GSL_IOCTL_DEBUG)
 	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CMDSTREAM_READTIMESTAMP\n", __func__);
 #endif
@@ -323,7 +323,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
                 break;
             }
             tmp = kgsl_cmdstream_readtimestamp(param.device_id, param.type);
-            if (copy_to_user(param.timestamp, &tmp, sizeof(gsl_timestamp_t)))
+            if (copy_to_user(param.timestamp, &tmp, sizeof(unsigned int)))
             {
                     printk(KERN_ERR "%s: copy_to_user error\n", __func__);
                     kgslStatus = GSL_FAILURE;
@@ -465,7 +465,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_SHAREDMEM_ALLOC:
         {
             kgsl_sharedmem_alloc_t param;
-            gsl_memdesc_t tmp;
+            struct kgsl_memdesc tmp;
             int tmpStatus;
 #if defined(GSL_IOCTL_DEBUG)
 	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_ALLOC\n", __func__);
@@ -479,7 +479,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
             kgslStatus = kgsl_sharedmem_alloc(param.device_id, param.flags, param.sizebytes, &tmp);
             if (kgslStatus == GSL_SUCCESS)
             {
-                if (copy_to_user(param.memdesc, &tmp, sizeof(gsl_memdesc_t)))
+                if (copy_to_user(param.memdesc, &tmp, sizeof(struct kgsl_memdesc)))
                 {
                     tmpStatus = kgsl_sharedmem_free(&tmp);
                     DEBUG_ASSERT(tmpStatus == GSL_SUCCESS);
@@ -500,7 +500,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_SHAREDMEM_FREE:
         {
             kgsl_sharedmem_free_t param;
-            gsl_memdesc_t tmp;
+            struct kgsl_memdesc tmp;
             int err;
 #if defined(GSL_IOCTL_DEBUG)
 	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_FREE\n", __func__);
@@ -511,7 +511,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
                 kgslStatus = GSL_FAILURE;
                 break;
             }
-            if (copy_from_user(&tmp, (void __user *)param.memdesc, sizeof(gsl_memdesc_t)))
+            if (copy_from_user(&tmp, (void __user *)param.memdesc, sizeof(struct kgsl_memdesc)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
                 kgslStatus = GSL_FAILURE;
@@ -527,7 +527,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
             kgslStatus = kgsl_sharedmem_free(&tmp);
             if (kgslStatus == GSL_SUCCESS)
             {
-                if (copy_to_user(param.memdesc, &tmp, sizeof(gsl_memdesc_t)))
+                if (copy_to_user(param.memdesc, &tmp, sizeof(struct kgsl_memdesc)))
                 {
                     printk(KERN_ERR "%s: copy_to_user error\n", __func__);
                     kgslStatus = GSL_FAILURE;
@@ -539,7 +539,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_SHAREDMEM_READ:
         {
             kgsl_sharedmem_read_t param;
-            gsl_memdesc_t memdesc;
+            struct kgsl_memdesc memdesc;
 #if defined(GSL_IOCTL_DEBUG)
 	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_READ\n", __func__);
 #endif
@@ -549,7 +549,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
                 kgslStatus = GSL_FAILURE;
                 break;
             }
-            if (copy_from_user(&memdesc, (void __user *)param.memdesc, sizeof(gsl_memdesc_t)))
+            if (copy_from_user(&memdesc, (void __user *)param.memdesc, sizeof(struct kgsl_memdesc)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
                 kgslStatus = GSL_FAILURE;
@@ -565,7 +565,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_SHAREDMEM_WRITE:
         {
             kgsl_sharedmem_write_t param;
-            gsl_memdesc_t memdesc;
+            struct kgsl_memdesc memdesc;
 #if defined(GSL_IOCTL_DEBUG)
 	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_WRITE\n", __func__);
 #endif
@@ -575,7 +575,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
                 kgslStatus = GSL_FAILURE;
                 break;
             }
-            if (copy_from_user(&memdesc, (void __user *)param.memdesc, sizeof(gsl_memdesc_t)))
+            if (copy_from_user(&memdesc, (void __user *)param.memdesc, sizeof(struct kgsl_memdesc)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
                 kgslStatus = GSL_FAILURE;
@@ -592,7 +592,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_SHAREDMEM_SET:
         {
             kgsl_sharedmem_set_t param;
-            gsl_memdesc_t memdesc;
+            struct kgsl_memdesc memdesc;
 #if defined(GSL_IOCTL_DEBUG)
 	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_SET\n", __func__);
 #endif
@@ -602,7 +602,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
                 kgslStatus = GSL_FAILURE;
                 break;
             }
-            if (copy_from_user(&memdesc, (void __user *)param.memdesc, sizeof(gsl_memdesc_t)))
+            if (copy_from_user(&memdesc, (void __user *)param.memdesc, sizeof(struct kgsl_memdesc)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
                 kgslStatus = GSL_FAILURE;
@@ -637,7 +637,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_SHAREDMEM_CACHEOPERATION:
         {
             kgsl_sharedmem_cacheoperation_t param;
-            gsl_memdesc_t memdesc;
+            struct kgsl_memdesc memdesc;
 #if defined(GSL_IOCTL_DEBUG)
 	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_CACHEOPERATION\n", __func__);
 #endif
@@ -647,7 +647,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
                 kgslStatus = GSL_FAILURE;
                 break;
             }
-            if (copy_from_user(&memdesc, (void __user *)param.memdesc, sizeof(gsl_memdesc_t)))
+            if (copy_from_user(&memdesc, (void __user *)param.memdesc, sizeof(struct kgsl_memdesc)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
                 kgslStatus = GSL_FAILURE;
@@ -659,7 +659,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_SHAREDMEM_FROMHOSTPOINTER:
         {
             kgsl_sharedmem_fromhostpointer_t param;
-            gsl_memdesc_t memdesc;
+            struct kgsl_memdesc memdesc;
 #if defined(GSL_IOCTL_DEBUG)
 	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_FROMHOSTPOINTER\n", __func__);
 #endif
@@ -669,7 +669,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
                 kgslStatus = GSL_FAILURE;
                 break;
             }
-            if (copy_from_user(&memdesc, (void __user *)param.memdesc, sizeof(gsl_memdesc_t)))
+            if (copy_from_user(&memdesc, (void __user *)param.memdesc, sizeof(struct kgsl_memdesc)))
             {
                 printk(KERN_ERR "%s: copy_from_user error\n", __func__);
                 kgslStatus = GSL_FAILURE;
@@ -681,7 +681,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_ADD_TIMESTAMP:
         {
             kgsl_add_timestamp_t param;
-            gsl_timestamp_t tmp;
+            unsigned int tmp;
 #if defined(GSL_IOCTL_DEBUG)
 	    printk(KERN_INFO "--> %s: IOCTL_KGSL_ADD_TIMESTAMP\n", __func__);
 #endif
@@ -692,7 +692,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
                 break;
             }
             tmp = kgsl_add_timestamp(param.device_id, &tmp);
-            if (copy_to_user(param.timestamp, &tmp, sizeof(gsl_timestamp_t)))
+            if (copy_to_user(param.timestamp, &tmp, sizeof(unsigned int)))
             {
                     printk(KERN_ERR "%s: copy_to_user error\n", __func__);
                     kgslStatus = GSL_FAILURE;
@@ -1023,7 +1023,7 @@ static int gpu_suspend(struct platform_device *pdev, pm_message_t state)
     for (i = 0; i < GSL_DEVICE_MAX; i++)
     {
         kgsl_device_setproperty(
-                        (gsl_deviceid_t) (i+1),
+                        (unsigned int) (i+1),
                         GSL_PROP_DEVICE_POWER,
                         &power,
                         sizeof(gsl_powerprop_t));
@@ -1041,7 +1041,7 @@ static int gpu_resume(struct platform_device *pdev)
     for (i = 0; i < GSL_DEVICE_MAX; i++)
     {
         kgsl_device_setproperty(
-                        (gsl_deviceid_t) (i+1),
+                        (unsigned int) (i+1),
                         GSL_PROP_DEVICE_POWER,
                         &power,
                         sizeof(gsl_powerprop_t));

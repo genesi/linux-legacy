@@ -32,9 +32,9 @@
 #define GSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, data)   kgsl_sharedmem_read0(&device->memstore, (data), GSL_DEVICE_MEMSTORE_OFFSET(soptimestamp), 4, false)
 #define GSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, data)   kgsl_sharedmem_read0(&device->memstore, (data), GSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp), 4, false)
 
-gsl_timestamp_t kgsl_cmdstream_readtimestamp0(gsl_deviceid_t device_id, gsl_timestamp_type_t type);
-void kgsl_cmdstream_memqueue_drain(gsl_device_t *device);
-int kgsl_cmdstream_init(gsl_device_t *device);
-int kgsl_cmdstream_close(gsl_device_t *device);
+unsigned int kgsl_cmdstream_readtimestamp0(unsigned int device_id, enum kgsl_timestamp_type type);
+void kgsl_cmdstream_memqueue_drain(struct kgsl_device *device);
+int kgsl_cmdstream_init(struct kgsl_device *device);
+int kgsl_cmdstream_close(struct kgsl_device *device);
 
 #endif  // __GSL_CMDSTREAM_H

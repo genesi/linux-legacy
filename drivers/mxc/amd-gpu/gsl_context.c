@@ -24,9 +24,9 @@
 //////////////////////////////////////////////////////////////////////////////
 
 int
-kgsl_context_create(gsl_deviceid_t device_id, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags)
+kgsl_context_create(unsigned int device_id, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags)
 {
-    gsl_device_t* device  = &gsl_driver.device[device_id-1];
+    struct kgsl_device* device  = &gsl_driver.device[device_id-1];
     int status;
 
     mutex_lock(&gsl_driver.lock);
@@ -48,9 +48,9 @@ kgsl_context_create(gsl_deviceid_t device_id, gsl_context_type_t type, unsigned 
 //----------------------------------------------------------------------------
 
 int
-kgsl_context_destroy(gsl_deviceid_t device_id, unsigned int drawctxt_id)
+kgsl_context_destroy(unsigned int device_id, unsigned int drawctxt_id)
 {
-    gsl_device_t* device  = &gsl_driver.device[device_id-1];
+    struct kgsl_device* device  = &gsl_driver.device[device_id-1];
     int status;
 
     mutex_lock(&gsl_driver.lock);

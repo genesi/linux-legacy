@@ -44,8 +44,8 @@
 //////////////////////////////////////////////////////////////////////////////
 //  prototypes
 //////////////////////////////////////////////////////////////////////////////
-int     kgsl_cmdwindow_init(gsl_device_t *device);
-int     kgsl_cmdwindow_close(gsl_device_t *device);
-int     kgsl_cmdwindow_write0(gsl_deviceid_t device_id, gsl_cmdwindow_t target, unsigned int addr, unsigned int data);
+int     kgsl_cmdwindow_init(struct kgsl_device *device);
+int     kgsl_cmdwindow_close(struct kgsl_device *device);
+int     kgsl_cmdwindow_write0(unsigned int device_id, enum kgsl_cmdwindow_type target, unsigned int addr, unsigned int data);
 
 #endif // __GSL_CMDWINDOW_H

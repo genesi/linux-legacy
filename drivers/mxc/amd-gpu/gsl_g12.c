@@ -81,12 +81,12 @@ typedef struct
   unsigned int      curr;
   unsigned int      prevctx;
 
-  gsl_memdesc_t     e0;
-  gsl_memdesc_t     e1;
-  gsl_memdesc_t     e2;
+  struct kgsl_memdesc     e0;
+  struct kgsl_memdesc     e1;
+  struct kgsl_memdesc     e2;
   unsigned int*     cmdbuf[GSL_HAL_NUMCMDBUFFERS];
-  gsl_memdesc_t     cmdbufdesc[GSL_HAL_NUMCMDBUFFERS];
-  gsl_timestamp_t   timestamp[GSL_HAL_NUMCMDBUFFERS];
+  struct kgsl_memdesc     cmdbufdesc[GSL_HAL_NUMCMDBUFFERS];
+  unsigned int   timestamp[GSL_HAL_NUMCMDBUFFERS];
 
   unsigned int      numcontext;
   unsigned int      nextUniqueContextID;
@@ -103,19 +103,19 @@ extern int z160_version;
 // functions
 //////////////////////////////////////////////////////////////////////////////
 
-static int kgsl_g12_addtimestamp(gsl_device_t* device, gsl_timestamp_t *timestamp);
-static int kgsl_g12_issueibcmds(gsl_device_t* device, int drawctxt_index, gpuaddr_t ibaddr, int sizedwords, gsl_timestamp_t *timestamp, unsigned int flags);
-static int kgsl_g12_context_create(gsl_device_t* device, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags);
-static int kgsl_g12_context_destroy(gsl_device_t* device, unsigned int drawctxt_id);
+static int kgsl_g12_addtimestamp(struct kgsl_device* device, unsigned int *timestamp);
+static int kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags);
+static int kgsl_g12_context_create(struct kgsl_device* device, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags);
+static int kgsl_g12_context_destroy(struct kgsl_device* device, unsigned int drawctxt_id);
 static unsigned int drawctx_id  = 0;
-static int kgsl_g12_idle(gsl_device_t *device, unsigned int timeout);
+static int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout);
 
 //----------------------------------------------------------------------------
 
 void
 kgsl_g12_intrcallback(gsl_intrid_t id, void *cookie)
 {
-    gsl_device_t  *device = (gsl_device_t *) cookie;
+    struct kgsl_device  *device = (struct kgsl_device *) cookie;
 
     switch(id)
     {
@@ -148,7 +148,7 @@ kgsl_g12_intrcallback(gsl_intrid_t id, void *cookie)
 //----------------------------------------------------------------------------
 
 int
-kgsl_g12_isr(gsl_device_t *device)
+kgsl_g12_isr(struct kgsl_device *device)
 {
     unsigned int           status;
 #ifdef _DEBUG
@@ -157,7 +157,7 @@ kgsl_g12_isr(gsl_device_t *device)
 #endif // DEBUG
 
     // determine if G12 is interrupting
-    device->ftbl.device_regread(device, (ADDR_VGC_IRQSTATUS >> 2), &status);
+    device->ftbl.regread(device, (ADDR_VGC_IRQSTATUS >> 2), &status);
 
     if (status)
     {
@@ -166,8 +166,8 @@ kgsl_g12_isr(gsl_device_t *device)
         {
 #ifdef _DEBUG
             // obtain mh error information
-            device->ftbl.device_regread(device, ADDR_MH_MMU_PAGE_FAULT, (unsigned int *)&page_fault);
-            device->ftbl.device_regread(device, ADDR_MH_AXI_ERROR, (unsigned int *)&axi_error);
+            device->ftbl.regread(device, ADDR_MH_MMU_PAGE_FAULT, (unsigned int *)&page_fault);
+            device->ftbl.regread(device, ADDR_MH_AXI_ERROR, (unsigned int *)&axi_error);
 #endif // DEBUG
 
             kgsl_intr_decode(device, GSL_INTR_BLOCK_G12_MH);
@@ -182,7 +182,7 @@ kgsl_g12_isr(gsl_device_t *device)
 //----------------------------------------------------------------------------
 
 int
-kgsl_g12_tlbinvalidate(gsl_device_t *device, unsigned int reg_invalidate, unsigned int pid)
+kgsl_g12_tlbinvalidate(struct kgsl_device *device, unsigned int reg_invalidate, unsigned int pid)
 {
 #ifndef GSL_NO_MMU
     REG_MH_MMU_INVALIDATE  mh_mmu_invalidate = {0};
@@ -193,7 +193,7 @@ kgsl_g12_tlbinvalidate(gsl_device_t *device, unsigned int reg_invalidate, unsign
     mh_mmu_invalidate.INVALIDATE_ALL = 1;
     mh_mmu_invalidate.INVALIDATE_TC  = 1;
 
-    device->ftbl.device_regwrite(device, reg_invalidate, *(unsigned int *) &mh_mmu_invalidate);
+    device->ftbl.regwrite(device, reg_invalidate, *(unsigned int *) &mh_mmu_invalidate);
 #else
     (void)device;
     (void)reg_invalidate;
@@ -204,13 +204,13 @@ kgsl_g12_tlbinvalidate(gsl_device_t *device, unsigned int reg_invalidate, unsign
 //----------------------------------------------------------------------------
 
 int
-kgsl_g12_setpagetable(gsl_device_t *device, unsigned int reg_ptbase, gpuaddr_t ptbase, unsigned int pid)
+kgsl_g12_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase, uint32_t ptbase, unsigned int pid)
 {
 	// unreferenced formal parameter
 	(void) pid;
 #ifndef GSL_NO_MMU
-    device->ftbl.device_idle(device, GSL_TIMEOUT_DEFAULT);
-	device->ftbl.device_regwrite(device, reg_ptbase, ptbase);
+    device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT);
+	device->ftbl.regwrite(device, reg_ptbase, ptbase);
 #else
     (void)device;
     (void)reg_ptbase;
@@ -221,10 +221,10 @@ kgsl_g12_setpagetable(gsl_device_t *device, unsigned int reg_ptbase, gpuaddr_t p
 
 //----------------------------------------------------------------------------
 
-static void kgsl_g12_updatetimestamp(gsl_device_t *device)
+static void kgsl_g12_updatetimestamp(struct kgsl_device *device)
 {
 	unsigned int count = 0;
-	device->ftbl.device_regread(device, (ADDR_VGC_IRQ_ACTIVE_CNT >> 2), &count);
+	device->ftbl.regread(device, (ADDR_VGC_IRQ_ACTIVE_CNT >> 2), &count);
 	count >>= 8;
 	count &= 255;
 	device->timestamp += count;	
@@ -242,22 +242,22 @@ static void kgsl_g12_updatetimestamp(gsl_device_t *device)
 
 static void kgsl_g12_irqtask(struct work_struct *work)
 {
-	gsl_device_t *device = &gsl_driver.device[GSL_DEVICE_G12-1];
+	struct kgsl_device *device = &gsl_driver.device[GSL_DEVICE_G12-1];
 	kgsl_g12_updatetimestamp(device);
 	wake_up_interruptible_all(&device->timestamp_waitq);
 }
 
 static void kgsl_g12_irqerr(struct work_struct *work)
 {
-	gsl_device_t *device = &gsl_driver.device[GSL_DEVICE_G12-1];
-	device->ftbl.device_destroy(device);
+	struct kgsl_device *device = &gsl_driver.device[GSL_DEVICE_G12-1];
+	device->ftbl.destroy(device);
 }
 
 
 //----------------------------------------------------------------------------
 
 int
-kgsl_g12_init(gsl_device_t *device)
+kgsl_g12_init(struct kgsl_device *device)
 {
     int  status = GSL_FAILURE; 
 
@@ -266,18 +266,18 @@ kgsl_g12_init(gsl_device_t *device)
     kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_POWER_ON, 100);
 
     // setup MH arbiter - MH offsets are considered to be dword based, therefore no down shift
-    device->ftbl.device_regwrite(device, ADDR_MH_ARBITER_CONFIG, *(unsigned int *) &gsl_cfg_g12_mharb);
+    device->ftbl.regwrite(device, ADDR_MH_ARBITER_CONFIG, *(unsigned int *) &gsl_cfg_g12_mharb);
 
     // init interrupt
     status = kgsl_intr_init(device);
     if (status != GSL_SUCCESS)
     {
-        device->ftbl.device_stop(device);
+        device->ftbl.stop(device);
         return (status);
     }
 
     // enable irq
-    device->ftbl.device_regwrite(device, (ADDR_VGC_IRQENABLE >> 2), 0x3);
+    device->ftbl.regwrite(device, (ADDR_VGC_IRQENABLE >> 2), 0x3);
 
 #ifndef GSL_NO_MMU
     // enable master interrupt for G12 MH
@@ -288,7 +288,7 @@ kgsl_g12_init(gsl_device_t *device)
     status = kgsl_mmu_init(device);
     if (status != GSL_SUCCESS)
     {
-        device->ftbl.device_stop(device);
+        device->ftbl.stop(device);
         return (status);
     }
 #endif
@@ -320,7 +320,7 @@ kgsl_g12_init(gsl_device_t *device)
 //----------------------------------------------------------------------------
 
 int
-kgsl_g12_close(gsl_device_t *device)
+kgsl_g12_close(struct kgsl_device *device)
 {
     int status = GSL_FAILURE; 
 
@@ -329,7 +329,7 @@ kgsl_g12_close(gsl_device_t *device)
         // wait pending interrupts before shutting down G12 intr thread to
         // empty irq counters. Otherwise there's a possibility to have them in
         // registers next time systems starts up and this results in a hang.
-        status = device->ftbl.device_idle(device, 1000);
+        status = device->ftbl.idle(device, 1000);
         DEBUG_ASSERT(status == GSL_SUCCESS);
 
 	destroy_workqueue(device->irq_workq);
@@ -369,7 +369,7 @@ kgsl_g12_close(gsl_device_t *device)
 //----------------------------------------------------------------------------
 
 int
-kgsl_g12_destroy(gsl_device_t *device)
+kgsl_g12_destroy(struct kgsl_device *device)
 {
     int           i;
     unsigned int  pid;
@@ -386,7 +386,7 @@ kgsl_g12_destroy(gsl_device_t *device)
         pid = device->callerprocess[i];
         if (pid)
         {
-            device->ftbl.device_stop(device);
+            device->ftbl.stop(device);
             kgsl_driver_destroy(pid);
 
             // todo: terminate client process?
@@ -399,7 +399,7 @@ kgsl_g12_destroy(gsl_device_t *device)
 //----------------------------------------------------------------------------
 
 int
-kgsl_g12_start(gsl_device_t *device, gsl_flags_t flags)
+kgsl_g12_start(struct kgsl_device *device, gsl_flags_t flags)
 {
     int  status = GSL_SUCCESS;
 
@@ -411,7 +411,7 @@ kgsl_g12_start(gsl_device_t *device, gsl_flags_t flags)
     status = kgsl_cmdwindow_init(device);
     if (status != GSL_SUCCESS)
     {
-        device->ftbl.device_stop(device);
+        device->ftbl.stop(device);
         return (status);
     }
 
@@ -425,14 +425,14 @@ kgsl_g12_start(gsl_device_t *device, gsl_flags_t flags)
 //----------------------------------------------------------------------------
 
 int
-kgsl_g12_stop(gsl_device_t *device)
+kgsl_g12_stop(struct kgsl_device *device)
 {
     int status;
 
     DEBUG_ASSERT(device->refcnt == 0);
 
     /* wait for device to idle before setting it's clock off */
-    status = device->ftbl.device_idle(device, 1000);
+    status = device->ftbl.idle(device, 1000);
     DEBUG_ASSERT(status == GSL_SUCCESS);
 
     status = kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_CLK_OFF, 0);
@@ -444,7 +444,7 @@ kgsl_g12_stop(gsl_device_t *device)
 //----------------------------------------------------------------------------
 
 int
-kgsl_g12_getproperty(gsl_device_t *device, gsl_property_type_t type, void *value, unsigned int sizebytes)
+kgsl_g12_getproperty(struct kgsl_device *device, gsl_property_type_t type, void *value, unsigned int sizebytes)
 {
     int  status = GSL_FAILURE;
     // unreferenced formal parameter
@@ -452,12 +452,12 @@ kgsl_g12_getproperty(gsl_device_t *device, gsl_property_type_t type, void *value
 
     if (type == GSL_PROP_DEVICE_INFO)
     {
-        gsl_devinfo_t  *devinfo = (gsl_devinfo_t *) value;
+        struct kgsl_devinfo  *devinfo = (struct kgsl_devinfo *) value;
 
-        DEBUG_ASSERT(sizebytes == sizeof(gsl_devinfo_t));
+        DEBUG_ASSERT(sizebytes == sizeof(struct kgsl_devinfo));
 
         devinfo->device_id   = device->id;
-        devinfo->chip_id     = (gsl_chipid_t)device->chip_id;
+        devinfo->chip_id     = (unsigned int)device->chip_id;
 #ifndef GSL_NO_MMU
         devinfo->mmu_enabled = kgsl_mmu_isenabled(&device->mmu);
 #endif
@@ -475,7 +475,7 @@ kgsl_g12_getproperty(gsl_device_t *device, gsl_property_type_t type, void *value
 //----------------------------------------------------------------------------
 
 int
-kgsl_g12_setproperty(gsl_device_t *device, gsl_property_type_t type, void *value, unsigned int sizebytes)
+kgsl_g12_setproperty(struct kgsl_device *device, gsl_property_type_t type, void *value, unsigned int sizebytes)
 {
     int  status = GSL_FAILURE;
 
@@ -501,14 +501,14 @@ kgsl_g12_setproperty(gsl_device_t *device, gsl_property_type_t type, void *value
 //----------------------------------------------------------------------------
 
 int
-kgsl_g12_idle(gsl_device_t *device, unsigned int timeout)
+kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout)
 {
 	if ( device->flags & GSL_FLAGS_STARTED )
 	{
 		for ( ; ; )
 		{
-			gsl_timestamp_t retired = kgsl_cmdstream_readtimestamp0( device->id, GSL_TIMESTAMP_RETIRED );
-			gsl_timestamp_t ts_diff = retired - device->current_timestamp;
+			unsigned int retired = kgsl_cmdstream_readtimestamp0( device->id, GSL_TIMESTAMP_RETIRED );
+			unsigned int ts_diff = retired - device->current_timestamp;
 			if ( ts_diff >= 0 || ts_diff < -GSL_TIMESTAMP_EPSILON )
 				break;
 			msleep(10);
@@ -521,23 +521,23 @@ kgsl_g12_idle(gsl_device_t *device, unsigned int timeout)
 //----------------------------------------------------------------------------
 
 int
-kgsl_g12_regread(gsl_device_t *device, unsigned int offsetwords, unsigned int *value)
+kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords, unsigned int *value)
 {
     // G12 MH register values can only be retrieved via dedicated read registers
     if ((offsetwords >= ADDR_MH_ARBITER_CONFIG && offsetwords <= ADDR_MH_AXI_HALT_CONTROL) ||
         (offsetwords >= ADDR_MH_MMU_CONFIG     && offsetwords <= ADDR_MH_MMU_MPU_END))
     {
 #ifdef _Z180
-        device->ftbl.device_regwrite(device, (ADDR_VGC_MH_READ_ADDR >> 2), offsetwords);
-        GSL_HAL_REG_READ(device->id, (unsigned int) device->regspace.mmio_virt_base, (ADDR_VGC_MH_READ_ADDR >> 2), value);
+        device->ftbl.regwrite(device, (ADDR_VGC_MH_READ_ADDR >> 2), offsetwords);
+        kgsl_hwaccess_regread(device->id, (unsigned int) device->regspace.mmio_virt_base, (ADDR_VGC_MH_READ_ADDR >> 2), value);
 #else
-        device->ftbl.device_regwrite(device, (ADDR_MMU_READ_ADDR >> 2), offsetwords);
-        GSL_HAL_REG_READ(device->id, (unsigned int) device->regspace.mmio_virt_base, (ADDR_MMU_READ_DATA >> 2), value);
+        device->ftbl.regwrite(device, (ADDR_MMU_READ_ADDR >> 2), offsetwords);
+        kgsl_hwaccess_regread(device->id, (unsigned int) device->regspace.mmio_virt_base, (ADDR_MMU_READ_DATA >> 2), value);
 #endif
     }
     else
     {
-        GSL_HAL_REG_READ(device->id, (unsigned int) device->regspace.mmio_virt_base, offsetwords, value);
+        kgsl_hwaccess_regread(device->id, (unsigned int) device->regspace.mmio_virt_base, offsetwords, value);
     }
 
     return (GSL_SUCCESS);
@@ -546,7 +546,7 @@ kgsl_g12_regread(gsl_device_t *device, unsigned int offsetwords, unsigned int *v
 //----------------------------------------------------------------------------
 
 int
-kgsl_g12_regwrite(gsl_device_t *device, unsigned int offsetwords, unsigned int value)
+kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords, unsigned int value)
 {
     // G12 MH registers can only be written via the command window
     if ((offsetwords >= ADDR_MH_ARBITER_CONFIG && offsetwords <= ADDR_MH_AXI_HALT_CONTROL) ||
@@ -556,13 +556,13 @@ kgsl_g12_regwrite(gsl_device_t *device, unsigned int offsetwords, unsigned int v
     }
     else
     {
-        GSL_HAL_REG_WRITE(device->id, (unsigned int) device->regspace.mmio_virt_base, offsetwords, value);
+        kgsl_hwaccess_regwrite(device->id, (unsigned int) device->regspace.mmio_virt_base, offsetwords, value);
     }
 
     // idle device when running in safe mode
     if (device->flags & GSL_FLAGS_SAFEMODE)
     {
-        device->ftbl.device_idle(device, GSL_TIMEOUT_DEFAULT);
+        device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT);
     }
 
     return (GSL_SUCCESS);
@@ -571,7 +571,7 @@ kgsl_g12_regwrite(gsl_device_t *device, unsigned int offsetwords, unsigned int v
 //----------------------------------------------------------------------------
 
 int
-kgsl_g12_waitirq(gsl_device_t *device, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout)
+kgsl_g12_waitirq(struct kgsl_device *device, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout)
 {
     int  status = GSL_FAILURE_NOTSUPPORTED;
     int complete = 0;
@@ -603,7 +603,7 @@ kgsl_g12_waitirq(gsl_device_t *device, gsl_intrid_t intr_id, unsigned int *count
                     kgsl_device_active(device);
 
                     INIT_COMPLETION(*comp);
-                    device->ftbl.device_regread(device, (ADDR_VGC_IRQ_ACTIVE_CNT >> 2), &cntrs);
+                    device->ftbl.regread(device, (ADDR_VGC_IRQ_ACTIVE_CNT >> 2), &cntrs);
 
                     for (i = 0; i < GSL_G12_INTR_COUNT; i++)
                     {
@@ -640,7 +640,7 @@ kgsl_g12_waitirq(gsl_device_t *device, gsl_intrid_t intr_id, unsigned int *count
 //----------------------------------------------------------------------------
 
 int
-kgsl_g12_waittimestamp(gsl_device_t *device, gsl_timestamp_t timestamp, unsigned int timeout)
+kgsl_g12_waittimestamp(struct kgsl_device *device, unsigned int timestamp, unsigned int timeout)
 {
 	int status = wait_event_interruptible_timeout(device->timestamp_waitq,
 	                                              kgsl_cmdstream_check_timestamp(device->id, timestamp),
@@ -652,22 +652,22 @@ kgsl_g12_waittimestamp(gsl_device_t *device, gsl_timestamp_t timestamp, unsigned
 }
 
 int
-kgsl_g12_getfunctable(gsl_functable_t *ftbl)
+kgsl_g12_getfunctable(struct kgsl_functable *ftbl)
 {
-    ftbl->device_init           = kgsl_g12_init;
-    ftbl->device_close          = kgsl_g12_close;
-    ftbl->device_destroy        = kgsl_g12_destroy;
-    ftbl->device_start          = kgsl_g12_start;
-    ftbl->device_stop           = kgsl_g12_stop;
-    ftbl->device_getproperty    = kgsl_g12_getproperty;
-    ftbl->device_setproperty    = kgsl_g12_setproperty;
-    ftbl->device_idle           = kgsl_g12_idle;
-    ftbl->device_regread        = kgsl_g12_regread;
-    ftbl->device_regwrite       = kgsl_g12_regwrite;
-    ftbl->device_waitirq        = kgsl_g12_waitirq;
-	ftbl->device_waittimestamp  = kgsl_g12_waittimestamp;
-    ftbl->device_runpending     = NULL;
-    ftbl->device_addtimestamp   = kgsl_g12_addtimestamp;
+    ftbl->init           = kgsl_g12_init;
+    ftbl->close          = kgsl_g12_close;
+    ftbl->destroy        = kgsl_g12_destroy;
+    ftbl->start          = kgsl_g12_start;
+    ftbl->stop           = kgsl_g12_stop;
+    ftbl->getproperty    = kgsl_g12_getproperty;
+    ftbl->setproperty    = kgsl_g12_setproperty;
+    ftbl->idle           = kgsl_g12_idle;
+    ftbl->regread        = kgsl_g12_regread;
+    ftbl->regwrite       = kgsl_g12_regwrite;
+    ftbl->waitirq        = kgsl_g12_waitirq;
+	ftbl->waittimestamp  = kgsl_g12_waittimestamp;
+    ftbl->runpending     = NULL;
+    ftbl->addtimestamp   = kgsl_g12_addtimestamp;
     ftbl->intr_isr              = kgsl_g12_isr;
     ftbl->mmu_tlbinvalidate     = kgsl_g12_tlbinvalidate;
     ftbl->mmu_setpagetable      = kgsl_g12_setpagetable;
@@ -700,7 +700,7 @@ static void addmarker(gsl_z1xx_t* z1xx)
 }
 
 //----------------------------------------------------------------------------
-static void beginpacket(gsl_z1xx_t* z1xx, gpuaddr_t cmd, unsigned int nextcnt)
+static void beginpacket(gsl_z1xx_t* z1xx, uint32_t cmd, unsigned int nextcnt)
 {
     unsigned int *p = z1xx->cmdbuf[z1xx->curr];
 
@@ -719,7 +719,7 @@ static void beginpacket(gsl_z1xx_t* z1xx, gpuaddr_t cmd, unsigned int nextcnt)
 //----------------------------------------------------------------------------
 
 static int
-kgsl_g12_issueibcmds(gsl_device_t* device, int drawctxt_index, gpuaddr_t ibaddr, int sizedwords, gsl_timestamp_t *timestamp, unsigned int flags)
+kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags)
 {
     unsigned int ofs      = PACKETSIZE_STATESTREAM*sizeof(unsigned int);
     unsigned int cnt      = 5;
@@ -727,8 +727,8 @@ kgsl_g12_issueibcmds(gsl_device_t* device, int drawctxt_index, gpuaddr_t ibaddr,
     unsigned int nextbuf  = (g_z1xx.curr+1)%GSL_HAL_NUMCMDBUFFERS;
     unsigned int nextaddr = g_z1xx.cmdbufdesc[nextbuf].gpuaddr;
     unsigned int nextcnt  = 0x9000|5;
-    gsl_memdesc_t tmp     = {0};
-    gsl_timestamp_t processed_timestamp;
+    struct kgsl_memdesc tmp     = {0};
+    unsigned int processed_timestamp;
 
     (void) flags;
 
@@ -760,7 +760,7 @@ kgsl_g12_issueibcmds(gsl_device_t* device, int drawctxt_index, gpuaddr_t ibaddr,
     kgsl_sharedmem_write0(&tmp, 8, &nextcnt,  4, false);
 
     /* sync mem */
-    kgsl_sharedmem_write0((const gsl_memdesc_t *)&g_z1xx.cmdbufdesc[g_z1xx.curr], 0, g_z1xx.cmdbuf[g_z1xx.curr], (512 + 13) * sizeof(unsigned int), false);
+    kgsl_sharedmem_write0((const struct kgsl_memdesc *)&g_z1xx.cmdbufdesc[g_z1xx.curr], 0, g_z1xx.cmdbuf[g_z1xx.curr], (512 + 13) * sizeof(unsigned int), false);
 
     g_z1xx.offs = 0;
     g_z1xx.curr = nextbuf;
@@ -786,7 +786,7 @@ kgsl_g12_issueibcmds(gsl_device_t* device, int drawctxt_index, gpuaddr_t ibaddr,
 //----------------------------------------------------------------------------
 
 static int
-kgsl_g12_context_create(gsl_device_t* device, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags)
+kgsl_g12_context_create(struct kgsl_device* device, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags)
 {
     int status = 0;
     int i;
@@ -865,7 +865,7 @@ kgsl_g12_context_create(gsl_device_t* device, gsl_context_type_t type, unsigned 
 //----------------------------------------------------------------------------
 
 static int
-kgsl_g12_context_destroy(gsl_device_t* device, unsigned int drawctxt_id)
+kgsl_g12_context_destroy(struct kgsl_device* device, unsigned int drawctxt_id)
 {
 
     // unreferenced formal parameters
@@ -899,7 +899,7 @@ kgsl_g12_context_destroy(gsl_device_t* device, unsigned int drawctxt_id)
 //----------------------------------------------------------------------------
 
 static int
-kgsl_g12_addtimestamp(gsl_device_t* device, gsl_timestamp_t *timestamp)
+kgsl_g12_addtimestamp(struct kgsl_device* device, unsigned int *timestamp)
 {
     device->current_timestamp++;
     *timestamp = device->current_timestamp;

@@ -33,7 +33,7 @@ typedef struct _gsl_autogate_t {
     /* pending indicate the timer has been fired but clock not yet disabled. */
     int pending;
     int timeout;
-    gsl_device_t *dev;
+    struct kgsl_device *dev;
     struct work_struct dis_task;
 } gsl_autogate_t;
 
@@ -46,13 +46,13 @@ static void clk_disable_task(struct work_struct *work)
 {
 	gsl_autogate_t *autogate;
 	autogate = container_of(work, gsl_autogate_t, dis_task);
-	if (autogate->dev->ftbl.device_idle)
-		autogate->dev->ftbl.device_idle(autogate->dev, GSL_TIMEOUT_DEFAULT);
+	if (autogate->dev->ftbl.idle)
+		autogate->dev->ftbl.idle(autogate->dev, GSL_TIMEOUT_DEFAULT);
 	kgsl_clock(autogate->dev->id, 0);
 	autogate->pending = 0;
 }
 
-static int _kgsl_device_active(gsl_device_t *dev, int all)
+static int _kgsl_device_active(struct kgsl_device *dev, int all)
 {
 	unsigned long flags;
 	int to_active = 0;
@@ -86,7 +86,7 @@ static int _kgsl_device_active(gsl_device_t *dev, int all)
 	}
 	return 0;
 }
-int kgsl_device_active(gsl_device_t *dev)
+int kgsl_device_active(struct kgsl_device *dev)
 {
 	return _kgsl_device_active(dev, 0);
 }
@@ -108,10 +108,10 @@ static void kgsl_device_inactive(unsigned long data)
 	spin_unlock_irqrestore(&autogate->lock, flags);
 }
 
-int kgsl_device_clock(gsl_deviceid_t id, int enable)
+int kgsl_device_clock(unsigned int id, int enable)
 {
 	int ret = GSL_SUCCESS;
-	gsl_device_t *device;
+	struct kgsl_device *device;
 
 	device = &gsl_driver.device[id-1];       // device_id is 1 based
 	if (device->flags & GSL_FLAGS_INITIALIZED) {
@@ -127,7 +127,7 @@ int kgsl_device_clock(gsl_deviceid_t id, int enable)
 	return ret;
 }
 
-int kgsl_device_autogate_init(gsl_device_t *dev)
+int kgsl_device_autogate_init(struct kgsl_device *dev)
 {
 	gsl_autogate_t *autogate;
 
@@ -154,7 +154,7 @@ int kgsl_device_autogate_init(gsl_device_t *dev)
 	return 0;
 }
 
-void kgsl_device_autogate_exit(gsl_device_t *dev)
+void kgsl_device_autogate_exit(struct kgsl_device *dev)
 {
 	gsl_autogate_t *autogate = dev->autogate;
 

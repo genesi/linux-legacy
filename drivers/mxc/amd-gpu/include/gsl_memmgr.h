@@ -111,13 +111,13 @@ typedef struct _gsl_memarena_t {
 //////////////////////////////////////////////////////////////////////////////
 //  prototypes
 //////////////////////////////////////////////////////////////////////////////
-gsl_memarena_t* kgsl_memarena_create(int aperture_id, int mmu_virtualized, unsigned int hostbaseaddr, gpuaddr_t gpubaseaddr, int sizebytes);
+gsl_memarena_t* kgsl_memarena_create(int aperture_id, int mmu_virtualized, unsigned int hostbaseaddr, uint32_t gpubaseaddr, int sizebytes);
 int             kgsl_memarena_destroy(gsl_memarena_t *memarena);
 int             kgsl_memarena_isvirtualized(gsl_memarena_t *memarena);
 int             kgsl_memarena_querystats(gsl_memarena_t *memarena, gsl_memarena_stats_t *stats);
-int             kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, gsl_memdesc_t *memdesc);
-void            kgsl_memarena_free(gsl_memarena_t *memarena, gsl_memdesc_t *memdesc);
-void*           kgsl_memarena_gethostptr(gsl_memarena_t *memarena, gpuaddr_t gpuaddr);
+int             kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, struct kgsl_memdesc *memdesc);
+void            kgsl_memarena_free(gsl_memarena_t *memarena, struct kgsl_memdesc *memdesc);
+void*           kgsl_memarena_gethostptr(gsl_memarena_t *memarena, uint32_t gpuaddr);
 unsigned int    kgsl_memarena_getgpuaddr(gsl_memarena_t *memarena, void *hostptr);
 unsigned int    kgsl_memarena_getlargestfreeblock(gsl_memarena_t *memarena, gsl_flags_t flags);
 

@@ -267,13 +267,13 @@ kgsl_memarena_releasememblknode(gsl_memarena_t *memarena, memblk_t *memblk)
 //----------------------------------------------------------------------------
 
 gsl_memarena_t*
-kgsl_memarena_create(int aperture_id, int mmu_virtualized, unsigned int hostbaseaddr, gpuaddr_t gpubaseaddr, int sizebytes)
+kgsl_memarena_create(int aperture_id, int mmu_virtualized, unsigned int hostbaseaddr, uint32_t gpubaseaddr, int sizebytes)
 {
     static int      count = 0;
     gsl_memarena_t  *memarena;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> gsl_memarena_t* kgsl_memarena_create(int aperture_id=%d, gpuaddr_t gpubaseaddr=0x%08x, int sizebytes=%d)\n", aperture_id, gpubaseaddr, sizebytes );
+                    "--> gsl_memarena_t* kgsl_memarena_create(int aperture_id=%d, uint32_t gpubaseaddr=0x%08x, int sizebytes=%d)\n", aperture_id, gpubaseaddr, sizebytes );
 
     memarena = (gsl_memarena_t *)kmalloc(sizeof(gsl_memarena_t), GFP_KERNEL);
 
@@ -479,7 +479,7 @@ kgsl_memarena_checkfreeblock(gsl_memarena_t *memarena, int bytesneeded)
 //----------------------------------------------------------------------------
 
 int
-kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, gsl_memdesc_t *memdesc)
+kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, struct kgsl_memdesc *memdesc)
 {
     int           result = GSL_FAILURE_OUTOFMEM;
     memblk_t      *ptrfree, *ptrlast, *p;
@@ -491,7 +491,7 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, gsl_m
     int		  err;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_memarena_alloc(gsl_memarena_t *memarena=0x%08x, gsl_flags_t flags=%x, int size=%d, gsl_memdesc_t *memdesc=%M)\n", memarena, flags, size, memdesc );
+                    "--> int kgsl_memarena_alloc(gsl_memarena_t *memarena=0x%08x, gsl_flags_t flags=%x, int size=%d, struct kgsl_memdesc *memdesc=%M)\n", memarena, flags, size, memdesc );
 
     GSL_MEMARENA_VALIDATE(memarena);
 
@@ -662,7 +662,7 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, gsl_m
 //----------------------------------------------------------------------------
 
 void
-kgsl_memarena_free(gsl_memarena_t *memarena, gsl_memdesc_t *memdesc)
+kgsl_memarena_free(gsl_memarena_t *memarena, struct kgsl_memdesc *memdesc)
 {
     //
     // request to free a malloc'ed block from the memory arena
@@ -677,7 +677,7 @@ kgsl_memarena_free(gsl_memarena_t *memarena, gsl_memdesc_t *memdesc)
     int           err;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> void kgsl_memarena_free(gsl_memarena_t *memarena=0x%08x, gsl_memdesc_t *memdesc=%M)\n", memarena, memdesc );
+                    "--> void kgsl_memarena_free(gsl_memarena_t *memarena=0x%08x, struct kgsl_memdesc *memdesc=%M)\n", memarena, memdesc );
 
     DEBUG_ASSERT(memarena);
     if (GSL_MEMARENA_GET_SIGNATURE != GSL_MEMARENA_INSTANCE_SIGNATURE)
@@ -871,7 +871,7 @@ kgsl_memarena_free(gsl_memarena_t *memarena, gsl_memdesc_t *memdesc)
 
 //----------------------------------------------------------------------------
 
-void *kgsl_memarena_gethostptr(gsl_memarena_t *memarena, gpuaddr_t gpuaddr)
+void *kgsl_memarena_gethostptr(gsl_memarena_t *memarena, uint32_t gpuaddr)
 {
     //
     // get the host mapped address for a hardware device address
@@ -880,7 +880,7 @@ void *kgsl_memarena_gethostptr(gsl_memarena_t *memarena, gpuaddr_t gpuaddr)
     void  *hostptr = NULL;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> void* kgsl_memarena_gethostptr(gsl_memarena_t *memarena=0x%08x, gpuaddr_t gpuaddr=0x%08x)\n", memarena, gpuaddr );
+                    "--> void* kgsl_memarena_gethostptr(gsl_memarena_t *memarena=0x%08x, uint32_t gpuaddr=0x%08x)\n", memarena, gpuaddr );
 
     DEBUG_ASSERT(memarena);
     if (GSL_MEMARENA_GET_SIGNATURE != GSL_MEMARENA_INSTANCE_SIGNATURE)
@@ -902,13 +902,13 @@ void *kgsl_memarena_gethostptr(gsl_memarena_t *memarena, gpuaddr_t gpuaddr)
 
 //----------------------------------------------------------------------------
 
-gpuaddr_t kgsl_memarena_getgpuaddr(gsl_memarena_t *memarena, void *hostptr)
+uint32_t kgsl_memarena_getgpuaddr(gsl_memarena_t *memarena, void *hostptr)
 {
     //
     // get the hardware device address for a host mapped address
     //
 
-    gpuaddr_t  gpuaddr = 0;
+    uint32_t  gpuaddr = 0;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_memarena_getgpuaddr(gsl_memarena_t *memarena=0x%08x, void *hostptr=0x%08x)\n", memarena, hostptr );

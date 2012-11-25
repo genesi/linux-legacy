@@ -240,9 +240,8 @@ typedef struct _os_cputimer_t {
 //////////////////////////////////////////////////////////////////////////////
 typedef unsigned int        gsl_devhandle_t;
 typedef unsigned int        gsl_ctxthandle_t;
-typedef int                 gsl_timestamp_t;
 typedef unsigned int        gsl_flags_t;
-typedef unsigned int        gpuaddr_t;
+typedef unsigned int        uint32_t;
 
 // ---------
 // device id
@@ -298,29 +297,28 @@ typedef enum _gsl_chipid_t
 // -----------
 // device info
 // -----------
-typedef struct _gsl_devinfo_t {
+struct kgsl_devinfo {
 
-    gsl_deviceid_t  device_id;          // ID of this device
-    gsl_chipid_t    chip_id;
-    int             mmu_enabled;        // mmu address translation enabled
+    unsigned int  	device_id;          // ID of this device
+    unsigned int    chip_id;
+    unsigned int    mmu_enabled;        // mmu address translation enabled
     unsigned int    gmem_gpubaseaddr;
     void *          gmem_hostbaseaddr;  // if gmem_hostbaseaddr is NULL, we would know its not mapped into mmio space
     unsigned int    gmem_sizebytes;
     unsigned int    high_precision; /* mx50 z160 has higher gradient/texture precision */
-
-} gsl_devinfo_t;
+};
 
 // -------------------
 // device memory store
 // -------------------
-typedef struct _gsl_devmemstore_t {
+struct kgsl_devmemstore {
     volatile unsigned int  soptimestamp;
     unsigned int           sbz;
     volatile unsigned int  eoptimestamp;
     unsigned int           sbz2;
-} gsl_devmemstore_t;
+};
 
-#define GSL_DEVICE_MEMSTORE_OFFSET(field)       offsetof(gsl_devmemstore_t, field)
+#define GSL_DEVICE_MEMSTORE_OFFSET(field)       offsetof(struct kgsl_devmemstore, field)
 
 // -----------
 // aperture id
@@ -368,24 +366,23 @@ typedef enum _gsl_ap_t
 // -------------
 // memory region
 // -------------
-typedef struct _gsl_memregion_t {
+struct kgsl_memregion {
     unsigned char  *mmio_virt_base;
     unsigned int   mmio_phys_base;
-    gpuaddr_t      gpu_base;
+    uint32_t      gpu_base;
     unsigned int   sizebytes;
-} gsl_memregion_t;
+};
 
 // ------------------------
 // shared memory allocation
 // ------------------------
-typedef struct _gsl_memdesc_t {
+struct kgsl_memdesc {
     void          *hostptr;
-    gpuaddr_t      gpuaddr;
+    uint32_t      gpuaddr;
     int            size;
-    unsigned int   priv;                // private
-    unsigned int   priv2;               // private
-
-} gsl_memdesc_t;
+    unsigned int   priv;
+    unsigned int   unused;
+};
 
 // ---------------------------------
 // physical page scatter/gatter list
@@ -403,8 +400,8 @@ typedef struct _gsl_scatterlist_t {
 // this could be compressed down into the just the memdesc for the node
 //
 typedef struct _gsl_memnode_t {
-    gsl_timestamp_t       timestamp;
-    gsl_memdesc_t         memdesc;
+    unsigned int       timestamp;
+    struct kgsl_memdesc         memdesc;
     unsigned int          pid;
     struct _gsl_memnode_t *next;
 } gsl_memnode_t;
@@ -414,17 +411,14 @@ typedef struct _gsl_memqueue_t {
     gsl_memnode_t   *tail;
 } gsl_memqueue_t;
 
-// ------------
-// timestamp id
-// ------------
-typedef enum _gsl_timestamp_type_t
-{
-    GSL_TIMESTAMP_CONSUMED = 1, // start-of-pipeline timestamp
-    GSL_TIMESTAMP_RETIRED  = 2, // end-of-pipeline timestamp
-    GSL_TIMESTAMP_MAX      = 2,
+/* timestamp id*/
+enum kgsl_timestamp_type {
+    GSL_TIMESTAMP_CONSUMED = 0x00000001, // start-of-pipeline timestamp
+    GSL_TIMESTAMP_RETIRED  = 0x00000002, // end-of-pipeline timestamp
+    GSL_TIMESTAMP_MAX      = 0x00000002,
 
     GSL_TIMESTAMP_FOOBAR   = 0x7FFFFFFF
-} gsl_timestamp_type_t;
+};
 
 // ------------
 // context type
@@ -441,40 +435,39 @@ typedef enum _gsl_context_type_t
 // ---------
 // rectangle
 // ---------
-typedef struct _gsl_rect_t {
+struct kgsl_gmem_desc {
     unsigned int x;
     unsigned int y;
     unsigned int width;
     unsigned int height;
 	unsigned int pitch;
-} gsl_rect_t;
+} ;
 
 // -----------------------
 // pixel buffer descriptor
 // -----------------------
-typedef struct _gsl_buffer_desc_t {
-    gsl_memdesc_t data;
+struct kgsl_buffer_desc {
+    struct kgsl_memdesc data;
 	unsigned int width;
 	unsigned int height;
 	unsigned int pitch;
 	unsigned int format;
     unsigned int enabled;
-} gsl_buffer_desc_t;
+};
 
 // ---------------------
 // command window target
 // ---------------------
-typedef enum _gsl_cmdwindow_t
-{
+enum kgsl_cmdwindow_type {
     GSL_CMDWINDOW_MIN     = 0x00000000,
     GSL_CMDWINDOW_2D      = 0x00000000,
-    GSL_CMDWINDOW_3D      = 0x00000001,     // legacy
+    GSL_CMDWINDOW_3D      = 0x00000001,     /* legacy */
     GSL_CMDWINDOW_MMU     = 0x00000002,
     GSL_CMDWINDOW_ARBITER = 0x000000FF,
     GSL_CMDWINDOW_MAX     = 0x000000FF,
 
-    GSL_CMDWINDOW_FOOBAR  = 0x7FFFFFFF
-} gsl_cmdwindow_t;
+    GSL_CMDWINDOW_FOOBAR  = 0x7FFFFFFF,
+};
 
 // ------------
 // interrupt id

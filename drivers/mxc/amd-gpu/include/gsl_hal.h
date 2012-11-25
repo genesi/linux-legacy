@@ -55,38 +55,27 @@ extern "C" {
 
 
 //////////////////////////////////////////////////////////////////////////////
-//  macros
-//////////////////////////////////////////////////////////////////////////////
-#define GSL_HAL_REG_READ(device_id, gpubase, offsetwords, value)    kgsl_hwaccess_regread(device_id, gpubase, (offsetwords), (value))
-#define GSL_HAL_REG_WRITE(device_id, gpubase, offsetwords, value)   kgsl_hwaccess_regwrite(device_id, gpubase, (offsetwords), (value))
-
-#define GSL_HAL_MEM_READ(dst, gpubase, gpuoffset, sizebytes, touserspace)        kgsl_hwaccess_memread(dst, gpubase, (gpuoffset), (sizebytes), touserspace)
-#define GSL_HAL_MEM_WRITE(gpubase, gpuoffset, src, sizebytes, fromuserspace)     kgsl_hwaccess_memwrite(gpubase, (gpuoffset), src, (sizebytes), fromuserspace)
-#define GSL_HAL_MEM_SET(gpubase, gpuoffset, value, sizebytes)                    kgsl_hwaccess_memset(gpubase, (gpuoffset), (value), (sizebytes))
-
-
-//////////////////////////////////////////////////////////////////////////////
 //  types
 //////////////////////////////////////////////////////////////////////////////
 
 // -------------
 // device config
 // -------------
-typedef struct _gsl_devconfig_t {
+struct kgsl_devconfig {
 
-    gsl_memregion_t  regspace;
+    struct kgsl_memregion  regspace;
 
     unsigned int     mmu_config;
-    gpuaddr_t        mpu_base;
+    uint32_t        mpu_base;
     int              mpu_range;
-    gpuaddr_t        va_base;
+    uint32_t        va_base;
     unsigned int     va_range;
 
 #ifdef GSL_BLD_YAMATO
-    gsl_memregion_t  gmemspace;
+    struct kgsl_memregion  gmemspace;
 #endif // GSL_BLD_YAMATO
 
-} gsl_devconfig_t;
+};
 
 // ----------------------
 // memory aperture config
@@ -110,10 +99,10 @@ typedef struct _gsl_shmemconfig_t
 } gsl_shmemconfig_t;
 
 typedef struct _gsl_hal_t {
-     gsl_memregion_t z160_regspace;
-     gsl_memregion_t z430_regspace;
-     gsl_memregion_t memchunk;
-     gsl_memregion_t memspace[GSL_SHMEM_MAX_APERTURES];
+     struct kgsl_memregion z160_regspace;
+     struct kgsl_memregion z430_regspace;
+     struct kgsl_memregion memchunk;
+     struct kgsl_memregion memspace[GSL_SHMEM_MAX_APERTURES];
      unsigned int has_z160;
      unsigned int has_z430;
 } gsl_hal_t;
@@ -125,9 +114,9 @@ typedef struct _gsl_hal_t {
 KGSLHAL_API int             kgsl_hal_init(void);
 KGSLHAL_API int             kgsl_hal_close(void);
 KGSLHAL_API int             kgsl_hal_getshmemconfig(gsl_shmemconfig_t *config);
-KGSLHAL_API int             kgsl_hal_getdevconfig(gsl_deviceid_t device_id, gsl_devconfig_t *config);
-KGSLHAL_API int             kgsl_hal_setpowerstate(gsl_deviceid_t device_id, int state, unsigned int value);
-KGSLHAL_API gsl_chipid_t    kgsl_hal_getchipid(gsl_deviceid_t device_id);
+KGSLHAL_API int             kgsl_hal_getdevconfig(unsigned int device_id, struct kgsl_devconfig *config);
+KGSLHAL_API int             kgsl_hal_setpowerstate(unsigned int device_id, int state, unsigned int value);
+KGSLHAL_API unsigned int    kgsl_hal_getchipid(unsigned int device_id);
 KGSLHAL_API int             kgsl_hal_allocphysical(unsigned int virtaddr, unsigned int numpages, unsigned int scattergatterlist[]);
 KGSLHAL_API int             kgsl_hal_freephysical(unsigned int virtaddr, unsigned int numpages, unsigned int scattergatterlist[]);
 
