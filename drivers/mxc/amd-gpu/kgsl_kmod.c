@@ -21,7 +21,7 @@
 #include "gsl_buildconfig.h"
 #include "gsl_halconfig.h"
 #include "gsl_ioctl.h"
-#include "gsl_kmod_cleanup.h"
+#include "kgsl_kmod_cleanup.h"
 #include "gsl_linux_map.h"
 
 #include <linux/version.h>

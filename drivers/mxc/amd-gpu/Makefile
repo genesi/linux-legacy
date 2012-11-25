@@ -3,26 +3,26 @@ EXTRA_CFLAGS := \
 	-I$(obj)/include/api
 
 obj-$(CONFIG_MXC_AMD_GPU) += gpu.o
-gpu-objs += 	gsl_cmdstream.o \
-		gsl_cmdwindow.o \
-		gsl_context.o \
-		gsl_device.o \
-		gsl_drawctxt.o \
-		gsl_driver.o \
-		gsl_g12.o \
-		gsl_intrmgr.o \
-		gsl_memmgr.o \
-		gsl_mmu.o \
-		gsl_ringbuffer.o \
-		gsl_sharedmem.o \
-		gsl_yamato.o \
-		gsl_linux_map.o \
-		gsl_kmod.o \
-		gsl_hal.o \
-		gsl_kmod_cleanup.o \
-		misc.o
+gpu-objs += 	kgsl_cmdstream.o \
+		kgsl_cmdwindow.o \
+		kgsl_context.o \
+		kgsl_device.o \
+		kgsl_drawctxt.o \
+		kgsl_driver.o \
+		kgsl_g12.o \
+		kgsl_intrmgr.o \
+		kgsl_memmgr.o \
+		kgsl_mmu.o \
+		kgsl_ringbuffer.o \
+		kgsl_sharedmem.o \
+		kgsl_yamato.o \
+		kgsl_linux_map.o \
+		kgsl_kmod.o \
+		kgsl_hal.o \
+		kgsl_kmod_cleanup.o \
+		kgsl_pwrctrl.o
 
 ifdef CONFIG_MXC_AMD_GPU_LOGGING
-gpu-objs += gsl_log.o
+gpu-objs += kgsl_log.o
 EXTRA_CFLAGS += -DGSL_LOG
 endif

@@ -17,7 +17,7 @@
  */
  
 #include "gsl.h"
-#include "gsl_kmod_cleanup.h"
+#include "kgsl_kmod_cleanup.h"
 
 #include <linux/kernel.h>
 #include <linux/fs.h>
