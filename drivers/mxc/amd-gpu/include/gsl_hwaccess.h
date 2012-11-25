@@ -41,8 +41,6 @@ kgsl_hwaccess_memread(void *dst, unsigned int gpubase, unsigned int gpuoffset, u
     if (gsl_driver.enable_mmu && (gpubase >= GSL_LINUX_MAP_RANGE_START) && (gpubase < GSL_LINUX_MAP_RANGE_END)) {
         gsl_linux_map_read(dst, gpubase+gpuoffset, sizebytes, touserspace);
     } else {
-        mb();
-        dsb();
         if (touserspace)
         {
             if (copy_to_user(dst, (void *)(gpubase + gpuoffset), sizebytes))
@@ -54,8 +52,6 @@ kgsl_hwaccess_memread(void *dst, unsigned int gpubase, unsigned int gpuoffset, u
         {
             memcpy(dst, (void *) (gpubase + gpuoffset), sizebytes);
         }
-        mb();
-        dsb();
     }
 }
 
@@ -67,8 +63,6 @@ kgsl_hwaccess_memwrite(unsigned int gpubase, unsigned int gpuoffset, void *src, 
     if (gsl_driver.enable_mmu && (gpubase >= GSL_LINUX_MAP_RANGE_START) && (gpubase < GSL_LINUX_MAP_RANGE_END)) {
         gsl_linux_map_write(src, gpubase+gpuoffset, sizebytes, fromuserspace);
     } else {
-        mb();
-        dsb();
         if (fromuserspace)
         {
             if (copy_from_user((void *)(gpubase + gpuoffset), src, sizebytes))
@@ -80,8 +74,6 @@ kgsl_hwaccess_memwrite(unsigned int gpubase, unsigned int gpuoffset, void *src, 
         {
             memcpy((void *)(gpubase + gpuoffset), src, sizebytes);
         }
-        mb();
-        dsb();
     }
 }
 
@@ -93,11 +85,7 @@ kgsl_hwaccess_memset(unsigned int gpubase, unsigned int gpuoffset, unsigned int 
     if (gsl_driver.enable_mmu && (gpubase >= GSL_LINUX_MAP_RANGE_START) && (gpubase < GSL_LINUX_MAP_RANGE_END)) {
 	gsl_linux_map_set(gpuoffset+gpubase, value, sizebytes);
     } else {
-        mb();
-        dsb();
         memset((void *)(gpubase + gpuoffset), value, sizebytes);
-        mb();
-        dsb();
     }
 }
 
@@ -112,12 +100,8 @@ kgsl_hwaccess_regread(gsl_deviceid_t device_id, unsigned int gpubase, unsigned i
     (void) device_id;
 
     reg = (unsigned int *)(gpubase + (offsetwords << 2));
-    
-    mb();
-    dsb();
-    *data = __raw_readl(reg);
-    mb();
-    dsb();
+
+    *data = readl(reg);
 }
 
 //----------------------------------------------------------------------------
@@ -131,10 +115,6 @@ kgsl_hwaccess_regwrite(gsl_deviceid_t device_id, unsigned int gpubase, unsigned 
     (void) device_id;
 
     reg = (unsigned int *)(gpubase + (offsetwords << 2));
-    mb();
-    dsb();
-    __raw_writel(data, reg);
-    mb();
-    dsb();
+    writel(data, reg);
 }
 #endif  // __GSL_HWACCESS_WINCE_MX51_H
