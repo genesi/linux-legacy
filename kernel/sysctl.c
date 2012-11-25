@@ -100,15 +100,10 @@ static int neg_one = -1;
 #endif
 
 static int zero;
+static int __maybe_unused one = 1;
 static int __maybe_unused two = 2;
 static unsigned long one_ul = 1;
-static int __read_mostly one = 1;
-static int __read_mostly one_hundred = 100;
-#ifdef CONFIG_SCHED_BFS
-extern int rr_interval;
-extern int sched_iso_cpu;
-static int __read_mostly one_thousand = 1000;
-#endif
+static int one_hundred = 100;
 
 /* this is needed for the proc_doulongvec_minmax of vm_dirty_bytes */
 static unsigned long dirty_bytes_min = 2 * PAGE_SIZE;
@@ -243,7 +238,7 @@ static struct ctl_table root_table[] = {
 	{ .ctl_name = 0 }
 };
 
-#if defined(CONFIG_SCHED_DEBUG) && !defined(CONFIG_SCHED_BFS)
+#ifdef CONFIG_SCHED_DEBUG
 static int min_sched_granularity_ns = 100000;		/* 100 usecs */
 static int max_sched_granularity_ns = NSEC_PER_SEC;	/* 1 second */
 static int min_wakeup_granularity_ns;			/* 0 usecs */
@@ -251,15 +246,6 @@ static int max_wakeup_granularity_ns = NSEC_PER_SEC;	/* 1 second */
 #endif
 
 static struct ctl_table kern_table[] = {
-#ifndef CONFIG_SCHED_BFS
-	{
-		.ctl_name	= CTL_UNNUMBERED,
-		.procname	= "sched_child_runs_first",
-		.data		= &sysctl_sched_child_runs_first,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= &proc_dointvec,
-	},
 #ifdef CONFIG_SCHED_DEBUG
 	{
 		.ctl_name	= CTL_UNNUMBERED,
@@ -314,6 +300,14 @@ static struct ctl_table kern_table[] = {
 	},
 	{
 		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "sched_child_runs_first",
+		.data		= &sysctl_sched_child_runs_first,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
 		.procname	= "sched_features",
 		.data		= &sysctl_sched_features,
 		.maxlen		= sizeof(unsigned int),
@@ -332,14 +326,6 @@ static struct ctl_table kern_table[] = {
 		.ctl_name	= CTL_UNNUMBERED,
 		.procname	= "sched_nr_migrate",
 		.data		= &sysctl_sched_nr_migrate,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= &proc_dointvec,
-	},
-	{
-		.ctl_name	= CTL_UNNUMBERED,
-		.procname	= "sched_time_avg",
-		.data		= &sysctl_sched_time_avg,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,
@@ -380,7 +366,6 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,
 	},
-#endif /* !CONFIG_SCHED_BFS */
 #ifdef CONFIG_PROVE_LOCKING
 	{
 		.ctl_name	= CTL_UNNUMBERED,
@@ -811,30 +796,6 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,
-	},
-#endif
-#ifdef CONFIG_SCHED_BFS
-	{
-		.ctl_name	= CTL_UNNUMBERED,
-		.procname	= "rr_interval",
-		.data		= &rr_interval,
-		.maxlen		= sizeof (int),
-		.mode		= 0644,
-		.proc_handler	= &proc_dointvec_minmax,
-		.strategy	= &sysctl_intvec,
-		.extra1		= &one,
-		.extra2		= &one_thousand,
-	},
-	{
-		.ctl_name	= CTL_UNNUMBERED,
-		.procname	= "iso_cpu",
-		.data		= &sched_iso_cpu,
-		.maxlen		= sizeof (int),
-		.mode		= 0644,
-		.proc_handler	= &proc_dointvec_minmax,
-		.strategy	= &sysctl_intvec,
-		.extra1		= &zero,
-		.extra2		= &one_hundred,
 	},
 #endif
 #if defined(CONFIG_S390) && defined(CONFIG_SMP)
