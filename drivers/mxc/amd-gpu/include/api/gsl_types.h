@@ -77,16 +77,16 @@ typedef struct _os_cputimer_t {
 //////////////////////////////////////////////////////////////////////////////
 // status
 //////////////////////////////////////////////////////////////////////////////
-#define GSL_SUCCESS                     OS_SUCCESS                  
-#define GSL_FAILURE                     OS_FAILURE                  
-#define GSL_FAILURE_SYSTEMERROR         OS_FAILURE_SYSTEMERROR      
-#define GSL_FAILURE_DEVICEERROR         OS_FAILURE_DEVICEERROR  
-#define GSL_FAILURE_OUTOFMEM            OS_FAILURE_OUTOFMEM         
-#define GSL_FAILURE_BADPARAM            OS_FAILURE_BADPARAM         
+#define GSL_SUCCESS                     OS_SUCCESS
+#define GSL_FAILURE                     OS_FAILURE
+#define GSL_FAILURE_SYSTEMERROR         OS_FAILURE_SYSTEMERROR
+#define GSL_FAILURE_DEVICEERROR         OS_FAILURE_DEVICEERROR
+#define GSL_FAILURE_OUTOFMEM            OS_FAILURE_OUTOFMEM
+#define GSL_FAILURE_BADPARAM            OS_FAILURE_BADPARAM
 #define GSL_FAILURE_OFFSETINVALID       OS_FAILURE_OFFSETINVALID
-#define GSL_FAILURE_NOTSUPPORTED        OS_FAILURE_NOTSUPPORTED     
-#define GSL_FAILURE_NOMOREAVAILABLE     OS_FAILURE_NOMOREAVAILABLE  
-#define GSL_FAILURE_NOTINITIALIZED      OS_FAILURE_NOTINITIALIZED 
+#define GSL_FAILURE_NOTSUPPORTED        OS_FAILURE_NOTSUPPORTED
+#define GSL_FAILURE_NOMOREAVAILABLE     OS_FAILURE_NOMOREAVAILABLE
+#define GSL_FAILURE_NOTINITIALIZED      OS_FAILURE_NOTINITIALIZED
 #define GSL_FAILURE_ALREADYINITIALIZED  OS_FAILURE_ALREADYINITIALIZED
 #define GSL_FAILURE_TIMEOUT             OS_FAILURE_TIMEOUT
 
@@ -101,22 +101,22 @@ typedef struct _os_cputimer_t {
 #define GSL_MEMFLAGS_CHANNEL2           0x00000001
 #define GSL_MEMFLAGS_CHANNEL3           0x00000002
 #define GSL_MEMFLAGS_CHANNEL4           0x00000003
-                                        
+
 #define GSL_MEMFLAGS_BANKANY            0x00000000
 #define GSL_MEMFLAGS_BANK1              0x00000010
 #define GSL_MEMFLAGS_BANK2              0x00000020
 #define GSL_MEMFLAGS_BANK3              0x00000040
 #define GSL_MEMFLAGS_BANK4              0x00000080
-                                        
+
 #define GSL_MEMFLAGS_DIRANY             0x00000000
 #define GSL_MEMFLAGS_DIRTOP             0x00000100
 #define GSL_MEMFLAGS_DIRBOT             0x00000200
-                                        
+
 #define GSL_MEMFLAGS_APERTUREANY        0x00000000
 #define GSL_MEMFLAGS_EMEM               0x00000000
 #define GSL_MEMFLAGS_CONPHYS            0x00001000
-                                        
-#define GSL_MEMFLAGS_ALIGNANY           0x00000000      // minimum alignment is 32 bytes 
+
+#define GSL_MEMFLAGS_ALIGNANY           0x00000000      // minimum alignment is 32 bytes
 #define GSL_MEMFLAGS_ALIGN32            0x00000000
 #define GSL_MEMFLAGS_ALIGN64            0x00060000
 #define GSL_MEMFLAGS_ALIGN128           0x00070000
@@ -136,9 +136,9 @@ typedef struct _os_cputimer_t {
 #define GSL_MEMFLAGS_GPUWRITEONLY       0x02000000
 #define GSL_MEMFLAGS_GPUNOACCESS        0x04000000
 
-#define GSL_MEMFLAGS_FORCEPAGESIZE      0x40000000
-#define GSL_MEMFLAGS_STRICTREQUEST      0x80000000      // fail the alloc if the flags cannot be honored 
-                    
+#define GSL_MEMFLAGS_FORCEPAGESIZE      0x40000000	// round allocation up to page size
+#define GSL_MEMFLAGS_STRICTREQUEST      0x80000000      // fail the alloc if the flags cannot be honored
+
 #define GSL_MEMFLAGS_CHANNEL_MASK       0x0000000F
 #define GSL_MEMFLAGS_BANK_MASK          0x000000F0
 #define GSL_MEMFLAGS_DIR_MASK           0x00000F00
@@ -229,9 +229,6 @@ typedef struct _os_cputimer_t {
 //////////////////////////////////////////////////////////////////////////////
 #define GSL_TIMEOUT_NONE                        0
 #define GSL_TIMEOUT_DEFAULT                     0xFFFFFFFF
-
-#define GSL_PAGESIZE                            0x1000
-#define GSL_PAGESIZE_SHIFT                      12
 
 #define GSL_TIMESTAMP_EPSILON           20000
 

@@ -528,9 +528,9 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, struc
     {
         if ((flags & GSL_MEMFLAGS_FORCEPAGESIZE) || GSL_MEMARENA_IS_MMU_VIRTUALIZED)
         {
-            if (size & (GSL_PAGESIZE-1))
+            if (size & (PAGE_SIZE-1))
             {
-                size = ((size >> GSL_PAGESIZE_SHIFT) + 1) << GSL_PAGESIZE_SHIFT;
+                size = ((size >> PAGE_SHIFT) + 1) << PAGE_SHIFT;
             }
         }
     }
@@ -639,7 +639,7 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, struc
         GSL_MEMARENA_STATS(
         {
             int i = 0;
-            while (memdesc->size >> (GSL_PAGESIZE_SHIFT + i))
+            while (memdesc->size >> (PAGE_SIZE + i))
             {
                 i++;
             }
@@ -856,7 +856,7 @@ kgsl_memarena_free(gsl_memarena_t *memarena, struct kgsl_memdesc *memdesc)
     GSL_MEMARENA_STATS(
     {
         int i = 0;
-        while (memdesc->size >> (GSL_PAGESIZE_SHIFT + i))
+        while (memdesc->size >> (PAGE_SHIFT + i))
         {
             i++;
         }

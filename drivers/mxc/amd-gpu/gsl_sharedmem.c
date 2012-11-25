@@ -126,10 +126,10 @@ kgsl_sharedmem_init(gsl_sharedmem_t *shmem)
         }
 
         // make sure aligned to page size
-        DEBUG_ASSERT((gpubaseaddr & ((1 << GSL_PAGESIZE_SHIFT) - 1)) == 0);
+        DEBUG_ASSERT((gpubaseaddr & ((1 << PAGE_SHIFT) - 1)) == 0);
 
         // make a multiple of page size
-        sizebytes = (sizebytes & ~((1 << GSL_PAGESIZE_SHIFT) - 1));
+        sizebytes = (sizebytes & ~((1 << PAGE_SHIFT) - 1));
 
         if (sizebytes > 0)
         {
@@ -343,9 +343,9 @@ kgsl_sharedmem_alloc0(unsigned int device_id, gsl_flags_t flags, int sizebytes, 
             gsl_scatterlist_t scatterlist;
 
             scatterlist.contiguous = 0;
-            scatterlist.num        = memdesc->size / GSL_PAGESIZE;
+            scatterlist.num        = memdesc->size / PAGE_SIZE;
 
-            if (memdesc->size & (GSL_PAGESIZE-1))
+            if (memdesc->size & (PAGE_SIZE-1))
             {
                 scatterlist.num++;
             }
@@ -422,7 +422,7 @@ kgsl_sharedmem_free0(struct kgsl_memdesc *memdesc, unsigned int pid)
 
             if (!GSL_MEMDESC_EXTALLOC_ISMARKED(memdesc))
             {
-                status |= kgsl_hal_freephysical(memdesc->gpuaddr, memdesc->size / GSL_PAGESIZE, NULL);
+                status |= kgsl_hal_freephysical(memdesc->gpuaddr, memdesc->size / PAGE_SIZE, NULL);
             }
         }
 
@@ -748,7 +748,7 @@ kgsl_sharedmem_map(unsigned int device_id, gsl_flags_t flags, const gsl_scatterl
             DEBUG_ASSERT(scatterlist->num);
             DEBUG_ASSERT(scatterlist->pages);
 
-            status = kgsl_memarena_alloc(shmem->apertures[aperture_index].memarena, flags, scatterlist->num *GSL_PAGESIZE, memdesc);
+            status = kgsl_memarena_alloc(shmem->apertures[aperture_index].memarena, flags, scatterlist->num *PAGE_SIZE, memdesc);
             if (status == GSL_SUCCESS)
             {
                 GSL_MEMDESC_APERTURE_SET(memdesc, aperture_index);

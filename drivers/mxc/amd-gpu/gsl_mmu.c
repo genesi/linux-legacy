@@ -50,7 +50,7 @@ typedef struct _gsl_pte_debug_t
 #define GSL_PT_PAGE_READ                    0x00000002
 
 #define GSL_PT_PAGE_AP_MASK                 0x00000003
-#define GSL_PT_PAGE_ADDR_MASK               ~(GSL_PAGESIZE-1)
+#define GSL_PT_PAGE_ADDR_MASK               ~(PAGE_SIZE-1)
 
 #define GSL_MMUFLAGS_TLBFLUSH               0x80000000
 
@@ -67,8 +67,8 @@ const unsigned int GSL_PT_PAGE_AP[4] = {(GSL_PT_PAGE_READ | GSL_PT_PAGE_WRITE), 
 // macros
 //////////////////////////////////////////////////////////////////////////////
 
-#define GSL_PT_ENTRY_GET(va)                ((va - pagetable->va_base) >> GSL_PAGESIZE_SHIFT)
-#define GSL_PT_VIRT_GET(pte)                (pagetable->va_base + (pte * GSL_PAGESIZE))
+#define GSL_PT_ENTRY_GET(va)                ((va - pagetable->va_base) >> PAGE_SHIFT)
+#define GSL_PT_VIRT_GET(pte)                (pagetable->va_base + (pte * PAGE_SIZE))
 
 #define GSL_PT_MAP_APDEFAULT                GSL_PT_PAGE_AP[0]
 
@@ -85,7 +85,7 @@ const unsigned int GSL_PT_PAGE_AP[4] = {(GSL_PT_PAGE_READ | GSL_PT_PAGE_WRITE), 
 #define GSL_PT_MAP_RESETBITS(pte, bits)     (GSL_PT_MAP_GET(pte) &= ~(((unsigned int) bits) & GSL_PT_PAGE_AP_MASK))
 
 #define GSL_MMU_VIRT_TO_PAGE(va)            *((unsigned int *)(pagetable->base.gpuaddr + (GSL_PT_ENTRY_GET(va) * GSL_PT_ENTRY_SIZEBYTES)))
-#define GSL_MMU_VIRT_TO_PHYS(va)            ((GSL_MMU_VIRT_TO_PAGE(va) & GSL_PT_PAGE_ADDR_MASK) + (va & (GSL_PAGESIZE-1)))
+#define GSL_MMU_VIRT_TO_PHYS(va)            ((GSL_MMU_VIRT_TO_PAGE(va) & GSL_PT_PAGE_ADDR_MASK) + (va & (PAGE_SIZE-1)))
 
 #define GSL_TLBFLUSH_FILTER_GET(superpte)       *((unsigned char *)(((unsigned int)mmu->tlbflushfilter.base) + (superpte / GSL_TLBFLUSH_FILTER_ENTRY_NUMBITS)))
 #define GSL_TLBFLUSH_FILTER_SETDIRTY(superpte)  (GSL_TLBFLUSH_FILTER_GET((superpte)) |= 1 << (superpte % GSL_TLBFLUSH_FILTER_ENTRY_NUMBITS))
@@ -350,7 +350,7 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu, unsigned int pid)
             mmu->pagetable[pindex]->va_base       = mmu->va_base;
             mmu->pagetable[pindex]->va_range      = mmu->va_range;
             mmu->pagetable[pindex]->last_superpte = 0;
-            mmu->pagetable[pindex]->max_entries   = (mmu->va_range >> GSL_PAGESIZE_SHIFT) + GSL_PT_EXTRA_ENTRIES;
+            mmu->pagetable[pindex]->max_entries   = (mmu->va_range >> PAGE_SHIFT) + GSL_PT_EXTRA_ENTRIES;
 
             // allocate page table memory
             flags  = (GSL_MEMFLAGS_ALIGN4K | GSL_MEMFLAGS_CONPHYS | GSL_MEMFLAGS_STRICTREQUEST);
@@ -497,8 +497,8 @@ kgsl_mmu_init(struct kgsl_device *device)
         device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT);
 
         // make sure aligned to pagesize
-        DEBUG_ASSERT((mmu->mpu_base & ((1 << GSL_PAGESIZE_SHIFT)-1)) == 0);
-        DEBUG_ASSERT(((mmu->mpu_base + mmu->mpu_range) & ((1 << GSL_PAGESIZE_SHIFT)-1)) == 0);
+        DEBUG_ASSERT((mmu->mpu_base & ((1 << PAGE_SHIFT)-1)) == 0);
+        DEBUG_ASSERT(((mmu->mpu_base + mmu->mpu_range) & ((1 << PAGE_SHIFT)-1)) == 0);
 
         // define physical memory range accessible by the core
         device->ftbl.regwrite(device, gsl_cfg_mmu_reg[devindex].MPU_BASE, mmu->mpu_base);
@@ -528,7 +528,7 @@ kgsl_mmu_init(struct kgsl_device *device)
             mmu->hwpagetable = pagetable;
 
             // create tlb flush filter to track dirty superPTE's -- one bit per superPTE
-            mmu->tlbflushfilter.size = (mmu->va_range / (GSL_PAGESIZE * GSL_PT_SUPER_PTE * 8)) + 1;
+            mmu->tlbflushfilter.size = (mmu->va_range / (PAGE_SIZE * GSL_PT_SUPER_PTE * 8)) + 1;
             mmu->tlbflushfilter.base = (unsigned int *)kmalloc(mmu->tlbflushfilter.size, GFP_KERNEL);
             if (!mmu->tlbflushfilter.base)
             {
@@ -615,7 +615,7 @@ kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t
     KGSL_DEBUG(GSL_DBGFLAGS_MMU, kgsl_mmu_checkconsistency(pagetable));
 
     ptefirst = GSL_PT_ENTRY_GET(gpubaseaddr);
-    ptelast  = GSL_PT_ENTRY_GET(gpubaseaddr + (GSL_PAGESIZE * (scatterlist->num-1)));
+    ptelast  = GSL_PT_ENTRY_GET(gpubaseaddr + (PAGE_SIZE * (scatterlist->num-1)));
     flushtlb = 0;
 
     if (!GSL_PT_MAP_GETADDR(ptefirst))
@@ -631,7 +631,7 @@ kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t
         {
             if (scatterlist->contiguous)
             {
-                phyaddr = scatterlist->pages[0] + ((pte-ptefirst) * GSL_PAGESIZE);
+                phyaddr = scatterlist->pages[0] + ((pte-ptefirst) * PAGE_SIZE);
             }
             else
             {
@@ -722,8 +722,8 @@ kgsl_mmu_unmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, unsigned i
         return (GSL_FAILURE);
     }
 
-    numpages = (range >> GSL_PAGESIZE_SHIFT);
-    if (range & (GSL_PAGESIZE-1))
+    numpages = (range >> PAGE_SHIFT);
+    if (range & (PAGE_SIZE-1))
     {
         numpages++;
     }
@@ -738,7 +738,7 @@ kgsl_mmu_unmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, unsigned i
     KGSL_DEBUG(GSL_DBGFLAGS_MMU, kgsl_mmu_checkconsistency(pagetable));
 
     ptefirst = GSL_PT_ENTRY_GET(gpubaseaddr);
-    ptelast  = GSL_PT_ENTRY_GET(gpubaseaddr + (GSL_PAGESIZE * (numpages-1)));
+    ptelast  = GSL_PT_ENTRY_GET(gpubaseaddr + (PAGE_SIZE * (numpages-1)));
 
     if (GSL_PT_MAP_GETADDR(ptefirst))
     {
@@ -805,8 +805,8 @@ kgsl_mmu_getmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, gsl_scatt
     unsigned int     pte, ptefirst, ptelast;
     unsigned int     contiguous = 1;
 
-    numpages = (range >> GSL_PAGESIZE_SHIFT);
-    if (range & (GSL_PAGESIZE-1))
+    numpages = (range >> PAGE_SHIFT);
+    if (range & (PAGE_SIZE-1))
     {
         numpages++;
     }
@@ -826,14 +826,14 @@ kgsl_mmu_getmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, gsl_scatt
     }
 
     ptefirst = GSL_PT_ENTRY_GET(gpubaseaddr);
-    ptelast  = GSL_PT_ENTRY_GET(gpubaseaddr + (GSL_PAGESIZE * (numpages-1)));
+    ptelast  = GSL_PT_ENTRY_GET(gpubaseaddr + (PAGE_SIZE * (numpages-1)));
 
     // determine whether pages are physically contiguous
     if (numpages > 1)
     {
         for (pte = ptefirst; pte <= ptelast-1; pte++)
         {
-            if (GSL_PT_MAP_GETADDR(pte) + GSL_PAGESIZE != GSL_PT_MAP_GETADDR(pte+1))
+            if (GSL_PT_MAP_GETADDR(pte) + PAGE_SIZE != GSL_PT_MAP_GETADDR(pte+1))
             {
                 contiguous = 0;
                 break;
