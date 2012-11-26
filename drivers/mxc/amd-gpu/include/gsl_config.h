@@ -39,48 +39,6 @@
 static const unsigned int gsl_cfg_rb_sizelog2quadwords = GSL_RB_SIZE_32K;
 static const unsigned int gsl_cfg_rb_blksizequadwords  = GSL_RB_SIZE_16;
 
-/* ------------------------
- * Yamato MH arbiter config
- * ------------------------ */
-static const mh_arbiter_config_t  gsl_cfg_yamato_mharb = {
-    0x10,   /* same_page_limit */
-    0,      /* same_page_granularity  */
-    1,      /* l1_arb_enable */
-    1,      /* l1_arb_hold_enable */
-    0,      /* l2_arb_control */
-    1,      /* page_size */
-    1,      /* tc_reorder_enable */
-    1,      /* tc_arb_hold_enable */
-    1,      /* in_flight_limit_enable */
-    0x8,    /* in_flight_limit */
-    1,      /* cp_clnt_enable */
-    1,      /* vgt_clnt_enable */
-    1,      /* tc_clnt_enable */
-    1,      /* rb_clnt_enable */
-    1,      /* pa_clnt_enable */
-};
-
-/* ---------------------
- * G12 MH arbiter config
- * --------------------- */
-static const REG_MH_ARBITER_CONFIG gsl_cfg_g12_mharb = {
-    0x10,   /* SAME_PAGE_LIMIT */
-    0,      /* SAME_PAGE_GRANULARITY */
-    1,      /* L1_ARB_ENABLE */
-    1,      /* L1_ARB_HOLD_ENABLE */
-    0,      /* L2_ARB_CONTROL */
-    1,      /* PAGE_SIZE */
-    1,      /* TC_REORDER_ENABLE */
-    1,      /* TC_ARB_HOLD_ENABLE */
-    1,      /* IN_FLIGHT_LIMIT_ENABLE */
-    0x8,    /* IN_FLIGHT_LIMIT */
-    1,      /* CP_CLNT_ENABLE */
-    1,      /* VGT_CLNT_ENABLE */
-    1,      /* TC_CLNT_ENABLE */
-    1,      /* RB_CLNT_ENABLE */
-    1,      /* PA_CLNT_ENABLE */
-};
-
 /* -----------------------------
  * interrupt block register data
  * ----------------------------- */
@@ -89,33 +47,33 @@ static const gsl_intrblock_reg_t gsl_cfg_intrblock_reg[GSL_INTR_BLOCK_COUNT] = {
 	GSL_INTR_BLOCK_YDX_MH,
 	GSL_INTR_YDX_MH_AXI_READ_ERROR,
 	GSL_INTR_YDX_MH_MMU_PAGE_FAULT,
-	mmMH_INTERRUPT_STATUS,
-	mmMH_INTERRUPT_CLEAR,
-	mmMH_INTERRUPT_MASK
+	REG_MH_INTERRUPT_STATUS,
+	REG_MH_INTERRUPT_CLEAR,
+	REG_MH_INTERRUPT_MASK
     },
     {   /* Yamato CP */
 	GSL_INTR_BLOCK_YDX_CP,
 	GSL_INTR_YDX_CP_SW_INT,
 	GSL_INTR_YDX_CP_RING_BUFFER,
-	mmCP_INT_STATUS,
-	mmCP_INT_ACK,
-	mmCP_INT_CNTL
+	REG_CP_INT_STATUS,
+	REG_CP_INT_ACK,
+	REG_CP_INT_CNTL
     },
     {   /* Yamato RBBM */
 	GSL_INTR_BLOCK_YDX_RBBM,
 	GSL_INTR_YDX_RBBM_READ_ERROR,
 	GSL_INTR_YDX_RBBM_GUI_IDLE,
-	mmRBBM_INT_STATUS,
-	mmRBBM_INT_ACK,
-	mmRBBM_INT_CNTL
+	REG_RBBM_INT_STATUS,
+	REG_RBBM_INT_ACK,
+	REG_RBBM_INT_CNTL
     },
     {   /* Yamato SQ */
 	GSL_INTR_BLOCK_YDX_SQ,
 	GSL_INTR_YDX_SQ_PS_WATCHDOG,
 	GSL_INTR_YDX_SQ_VS_WATCHDOG,
-	mmSQ_INT_STATUS,
-	mmSQ_INT_ACK,
-	mmSQ_INT_CNTL
+	REG_SQ_INT_STATUS,
+	REG_SQ_INT_ACK,
+	REG_SQ_INT_CNTL
     },
     {   /* G12 */
 	GSL_INTR_BLOCK_G12,
@@ -164,15 +122,15 @@ static const int gsl_cfg_intr_mask[GSL_INTR_COUNT] = {
     SQ_INT_CNTL__PS_WATCHDOG_MASK,
     SQ_INT_CNTL__VS_WATCHDOG_MASK,
 
-    (1 << VGC_IRQENABLE_MH_FSHIFT),
-    (1 << VGC_IRQENABLE_G2D_FSHIFT),
-    (1 << VGC_IRQENABLE_FIFO_FSHIFT),
+    REG_VGC_IRQSTATUS__MH_MASK,
+    REG_VGC_IRQSTATUS__G2D_MASK,
+    REG_VGC_IRQSTATUS__FIFO_MASK,
 #ifndef _Z180
-    (1 << VGC_IRQENABLE_FBC_FSHIFT),
+    REG_VGC_IRQSTATUS__FBC_MASK,
 #endif
-    (1 << MH_INTERRUPT_MASK_AXI_READ_ERROR_FSHIFT),
-    (1 << MH_INTERRUPT_MASK_AXI_WRITE_ERROR_FSHIFT),
-    (1 << MH_INTERRUPT_MASK_MMU_PAGE_FAULT_FSHIFT),
+    MH_INTERRUPT_MASK__AXI_READ_ERROR,
+    MH_INTERRUPT_MASK__AXI_WRITE_ERROR,
+    MH_INTERRUPT_MASK__MMU_PAGE_FAULT,
 };
 
 /* -----------------
@@ -180,14 +138,14 @@ static const int gsl_cfg_intr_mask[GSL_INTR_COUNT] = {
  * ----------------- */
 static const gsl_mmu_reg_t gsl_cfg_mmu_reg[GSL_DEVICE_MAX] = {
     {   /* Yamato */
-	mmMH_MMU_CONFIG,
-	mmMH_MMU_MPU_BASE,
-	mmMH_MMU_MPU_END,
-	mmMH_MMU_VA_RANGE,
-	mmMH_MMU_PT_BASE,
-	mmMH_MMU_PAGE_FAULT,
-	mmMH_MMU_TRAN_ERROR,
-	mmMH_MMU_INVALIDATE,
+	REG_MH_MMU_CONFIG,
+	REG_MH_MMU_MPU_BASE,
+	REG_MH_MMU_MPU_END,
+	REG_MH_MMU_VA_RANGE,
+	REG_MH_MMU_PT_BASE,
+	REG_MH_MMU_PAGE_FAULT,
+	REG_MH_MMU_TRAN_ERROR,
+	REG_MH_MMU_INVALIDATE,
     },
     {   /* G12 - MH offsets are considered to be dword based, therefore no down shift */
 	ADDR_MH_MMU_CONFIG,

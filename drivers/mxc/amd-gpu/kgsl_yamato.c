@@ -25,6 +25,26 @@
 #include "gsl_ringbuffer.h"
 #include "gsl_drawctxt.h"
 
+
+/* Yamato MH arbiter config*/
+#define KGSL_CFG_YAMATO_MHARB \
+	(0x10 \
+		| (0 << MH_ARBITER_CONFIG__SAME_PAGE_GRANULARITY__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__L1_ARB_ENABLE__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__L1_ARB_HOLD_ENABLE__SHIFT) \
+		| (0 << MH_ARBITER_CONFIG__L2_ARB_CONTROL__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__PAGE_SIZE__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__TC_REORDER_ENABLE__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__TC_ARB_HOLD_ENABLE__SHIFT) \
+		| (0 << MH_ARBITER_CONFIG__IN_FLIGHT_LIMIT_ENABLE__SHIFT) \
+		| (0x8 << MH_ARBITER_CONFIG__IN_FLIGHT_LIMIT__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__CP_CLNT_ENABLE__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__VGT_CLNT_ENABLE__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__TC_CLNT_ENABLE__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__RB_CLNT_ENABLE__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__PA_CLNT_ENABLE__SHIFT))
+
+
 //////////////////////////////////////////////////////////////////////////////
 // functions
 //////////////////////////////////////////////////////////////////////////////
@@ -32,7 +52,8 @@
 static int
 kgsl_yamato_gmeminit(struct kgsl_device *device)
 {
-    rb_edram_info_u rb_edram_info = {0};
+    /* rb_edram_info_u rb_edram_info = {0}; */
+    union reg_rb_edram_info rb_edram_info;
     unsigned int    gmem_size;
     unsigned int    edram_value = 0;
 
@@ -50,7 +71,7 @@ kgsl_yamato_gmeminit(struct kgsl_device *device)
     rb_edram_info.f.edram_mapping_mode = 0;                                     // EDRAM_MAP_UPPER
     rb_edram_info.f.edram_range        = (device->gmemspace.gpu_base >> 14);    // must be aligned to size
 
-    device->ftbl.regwrite(device, mmRB_EDRAM_INFO, (unsigned int)rb_edram_info.val);
+    device->ftbl.regwrite(device, REG_RB_EDRAM_INFO, (unsigned int)rb_edram_info.val);
 
     return (GSL_SUCCESS);
 }
@@ -60,7 +81,7 @@ kgsl_yamato_gmeminit(struct kgsl_device *device)
 static int
 kgsl_yamato_gmemclose(struct kgsl_device *device)
 {
-    device->ftbl.regwrite(device, mmRB_EDRAM_INFO, 0x00000000);
+    device->ftbl.regwrite(device, REG_RB_EDRAM_INFO, 0x00000000);
 
     return (GSL_SUCCESS);
 }
@@ -183,15 +204,15 @@ kgsl_yamato_isr(struct kgsl_device *device)
 #endif // DEBUG
 
     // determine if yamato is interrupting, and if so, which block
-    device->ftbl.regread(device, mmMASTER_INT_SIGNAL, &status);
+    device->ftbl.regread(device, REG_MASTER_INT_SIGNAL, &status);
 
     if (status & MASTER_INT_SIGNAL__MH_INT_STAT)
     {
 #ifdef _DEBUG
         // obtain mh error information
-        device->ftbl.regread(device, mmMH_MMU_PAGE_FAULT, (unsigned int *)&page_fault);
-        device->ftbl.regread(device, mmMH_AXI_ERROR, (unsigned int *)&axi_error);
-        device->ftbl.regread(device, mmMH_CLNT_AXI_ID_REUSE, (unsigned int *)&clnt_axi_id_reuse);
+        device->ftbl.regread(device, REG_MH_MMU_PAGE_FAULT, (unsigned int *)&page_fault);
+        device->ftbl.regread(device, REG_MH_AXI_ERROR, (unsigned int *)&axi_error);
+        device->ftbl.regread(device, REG_MH_CLNT_AXI_ID_REUSE, (unsigned int *)&clnt_axi_id_reuse);
 #endif // DEBUG
 
         kgsl_intr_decode(device, GSL_INTR_BLOCK_YDX_MH);
@@ -206,7 +227,7 @@ kgsl_yamato_isr(struct kgsl_device *device)
     {
 #ifdef _DEBUG
         // obtain rbbm error information
-        device->ftbl.regread(device, mmRBBM_READ_ERROR, (unsigned int *)&read_error);
+        device->ftbl.regread(device, REG_RBBM_READ_ERROR, (unsigned int *)&read_error);
 #endif // DEBUG
 
         kgsl_intr_decode(device, GSL_INTR_BLOCK_YDX_RBBM);
@@ -226,23 +247,21 @@ int
 kgsl_yamato_tlbinvalidate(struct kgsl_device *device, unsigned int reg_invalidate, unsigned int pid)
 {
 	unsigned int		 link[2];
-    mh_mmu_invalidate_u  mh_mmu_invalidate = {0};
-
-    mh_mmu_invalidate.f.invalidate_all = 1;
-    mh_mmu_invalidate.f.invalidate_tc  = 1;
+    unsigned int  mh_mmu_invalidate = 0x00000003L; // invalidate all and tc
 
 	// if possible, invalidate via command stream, otherwise via direct register writes
 	if (device->flags & GSL_FLAGS_STARTED)
 	{
+		// there's a wait for idle packet up front here in qcom code
 		link[0] = pm4_type0_packet(reg_invalidate, 1);
-		link[1] = mh_mmu_invalidate.val;
+		link[1] = mh_mmu_invalidate;
 
 		kgsl_ringbuffer_issuecmds(device, 1, &link[0], 2, pid);
 	}
 	else
 	{
 
-        device->ftbl.regwrite(device, reg_invalidate, mh_mmu_invalidate.val);
+        device->ftbl.regwrite(device, reg_invalidate, mh_mmu_invalidate);
     }
 
     return (GSL_SUCCESS);
@@ -276,7 +295,7 @@ kgsl_yamato_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase, ui
 		// fifo and prevent any further vertex/bin updates from occurring until the wait 
 		// has finished.
 		link[4]  = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-		link[5]  = (0x4 << 16) | (mmPA_SU_SC_MODE_CNTL - 0x2000);
+		link[5]  = (0x4 << 16) | (REG_PA_SU_SC_MODE_CNTL - 0x2000);
 		link[6]  = 0;          // disable faceness generation
 		link[7]  = pm4_type3_packet(PM4_SET_BIN_BASE_OFFSET, 1);
 		link[8]  = device->mmu.dummyspace.gpuaddr;
@@ -328,23 +347,23 @@ kgsl_yamato_init(struct kgsl_device *device)
     //We need to make sure all blocks are powered up and clocked before
     //issuing a soft reset.  The overrides will be turned off (set to 0)
     //later in kgsl_yamato_start.
-    device->ftbl.regwrite(device, mmRBBM_PM_OVERRIDE1, 0xfffffffe);
-    device->ftbl.regwrite(device, mmRBBM_PM_OVERRIDE2, 0xffffffff);
+    device->ftbl.regwrite(device, REG_RBBM_PM_OVERRIDE1, 0xfffffffe);
+    device->ftbl.regwrite(device, REG_RBBM_PM_OVERRIDE2, 0xffffffff);
 
     // soft reset
-    device->ftbl.regwrite(device, mmRBBM_SOFT_RESET, 0xFFFFFFFF);
+    device->ftbl.regwrite(device, REG_RBBM_SOFT_RESET, 0xFFFFFFFF);
     msleep(50);
-    device->ftbl.regwrite(device, mmRBBM_SOFT_RESET, 0x00000000);
+    device->ftbl.regwrite(device, REG_RBBM_SOFT_RESET, 0x00000000);
 
     // RBBM control
-    device->ftbl.regwrite(device, mmRBBM_CNTL, 0x00004442);
+    device->ftbl.regwrite(device, REG_RBBM_CNTL, 0x00004442);
 
     // setup MH arbiter
-    device->ftbl.regwrite(device, mmMH_ARBITER_CONFIG, *(unsigned int *) &gsl_cfg_yamato_mharb);
+    device->ftbl.regwrite(device, REG_MH_ARBITER_CONFIG, KGSL_CFG_YAMATO_MHARB);
 
     // SQ_*_PROGRAM
-    device->ftbl.regwrite(device, mmSQ_VS_PROGRAM, 0x00000000);
-    device->ftbl.regwrite(device, mmSQ_PS_PROGRAM, 0x00000000);
+    device->ftbl.regwrite(device, REG_SQ_VS_PROGRAM, 0x00000000);
+    device->ftbl.regwrite(device, REG_SQ_PS_PROGRAM, 0x00000000);
 
     // init interrupt
     status = kgsl_intr_init(device);
@@ -438,8 +457,8 @@ kgsl_yamato_start(struct kgsl_device *device, gsl_flags_t flags)
     // default power management override when running in safe mode
     pm1 = (device->flags & GSL_FLAGS_SAFEMODE) ? 0xFFFFFFFE : 0x00000000;
     pm2 = (device->flags & GSL_FLAGS_SAFEMODE) ? 0x000000FF : 0x00000000;
-    device->ftbl.regwrite(device, mmRBBM_PM_OVERRIDE1, pm1);
-    device->ftbl.regwrite(device, mmRBBM_PM_OVERRIDE2, pm2);
+    device->ftbl.regwrite(device, REG_RBBM_PM_OVERRIDE1, pm1);
+    device->ftbl.regwrite(device, REG_RBBM_PM_OVERRIDE2, pm2);
 
     // enable rbbm interrupts
     kgsl_intr_attach(&device->intr, GSL_INTR_YDX_RBBM_READ_ERROR, kgsl_yamato_rbbmintrcallback, (void *) device);
@@ -580,13 +599,13 @@ kgsl_yamato_setproperty(struct kgsl_device *device, gsl_property_type_t type, vo
         {
             if (power->flags & GSL_PWRFLAGS_OVERRIDE_ON)
             {
-                device->ftbl.regwrite(device, mmRBBM_PM_OVERRIDE1, 0xfffffffe);
-                device->ftbl.regwrite(device, mmRBBM_PM_OVERRIDE2, 0xffffffff);
+                device->ftbl.regwrite(device, REG_RBBM_PM_OVERRIDE1, 0xfffffffe);
+                device->ftbl.regwrite(device, REG_RBBM_PM_OVERRIDE2, 0xffffffff);
             }
             else if (power->flags & GSL_PWRFLAGS_OVERRIDE_OFF)
             {
-                device->ftbl.regwrite(device, mmRBBM_PM_OVERRIDE1, 0x00000000);
-                device->ftbl.regwrite(device, mmRBBM_PM_OVERRIDE2, 0x00000000);
+                device->ftbl.regwrite(device, REG_RBBM_PM_OVERRIDE1, 0x00000000);
+                device->ftbl.regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x00000000);
             }
             else
             {
@@ -644,7 +663,7 @@ kgsl_yamato_setproperty(struct kgsl_device *device, gsl_property_type_t type, vo
                     {
                         size = 8;
 
-                        *cmds++ =  pm4_type0_packet(mmRBBM_DSPLY, 1);
+                        *cmds++ =  pm4_type0_packet(REG_RBBM_DSPLY, 1);
                         switch (gsl_driver.dmi_mode)
                         {
                             case GSL_DMIFLAGS_ENABLE_SINGLE:
@@ -670,14 +689,14 @@ kgsl_yamato_setproperty(struct kgsl_device *device, gsl_property_type_t type, vo
                     //
                     //  Wait for 3D core to be idle and wait for vsync
                     //
-                    *cmds++ =  pm4_type0_packet(mmWAIT_UNTIL, 1);
+                    *cmds++ =  pm4_type0_packet(REG_WAIT_UNTIL, 1);
                     *cmds++ = 0x00008000;           //  3d idle
                     // *cmds++ = 0x00008008;         //  3d idle & vsync
 
                     //
                     //  Update the render latest register.
                     //
-                    *cmds++ =  pm4_type0_packet(mmRBBM_RENDER_LATEST, 1);
+                    *cmds++ =  pm4_type0_packet(REG_RBBM_RENDER_LATEST, 1);
                     switch (gsl_driver.dmi_frame)
                     {
                         case 0:
@@ -688,7 +707,7 @@ kgsl_yamato_setproperty(struct kgsl_device *device, gsl_property_type_t type, vo
                             //
                             //  Wait for our max frame # indicator to be de-asserted
                             //
-                            *cmds++ =  pm4_type0_packet(mmWAIT_UNTIL, 1);
+                            *cmds++ =  pm4_type0_packet(REG_WAIT_UNTIL, 1);
                             *cmds++ = 0x00000008 << gsl_driver.dmi_max_frame;
                             gsl_driver.dmi_frame = 1;
                             break;
@@ -698,7 +717,7 @@ kgsl_yamato_setproperty(struct kgsl_device *device, gsl_property_type_t type, vo
                             //  Render frame 1
                             //
                             *cmds++ = 1;
-                            *cmds++ =  pm4_type0_packet(mmWAIT_UNTIL, 1);
+                            *cmds++ =  pm4_type0_packet(REG_WAIT_UNTIL, 1);
                             *cmds++ = 0x00000010;   //  Wait for frame 0 to be deasserted
                             gsl_driver.dmi_frame = 2;
                             break;
@@ -707,7 +726,7 @@ kgsl_yamato_setproperty(struct kgsl_device *device, gsl_property_type_t type, vo
                             //  Render frame 2
                             //
                             *cmds++ = 2;
-                            *cmds++ =  pm4_type0_packet(mmWAIT_UNTIL, 1);
+                            *cmds++ =  pm4_type0_packet(REG_WAIT_UNTIL, 1);
                             *cmds++ = 0x00000020;   //  Wait for frame 1 to be deasserted
                             gsl_driver.dmi_frame = 0;
                             break;
@@ -736,11 +755,11 @@ kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)
 {
     int               status  = GSL_FAILURE;
     gsl_ringbuffer_t  *rb     = &device->ringbuffer;
-    rbbm_status_u     rbbm_status;
+    unsigned int  rbbm_status;
 
     (void) timeout;      // unreferenced formal parameter
 
-    KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, KGSL_DEBUG_DUMPX(BB_DUMP_REGPOLL, device->id, mmRBBM_STATUS, 0x80000000, "kgsl_yamato_idle"));
+    KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, KGSL_DEBUG_DUMPX(BB_DUMP_REGPOLL, device->id, REG_RBBM_STATUS, 0x80000000, "kgsl_yamato_idle"));
 
     // first, wait until the CP has consumed all the commands in the ring buffer
     if (rb->flags & GSL_FLAGS_STARTED)
@@ -755,9 +774,10 @@ kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)
     // now, wait for the GPU to finish its operations
     for ( ; ; )
     {
-        device->ftbl.regread(device, mmRBBM_STATUS, (unsigned int *)&rbbm_status);
+        device->ftbl.regread(device, REG_RBBM_STATUS, (unsigned int *)&rbbm_status);
 
-        if (!(rbbm_status.val & 0x80000000))
+	// qcom uses 0x110
+        if (!(rbbm_status & 0x80000000))
         {
             status = GSL_SUCCESS;
             break;
@@ -777,7 +797,7 @@ kgsl_yamato_regread(struct kgsl_device *device, unsigned int offsetwords, unsign
             {
                 if (!(gsl_driver.flags_debug & GSL_DBGFLAGS_DUMPX_WITHOUT_IFH))
                 {
-                    if(offsetwords == mmCP_RB_RPTR || offsetwords == mmCP_RB_WPTR)
+                    if(offsetwords == REG_CP_RB_RPTR || offsetwords == REG_CP_RB_WPTR)
                     {
                         *value = device->ringbuffer.wptr;
                         return (GSL_SUCCESS);

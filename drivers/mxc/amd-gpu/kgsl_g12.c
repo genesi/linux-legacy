@@ -22,6 +22,7 @@
 #include "gsl.h"
 #include "gsl_hal.h"
 #include "gsl_cmdstream.h"
+#include "kgsl_g12_vgv3types.h"
 
 #ifdef CONFIG_ARCH_MX35
 #define V3_SYNC
@@ -34,6 +35,24 @@
 
 #define GSL_HAL_NUMCMDBUFFERS           5
 #define GSL_HAL_CMDBUFFERSIZE           (1024 + 13) * sizeof(unsigned int)
+
+/* G12 MH arbiter config*/
+#define KGSL_G12_CFG_G12_MHARB \
+	(0x10 \
+		| (0 << MH_ARBITER_CONFIG__SAME_PAGE_GRANULARITY__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__L1_ARB_ENABLE__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__L1_ARB_HOLD_ENABLE__SHIFT) \
+		| (0 << MH_ARBITER_CONFIG__L2_ARB_CONTROL__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__PAGE_SIZE__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__TC_REORDER_ENABLE__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__TC_ARB_HOLD_ENABLE__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__IN_FLIGHT_LIMIT_ENABLE__SHIFT) \
+		| (0x8 << MH_ARBITER_CONFIG__IN_FLIGHT_LIMIT__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__CP_CLNT_ENABLE__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__VGT_CLNT_ENABLE__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__TC_CLNT_ENABLE__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__RB_CLNT_ENABLE__SHIFT) \
+		| (1 << MH_ARBITER_CONFIG__PA_CLNT_ENABLE__SHIFT))
 
 #define     ALIGN_IN_BYTES( dim, alignment ) ( ( (dim) + (alignment-1) ) & ~(alignment-1) )
 
@@ -161,7 +180,7 @@ kgsl_g12_isr(struct kgsl_device *device)
     if (status)
     {
         // if G12 MH is interrupting, clear MH block interrupt first, then master G12 MH interrupt
-        if (status & (1 << VGC_IRQSTATUS_MH_FSHIFT))
+        if (status & REG_VGC_IRQSTATUS__MH_MASK)
         {
 #ifdef _DEBUG
             // obtain mh error information
@@ -184,13 +203,10 @@ int
 kgsl_g12_tlbinvalidate(struct kgsl_device *device, unsigned int reg_invalidate, unsigned int pid)
 {
 #ifndef GSL_NO_MMU
-    REG_MH_MMU_INVALIDATE  mh_mmu_invalidate = {0};
+    unsigned int mh_mmu_invalidate = 0x00000003L; // invalidate all and tc
 
     // unreferenced formal parameter
-	(void) pid;
-
-    mh_mmu_invalidate.INVALIDATE_ALL = 1;
-    mh_mmu_invalidate.INVALIDATE_TC  = 1;
+    (void) pid;
 
     device->ftbl.regwrite(device, reg_invalidate, *(unsigned int *) &mh_mmu_invalidate);
 #else
@@ -226,7 +242,7 @@ static void kgsl_g12_updatetimestamp(struct kgsl_device *device)
 	device->ftbl.regread(device, (ADDR_VGC_IRQ_ACTIVE_CNT >> 2), &count);
 	count >>= 8;
 	count &= 255;
-	device->timestamp += count;	
+	device->timestamp += count;
 #ifdef V3_SYNC
 	if (device->current_timestamp > device->timestamp)
 	{
@@ -258,14 +274,14 @@ static void kgsl_g12_irqerr(struct work_struct *work)
 int
 kgsl_g12_init(struct kgsl_device *device)
 {
-    int  status = GSL_FAILURE; 
+    int  status = GSL_FAILURE;
 
     device->flags |= GSL_FLAGS_INITIALIZED;
 
     kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_POWER_ON, 100);
 
     // setup MH arbiter - MH offsets are considered to be dword based, therefore no down shift
-    device->ftbl.regwrite(device, ADDR_MH_ARBITER_CONFIG, *(unsigned int *) &gsl_cfg_g12_mharb);
+    device->ftbl.regwrite(device, ADDR_MH_ARBITER_CONFIG, KGSL_G12_CFG_G12_MHARB);
 
     // init interrupt
     status = kgsl_intr_init(device);
@@ -525,8 +541,8 @@ kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords, unsigned 
         device->ftbl.regwrite(device, (ADDR_VGC_MH_READ_ADDR >> 2), offsetwords);
         kgsl_hwaccess_regread(device->id, (unsigned int) device->regspace.mmio_virt_base, (ADDR_VGC_MH_READ_ADDR >> 2), value);
 #else
-        device->ftbl.regwrite(device, (ADDR_MMU_READ_ADDR >> 2), offsetwords);
-        kgsl_hwaccess_regread(device->id, (unsigned int) device->regspace.mmio_virt_base, (ADDR_MMU_READ_DATA >> 2), value);
+        device->ftbl.regwrite(device, (ADDR_VGC_MH_READ_ADDR >> 2), offsetwords);
+        kgsl_hwaccess_regread(device->id, (unsigned int) device->regspace.mmio_virt_base, (ADDR_VGC_MH_DATA_ADDR >> 2), value);
 #endif
     }
     else
@@ -814,7 +830,7 @@ kgsl_g12_context_create(struct kgsl_device* device, gsl_context_type_t type, uns
             DEBUG_ASSERT(status == GSL_SUCCESS);
         }
         g_z1xx.curr = 0;
-        cmd = (int)(((VGV3_NEXTCMD_JUMP) & VGV3_NEXTCMD_NEXTCMD_FMASK)<< VGV3_NEXTCMD_NEXTCMD_FSHIFT);
+        cmd = VGV3_NEXTCMD_JUMP << VGV3_NEXTCMD_NEXTCMD_FSHIFT;
 
         /* set cmd stream buffer to hw */
         status |= kgsl_cmdwindow_write0(GSL_DEVICE_G12, GSL_CMDWINDOW_2D, ADDR_VGV3_MODE, 4);

@@ -21,6 +21,7 @@
 
 #include "gsl.h"
 #include "gsl_hal.h"
+#include "kgsl_g12_vgv3types.h"
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -371,7 +372,7 @@ static unsigned int gmem_copy_texcoord[TEXCOORD_LEN] = {
 
 #define NUM_COLOR_FORMATS   13
 
-static SurfaceFormat surface_format_table[NUM_COLOR_FORMATS] =
+static enum SURFACEFORMAT surface_format_table[NUM_COLOR_FORMATS] =
 {
 	FMT_4_4_4_4,		   // COLORX_4_4_4_4
 	FMT_1_5_5_5,		   // COLORX_1_5_5_5
@@ -532,7 +533,7 @@ build_chicken_restore_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
     *cmds++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
     *cmds++ = 0;
 
-    *cmds++ = pm4_type0_packet(mmTP0_CHICKEN, 1);
+    *cmds++ = pm4_type0_packet(REG_TP0_CHICKEN, 1);
     ctx->chicken_restore = gpuaddr(cmds, &drawctxt->gpustate);
     *cmds++ = 0x00000000;
 
@@ -563,26 +564,26 @@ build_regsave_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
 
 #ifdef DISABLE_SHADOW_WRITES
     // Write HW registers into shadow
-    build_reg_to_mem_range(mmRB_SURFACE_INFO, mmRB_DEPTH_INFO, &cmd, drawctxt);
-    build_reg_to_mem_range(mmCOHER_DEST_BASE_0, mmPA_SC_SCREEN_SCISSOR_BR, &cmd, drawctxt);
-    build_reg_to_mem_range(mmPA_SC_WINDOW_OFFSET, mmPA_SC_WINDOW_SCISSOR_BR, &cmd, drawctxt);
-    build_reg_to_mem_range(mmVGT_MAX_VTX_INDX, mmRB_FOG_COLOR, &cmd, drawctxt);
-    build_reg_to_mem_range(mmRB_STENCILREFMASK_BF, mmPA_CL_VPORT_ZOFFSET, &cmd, drawctxt);
-    build_reg_to_mem_range(mmSQ_PROGRAM_CNTL, mmSQ_WRAPPING_1, &cmd, drawctxt);
-    build_reg_to_mem_range(mmRB_DEPTHCONTROL, mmRB_MODECONTROL, &cmd, drawctxt);
-    build_reg_to_mem_range(mmPA_SU_POINT_SIZE, mmPA_SC_LINE_STIPPLE, &cmd, drawctxt);
-    build_reg_to_mem_range(mmPA_SC_VIZ_QUERY, mmPA_SC_VIZ_QUERY, &cmd, drawctxt);
-    build_reg_to_mem_range(mmPA_SC_LINE_CNTL, mmSQ_PS_CONST, &cmd, drawctxt);
-    build_reg_to_mem_range(mmPA_SC_AA_MASK, mmPA_SC_AA_MASK, &cmd, drawctxt);
-    build_reg_to_mem_range(mmVGT_VERTEX_REUSE_BLOCK_CNTL, mmRB_DEPTH_CLEAR, &cmd, drawctxt);
-    build_reg_to_mem_range(mmRB_SAMPLE_COUNT_CTL, mmRB_COLOR_DEST_MASK, &cmd, drawctxt);
-    build_reg_to_mem_range(mmPA_SU_POLY_OFFSET_FRONT_SCALE, mmPA_SU_POLY_OFFSET_BACK_OFFSET, &cmd, drawctxt);
+    build_reg_to_mem_range(REG_RB_SURFACE_INFO, REG_RB_DEPTH_INFO, &cmd, drawctxt);
+    build_reg_to_mem_range(REG_COHER_DEST_BASE_0, REG_PA_SC_SCREEN_SCISSOR_BR, &cmd, drawctxt);
+    build_reg_to_mem_range(REG_PA_SC_WINDOW_OFFSET, REG_PA_SC_WINDOW_SCISSOR_BR, &cmd, drawctxt);
+    build_reg_to_mem_range(REG_VGT_MAX_VTX_INDX, REG_RB_FOG_COLOR, &cmd, drawctxt);
+    build_reg_to_mem_range(REG_RB_STENCILREFMASK_BF, REG_PA_CL_VPORT_ZOFFSET, &cmd, drawctxt);
+    build_reg_to_mem_range(REG_SQ_PROGRAM_CNTL, REG_SQ_WRAPPING_1, &cmd, drawctxt);
+    build_reg_to_mem_range(REG_RB_DEPTHCONTROL, REG_RB_MODECONTROL, &cmd, drawctxt);
+    build_reg_to_mem_range(REG_PA_SU_POINT_SIZE, REG_PA_SC_LINE_STIPPLE, &cmd, drawctxt);
+    build_reg_to_mem_range(REG_PA_SC_VIZ_QUERY, REG_PA_SC_VIZ_QUERY, &cmd, drawctxt);
+    build_reg_to_mem_range(REG_PA_SC_LINE_CNTL, REG_SQ_PS_CONST, &cmd, drawctxt);
+    build_reg_to_mem_range(REG_PA_SC_AA_MASK, REG_PA_SC_AA_MASK, &cmd, drawctxt);
+    build_reg_to_mem_range(REG_VGT_VERTEX_REUSE_BLOCK_CNTL, REG_RB_DEPTH_CLEAR, &cmd, drawctxt);
+    build_reg_to_mem_range(REG_RB_SAMPLE_COUNT_CTL, REG_RB_COLOR_DEST_MASK, &cmd, drawctxt);
+    build_reg_to_mem_range(REG_PA_SU_POLY_OFFSET_FRONT_SCALE, REG_PA_SU_POLY_OFFSET_BACK_OFFSET, &cmd, drawctxt);
 
     // Copy ALU constants
-    cmd = reg_to_mem(cmd, (drawctxt->gpustate.gpuaddr) & 0xFFFFE000, mmSQ_CONSTANT_0, ALU_CONSTANTS);
+    cmd = reg_to_mem(cmd, (drawctxt->gpustate.gpuaddr) & 0xFFFFE000, REG_SQ_CONSTANT_0, ALU_CONSTANTS);
 
     // Copy Tex constants
-    cmd = reg_to_mem(cmd, (drawctxt->gpustate.gpuaddr + TEX_OFFSET) & 0xFFFFE000, mmSQ_FETCH_0, TEX_CONSTANTS);
+    cmd = reg_to_mem(cmd, (drawctxt->gpustate.gpuaddr + TEX_OFFSET) & 0xFFFFE000, REG_SQ_FETCH_0, TEX_CONSTANTS);
 #else
     // insert a wait for idle (adreno.c:542 from qualcomm kernel)
     // *cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
@@ -612,17 +613,17 @@ build_regsave_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
 
     // Need to handle some of the registers separately
     *cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
-    *cmd++ = mmSQ_GPR_MANAGEMENT;
+    *cmd++ = REG_SQ_GPR_MANAGEMENT;
     *cmd++ = ctx->reg_values[0];
     *cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
-    *cmd++ = mmTP0_CHICKEN;
+    *cmd++ = REG_TP0_CHICKEN;
     *cmd++ = ctx->reg_values[1];
 
     // Copy Boolean constants
-    cmd = reg_to_mem(cmd, ctx->bool_shadow, mmSQ_CF_BOOLEANS, BOOL_CONSTANTS);
+    cmd = reg_to_mem(cmd, ctx->bool_shadow, REG_SQ_CF_BOOLEANS, BOOL_CONSTANTS);
 
     // Copy Loop constants
-    cmd = reg_to_mem(cmd, ctx->loop_shadow, mmSQ_CF_LOOP, LOOP_CONSTANTS);
+    cmd = reg_to_mem(cmd, ctx->loop_shadow, REG_SQ_CF_LOOP, LOOP_CONSTANTS);
 
     // create indirect buffer command for above command sequence
     create_ib1(drawctxt, drawctxt->reg_save, start, cmd);
@@ -643,7 +644,7 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
 
     // Store TP0_CHICKEN register
     *cmds++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
-    *cmds++ = mmTP0_CHICKEN;
+    *cmds++ = REG_TP0_CHICKEN;
     if( ctx )
         *cmds++ = ctx->chicken_restore;
     else
@@ -653,11 +654,11 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
     *cmds++ = 0;
 
     // Set TP0_CHICKEN to zero
-    *cmds++ = pm4_type0_packet(mmTP0_CHICKEN, 1);
+    *cmds++ = pm4_type0_packet(REG_TP0_CHICKEN, 1);
     *cmds++ = 0x00000000;
 
     /* Set PA_SC_AA_CONFIG to 0 - from Qualcomm*/
-    //*cmds++ = pm4_type0_packet(mmPA_SC_AA_CONFIG, 1);
+    //*cmds++ = pm4_type0_packet(REG_PA_SC_AA_CONFIG, 1);
     //*cmds++ = 0x00000000;
 
     // --------------
@@ -672,18 +673,18 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
     *cmds++ = 0x00000030;                   // limit = 12 dwords
 
     // Invalidate L2 cache to make sure vertices are updated
-    *cmds++ = pm4_type0_packet(mmTC_CNTL_STATUS, 1);
+    *cmds++ = pm4_type0_packet(REG_TC_CNTL_STATUS, 1);
     *cmds++ = 0x1;
 
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 4);
-    *cmds++ = PM4_REG(mmVGT_MAX_VTX_INDX);
-    *cmds++ = 0x00ffffff; //mmVGT_MAX_VTX_INDX
-    *cmds++ = 0x0;        //mmVGT_MIN_VTX_INDX
-    *cmds++ = 0x00000000; //mmVGT_INDX_OFFSET
+    *cmds++ = PM4_REG(REG_VGT_MAX_VTX_INDX);
+    *cmds++ = 0x00ffffff; //REG_VGT_MAX_VTX_INDX
+    *cmds++ = 0x0;        //REG_VGT_MIN_VTX_INDX
+    *cmds++ = 0x00000000; //REG_VGT_INDX_OFFSET
 
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmPA_SC_AA_MASK);
-    *cmds++ = 0x0000ffff; //mmPA_SC_AA_MASK
+    *cmds++ = PM4_REG(REG_PA_SC_AA_MASK);
+    *cmds++ = 0x0000ffff; //REG_PA_SC_AA_MASK
 
 
     // load the patched vertex shader stream
@@ -694,7 +695,7 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
 
     // SQ_PROGRAM_CNTL / SQ_CONTEXT_MISC
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
-    *cmds++ = PM4_REG(mmSQ_PROGRAM_CNTL);
+    *cmds++ = PM4_REG(REG_SQ_PROGRAM_CNTL);
     *cmds++ = 0x10010001;
     *cmds++ = 0x00000008;
 
@@ -705,12 +706,12 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
 
     // PA_CL_VTE_CNTL
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmPA_CL_VTE_CNTL);
+    *cmds++ = PM4_REG(REG_PA_CL_VTE_CNTL);
     *cmds++ = 0x00000b00;               // disable X/Y/Z transforms, X/Y/Z are premultiplied by W
 
     // change colour buffer to RGBA8888, MSAA = 1, and matching pitch
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
-    *cmds++ = PM4_REG(mmRB_SURFACE_INFO);
+    *cmds++ = PM4_REG(REG_RB_SURFACE_INFO);
     *cmds++ = shadow->gmem_pitch;
 
     // RB_COLOR_INFO        Endian=none, Linear, Format=RGBA8888, Swap=0, Base=gmem_base
@@ -727,36 +728,36 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
 
     // disable Z
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmRB_DEPTHCONTROL);
+    *cmds++ = PM4_REG(REG_RB_DEPTHCONTROL);
     *cmds++ = 0;
 
-    // set mmPA_SU_SC_MODE_CNTL
+    // set REG_PA_SU_SC_MODE_CNTL
     //      Front_ptype = draw triangles
     //      Back_ptype = draw triangles
     //      Provoking vertex = last
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmPA_SU_SC_MODE_CNTL);
+    *cmds++ = PM4_REG(REG_PA_SU_SC_MODE_CNTL);
     *cmds++ = 0x00080240;
 
     // set the scissor to the extents of the draw surface
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
-    *cmds++ = PM4_REG(mmPA_SC_SCREEN_SCISSOR_TL);
+    *cmds++ = PM4_REG(REG_PA_SC_SCREEN_SCISSOR_TL);
     *cmds++ = (shadow->gmem_offset_y << 16) | shadow->gmem_offset_x;
     *cmds++ = (shadow->gmem_height << 16) | shadow->gmem_width;
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
-    *cmds++ = PM4_REG(mmPA_SC_WINDOW_SCISSOR_TL);
+    *cmds++ = PM4_REG(REG_PA_SC_WINDOW_SCISSOR_TL);
     *cmds++ = (1U << 31) | (0 << 16) | 0;
     *cmds++ = (shadow->height << 16) | shadow->width;
 
     // load the viewport so that z scale = clear depth and z offset = 0.0f
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
-    *cmds++ = PM4_REG(mmPA_CL_VPORT_ZSCALE);
+    *cmds++ = PM4_REG(REG_PA_CL_VPORT_ZSCALE);
     *cmds++ = 0xbf800000; // -1.0f
     *cmds++ = 0x0;
 
     // load the COPY state
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 6);
-    *cmds++ = PM4_REG(mmRB_COPY_CONTROL);
+    *cmds++ = PM4_REG(REG_RB_COPY_CONTROL);
     *cmds++ = 0;                                                // RB_COPY_CONTROL
 
     {
@@ -774,12 +775,12 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
     }
 
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmRB_MODECONTROL);
+    *cmds++ = PM4_REG(REG_RB_MODECONTROL);
     *cmds++ = 0x6;                          // EDRAM copy
 
     // gleaned from qualcomm source
     //*cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    //*cmds++ = PM4_REG(mmPA_CL_CLIP_CNTL);
+    //*cmds++ = PM4_REG(REG_PA_CL_CLIP_CNTL);
     //*cmds++ = 0x00010000;
 
     // queue the draw packet
@@ -811,7 +812,7 @@ build_sys2gmem_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
 
     // Store TP0_CHICKEN register
     *cmds++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
-    *cmds++ = mmTP0_CHICKEN;
+    *cmds++ = REG_TP0_CHICKEN;
     if( ctx )
         *cmds++ = ctx->chicken_restore;
     else
@@ -821,11 +822,11 @@ build_sys2gmem_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
     *cmds++ = 0;
 
     // Set TP0_CHICKEN to zero
-    *cmds++ = pm4_type0_packet(mmTP0_CHICKEN, 1);
+    *cmds++ = pm4_type0_packet(REG_TP0_CHICKEN, 1);
     *cmds++ = 0x00000000;
 
     /* Set PA_SC_AA_CONFIG to 0 */
-    //*cmds++ = pm4_type0_packet(mmPA_SC_AA_CONFIG, 1);
+    //*cmds++ = pm4_type0_packet(REG_PA_SC_AA_CONFIG, 1);
     //*cmds++ = 0x00000000;
 
     // ----------------
@@ -844,7 +845,7 @@ build_sys2gmem_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
     *cmds++ = 0;
 
     // Invalidate L2 cache to make sure vertices and texture coordinates are updated
-    *cmds++ = pm4_type0_packet(mmTC_CNTL_STATUS, 1);
+    *cmds++ = pm4_type0_packet(REG_TC_CNTL_STATUS, 1);
     *cmds++ = 0x1;
 
     // load the patched vertex shader stream
@@ -855,50 +856,50 @@ build_sys2gmem_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
 
     // SQ_PROGRAM_CNTL / SQ_CONTEXT_MISC
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
-    *cmds++ = PM4_REG(mmSQ_PROGRAM_CNTL);
+    *cmds++ = PM4_REG(REG_SQ_PROGRAM_CNTL);
     *cmds++ = 0x10030002;
     *cmds++ = 0x00000008;
 
 
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmPA_SC_AA_MASK);
-    *cmds++ = 0x0000ffff; //mmPA_SC_AA_MASK
+    *cmds++ = PM4_REG(REG_PA_SC_AA_MASK);
+    *cmds++ = 0x0000ffff; //REG_PA_SC_AA_MASK
 
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmPA_SC_VIZ_QUERY);
-    *cmds++ = 0x0;        //mmPA_SC_VIZ_QUERY
+    *cmds++ = PM4_REG(REG_PA_SC_VIZ_QUERY);
+    *cmds++ = 0x0;        //REG_PA_SC_VIZ_QUERY
 
 
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmRB_COLORCONTROL);
+    *cmds++ = PM4_REG(REG_RB_COLORCONTROL);
     *cmds++ = 0x00000c20; // RB_COLORCONTROL
 
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 4);
-    *cmds++ = PM4_REG(mmVGT_MAX_VTX_INDX);
-    *cmds++ = 0x00ffffff; //mmVGT_MAX_VTX_INDX
-    *cmds++ = 0x0;        //mmVGT_MIN_VTX_INDX
-    *cmds++ = 0x00000000; //mmVGT_INDX_OFFSET
+    *cmds++ = PM4_REG(REG_VGT_MAX_VTX_INDX);
+    *cmds++ = 0x00ffffff; //REG_VGT_MAX_VTX_INDX
+    *cmds++ = 0x0;        //REG_VGT_MIN_VTX_INDX
+    *cmds++ = 0x00000000; //REG_VGT_INDX_OFFSET
 
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
-    *cmds++ = PM4_REG(mmVGT_VERTEX_REUSE_BLOCK_CNTL);
-    *cmds++ = 0x00000002; //mmVGT_VERTEX_REUSE_BLOCK_CNTL
-    *cmds++ = 0x00000002; //mmVGT_OUT_DEALLOC_CNTL
+    *cmds++ = PM4_REG(REG_VGT_VERTEX_REUSE_BLOCK_CNTL);
+    *cmds++ = 0x00000002; //REG_VGT_VERTEX_REUSE_BLOCK_CNTL
+    *cmds++ = 0x00000002; //REG_VGT_OUT_DEALLOC_CNTL
 
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmSQ_INTERPOLATOR_CNTL);
-    *cmds++ = 0xffffffff; //mmSQ_INTERPOLATOR_CNTL
+    *cmds++ = PM4_REG(REG_SQ_INTERPOLATOR_CNTL);
+    *cmds++ = 0xffffffff; //REG_SQ_INTERPOLATOR_CNTL
 
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmPA_SC_AA_CONFIG);
-    *cmds++ = 0x00000000; //mmPA_SC_AA_CONFIG
+    *cmds++ = PM4_REG(REG_PA_SC_AA_CONFIG);
+    *cmds++ = 0x00000000; //REG_PA_SC_AA_CONFIG
 
 
-    // set mmPA_SU_SC_MODE_CNTL
+    // set REG_PA_SU_SC_MODE_CNTL
     //      Front_ptype = draw triangles
     //      Back_ptype = draw triangles
     //      Provoking vertex = last
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmPA_SU_SC_MODE_CNTL);
+    *cmds++ = PM4_REG(REG_PA_SU_SC_MODE_CNTL);
     *cmds++ = 0x00080240;
 
     // texture constants
@@ -912,7 +913,7 @@ build_sys2gmem_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
 
     // change colour buffer to RGBA8888, MSAA = 1, and matching pitch
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
-    *cmds++ = PM4_REG(mmRB_SURFACE_INFO);
+    *cmds++ = PM4_REG(REG_RB_SURFACE_INFO);
     *cmds++ = shadow->gmem_pitch; // GMEM pitch is equal to context GMEM shadow pitch
 
     // RB_COLOR_INFO        Endian=none, Linear, Format=RGBA8888, Swap=0, Base=gmem_base
@@ -928,45 +929,45 @@ build_sys2gmem_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
 
     // RB_DEPTHCONTROL
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmRB_DEPTHCONTROL);
+    *cmds++ = PM4_REG(REG_RB_DEPTHCONTROL);
     *cmds++ = 0;                            // disable Z
 
     // set the scissor to the extents of the draw surface
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
-    *cmds++ = PM4_REG(mmPA_SC_SCREEN_SCISSOR_TL);
+    *cmds++ = PM4_REG(REG_PA_SC_SCREEN_SCISSOR_TL);
     *cmds++ = (0 << 16) | 0;
     *cmds++ = (shadow->height << 16) | shadow->width;
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
-    *cmds++ = PM4_REG(mmPA_SC_WINDOW_SCISSOR_TL);
+    *cmds++ = PM4_REG(REG_PA_SC_WINDOW_SCISSOR_TL);
     *cmds++ = (1U << 31) | (shadow->gmem_offset_y << 16) | shadow->gmem_offset_x;
     *cmds++ = (shadow->gmem_height << 16) | shadow->gmem_width;
 
     // PA_CL_VTE_CNTL
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmPA_CL_VTE_CNTL);
+    *cmds++ = PM4_REG(REG_PA_CL_VTE_CNTL);
     *cmds++ = 0x00000b00;                   // disable X/Y/Z transforms, X/Y/Z are premultiplied by W
 
     // load the viewport so that z scale = clear depth and z offset = 0.0f
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
-    *cmds++ = PM4_REG(mmPA_CL_VPORT_ZSCALE);
+    *cmds++ = PM4_REG(REG_PA_CL_VPORT_ZSCALE);
     *cmds++ = 0xbf800000;
     *cmds++ = 0x0;
 
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmRB_COLOR_MASK);
+    *cmds++ = PM4_REG(REG_RB_COLOR_MASK);
     *cmds++ = 0x0000000f;                   // R = G = B = 1:enabled
 
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmRB_COLOR_DEST_MASK);
+    *cmds++ = PM4_REG(REG_RB_COLOR_DEST_MASK);
     *cmds++ = 0xffffffff;
 
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 3);
-    *cmds++ = PM4_REG(mmSQ_WRAPPING_0);
+    *cmds++ = PM4_REG(REG_SQ_WRAPPING_0);
     *cmds++ = 0x00000000;
     *cmds++ = 0x00000000;
 
     *cmds++ = pm4_type3_packet(PM4_SET_CONSTANT, 2);
-    *cmds++ = PM4_REG(mmRB_MODECONTROL);
+    *cmds++ = PM4_REG(REG_RB_MODECONTROL);
     *cmds++ = 0x4;                          // draw pixels with color and depth/stencil component
 
     // queue the draw packet
@@ -1010,14 +1011,14 @@ build_regrestore_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
     *cmd++ = (drawctxt->gpustate.gpuaddr + REG_OFFSET) & 0xFFFFE000;
 #endif
 
-    cmd = reg_range(cmd, mmRB_SURFACE_INFO,                 mmPA_SC_SCREEN_SCISSOR_BR);
-    cmd = reg_range(cmd, mmPA_SC_WINDOW_OFFSET,             mmPA_SC_WINDOW_SCISSOR_BR);
-    cmd = reg_range(cmd, mmVGT_MAX_VTX_INDX,                mmPA_CL_VPORT_ZOFFSET);
-    cmd = reg_range(cmd, mmSQ_PROGRAM_CNTL,                 mmSQ_WRAPPING_1);
-    cmd = reg_range(cmd, mmRB_DEPTHCONTROL,                 mmRB_MODECONTROL);
-    cmd = reg_range(cmd, mmPA_SU_POINT_SIZE,                mmPA_SC_VIZ_QUERY);
-    cmd = reg_range(cmd, mmPA_SC_LINE_CNTL,                 mmRB_COLOR_DEST_MASK);
-    cmd = reg_range(cmd, mmPA_SU_POLY_OFFSET_FRONT_SCALE,   mmPA_SU_POLY_OFFSET_BACK_OFFSET);
+    cmd = reg_range(cmd, REG_RB_SURFACE_INFO,                 REG_PA_SC_SCREEN_SCISSOR_BR);
+    cmd = reg_range(cmd, REG_PA_SC_WINDOW_OFFSET,             REG_PA_SC_WINDOW_SCISSOR_BR);
+    cmd = reg_range(cmd, REG_VGT_MAX_VTX_INDX,                REG_PA_CL_VPORT_ZOFFSET);
+    cmd = reg_range(cmd, REG_SQ_PROGRAM_CNTL,                 REG_SQ_WRAPPING_1);
+    cmd = reg_range(cmd, REG_RB_DEPTHCONTROL,                 REG_RB_MODECONTROL);
+    cmd = reg_range(cmd, REG_PA_SU_POINT_SIZE,                REG_PA_SC_VIZ_QUERY);
+    cmd = reg_range(cmd, REG_PA_SC_LINE_CNTL,                 REG_RB_COLOR_DEST_MASK);
+    cmd = reg_range(cmd, REG_PA_SU_POLY_OFFSET_FRONT_SCALE,   REG_PA_SU_POLY_OFFSET_BACK_OFFSET);
 
     // Now we know how many register blocks we have, we can compute command length
     start[0] = pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, (cmd-start)-1);
@@ -1028,13 +1029,13 @@ build_regrestore_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
 #endif
 
     // Need to handle some of the registers separately
-    *cmd++ = pm4_type0_packet(mmSQ_GPR_MANAGEMENT, 1);
+    *cmd++ = pm4_type0_packet(REG_SQ_GPR_MANAGEMENT, 1);
     ctx->reg_values[0] = gpuaddr(cmd, &drawctxt->gpustate);
     *cmd++ = 0x00040400;
 
     *cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
     *cmd++ = 0;
-    *cmd++ = pm4_type0_packet(mmTP0_CHICKEN, 1);
+    *cmd++ = pm4_type0_packet(REG_TP0_CHICKEN, 1);
     ctx->reg_values[1] = gpuaddr(cmd, &drawctxt->gpustate);
     *cmd++ = 0x00000000;
 
@@ -1178,7 +1179,7 @@ build_shader_save_restore_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
     shaderBases = cmd++;                        // TBD #5: shader bases (from fixup)
 
     // write the shader partition information to a scratch register
-    *cmd++ = pm4_type0_packet(mmSQ_INST_STORE_MANAGMENT, 1);
+    *cmd++ = pm4_type0_packet(REG_SQ_INST_STORE_MANAGMENT, 1);
     partition1 = cmd++;                         // TBD #4a: partition info (from save)
 
 #if defined(PM4_IM_STORE)
@@ -1214,18 +1215,18 @@ build_shader_save_restore_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
     fixup = cmd;        // start address
 
     // write the shader partition information to a scratch register
-    *cmd++ = pm4_type0_packet(mmSCRATCH_REG2, 1);
+    *cmd++ = pm4_type0_packet(REG_SCRATCH_REG2, 1);
     partition2 = cmd++;                                 // TBD #4b: partition info (from save)
 
     // mask off unused bits, then OR with shader instruction memory size
     *cmd++ = pm4_type3_packet(PM4_REG_RMW, 3);
-    *cmd++ = mmSCRATCH_REG2;
+    *cmd++ = REG_SCRATCH_REG2;
     *cmd++ = 0x0FFF0FFF;                                // AND off invalid bits.
     *cmd++ = (unsigned int)((SHADER_INSTRUCT_LOG2-5U) << 29);               // OR in instruction memory size
 
     // write the computed value to the SET_SHADER_BASES data field
     *cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
-    *cmd++ = mmSCRATCH_REG2;
+    *cmd++ = REG_SCRATCH_REG2;
     *cmd++ = gpuaddr(shaderBases, &drawctxt->gpustate); // TBD #5: shader bases (to restore)
 
     // create indirect buffer command for above command sequence
@@ -1244,10 +1245,10 @@ build_shader_save_restore_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
     // Fetch the SQ_INST_STORE_MANAGMENT register value,
     // Store the value in the data fields of the SET_CONSTANT commands above.
     *cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
-    *cmd++ = mmSQ_INST_STORE_MANAGMENT;
+    *cmd++ = REG_SQ_INST_STORE_MANAGMENT;
     *cmd++ = gpuaddr(partition1, &drawctxt->gpustate);      // TBD #4a: partition info (to restore)
     *cmd++ = pm4_type3_packet(PM4_REG_TO_MEM, 2);
-    *cmd++ = mmSQ_INST_STORE_MANAGMENT;
+    *cmd++ = REG_SQ_INST_STORE_MANAGMENT;
     *cmd++ = gpuaddr(partition2, &drawctxt->gpustate);      // TBD #4b: partition info (to fixup)
 
 #if defined(PM4_IM_STORE)

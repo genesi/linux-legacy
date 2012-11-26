@@ -22,6 +22,7 @@
 #include "gsl.h"
 #include "gsl_hal.h"
 #include "gsl_cmdstream.h"
+#include "kgsl_g12_vgv3types.h"
 
 // functions
 

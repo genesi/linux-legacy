@@ -312,6 +312,7 @@ kgsl_hal_getshmemconfig(gsl_shmemconfig_t *config)
 KGSLHAL_API int
 kgsl_hal_getdevconfig(unsigned int device_id, struct kgsl_devconfig *config)
 {
+#define MMU_CONFIG 1 // set to 2 if you want any mistranslations to page fault instead of just doing PA=VA
     int        status = GSL_FAILURE_DEVICEERROR;
     gsl_hal_t  *hal   = (gsl_hal_t *) gsl_driver.hal;
 
@@ -322,7 +323,7 @@ kgsl_hal_getdevconfig(unsigned int device_id, struct kgsl_devconfig *config)
 	case GSL_DEVICE_YAMATO:
 	{
 	    if (hal->has_z430) {
-		mh_mmu_config_u      mmu_config   = {0};
+		unsigned int mmu_config;
 
 		config->gmemspace.gpu_base        = 0;
 		config->gmemspace.mmio_virt_base  = 0;
@@ -338,24 +339,25 @@ kgsl_hal_getdevconfig(unsigned int device_id, struct kgsl_devconfig *config)
 		config->regspace.mmio_phys_base   = (unsigned int) hal->z430_regspace.mmio_phys_base;
 		config->regspace.sizebytes        = GSL_HAL_SIZE_REG_YDX;
 
-		mmu_config.f.mmu_enable           = 1;
+		// we enable the MMU (actually the MH part) regardless of configuration
+		mmu_config          = 1;
 
 		if (gsl_driver.enable_mmu) {
-		    mmu_config.f.split_mode_enable    = 0;
-		    mmu_config.f.rb_w_clnt_behavior   = 1;
-		    mmu_config.f.cp_w_clnt_behavior   = 1;
-		    mmu_config.f.cp_r0_clnt_behavior  = 1;
-		    mmu_config.f.cp_r1_clnt_behavior  = 1;
-		    mmu_config.f.cp_r2_clnt_behavior  = 1;
-		    mmu_config.f.cp_r3_clnt_behavior  = 1;
-		    mmu_config.f.cp_r4_clnt_behavior  = 1;
-		    mmu_config.f.vgt_r0_clnt_behavior = 1;
-		    mmu_config.f.vgt_r1_clnt_behavior = 1;
-		    mmu_config.f.tc_r_clnt_behavior   = 1;
-		    mmu_config.f.pa_w_clnt_behavior   = 1;
+        	    mmu_config = mmu_config
+                    | (MMU_CONFIG << MH_MMU_CONFIG__RB_W_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__CP_W_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__CP_R0_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__CP_R1_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__CP_R2_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__CP_R3_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__CP_R4_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__VGT_R0_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__VGT_R1_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__TC_R_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__PA_W_CLNT_BEHAVIOR__SHIFT);
 		}
 
-		config->mmu_config                = mmu_config.val;
+		config->mmu_config                = mmu_config;
 
 		if (gsl_driver.enable_mmu) {
 		    config->va_base               = hal->memspace[GSL_HAL_MEM1].gpu_base;
@@ -375,21 +377,36 @@ kgsl_hal_getdevconfig(unsigned int device_id, struct kgsl_devconfig *config)
 
 	case GSL_DEVICE_G12:
 	{
-		mh_mmu_config_u      mmu_config   = {0};
+		unsigned int mmu_config;
 
 		config->regspace.gpu_base       = 0;
 		config->regspace.mmio_virt_base = (unsigned char *)hal->z160_regspace.mmio_virt_base;
 		config->regspace.mmio_phys_base = (unsigned int) hal->z160_regspace.mmio_phys_base;
 		config->regspace.sizebytes      = GSL_HAL_SIZE_REG_G12;
 
-		mmu_config.f.mmu_enable           = 1;
+		// we enable the MMU (actually the MH part) regardless of configuration
+        	mmu_config = 1;
+
+/*		and then qualcomm does this if the MMU is enabled??
+                    | (MMU_CONFIG << MH_MMU_CONFIG__RB_W_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__CP_W_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__CP_R0_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__CP_R1_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__CP_R2_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__CP_R3_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__CP_R4_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__VGT_R0_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__VGT_R1_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__TC_R_CLNT_BEHAVIOR__SHIFT)
+                    | (MMU_CONFIG << MH_MMU_CONFIG__PA_W_CLNT_BEHAVIOR__SHIFT);
+*/
 
 		if (gsl_driver.enable_mmu) {
 		    config->mmu_config              = 0x00555551;
 		    config->va_base                 = hal->memspace[GSL_HAL_MEM1].gpu_base;
 		    config->va_range                = hal->memspace[GSL_HAL_MEM1].sizebytes;
 		} else {
-		    config->mmu_config              = mmu_config.val;
+		    config->mmu_config              = mmu_config;
 		    config->va_base                 = 0x00000000;
 		    config->va_range                = 0x00000000;
 		}
@@ -424,13 +441,13 @@ kgsl_hal_getchipid(unsigned int device_id)
     unsigned int coreid, majorid, minorid, patchid, revid;
 
     if (hal->has_z430 && (device_id == GSL_DEVICE_YAMATO)) {
-	device->ftbl.regread(device, mmRBBM_PERIPHID1, &coreid);
+	device->ftbl.regread(device, REG_RBBM_PERIPHID1, &coreid);
 	coreid &= 0xF;
 
-	device->ftbl.regread(device, mmRBBM_PERIPHID2, &majorid);
+	device->ftbl.regread(device, REG_RBBM_PERIPHID2, &majorid);
 	majorid = (majorid >> 4) & 0xF;
 
-	device->ftbl.regread(device, mmRBBM_PATCH_RELEASE, &revid);
+	device->ftbl.regread(device, REG_RBBM_PATCH_RELEASE, &revid);
 
 	minorid = ((revid >> 0) & 0xFF); /* this is a 16bit field, but extremely unlikely it would ever get this high */
 
