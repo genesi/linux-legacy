@@ -32,7 +32,7 @@
 #define REG_VGC_IRQSTATUS__MH_MASK                         0x00000001L
 #define REG_VGC_IRQSTATUS__G2D_MASK                        0x00000002L
 #define REG_VGC_IRQSTATUS__FIFO_MASK                       0x00000004L
-#define REG_VGC_IRQSTATUS__FBC_MASK			   0x00000001L // this is a weird one.. not in the docs?!
+#define REG_VGC_IRQSTATUS__FBC_MASK			   0x00000008L
 
 #define MH_INTERRUPT_MASK__AXI_READ_ERROR                  0x00000001L
 #define MH_INTERRUPT_MASK__AXI_WRITE_ERROR                 0x00000002L
