@@ -21,8 +21,6 @@
 #include "gsl.h"
 #include "gsl_hal.h"
 
-#ifdef GSL_BLD_G12
-
 //  defines
 #define GSL_CMDWINDOW_TARGET_MASK       0x000000FF
 #define GSL_CMDWINDOW_ADDR_MASK         0x00FFFF00
@@ -47,14 +45,11 @@ int kgsl_cmdwindow_close(struct kgsl_device *device)
 	return GSL_SUCCESS;
 }
 
-#endif // GSL_BLD_G12
-
 //----------------------------------------------------------------------------
 
 int
 kgsl_cmdwindow_write0(unsigned int device_id, enum kgsl_cmdwindow_type target, unsigned int addr, unsigned int data)
 {
-#ifdef GSL_BLD_G12
     struct kgsl_device  *device;
     unsigned int  cmdwinaddr;
     unsigned int  cmdstream;
@@ -115,15 +110,6 @@ kgsl_cmdwindow_write0(unsigned int device_id, enum kgsl_cmdwindow_type target, u
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_cmdwindow_write. Return value %B\n", GSL_SUCCESS );
 
     return (GSL_SUCCESS);
-#else
-    // unreferenced formal parameter
-    (void) device_id;
-    (void) target;
-    (void) addr;
-    (void) data;
-
-    return (GSL_FAILURE);
-#endif // GSL_BLD_G12
 }
 
 //----------------------------------------------------------------------------

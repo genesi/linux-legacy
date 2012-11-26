@@ -33,11 +33,6 @@
 #ifndef __GSL__BUILDCONFIG_H
 #define __GSL__BUILDCONFIG_H
 
-#define GSL_BLD_YAMATO
-#define GSL_BLD_G12
-
-#define GSL_LOCKING_COARSEGRAIN
-
 #define GSL_STATS_MEM
 #define GSL_STATS_RINGBUFFER
 #define GSL_STATS_MMU

@@ -22,8 +22,6 @@
 #include "gsl.h"
 #include "gsl_hal.h"
 
-#ifdef GSL_BLD_YAMATO
-
 #include "gsl_ringbuffer.h"
 #include "gsl_drawctxt.h"
 
@@ -913,6 +911,4 @@ kgsl_yamato_getfunctable(struct kgsl_functable *ftbl)
 
     return (GSL_SUCCESS);
 }
-
-#endif
 

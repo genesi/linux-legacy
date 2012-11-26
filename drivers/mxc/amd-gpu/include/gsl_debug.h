@@ -43,7 +43,7 @@
 //////////////////////////////////////////////////////////////////////////////
 #ifdef _DEBUG
 #define KGSL_DEBUG(flag, action)                            if (gsl_driver.flags_debug & flag) {action;}
-#ifdef GSL_BLD_YAMATO
+
 #define KGSL_DEBUG_DUMPPM4(cmds, sizedwords)                Yamato_DumpPM4((cmds), (sizedwords))
 #define KGSL_DEBUG_DUMPREGWRITE(addr, value)                Yamato_DumpRegisterWrite((addr), (value))
 #define KGSL_DEBUG_DUMPMEMWRITE(addr, sizebytes, data)      Yamato_DumpWriteMemory(addr, sizebytes, data)
@@ -51,15 +51,7 @@
 #define KGSL_DEBUG_DUMPFBSTART(device)                      Yamato_DumpFbStart(device)
 #define KGSL_DEBUG_DUMPREGSPACE(device)                     Yamato_DumpRegSpace(device)
 #define KGSL_DEBUG_DUMPWINDOW(addr, width, height)          Yamato_DumpWindow(addr, width, height)
-#else
-#define KGSL_DEBUG_DUMPPM4(cmds, sizedwords)                
-#define KGSL_DEBUG_DUMPREGWRITE(addr, value)                
-#define KGSL_DEBUG_DUMPMEMWRITE(addr, sizebytes, data)      
-#define KGSL_DEBUG_DUMPMEMSET(addr, sizebytes, value)       
-#define KGSL_DEBUG_DUMPFBSTART(device)                      
-#define KGSL_DEBUG_DUMPREGSPACE(device)
-#define KGSL_DEBUG_DUMPWINDOW(addr, width, height)          
-#endif
+
 #ifdef TBDUMP
 
 #define KGSL_DEBUG_TBDUMP_OPEN(filename)                    tbdump_open(filename)
@@ -109,14 +101,12 @@
 //////////////////////////////////////////////////////////////////////////////
 //  prototypes
 //////////////////////////////////////////////////////////////////////////////
-#ifdef GSL_BLD_YAMATO
 void            Yamato_DumpPM4(unsigned int *cmds, unsigned int sizedwords);
 void            Yamato_DumpRegisterWrite(unsigned int dwAddress, unsigned int value);
 void            Yamato_DumpWriteMemory(unsigned int dwAddress, unsigned int dwSize, void* pData);
 void            Yamato_DumpSetMemory(unsigned int dwAddress, unsigned int dwSize, unsigned int pData);
 void            Yamato_DumpFbStart(struct kgsl_device *device);
 void            Yamato_DumpRegSpace(struct kgsl_device *device);
-#endif
 #ifdef _DEBUG
 int             kgsl_dumpx_parse_ibs(uint32_t gpuaddr, int sizedwords);
 #endif //_DEBUG

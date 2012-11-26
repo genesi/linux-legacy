@@ -19,7 +19,7 @@
 #include "gsl.h"
 #include "gsl_hal.h"
 
-#if 0//defined(GSL_BLD_YAMATO)
+#if 0
 
 #include <linux/string.h>
 

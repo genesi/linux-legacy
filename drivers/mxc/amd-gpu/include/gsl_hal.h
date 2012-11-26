@@ -71,10 +71,7 @@ struct kgsl_devconfig {
     uint32_t        va_base;
     unsigned int     va_range;
 
-#ifdef GSL_BLD_YAMATO
     struct kgsl_memregion  gmemspace;
-#endif // GSL_BLD_YAMATO
-
 };
 
 // ----------------------
@@ -92,7 +89,7 @@ typedef struct _gsl_apertureconfig_t
 // --------------------
 // shared memory config
 // --------------------
-typedef struct _gsl_shmemconfig_t 
+typedef struct _gsl_shmemconfig_t
 {
     int                   numapertures;
     gsl_apertureconfig_t  apertures[GSL_SHMEM_MAX_APERTURES];

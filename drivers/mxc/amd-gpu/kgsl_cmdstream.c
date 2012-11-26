@@ -49,9 +49,7 @@ unsigned int kgsl_cmdstream_readtimestamp0(unsigned int device_id, enum kgsl_tim
     struct kgsl_device* device  = &gsl_driver.device[device_id-1];
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
                     "--> unsigned int kgsl_cmdstream_readtimestamp(unsigned int device_id=%D kgsl_timestamp_type type=%d)\n", device_id, type );
-#if (defined(GSL_BLD_G12) && defined(IRQTHREAD_POLL))
-    complete_all(&device->irqthread_event);
-#endif
+
     if (type == GSL_TIMESTAMP_CONSUMED)
     {
         // start-of-pipeline timestamp

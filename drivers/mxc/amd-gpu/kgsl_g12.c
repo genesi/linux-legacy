@@ -27,7 +27,6 @@
 #define V3_SYNC
 #endif
 
-#ifdef GSL_BLD_G12
 #define GSL_IRQ_TIMEOUT         200
 
 
@@ -291,11 +290,6 @@ kgsl_g12_init(struct kgsl_device *device)
         device->ftbl.stop(device);
         return (status);
     }
-#endif
-
-#ifdef IRQTHREAD_POLL
-    // Create event to trigger IRQ polling thread
-    init_completion(&device->irqthread_event);
 #endif
 
     // enable interrupts
@@ -906,4 +900,3 @@ kgsl_g12_addtimestamp(struct kgsl_device* device, unsigned int *timestamp)
 
     return (GSL_SUCCESS);
 }
-#endif

@@ -42,20 +42,16 @@ struct kgsl_device;
 
 #include "gsl_klibapi.h"
 
-#ifdef GSL_BLD_YAMATO
+// Z430
 #include <reg/yamato.h>
-
 #include "gsl_pm4types.h"
 #include "gsl_utils.h"
 #include "gsl_drawctxt.h"
 #include "gsl_ringbuffer.h"
-#endif
 
-#ifdef GSL_BLD_G12
+// Z160/Z180
 #include <reg/g12_reg.h>
-
 #include "gsl_cmdwindow.h"
-#endif
 
 #include "gsl_debug.h"
 #include "gsl_mmu.h"

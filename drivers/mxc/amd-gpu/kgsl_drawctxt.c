@@ -22,8 +22,6 @@
 #include "gsl.h"
 #include "gsl_hal.h"
 
-#ifdef GSL_BLD_YAMATO
-
 //////////////////////////////////////////////////////////////////////////////
 //
 // Memory Map for Register, Constant & Instruction Shadow, and Command Buffers (34.5KB)
@@ -1809,5 +1807,3 @@ kgsl_drawctxt_destroyall(struct kgsl_device *device)
     mutex_unlock(device->drawctxt_mutex);
     return (GSL_SUCCESS);
 }
-
-#endif

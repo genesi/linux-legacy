@@ -29,16 +29,12 @@ kgsl_device_getfunctable(unsigned int device_id, struct kgsl_functable *ftbl)
 {
     switch (device_id)
     {
-#ifdef GSL_BLD_YAMATO
     case GSL_DEVICE_YAMATO:
         kgsl_yamato_getfunctable(ftbl);
         break;
-#endif // GSL_BLD_YAMATO
-#ifdef GSL_BLD_G12
     case GSL_DEVICE_G12:
         kgsl_g12_getfunctable(ftbl);
         break;
-#endif // GSL_BLD_G12
     default:
         break;
     }
@@ -81,9 +77,8 @@ kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
         kgsl_device_getfunctable(device_id, &device->ftbl);
 
         memcpy(&device->regspace,  &config.regspace,  sizeof(struct kgsl_memregion));
-#ifdef GSL_BLD_YAMATO
+	// for Z430
         memcpy(&device->gmemspace, &config.gmemspace, sizeof(struct kgsl_memregion));
-#endif // GSL_BLD_YAMATO
 
         device->refcnt        = 0;
         device->id            = device_id;
