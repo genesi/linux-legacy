@@ -83,7 +83,7 @@ kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
         device->refcnt        = 0;
         device->id            = device_id;
 
-#ifndef GSL_NO_MMU
+#ifdef CONFIG_KGSL_MMU_ENABLE
         device->mmu.config    = config.mmu_config;
         device->mmu.mpu_base  = config.mpu_base;
         device->mmu.mpu_range = config.mpu_range;
@@ -220,7 +220,7 @@ kgsl_device_attachcallback(struct kgsl_device *device, unsigned int pid)
     int  status = GSL_SUCCESS;
     int  pindex;
 
-#ifndef GSL_NO_MMU
+#ifdef CONFIG_KGSL_MMU_ENABLE
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_device_attachcallback(struct kgsl_device *device=0x%08x, unsigned int pid=0x%08x)\n", device, pid );
 
@@ -252,7 +252,7 @@ kgsl_device_detachcallback(struct kgsl_device *device, unsigned int pid)
     int  status = GSL_SUCCESS;
     int  pindex;
 
-#ifndef GSL_NO_MMU
+#ifdef CONFIG_KGSL_MMU_ENABLE
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_device_detachcallback(struct kgsl_device *device=0x%08x, unsigned int pid=0x%08x)\n", device, pid );
 
@@ -556,7 +556,7 @@ kgsl_device_regread(unsigned int device_id, unsigned int offsetwords, unsigned i
     struct kgsl_device  *device;
 
 
-#ifdef GSL_LOG
+#ifdef CONFIG_KGSL_LOGGING
     if( offsetwords != mmRBBM_STATUS && offsetwords != mmCP_RB_RPTR ) // Would otherwise flood the log
         kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
                         "--> int kgsl_device_regread(unsigned int device_id=%D, unsigned int offsetwords=%R, unsigned int *value=0x%08x)\n", device_id, offsetwords, value );
@@ -576,7 +576,7 @@ kgsl_device_regread(unsigned int device_id, unsigned int offsetwords, unsigned i
 
     mutex_unlock(&gsl_driver.lock);
 
-#ifdef GSL_LOG
+#ifdef CONFIG_KGSL_LOGGING
     if( offsetwords != mmRBBM_STATUS && offsetwords != mmCP_RB_RPTR )
         kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_regread. Return value %B\n", status );
 #endif

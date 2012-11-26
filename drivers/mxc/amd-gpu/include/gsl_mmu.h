@@ -39,11 +39,11 @@
 #define GSL_MMU_STATS(x)
 #endif // GSL_STATS_MMU
 
-#ifdef GSL_MMU_PAGETABLE_PERPROCESS
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 #define GSL_MMU_PAGETABLE_MAX               GSL_CALLER_PROCESS_MAX      // all device mmu's share a single page table per process
 #else
 #define GSL_MMU_PAGETABLE_MAX               1                           // all device mmu's share a single global page table
-#endif // GSL_MMU_PAGETABLE_PERPROCESS
+#endif
 
 #define GSL_PT_SUPER_PTE                    8
 

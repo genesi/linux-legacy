@@ -202,7 +202,7 @@ kgsl_g12_isr(struct kgsl_device *device)
 int
 kgsl_g12_tlbinvalidate(struct kgsl_device *device, unsigned int reg_invalidate, unsigned int pid)
 {
-#ifndef GSL_NO_MMU
+#ifdef CONFIG_KGSL_MMU_ENABLE
     unsigned int mh_mmu_invalidate = 0x00000003L; // invalidate all and tc
 
     // unreferenced formal parameter
@@ -223,7 +223,7 @@ kgsl_g12_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase, uint3
 {
 	// unreferenced formal parameter
 	(void) pid;
-#ifndef GSL_NO_MMU
+#ifdef CONFIG_KGSL_MMU_ENABLE
     device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT);
 	device->ftbl.regwrite(device, reg_ptbase, ptbase);
 #else
@@ -294,7 +294,7 @@ kgsl_g12_init(struct kgsl_device *device)
     // enable irq
     device->ftbl.regwrite(device, (ADDR_VGC_IRQENABLE >> 2), 0x3);
 
-#ifndef GSL_NO_MMU
+#ifdef CONFIG_KGSL_MMU_ENABLE
     // enable master interrupt for G12 MH
     kgsl_intr_attach(&device->intr, GSL_INTR_G12_MH, kgsl_g12_intrcallback, (void *) device);
     kgsl_intr_enable(&device->intr, GSL_INTR_G12_MH);
@@ -347,7 +347,7 @@ kgsl_g12_close(struct kgsl_device *device)
         // shutdown command window
         kgsl_cmdwindow_close(device);
 
-#ifndef GSL_NO_MMU
+#ifdef CONFIG_KGSL_MMU_ENABLE
         // shutdown mmu
         kgsl_mmu_close(device);
 #endif
@@ -468,7 +468,7 @@ kgsl_g12_getproperty(struct kgsl_device *device, gsl_property_type_t type, void 
 
         devinfo->device_id   = device->id;
         devinfo->chip_id     = (unsigned int)device->chip_id;
-#ifndef GSL_NO_MMU
+#ifdef CONFIG_KGSL_MMU_ENABLE
         devinfo->mmu_enabled = kgsl_mmu_isenabled(&device->mmu);
 #endif
 	if (z160_version == 1)

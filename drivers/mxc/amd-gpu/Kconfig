@@ -4,16 +4,35 @@
 
 menu "MXC GPU support"
 
-config MXC_AMD_GPU
-	tristate "MXC GPU support"
+config MXC_KGSL
+	tristate "i.MX35/50/51/53 KGSL GPU Support"
 	depends on ARCH_MX35 || ARCH_MX51 || ARCH_MX53 || ARCH_MX50
 	---help---
-         Say Y to get the GPU driver support.
+	 Say Y to get the KGSL (AMD Imageon Z160/Z430) GPU driver support.
 
-config MXC_AMD_GPU_LOGGING
-	bool "Enable Logging"
-	depends on MXC_AMD_GPU
+#config KGSL_LOGGING
+#	bool "Enable Logging"
+#	depends on MXC_KGSL
+#	---help---
+#	 Enable logging to kernel messages for GPU kernel module
+
+config KGSL_MMU_ENABLE
+	bool "Enable the GPU MMU in the KGSL driver"
+	depends on MXC_KGSL && MMU
+	default y
+
+config KGSL_PER_PROCESS_PAGE_TABLE
+	bool "Enable Per Process page tables for the KGSL driver"
+	default n
+	depends on KGSL_MMU_ENABLE
 	---help---
-	 Enable logging to kernel messages for GPU kernel module
+	 This is probably a terrible idea... please say N
+
+config KGSL_MMU_PAGE_FAULT
+	bool "Force the GPU MMU to page fault for unmapped regions"
+	default n
+	depends on KGSL_MMU_ENABLE
+	---help---
+	 This is probably a terrible idea... please say N
 
 endmenu

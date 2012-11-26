@@ -309,10 +309,17 @@ kgsl_hal_getshmemconfig(gsl_shmemconfig_t *config)
 
 /* ---------------------------------------------------------------------------- */
 
+#ifdef CONFIG_KGSL_MMU_PAGE_FAULT
+/* page fault when a mapping fails. Not ideal! */
+#define MMU_CONFIG 2
+#else
+/* when a mapping fails, assume PA=VA and continue */
+#define MMU_CONFIG 1
+#endif
+
 KGSLHAL_API int
 kgsl_hal_getdevconfig(unsigned int device_id, struct kgsl_devconfig *config)
 {
-#define MMU_CONFIG 1 // set to 2 if you want any mistranslations to page fault instead of just doing PA=VA
     int        status = GSL_FAILURE_DEVICEERROR;
     gsl_hal_t  *hal   = (gsl_hal_t *) gsl_driver.hal;
 

@@ -79,9 +79,9 @@ struct kgsl_device {
 	unsigned int      memstoreshadow[GSL_CALLER_PROCESS_MAX];
 #endif // GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
 
-#ifndef GSL_NO_MMU
+#ifdef CONFIG_KGSL_MMU_ENABLE
 	struct kgsl_mmu         mmu;
-#endif // GSL_NO_MMU
+#endif
 
 	struct kgsl_memregion   gmemspace;
 	gsl_ringbuffer_t  ringbuffer;

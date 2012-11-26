@@ -77,7 +77,7 @@ kgsl_cmdwindow_write0(unsigned int device_id, enum kgsl_cmdwindow_type target, u
     // set command stream
     if (target == GSL_CMDWINDOW_MMU)
     {
-#ifdef GSL_NO_MMU
+#ifndef CONFIG_KGSL_MMU_ENABLE
         return (GSL_SUCCESS);
 #endif
         cmdstream = ADDR_VGC_MMUCOMMANDSTREAM;
@@ -94,7 +94,7 @@ kgsl_cmdwindow_write0(unsigned int device_id, enum kgsl_cmdwindow_type target, u
 
     mutex_lock(device->cmdwindow_mutex);
 
-#ifndef GSL_NO_MMU
+#ifdef CONFIG_KGSL_MMU_ENABLE
     // set mmu pagetable
 	kgsl_mmu_setpagetable(device, current->tgid);
 #endif

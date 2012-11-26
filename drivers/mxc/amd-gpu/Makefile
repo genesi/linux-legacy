@@ -2,8 +2,8 @@ EXTRA_CFLAGS := \
 	-I$(obj)/include \
 	-I$(obj)/include/api
 
-obj-$(CONFIG_MXC_AMD_GPU) += gpu.o
-gpu-objs += 	kgsl_cmdstream.o \
+obj-$(CONFIG_MXC_KGSL) += kgsl.o
+kgsl-objs += 	kgsl_cmdstream.o \
 		kgsl_cmdwindow.o \
 		kgsl_context.o \
 		kgsl_device.o \
@@ -22,7 +22,6 @@ gpu-objs += 	kgsl_cmdstream.o \
 		kgsl_kmod_cleanup.o \
 		kgsl_pwrctrl.o
 
-ifdef CONFIG_MXC_AMD_GPU_LOGGING
-gpu-objs += kgsl_log.o
-EXTRA_CFLAGS += -DGSL_LOG
+ifdef CONFIG_KGSL_LOGGING
+kgsl-objs += kgsl_log.o
 endif

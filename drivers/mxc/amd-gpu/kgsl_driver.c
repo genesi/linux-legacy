@@ -54,7 +54,7 @@ kgsl_driver_init0(gsl_flags_t flags, gsl_flags_t flags_debug)
 
     if (!(gsl_driver_initialized & GSL_FLAGS_INITIALIZED0))
     {
-#ifdef GSL_LOG
+#ifdef CONFIG_KGSL_LOGGING
         kgsl_log_start( KGSL_LOG_GROUP_ALL | KGSL_LOG_LEVEL_ALL | KGSL_LOG_TIMESTAMP
                               | KGSL_LOG_THREAD_ID | KGSL_LOG_PROCESS_ID );
 #endif
@@ -111,7 +111,7 @@ kgsl_driver_close0(gsl_flags_t flags)
         status = kgsl_hal_close();
 	mutex_unlock(&gsl_driver.lock);
 
-#ifdef GSL_LOG
+#ifdef CONFIG_KGSL_LOGGING
         kgsl_log_finish();
 #endif
 

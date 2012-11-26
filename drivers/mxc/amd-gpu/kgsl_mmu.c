@@ -100,7 +100,7 @@ static __inline int
 kgsl_mmu_getprocessindex(unsigned int pid, int *pindex)
 {
     int status = GSL_SUCCESS;
-#ifdef GSL_MMU_PAGETABLE_PERPROCESS
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
     if (kgsl_driver_getcallerprocessindex(pid, pindex) != GSL_SUCCESS)
     {
         status = GSL_FAILURE;
@@ -108,7 +108,7 @@ kgsl_mmu_getprocessindex(unsigned int pid, int *pindex)
 #else
     (void) pid;      // unreferenced formal parameter
     *pindex = 0;
-#endif // GSL_MMU_PAGETABLE_PERPROCESS
+#endif
     return (status);
 }
 
@@ -394,7 +394,7 @@ kgsl_mmu_setpagetable(struct kgsl_device *device, unsigned int pid)
 
     if (mmu->flags & GSL_FLAGS_STARTED)
     {
-#ifdef GSL_MMU_PAGETABLE_PERPROCESS
+#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 		// page table not current, then setup mmu to use new specified page table
 		if (mmu->hwpagetable->pid != pid)
 		{
@@ -403,7 +403,7 @@ kgsl_mmu_setpagetable(struct kgsl_device *device, unsigned int pid)
 			{
 				mmu->hwpagetable = pagetable;
 
-				// flag tlb flush	
+				// flag tlb flush
 				mmu->flags |= GSL_MMUFLAGS_TLBFLUSH;
 
 				status = mmu->device->ftbl.mmu_setpagetable(mmu->device, gsl_cfg_mmu_reg[devindex].PT_BASE, pagetable->base.gpuaddr, pid);
@@ -415,7 +415,7 @@ kgsl_mmu_setpagetable(struct kgsl_device *device, unsigned int pid)
 				status = GSL_FAILURE;
 			}
 		}
-#endif // GSL_MMU_PAGETABLE_PERPROCESS
+#endif
 
         // if needed, invalidate device specific tlb
 		if ((mmu->flags & GSL_MMUFLAGS_TLBFLUSH) && status == GSL_SUCCESS)

@@ -48,7 +48,7 @@
 #define KGSL_LOG_THREAD_ID          0x00020000
 #define KGSL_LOG_PROCESS_ID         0x00040000
 
-#ifdef GSL_LOG
+#ifdef CONFIG_KGSL_LOGGING
 
 int kgsl_log_finish(void);
 int kgsl_log_start( unsigned int log_flags );
@@ -61,6 +61,6 @@ static __inline int kgsl_log_finish(void) { return GSL_SUCCESS; }
 static __inline int kgsl_log_start( unsigned int log_flags ) { (void)log_flags; return GSL_SUCCESS; }
 static __inline int kgsl_log_write( unsigned int log_flags, char* format, ... ) { (void)log_flags; (void)format; return GSL_SUCCESS; }
 
-#endif
+#endif // CONFIG_KGSL_LOGGING
 
 #endif // __GSL_LOG_H

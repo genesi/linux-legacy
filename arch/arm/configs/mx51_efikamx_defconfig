@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.31.14.27
-# Tue Nov 20 12:15:11 2012
+# Mon Nov 26 16:52:27 2012
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -2158,8 +2158,10 @@ CONFIG_MXC_VPU=y
 #
 # MXC GPU support
 #
-CONFIG_MXC_AMD_GPU=m
-# CONFIG_MXC_AMD_GPU_LOGGING is not set
+CONFIG_MXC_KGSL=m
+CONFIG_KGSL_MMU_ENABLE=y
+# CONFIG_KGSL_PER_PROCESS_PAGE_TABLE is not set
+# CONFIG_KGSL_MMU_PAGE_FAULT is not set
 
 #
 # File systems
