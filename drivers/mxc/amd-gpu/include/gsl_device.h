@@ -86,6 +86,7 @@ struct kgsl_device {
 #ifdef GSL_BLD_YAMATO
 	struct kgsl_memregion   gmemspace;
 	gsl_ringbuffer_t  ringbuffer;
+	struct mutex 	  *drawctxt_mutex;
 	unsigned int      drawctxt_count;
 	gsl_drawctxt_t    *drawctxt_active;
 	gsl_drawctxt_t    drawctxt[GSL_CONTEXT_MAX];
@@ -95,11 +96,13 @@ struct kgsl_device {
 	unsigned int		intrcnt[GSL_G12_INTR_COUNT];
 	unsigned int		current_timestamp;
 	unsigned int		timestamp;
+	struct mutex 	  *cmdwindow_mutex;
 #ifdef IRQTHREAD_POLL
 	struct completion	irqthread_event;
 #endif
 #endif // GSL_BLD_G12
 
+	struct mutex 	*cmdstream_mutex;
 	wait_queue_head_t timestamp_waitq;
 	struct workqueue_struct	*irq_workq;
 	struct work_struct irq_work;

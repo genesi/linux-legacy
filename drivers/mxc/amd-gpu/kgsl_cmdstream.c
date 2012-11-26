@@ -27,11 +27,19 @@
 
 int kgsl_cmdstream_init(struct kgsl_device *device)
 {
+	device->cmdstream_mutex = kmalloc(sizeof(struct mutex), GFP_KERNEL);
+	if (!device->cmdstream_mutex)
+		return GSL_FAILURE;
+	mutex_init(device->cmdstream_mutex);
 	return GSL_SUCCESS;
 }
 
 int kgsl_cmdstream_close(struct kgsl_device *device)
 {
+	if (!device->cmdstream_mutex)
+		return GSL_FAILURE;
+	kfree(device->cmdstream_mutex);
+	device->cmdstream_mutex = NULL;
 	return GSL_SUCCESS;
 }
 
@@ -137,9 +145,12 @@ kgsl_cmdstream_memqueue_drain(struct kgsl_device *device)
     unsigned int   timestamp, ts_processed;
     gsl_memqueue_t    *memqueue = &device->memqueue;
 
+    mutex_lock(device->cmdstream_mutex);
+
     // check head
     if (memqueue->head == NULL)
     {
+	mutex_unlock(device->cmdstream_mutex);
         return;
     }
     // get current EOP timestamp
@@ -148,6 +159,7 @@ kgsl_cmdstream_memqueue_drain(struct kgsl_device *device)
     // check head timestamp
     if (!(((ts_processed - timestamp) >= 0) || ((ts_processed - timestamp) < -GSL_TIMESTAMP_EPSILON)))
     {
+	mutex_unlock(device->cmdstream_mutex);
         return;
     }
     memnode  = memqueue->head;
@@ -182,6 +194,8 @@ kgsl_cmdstream_memqueue_drain(struct kgsl_device *device)
         kfree(memnode);
     }
 
+    mutex_unlock(device->cmdstream_mutex);
+
 }
 
 //----------------------------------------------------------------------------
@@ -195,6 +209,7 @@ kgsl_cmdstream_freememontimestamp(unsigned int device_id, struct kgsl_memdesc *m
     (void)type; // unref. For now just use EOP timestamp
 
     mutex_lock(&gsl_driver.lock);
+    mutex_lock(device->cmdstream_mutex);
 
     memqueue = &device->memqueue;
     memnode  = kmalloc(sizeof(gsl_memnode_t), GFP_KERNEL);
@@ -202,6 +217,7 @@ kgsl_cmdstream_freememontimestamp(unsigned int device_id, struct kgsl_memdesc *m
     if (!memnode)
     {
         // other solution is to idle and free which given that the upper level driver probably wont check, probably a better idea
+	mutex_unlock(device->cmdstream_mutex);
 	mutex_unlock(&gsl_driver.lock);
         return (GSL_FAILURE);
     }
@@ -224,6 +240,7 @@ kgsl_cmdstream_freememontimestamp(unsigned int device_id, struct kgsl_memdesc *m
         memqueue->tail = memnode;
     }
 
+    mutex_unlock(device->cmdstream_mutex);
     mutex_unlock(&gsl_driver.lock);
 
     return (GSL_SUCCESS);

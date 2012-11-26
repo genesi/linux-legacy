@@ -587,8 +587,8 @@ build_regsave_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
     cmd = reg_to_mem(cmd, (drawctxt->gpustate.gpuaddr + TEX_OFFSET) & 0xFFFFE000, mmSQ_FETCH_0, TEX_CONSTANTS);
 #else
     // insert a wait for idle (adreno.c:542 from qualcomm kernel)
-    *cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
-    *cmd++ = 0;
+    // *cmd++ = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
+    // *cmd++ = 0;
 
     // H/w registers are already shadowed; just need to disable shadowing to prevent corruption.
     *cmd++ = pm4_type3_packet(PM4_LOAD_CONSTANT_CONTEXT, 3);
@@ -1389,23 +1389,28 @@ create_gmem_shadow(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, ctx_t *
 // init draw context
 //////////////////////////////////////////////////////////////////////////////
 
-int
-kgsl_drawctxt_init(struct kgsl_device *device)
-{
-    return (GSL_SUCCESS);
-}
 
+int kgsl_drawctxt_init(struct kgsl_device *device)
+{
+	device->drawctxt_mutex = kmalloc(sizeof(struct mutex), GFP_KERNEL);
+	if (!device->drawctxt_mutex)
+		return GSL_FAILURE;
+	mutex_init(device->drawctxt_mutex);
+	return GSL_SUCCESS;
+}
 
 //////////////////////////////////////////////////////////////////////////////
 // close draw context
 //////////////////////////////////////////////////////////////////////////////
 
-int
-kgsl_drawctxt_close(struct kgsl_device *device)
+int kgsl_drawctxt_close(struct kgsl_device *device)
 {
-    return (GSL_SUCCESS);
+	if (!device->drawctxt_mutex)
+		return GSL_FAILURE;
+	kfree(device->drawctxt_mutex);
+	device->drawctxt_mutex = NULL;
+	return GSL_SUCCESS;
 }
-
 
 //////////////////////////////////////////////////////////////////////////////
 // create a new drawing context
@@ -1420,8 +1425,10 @@ kgsl_drawctxt_create(struct kgsl_device* device, gsl_context_type_t type, unsign
 
     kgsl_device_active(device);
 
+    mutex_lock(device->drawctxt_mutex);
     if (device->drawctxt_count >= GSL_CONTEXT_MAX)
     {
+	mutex_unlock(device->drawctxt_mutex);
         return (GSL_FAILURE);
     }
 
@@ -1437,6 +1444,7 @@ kgsl_drawctxt_create(struct kgsl_device* device, gsl_context_type_t type, unsign
 
     if (index >= GSL_CONTEXT_MAX)
     {
+	mutex_unlock(device->drawctxt_mutex);
 	return (GSL_FAILURE);
     }
 
@@ -1456,7 +1464,7 @@ kgsl_drawctxt_create(struct kgsl_device* device, gsl_context_type_t type, unsign
         if (create_gpustate_shadow(device, drawctxt, &ctx) != GSL_SUCCESS)
         {
             kgsl_drawctxt_destroy(device, index);
-
+	    mutex_unlock(device->drawctxt_mutex);
             return (GSL_FAILURE);
         }
 
@@ -1470,7 +1478,7 @@ kgsl_drawctxt_create(struct kgsl_device* device, gsl_context_type_t type, unsign
         if (create_gmem_shadow(device, drawctxt, &ctx) != GSL_SUCCESS)
         {
             kgsl_drawctxt_destroy(device, index);
-
+	    mutex_unlock(device->drawctxt_mutex);
             return (GSL_FAILURE);
         }
 
@@ -1479,6 +1487,7 @@ kgsl_drawctxt_create(struct kgsl_device* device, gsl_context_type_t type, unsign
 
     *drawctxt_id = index;
 
+    mutex_unlock(device->drawctxt_mutex);
     return (GSL_SUCCESS);
 }
 
@@ -1492,6 +1501,7 @@ kgsl_drawctxt_destroy(struct kgsl_device* device, unsigned int drawctxt_id)
 {
     gsl_drawctxt_t *drawctxt;
 
+    mutex_lock(device->drawctxt_mutex);
     drawctxt = &device->drawctxt[drawctxt_id];
 
     if (drawctxt->flags != CTXT_FLAGS_NOT_IN_USE)
@@ -1526,6 +1536,8 @@ kgsl_drawctxt_destroy(struct kgsl_device* device, unsigned int drawctxt_id)
         DEBUG_ASSERT(device->drawctxt_count >= 0);
     }
 
+    mutex_unlock(device->drawctxt_mutex);
+
     return (GSL_SUCCESS);
 }
 
@@ -1559,6 +1571,7 @@ int kgsl_drawctxt_bind_gmem_shadow(unsigned int device_id, unsigned int drawctxt
     unsigned int    i;
 
     mutex_lock(&gsl_driver.lock);
+    mutex_lock(device->drawctxt_mutex);
 
 	if( !shadow_buffer->enabled )
     {
@@ -1629,6 +1642,7 @@ int kgsl_drawctxt_bind_gmem_shadow(unsigned int device_id, unsigned int drawctxt
         }
     }
 
+    mutex_unlock(device->drawctxt_mutex);
     mutex_unlock(&gsl_driver.lock);
 
     return (GSL_SUCCESS);
@@ -1766,6 +1780,8 @@ kgsl_drawctxt_destroyall(struct kgsl_device *device)
     int             i;
     gsl_drawctxt_t  *drawctxt;
 
+    mutex_lock(device->drawctxt_mutex);
+
     for (i = 0; i < GSL_CONTEXT_MAX; i++)
     {
         drawctxt = &device->drawctxt[i];
@@ -1790,6 +1806,7 @@ kgsl_drawctxt_destroyall(struct kgsl_device *device)
         }
     }
 
+    mutex_unlock(device->drawctxt_mutex);
     return (GSL_SUCCESS);
 }
 

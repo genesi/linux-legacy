@@ -147,6 +147,7 @@ struct kgsl_mmu {
     gsl_tlbflushfilter_t  tlbflushfilter;
     struct kgsl_pagetable       *hwpagetable;                     // current page table object being used by device mmu
     struct kgsl_pagetable       *pagetable[GSL_MMU_PAGETABLE_MAX];    // page table object table
+    struct mutex		*mutex;
 #ifdef GSL_STATS_MMU
 	gsl_mmustats_t        stats;
 #endif  // GSL_STATS_MMU

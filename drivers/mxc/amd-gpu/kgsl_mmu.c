@@ -390,6 +390,8 @@ kgsl_mmu_setpagetable(struct kgsl_device *device, unsigned int pid)
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> struct kgsl_pagetable* kgsl_mmu_setpagetable(struct kgsl_device *device=0x%08x)\n", device );
 
+    mutex_lock(mmu->mutex);
+
     if (mmu->flags & GSL_FLAGS_STARTED)
     {
 #ifdef GSL_MMU_PAGETABLE_PERPROCESS
@@ -427,6 +429,8 @@ kgsl_mmu_setpagetable(struct kgsl_device *device, unsigned int pid)
 			GSL_MMU_STATS(mmu->stats.tlbflushes++);
 		}
 	}
+
+    mutex_unlock(mmu->mutex);
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_setpagetable. Return value %B\n", status );
 
@@ -513,6 +517,10 @@ kgsl_mmu_init(struct kgsl_device *device)
         // sub-client MMU lookups require address translation
         if ((mmu->config & ~0x1) > 0)
         {
+	    // this needs to be error checked better
+	    mmu->mutex = kmalloc(sizeof(struct mutex), GFP_KERNEL);
+	    mutex_init(mmu->mutex);
+
             // make sure virtual address range is a multiple of 64Kb
             DEBUG_ASSERT((mmu->va_range & ((1 << 16)-1)) == 0);
 
@@ -605,9 +613,12 @@ kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t
     // get gpu access permissions
     ap = GSL_PT_PAGE_AP[((flags & GSL_MEMFLAGS_GPUAP_MASK) >> GSL_MEMFLAGS_GPUAP_SHIFT)];
 
+    mutex_lock(mmu->mutex);
+
     pagetable = kgsl_mmu_getpagetableobject(mmu, pid);
     if (!pagetable)
     {
+	mutex_unlock(mmu->mutex);
         return (GSL_FAILURE);
     }
 
@@ -682,6 +693,8 @@ kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t
         status = GSL_FAILURE;
     }
 
+    mutex_unlock(mmu->mutex);
+
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_map. Return value %B\n", GSL_SUCCESS );
 
     return (status);
@@ -728,9 +741,11 @@ kgsl_mmu_unmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, unsigned i
         numpages++;
     }
 
+    mutex_lock(mmu->mutex);
     pagetable = kgsl_mmu_getpagetableobject(mmu, pid);
     if (!pagetable)
     {
+	mutex_unlock(mmu->mutex);
         return (GSL_FAILURE);
     }
 
@@ -785,6 +800,8 @@ kgsl_mmu_unmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, unsigned i
     // invalidate tlb, debug only
 	KGSL_DEBUG(GSL_DBGFLAGS_MMU, mmu->device->ftbl.mmu_tlbinvalidate(mmu->device, gsl_cfg_mmu_reg[mmu->device->id-1].INVALIDATE, pagetable->pid));
 
+    mutex_unlock(mmu->mutex);
+
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_unmap. Return value %B\n", GSL_SUCCESS );
 
     return (status);
@@ -819,9 +836,12 @@ kgsl_mmu_getmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, gsl_scatt
         return (GSL_FAILURE);
     }
 
+    mutex_lock(mmu->mutex);
+
     pagetable = kgsl_mmu_getpagetableobject(mmu, pid);
     if (!pagetable)
     {
+	mutex_unlock(mmu->mutex);
         return (GSL_FAILURE);
     }
 
@@ -854,6 +874,8 @@ kgsl_mmu_getmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, gsl_scatt
         // coalesce physically contiguous pages into a single scatter list entry
         scatterlist->pages[0] = GSL_PT_MAP_GETADDR(ptefirst);
     }
+
+    mutex_unlock(mmu->mutex);
 
     scatterlist->contiguous = contiguous;
 
@@ -924,6 +946,10 @@ kgsl_mmu_close(struct kgsl_device *device)
                 kgsl_sharedmem_free0(&mmu->dummyspace, current->tgid);
             }
 
+	    // this needs to be error checked better!
+	    kfree(mmu->mutex);
+	    mmu->mutex = NULL;
+
             mmu->flags &= ~GSL_FLAGS_STARTED;
             mmu->flags &= ~GSL_FLAGS_INITIALIZED;
             mmu->flags &= ~GSL_FLAGS_INITIALIZED0;
@@ -950,6 +976,8 @@ kgsl_mmu_attachcallback(struct kgsl_mmu *mmu, unsigned int pid)
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_mmu_attachcallback(struct kgsl_mmu *mmu=0x%08x, uint pid=0x%08x)\n", mmu, pid );
 
+    mutex_lock(mmu->mutex);
+
     if (mmu->flags & GSL_FLAGS_INITIALIZED0)
     {
         // attach to current device mmu
@@ -970,6 +998,8 @@ kgsl_mmu_attachcallback(struct kgsl_mmu *mmu, unsigned int pid)
         }
     }
 
+    mutex_unlock(mmu->mutex);
+
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_attachcallback. Return value %B\n", status );
 
     return (status);
@@ -987,6 +1017,8 @@ kgsl_mmu_detachcallback(struct kgsl_mmu *mmu, unsigned int pid)
     struct kgsl_pagetable  *pagetable;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_mmu_detachcallback(struct kgsl_mmu *mmu=0x%08x, uint pid=0x%08x)\n", mmu, pid );
+
+    mutex_lock(mmu->mutex);
 
     if (mmu->flags & GSL_FLAGS_INITIALIZED0)
     {
@@ -1008,6 +1040,8 @@ kgsl_mmu_detachcallback(struct kgsl_mmu *mmu, unsigned int pid)
         }
     }
 
+    mutex_unlock(mmu->mutex);
+
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_detachcallback. Return value %B\n", status );
 
     return (status);
@@ -1023,6 +1057,8 @@ kgsl_mmu_querystats(struct kgsl_mmu *mmu, gsl_mmustats_t *stats)
 
     DEBUG_ASSERT(stats);
 
+    mutex_lock(mmu->mutex);
+
     if (mmu->flags & GSL_FLAGS_STARTED)
     {
 		memcpy(stats, &mmu->stats, sizeof(gsl_mmustats_t));
@@ -1031,6 +1067,8 @@ kgsl_mmu_querystats(struct kgsl_mmu *mmu, gsl_mmustats_t *stats)
     {
 		memset(stats, 0, sizeof(gsl_mmustats_t));
     }
+
+    mutex_unlock(mmu->mutex);
 
     return (status);
 #else

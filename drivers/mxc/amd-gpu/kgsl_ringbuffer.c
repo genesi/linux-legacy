@@ -123,6 +123,7 @@ kgsl_ringbuffer_watchdog()
 
     if (rb->flags & GSL_FLAGS_STARTED)
     {
+	mutex_lock(rb->mutex);
         GSL_RB_GET_READPTR(rb, &rb->rptr);
 
         // ringbuffer is currently not empty
@@ -152,6 +153,8 @@ kgsl_ringbuffer_watchdog()
             // clear rptr sample for interval n
             rb->watchdog.flags &= ~GSL_FLAGS_ACTIVE;
         }
+
+	mutex_unlock(rb->mutex);
 
     }
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_watchdog.\n" );
@@ -669,6 +672,11 @@ kgsl_ringbuffer_init(struct kgsl_device *device)
     rb->sizedwords       = (2 << gsl_cfg_rb_sizelog2quadwords);
     rb->blksizequadwords = gsl_cfg_rb_blksizequadwords;
 
+    rb->mutex = kmalloc(sizeof(struct mutex), GFP_KERNEL);
+    if (!rb->mutex)
+	return GSL_FAILURE;
+    mutex_init(rb->mutex);
+
     // allocate memory for ringbuffer, needs to be double octword aligned
     // align on page from contiguous physical memory
     flags = (GSL_MEMFLAGS_ALIGNPAGE | GSL_MEMFLAGS_CONPHYS | GSL_MEMFLAGS_STRICTREQUEST);
@@ -731,6 +739,7 @@ kgsl_ringbuffer_close(gsl_ringbuffer_t *rb)
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_ringbuffer_close(gsl_ringbuffer_t *rb=0x%08x)\n", rb );
 
+    mutex_lock(rb->mutex);
     // stop ringbuffer
     kgsl_ringbuffer_stop(rb);
 
@@ -747,6 +756,9 @@ kgsl_ringbuffer_close(gsl_ringbuffer_t *rb)
     }
 
     rb->flags &= ~GSL_FLAGS_INITIALIZED;
+
+    mutex_unlock(rb->mutex);
+    kfree(rb->mutex);
 
     memset(rb, 0, sizeof(gsl_ringbuffer_t));
 
@@ -850,6 +862,7 @@ int
 kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, gsl_flags_t flags)
 {
     unsigned int  link[3];
+    gsl_ringbuffer_t  *rb = &device->ringbuffer;
     int dumpx_swap;
     (void)dumpx_swap; // used only when BB_DUMPX is defined
 
@@ -857,7 +870,7 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint
                     "--> unsigned int kgsl_ringbuffer_issueibcmds(struct kgsl_device device=%0x%08x, int drawctxt_index=%d, uint32_t ibaddr=0x%08x, int sizedwords=%d, unsigned int *timestamp=0x%08x)\n",
                      device, drawctxt_index, ibaddr, sizedwords, timestamp );
 
-    if (!(device->ringbuffer.flags & GSL_FLAGS_STARTED))
+    if (!(rb->flags & GSL_FLAGS_STARTED))
     {
         kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_issueibcmds. Return value %B\n", GSL_FAILURE );
         return (GSL_FAILURE);
@@ -868,6 +881,8 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint
 
     KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, dumpx_swap = kgsl_dumpx_parse_ibs(ibaddr, sizedwords));
 
+    mutex_lock(rb->mutex);
+
 	// context switch if needed
 	kgsl_drawctxt_switch(device, &device->drawctxt[drawctxt_index], flags);
 
@@ -876,6 +891,8 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint
     link[2] = sizedwords;
 
 	*timestamp = kgsl_ringbuffer_issuecmds(device, 0, &link[0], 3, current->tgid);
+
+    mutex_unlock(rb->mutex);
 
     // idle device when running in safe mode
     if (device->flags & GSL_FLAGS_SAFEMODE)

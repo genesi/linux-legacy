@@ -136,6 +136,7 @@ typedef struct _gsl_ringbuffer_t {
 
     struct kgsl_device      *device;
     gsl_flags_t       flags;
+    struct mutex	*mutex;
     struct kgsl_memdesc     buffer_desc;              // allocated memory descriptor
     struct kgsl_memdesc     memptrs_desc;
 
