@@ -263,14 +263,14 @@ static void kgsl_g12_updatetimestamp(struct kgsl_device *device)
 
 static void kgsl_g12_irqtask(struct work_struct *work)
 {
-	struct kgsl_device *device = &gsl_driver.device[GSL_DEVICE_G12-1];
+	struct kgsl_device *device = &gsl_driver.device[KGSL_DEVICE_G12-1];
 	kgsl_g12_updatetimestamp(device);
 	wake_up_interruptible_all(&device->timestamp_waitq);
 }
 
 static void kgsl_g12_irqerr(struct work_struct *work)
 {
-	struct kgsl_device *device = &gsl_driver.device[GSL_DEVICE_G12-1];
+	struct kgsl_device *device = &gsl_driver.device[KGSL_DEVICE_G12-1];
 	device->ftbl.destroy(device);
 }
 
@@ -823,7 +823,7 @@ kgsl_g12_context_create(struct kgsl_device* device, gsl_context_type_t type, uns
          /* todo: move this to device create or start. Error checking!! */
         for (i=0;i<GSL_HAL_NUMCMDBUFFERS;i++)
         {
-            status = kgsl_sharedmem_alloc0(GSL_DEVICE_ANY, gslflags, GSL_HAL_CMDBUFFERSIZE, &g_z1xx.cmdbufdesc[i]);
+            status = kgsl_sharedmem_alloc0(KGSL_DEVICE_ANY, gslflags, GSL_HAL_CMDBUFFERSIZE, &g_z1xx.cmdbufdesc[i]);
             DEBUG_ASSERT(status == GSL_SUCCESS);
             g_z1xx.cmdbuf[i]=kmalloc(GSL_HAL_CMDBUFFERSIZE, GFP_KERNEL);
             DEBUG_ASSERT(g_z1xx.cmdbuf[i]);
@@ -839,26 +839,26 @@ kgsl_g12_context_create(struct kgsl_device* device, gsl_context_type_t type, uns
         cmd = VGV3_NEXTCMD_JUMP << VGV3_NEXTCMD_NEXTCMD_FSHIFT;
 
         /* set cmd stream buffer to hw */
-        status |= kgsl_cmdwindow_write0(GSL_DEVICE_G12, GSL_CMDWINDOW_2D, ADDR_VGV3_MODE, 4);
-        status |= kgsl_cmdwindow_write0(GSL_DEVICE_G12, GSL_CMDWINDOW_2D, ADDR_VGV3_NEXTADDR, g_z1xx.cmdbufdesc[0].gpuaddr );
-        status |= kgsl_cmdwindow_write0(GSL_DEVICE_G12, GSL_CMDWINDOW_2D, ADDR_VGV3_NEXTCMD,  cmd | 5);
+        status |= kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D, ADDR_VGV3_MODE, 4);
+        status |= kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D, ADDR_VGV3_NEXTADDR, g_z1xx.cmdbufdesc[0].gpuaddr );
+        status |= kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D, ADDR_VGV3_NEXTCMD,  cmd | 5);
 
         DEBUG_ASSERT(status == GSL_SUCCESS);
 
         /* Edge buffer setup todo: move register setup to own function.
            This function can be then called, if power managemnet is used and clocks are turned off and then on.
         */
-        status |= kgsl_sharedmem_alloc0(GSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE0BUFSIZE, &g_z1xx.e0);
-        status |= kgsl_sharedmem_alloc0(GSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE1BUFSIZE, &g_z1xx.e1);
+        status |= kgsl_sharedmem_alloc0(KGSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE0BUFSIZE, &g_z1xx.e0);
+        status |= kgsl_sharedmem_alloc0(KGSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE1BUFSIZE, &g_z1xx.e1);
         status |= kgsl_sharedmem_set0(&g_z1xx.e0, 0, 0, GSL_HAL_EDGE0BUFSIZE);
         status |= kgsl_sharedmem_set0(&g_z1xx.e1, 0, 0, GSL_HAL_EDGE1BUFSIZE);
 
-        status |= kgsl_cmdwindow_write0(GSL_DEVICE_G12, GSL_CMDWINDOW_2D, GSL_HAL_EDGE0REG, g_z1xx.e0.gpuaddr);
-        status |= kgsl_cmdwindow_write0(GSL_DEVICE_G12, GSL_CMDWINDOW_2D, GSL_HAL_EDGE1REG, g_z1xx.e1.gpuaddr);
+        status |= kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D, GSL_HAL_EDGE0REG, g_z1xx.e0.gpuaddr);
+        status |= kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D, GSL_HAL_EDGE1REG, g_z1xx.e1.gpuaddr);
 #ifdef _Z180
-        kgsl_sharedmem_alloc0(GSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE2BUFSIZE, &g_z1xx.e2);
+        kgsl_sharedmem_alloc0(KGSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE2BUFSIZE, &g_z1xx.e2);
         kgsl_sharedmem_set0(&g_z1xx.e2, 0, 0, GSL_HAL_EDGE2BUFSIZE);
-        kgsl_cmdwindow_write0(GSL_DEVICE_G12, GSL_CMDWINDOW_2D, GSL_HAL_EDGE2REG, g_z1xx.e2.gpuaddr);
+        kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D, GSL_HAL_EDGE2REG, g_z1xx.e2.gpuaddr);
 #endif
         DEBUG_ASSERT(status == GSL_SUCCESS);
     }

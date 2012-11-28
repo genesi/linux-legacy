@@ -57,7 +57,7 @@ struct gsl_kmod_per_fd_data
     struct list_head allocated_blocks_head; // list head
     u32 maximum_number_of_blocks;
     u32 number_of_allocated_blocks;
-    s8 created_contexts_array[GSL_DEVICE_MAX][GSL_CONTEXT_MAX];
+    s8 created_contexts_array[KGSL_DEVICE_MAX][GSL_CONTEXT_MAX];
 };
 
 

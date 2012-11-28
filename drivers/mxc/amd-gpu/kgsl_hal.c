@@ -331,7 +331,7 @@ kgsl_hal_getdevconfig(unsigned int device_id, struct kgsl_devconfig *config)
 
     if (hal) {
 	switch (device_id) {
-	case GSL_DEVICE_YAMATO:
+	case KGSL_DEVICE_YAMATO:
 	{
 	    if (hal->has_z430) {
 		unsigned int mmu_config;
@@ -386,7 +386,7 @@ kgsl_hal_getdevconfig(unsigned int device_id, struct kgsl_devconfig *config)
 	    break;
 	}
 
-	case GSL_DEVICE_G12:
+	case KGSL_DEVICE_G12:
 	{
 		unsigned int mmu_config;
 
@@ -451,7 +451,7 @@ kgsl_hal_getchipid(unsigned int device_id)
     unsigned int chipid = 0;
     unsigned int coreid, majorid, minorid, patchid, revid;
 
-    if (hal->has_z430 && (device_id == GSL_DEVICE_YAMATO)) {
+    if (hal->has_z430 && (device_id == KGSL_DEVICE_YAMATO)) {
 	device->ftbl.regread(device, REG_RBBM_PERIPHID1, &coreid);
 	coreid &= 0xF;
 
@@ -488,10 +488,10 @@ kgsl_hal_setpowerstate(unsigned int device_id, int state, unsigned int value)
 	(void) value;
 
 	switch (device_id) {
-	case GSL_DEVICE_G12:
+	case KGSL_DEVICE_G12:
 		gpu_clk = clk_get(0, "gpu2d_clk");
 		break;
-	case GSL_DEVICE_YAMATO:
+	case KGSL_DEVICE_YAMATO:
 		gpu_clk = clk_get(0, "gpu3d_clk");
 		garb_clk = clk_get(0, "garb_clk");
 		emi_garb_clk = clk_get(0, "emi_garb_clk");
@@ -546,10 +546,10 @@ KGSLHAL_API int kgsl_clock(unsigned int dev, int enable)
 	struct clk *emi_garb_clk = NULL;
 
 	switch (dev) {
-	case GSL_DEVICE_G12:
+	case KGSL_DEVICE_G12:
 		gpu_clk = clk_get(0, "gpu2d_clk");
 		break;
-	case GSL_DEVICE_YAMATO:
+	case KGSL_DEVICE_YAMATO:
 		gpu_clk = clk_get(0, "gpu3d_clk");
 		garb_clk = clk_get(0, "garb_clk");
 		emi_garb_clk = clk_get(0, "emi_garb_clk");

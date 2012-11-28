@@ -30,8 +30,8 @@
  */
 static u32 device_id_to_device_index(unsigned int device_id)
 {
-    DEBUG_ASSERT((GSL_DEVICE_ANY < device_id) && 
-               (device_id <= GSL_DEVICE_MAX));
+    DEBUG_ASSERT((KGSL_DEVICE_ANY < device_id) && 
+               (device_id <= KGSL_DEVICE_MAX));
     return (u32)(device_id - 1);
 }
 
@@ -190,7 +190,7 @@ int del_all_memblocks_from_allocated_list(struct file *fd)
 
 void init_created_contexts_array(s8 *array)
 {
-    memset((void*)array, EMPTY_ENTRY, GSL_DEVICE_MAX * GSL_CONTEXT_MAX);
+    memset((void*)array, EMPTY_ENTRY, KGSL_DEVICE_MAX * GSL_CONTEXT_MAX);
 }
 
 
@@ -247,7 +247,7 @@ void del_all_devices_contexts(struct file *fd)
     datp = get_fd_private_data(fd);
 
     /* device_id is 1 based */
-    for(id = GSL_DEVICE_ANY + 1; id <= GSL_DEVICE_MAX; id++)
+    for(id = KGSL_DEVICE_ANY + 1; id <= KGSL_DEVICE_MAX; id++)
     {
         device_index = device_id_to_device_index(id);
         for(ctx_array_index = 0; ctx_array_index < GSL_CONTEXT_MAX; ctx_array_index++)

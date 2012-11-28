@@ -122,7 +122,7 @@ kgsl_cp_intrcallback(gsl_intrid_t id, void *cookie)
 void
 kgsl_ringbuffer_watchdog()
 {
-    gsl_ringbuffer_t  *rb = &(gsl_driver.device[GSL_DEVICE_YAMATO-1]).ringbuffer;       // device_id is 1 based
+    gsl_ringbuffer_t  *rb = &(gsl_driver.device[KGSL_DEVICE_YAMATO-1]).ringbuffer;       // device_id is 1 based
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
                     "--> void kgsl_ringbuffer_watchdog()\n" );
@@ -187,7 +187,7 @@ kgsl_ringbuffer_checkregister(unsigned int reg, int pmodecheck)
 	}
 
 	// range check register offset 
-	if (reg > (gsl_driver.device[GSL_DEVICE_YAMATO-1].regspace.sizebytes >> 2))
+	if (reg > (gsl_driver.device[KGSL_DEVICE_YAMATO-1].regspace.sizebytes >> 2))
 	{
 		kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: Register out of range.\n" );
 		DEBUG_ASSERT(0);
@@ -400,7 +400,7 @@ kgsl_ringbuffer_waitspace(gsl_ringbuffer_t *rb, unsigned int numcmds, int wptr_a
         GSL_RB_STATS(rb->stats.wraps++);
     }
 
-    KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, KGSL_DEBUG_DUMPX(BB_DUMP_RBWAIT, GSL_DEVICE_YAMATO, rb->wptr, numcmds, "kgsl_ringbuffer_waitspace"));
+    KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, KGSL_DEBUG_DUMPX(BB_DUMP_RBWAIT, KGSL_DEVICE_YAMATO, rb->wptr, numcmds, "kgsl_ringbuffer_waitspace"));
 
     // wait for space in ringbuffer
     for( ; ; )

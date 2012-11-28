@@ -192,7 +192,7 @@ kgsl_driver_entry(unsigned int flags)
             {
                 // init devices
 		status = GSL_FAILURE;
-                for (i = 0; i < GSL_DEVICE_MAX; i++)
+                for (i = 0; i < KGSL_DEVICE_MAX; i++)
                 {
 		    if (kgsl_device_init(&gsl_driver.device[i], (unsigned int)(i + 1)) == GSL_SUCCESS) {
 			status = GSL_SUCCESS;
@@ -209,7 +209,7 @@ kgsl_driver_entry(unsigned int flags)
         // walk through process attach callbacks
         if (status == GSL_SUCCESS)
         {
-            for (i = 0; i < GSL_DEVICE_MAX; i++)
+            for (i = 0; i < KGSL_DEVICE_MAX; i++)
             {
                 status = kgsl_device_attachcallback(&gsl_driver.device[i], pid);
                 if (status != GSL_SUCCESS)
@@ -253,7 +253,7 @@ kgsl_driver_exit0(unsigned int pid)
         if (kgsl_driver_getcallerprocessindex(pid, &index) == GSL_SUCCESS)
         {
             // walk through process detach callbacks
-            for (i = 0; i < GSL_DEVICE_MAX; i++)
+            for (i = 0; i < KGSL_DEVICE_MAX; i++)
             {
                 // Empty the freememqueue of this device
                 kgsl_cmdstream_memqueue_drain(&gsl_driver.device[i]);
@@ -270,7 +270,7 @@ kgsl_driver_exit0(unsigned int pid)
             if (gsl_driver.refcnt - 1 == 0)
             {
                 // close devices
-                for (i = 0; i < GSL_DEVICE_MAX; i++)
+                for (i = 0; i < KGSL_DEVICE_MAX; i++)
                 {
                     kgsl_device_close(&gsl_driver.device[i]);
                 }

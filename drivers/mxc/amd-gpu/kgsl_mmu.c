@@ -268,7 +268,7 @@ kgsl_mmu_destroypagetableobject(struct kgsl_mmu *mmu, unsigned int pid)
             kfree(pagetable);
 
             // clear pagetable object reference for all "device mmu"/"current caller process" combinations
-            for (tmp_id = GSL_DEVICE_ANY + 1; tmp_id <= GSL_DEVICE_MAX; tmp_id++)
+            for (tmp_id = KGSL_DEVICE_ANY + 1; tmp_id <= KGSL_DEVICE_MAX; tmp_id++)
             {
                 tmp_device = &gsl_driver.device[tmp_id-1];
 
@@ -313,7 +313,7 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu, unsigned int pid)
     if (!mmu->pagetable[pindex])
     {
         // then, check if pagetable object already exists for any "other device mmu"/"current caller process" combination
-        for (tmp_id = GSL_DEVICE_ANY + 1; tmp_id <= GSL_DEVICE_MAX; tmp_id++)
+        for (tmp_id = KGSL_DEVICE_ANY + 1; tmp_id <= KGSL_DEVICE_MAX; tmp_id++)
         {
             tmp_device = &gsl_driver.device[tmp_id-1];
 
@@ -679,7 +679,7 @@ kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t
         if (flushtlb)
         {
             // every device's tlb needs to be flushed because the current page table is shared among all devices
-            for (i = 0; i < GSL_DEVICE_MAX; i++)
+            for (i = 0; i < KGSL_DEVICE_MAX; i++)
             {
                 if (gsl_driver.device[i].flags & GSL_FLAGS_INITIALIZED)
                 {

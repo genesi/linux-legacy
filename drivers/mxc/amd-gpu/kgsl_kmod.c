@@ -849,13 +849,13 @@ static struct class *gsl_kmod_class;
 
 static irqreturn_t z160_irq_handler(int irq, void *dev_id)
 {
-    kgsl_intr_isr(&gsl_driver.device[GSL_DEVICE_G12-1]);
+    kgsl_intr_isr(&gsl_driver.device[KGSL_DEVICE_G12-1]);
     return IRQ_HANDLED;
 }
 
 static irqreturn_t z430_irq_handler(int irq, void *dev_id)
 {
-    kgsl_intr_isr(&gsl_driver.device[GSL_DEVICE_YAMATO-1]);
+    kgsl_intr_isr(&gsl_driver.device[KGSL_DEVICE_YAMATO-1]);
     return IRQ_HANDLED;
 }
 
@@ -1032,7 +1032,7 @@ static int gpu_suspend(struct platform_device *pdev, pm_message_t state)
     gsl_powerprop_t  power;
 
     power.flags = GSL_PWRFLAGS_POWER_OFF;
-    for (i = 0; i < GSL_DEVICE_MAX; i++)
+    for (i = 0; i < KGSL_DEVICE_MAX; i++)
     {
         kgsl_device_setproperty(
                         (unsigned int) (i+1),
@@ -1050,7 +1050,7 @@ static int gpu_resume(struct platform_device *pdev)
     gsl_powerprop_t  power;
 
     power.flags = GSL_PWRFLAGS_POWER_ON;
-    for (i = 0; i < GSL_DEVICE_MAX; i++)
+    for (i = 0; i < KGSL_DEVICE_MAX; i++)
     {
         kgsl_device_setproperty(
                         (unsigned int) (i+1),

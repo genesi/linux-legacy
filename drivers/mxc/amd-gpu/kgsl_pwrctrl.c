@@ -78,8 +78,8 @@ static int _kgsl_device_active(struct kgsl_device *dev, int all)
 		kgsl_clock(autogate->dev->id, 1);
 	if (to_active && all) {
 		int index;
-		index = autogate->dev->id == GSL_DEVICE_G12 ? GSL_DEVICE_YAMATO - 1 :
-			GSL_DEVICE_G12 - 1;
+		index = autogate->dev->id == KGSL_DEVICE_G12 ? KGSL_DEVICE_YAMATO - 1 :
+			KGSL_DEVICE_G12 - 1;
 		down(&sem_dev);
 		if (g_autogate[index])
 			_kgsl_device_active(g_autogate[index]->dev, 0);

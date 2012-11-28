@@ -60,7 +60,7 @@
 #define GSL_MEMDESC_DEVICE_GET(memdesc, device_id)                                              \
     DEBUG_ASSERT(memdesc);                                                                        \
     device_id = (unsigned int)((memdesc->priv & GSL_DEVICEID_MASK) >> GSL_DEVICEID_SHIFT);    \
-    DEBUG_ASSERT(device_id <= GSL_DEVICE_MAX);
+    DEBUG_ASSERT(device_id <= KGSL_DEVICE_MAX);
 
 #define GSL_MEMDESC_EXTALLOC_ISMARKED(memdesc)  \
     ((memdesc->priv & GSL_EXTALLOC_MASK) >> GSL_EXTALLOC_SHIFT)
@@ -238,8 +238,8 @@ kgsl_sharedmem_alloc0(unsigned int device_id, unsigned int flags, int sizebytes,
     }
 
     // execute pending device action
-    tmp_id = (device_id != GSL_DEVICE_ANY) ? device_id : device_id+1;
-    for ( ; tmp_id <= GSL_DEVICE_MAX; tmp_id++)
+    tmp_id = (device_id != KGSL_DEVICE_ANY) ? device_id : device_id+1;
+    for ( ; tmp_id <= KGSL_DEVICE_MAX; tmp_id++)
     {
         if (gsl_driver.device[tmp_id-1].flags & GSL_FLAGS_INITIALIZED)
         {
@@ -253,13 +253,13 @@ kgsl_sharedmem_alloc0(unsigned int device_id, unsigned int flags, int sizebytes,
     }
 
     // convert any device to an actual existing device
-    if (device_id == GSL_DEVICE_ANY)
+    if (device_id == KGSL_DEVICE_ANY)
     {
         for ( ; ; )
         {
             device_id++;
 
-            if (device_id <= GSL_DEVICE_MAX)
+            if (device_id <= KGSL_DEVICE_MAX)
             {
                 if (gsl_driver.device[device_id-1].flags & GSL_FLAGS_INITIALIZED)
                 {
@@ -275,7 +275,7 @@ kgsl_sharedmem_alloc0(unsigned int device_id, unsigned int flags, int sizebytes,
         }
     }
 
-    DEBUG_ASSERT(device_id > GSL_DEVICE_ANY && device_id <= GSL_DEVICE_MAX);
+    DEBUG_ASSERT(device_id > KGSL_DEVICE_ANY && device_id <= KGSL_DEVICE_MAX);
 
     // get mmu reference
     mmu = &gsl_driver.device[device_id-1].mmu;
@@ -704,8 +704,8 @@ kgsl_sharedmem_map(unsigned int device_id, unsigned int flags, const gsl_scatter
                     device_id, flags, memdesc, scatterlist );
 
     // execute pending device action
-    tmp_id = (device_id != GSL_DEVICE_ANY) ? device_id : device_id+1;
-    for ( ; tmp_id <= GSL_DEVICE_MAX; tmp_id++)
+    tmp_id = (device_id != KGSL_DEVICE_ANY) ? device_id : device_id+1;
+    for ( ; tmp_id <= KGSL_DEVICE_MAX; tmp_id++)
     {
         if (gsl_driver.device[tmp_id-1].flags & GSL_FLAGS_INITIALIZED)
         {
@@ -719,13 +719,13 @@ kgsl_sharedmem_map(unsigned int device_id, unsigned int flags, const gsl_scatter
     }
 
     // convert any device to an actual existing device
-    if (device_id == GSL_DEVICE_ANY)
+    if (device_id == KGSL_DEVICE_ANY)
     {
         for ( ; ; )
         {
             device_id++;
 
-            if (device_id <= GSL_DEVICE_MAX)
+            if (device_id <= KGSL_DEVICE_MAX)
             {
                 if (gsl_driver.device[device_id-1].flags & GSL_FLAGS_INITIALIZED)
                 {
@@ -741,7 +741,7 @@ kgsl_sharedmem_map(unsigned int device_id, unsigned int flags, const gsl_scatter
         }
     }
 
-    DEBUG_ASSERT(device_id > GSL_DEVICE_ANY && device_id <= GSL_DEVICE_MAX);
+    DEBUG_ASSERT(device_id > KGSL_DEVICE_ANY && device_id <= KGSL_DEVICE_MAX);
 
     if (shmem->flags & GSL_FLAGS_INITIALIZED)
     {

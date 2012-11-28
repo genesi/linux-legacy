@@ -143,7 +143,7 @@ static const int gsl_cfg_intr_mask[GSL_INTR_COUNT] = {
 /* -----------------
  * mmu register data
  * ----------------- */
-static const gsl_mmu_reg_t gsl_cfg_mmu_reg[GSL_DEVICE_MAX] = {
+static const gsl_mmu_reg_t gsl_cfg_mmu_reg[KGSL_DEVICE_MAX] = {
     {   /* Yamato */
 	REG_MH_MMU_CONFIG,
 	REG_MH_MMU_MPU_BASE,
@@ -169,7 +169,7 @@ static const gsl_mmu_reg_t gsl_cfg_mmu_reg[GSL_DEVICE_MAX] = {
 /* -----------------
  * mh interrupt data
  * ----------------- */
-static const gsl_mh_intr_t gsl_cfg_mh_intr[GSL_DEVICE_MAX] =
+static const gsl_mh_intr_t gsl_cfg_mh_intr[KGSL_DEVICE_MAX] =
 {
     {   /* Yamato */
 	GSL_INTR_YDX_MH_AXI_READ_ERROR,

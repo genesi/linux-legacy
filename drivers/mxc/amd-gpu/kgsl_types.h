@@ -237,25 +237,21 @@ typedef struct _os_cputimer_t {
 //////////////////////////////////////////////////////////////////////////////
 typedef unsigned int        uint32_t;
 
-// ---------
-// device id
-// ---------
-typedef enum _gsl_deviceid_t
+/* device id */
+enum kgsl_deviceid
 {
-    GSL_DEVICE_ANY    = 0,
-    GSL_DEVICE_YAMATO = 1,
-    GSL_DEVICE_G12    = 2,
-    GSL_DEVICE_MAX    = 2,
-
-    GSL_DEVICE_FOOBAR = 0x7FFFFFFF
-} gsl_deviceid_t;
+	KGSL_DEVICE_ANY    = 0x00000000,
+	KGSL_DEVICE_YAMATO = 0x00000001,
+	KGSL_DEVICE_G12    = 0x00000002,
+	KGSL_DEVICE_MAX    = 0x00000002
+};
 
 // ----------------
 // chip revision id
 // ----------------
 //
 // coreid:8 majorrev:8 minorrev:8 patch:8
-// 
+//
 // coreid = 0x00 = YAMATO_DX
 // coreid = 0x80 = G12
 //

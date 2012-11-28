@@ -337,7 +337,7 @@ kgsl_yamato_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase, ui
 
 static void kgsl_yamato_irqerr(struct work_struct *work)
 {
-	struct kgsl_device *device = &gsl_driver.device[GSL_DEVICE_YAMATO-1];
+	struct kgsl_device *device = &gsl_driver.device[KGSL_DEVICE_YAMATO-1];
 	device->ftbl.destroy(device);
 }
 

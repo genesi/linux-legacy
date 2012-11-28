@@ -36,10 +36,10 @@ kgsl_device_getfunctable(unsigned int device_id, struct kgsl_functable *ftbl)
 {
     switch (device_id)
     {
-    case GSL_DEVICE_YAMATO:
+    case KGSL_DEVICE_YAMATO:
         kgsl_yamato_getfunctable(ftbl);
         break;
-    case GSL_DEVICE_G12:
+    case KGSL_DEVICE_G12:
         kgsl_g12_getfunctable(ftbl);
         break;
     default:
@@ -62,11 +62,11 @@ kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_device_init(struct kgsl_device *device=0x%08x, device_id=%D )\n", device, device_id );
 
-    if ((GSL_DEVICE_YAMATO == device_id) && !(hal->has_z430)) {
+    if ((KGSL_DEVICE_YAMATO == device_id) && !(hal->has_z430)) {
 	return GSL_FAILURE_NOTSUPPORTED;
     }
 
-    if ((GSL_DEVICE_G12 == device_id) && !(hal->has_z160)) {
+    if ((KGSL_DEVICE_G12 == device_id) && !(hal->has_z160)) {
 	return GSL_FAILURE_NOTSUPPORTED;
     }
 
@@ -422,12 +422,12 @@ kgsl_device_start(unsigned int device_id, unsigned int flags)
 
     mutex_lock(&gsl_driver.lock);
 
-    if ((GSL_DEVICE_G12 == device_id) && !(hal->has_z160)) {
+    if ((KGSL_DEVICE_G12 == device_id) && !(hal->has_z160)) {
 	mutex_unlock(&gsl_driver.lock);
 	return GSL_FAILURE_NOTSUPPORTED;
     }
 
-    if ((GSL_DEVICE_YAMATO == device_id) && !(hal->has_z430)) {
+    if ((KGSL_DEVICE_YAMATO == device_id) && !(hal->has_z430)) {
 	mutex_unlock(&gsl_driver.lock);
 	return GSL_FAILURE_NOTSUPPORTED;
     }
