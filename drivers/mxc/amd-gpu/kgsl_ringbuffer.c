@@ -18,10 +18,18 @@
 
 #include <linux/sched.h>
 
-#include "gsl.h"
-#include "gsl_hal.h"
-#include "gsl_cmdstream.h"
-#include "gsl_ringbuffer.h"
+#include "kgsl_types.h"
+#include "kgsl_hal.h"
+#include "kgsl_cmdstream.h"
+#include "kgsl_ringbuffer.h"
+#include "kgsl_driver.h"
+#include "kgsl_log.h"
+#include "kgsl_debug.h"
+
+#include "kgsl_config.h"
+
+#include "yamato_reg.h"
+#include "kgsl_pm4types.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // ucode

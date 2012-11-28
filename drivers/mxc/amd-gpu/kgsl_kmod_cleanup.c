@@ -15,12 +15,14 @@
  * 02110-1301, USA.
  *
  */
- 
-#include "gsl.h"
-#include "kgsl_kmod_cleanup.h"
 
 #include <linux/kernel.h>
 #include <linux/fs.h>
+
+#include "kgsl_kmod_cleanup.h"
+#include "kgsl_device.h"
+#include "kgsl_drawctxt.h"
+#include "kgsl_sharedmem.h"
 
 /*
  * Local helper functions to check and convert device/context id's (1 based)

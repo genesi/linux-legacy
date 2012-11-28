@@ -29,6 +29,8 @@
 #ifndef __GSL_MMU_H
 #define __GSL_MMU_H
 
+#include "kgsl_types.h"
+#include "kgsl_buildconfig.h" // ugh stats
 
 //////////////////////////////////////////////////////////////////////////////
 // defines

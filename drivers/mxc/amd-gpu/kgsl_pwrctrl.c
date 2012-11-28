@@ -18,16 +18,17 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <gsl.h>
-
 #include <linux/timer.h>
 #include <linux/spinlock.h>
 #include <linux/slab.h>
 #include <linux/hardirq.h>
 #include <linux/semaphore.h>
 
+#include "kgsl_device.h"
+#include "kgsl_driver.h"
+
 typedef struct _gsl_autogate_t {
-    struct timer_list timer;	
+    struct timer_list timer;
     spinlock_t lock;
     int active;
     /* pending indicate the timer has been fired but clock not yet disabled. */

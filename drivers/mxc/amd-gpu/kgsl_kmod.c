@@ -16,14 +16,6 @@
  *
  */
 
-#include "gsl_types.h"
-#include "gsl.h"
-#include "gsl_buildconfig.h"
-#include "gsl_halconfig.h"
-#include "gsl_ioctl.h"
-#include "kgsl_kmod_cleanup.h"
-#include "gsl_linux_map.h"
-
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -40,6 +32,26 @@
 #include <linux/vmalloc.h>
 
 #include <linux/fsl_devices.h>
+
+
+#include "kgsl_types.h"
+#include "kgsl_properties.h"
+#include "kgsl_linux_map.h"
+#include "kgsl_ioctl.h"
+#include "kgsl_driver.h"
+
+#include "kgsl_device.h"
+
+#include "kgsl_sharedmem.h"
+#include "kgsl_cmdstream.h"
+#include "kgsl_cmdwindow.h"
+
+//#include "gsl_buildconfig.h"
+#include "kgsl_halconfig.h"
+//#include "gsl_ioctl.h"
+
+#include "kgsl_kmod_cleanup.h"
+
 
 //#define GSL_IOCTL_DEBUG
 

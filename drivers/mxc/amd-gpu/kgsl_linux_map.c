@@ -23,7 +23,7 @@
 #include <linux/slab.h>
 #include <asm/uaccess.h>
 
-#include "gsl_linux_map.h"
+#include "kgsl_linux_map.h"
 
 struct gsl_linux_map
 {

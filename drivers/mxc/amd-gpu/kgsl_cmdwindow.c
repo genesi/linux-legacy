@@ -18,8 +18,17 @@
 
 #include <linux/sched.h>
 
-#include "gsl.h"
-#include "gsl_hal.h"
+#include "kgsl_buildconfig.h"
+
+#include "kgsl_types.h"
+#include "kgsl_hal.h"
+#include "kgsl_mmu.h"
+#include "kgsl_sharedmem.h"
+#include "kgsl_device.h"
+#include "kgsl_driver.h"
+#include "kgsl_log.h"
+
+#include "g12_reg.h"
 
 //  defines
 #define GSL_CMDWINDOW_TARGET_MASK       0x000000FF

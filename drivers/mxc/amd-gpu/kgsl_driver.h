@@ -31,6 +31,11 @@
 
 #include <linux/mutex.h>
 
+#include "kgsl_types.h" // GSL_DRIVER_MAX
+#include "kgsl_device.h" // kgsl_device etc.
+#include "kgsl_sharedmem.h" // gsl_sharedmem_t
+#include "kgsl_buildconfig.h" // GSL_CALLER_PROCESS_MAX
+
 //////////////////////////////////////////////////////////////////////////////
 // types
 //////////////////////////////////////////////////////////////////////////////
@@ -80,5 +85,10 @@ kgsl_driver_getcallerprocessindex(unsigned int pid, int *index)
 
     return (GSL_FAILURE);
 }
+int                kgsl_driver_init(void);
+int                kgsl_driver_close(void);
+int                kgsl_driver_entry(gsl_flags_t flags);
+int                kgsl_driver_exit(void);
+int                kgsl_driver_destroy(unsigned int pid);
 
 #endif // __GSL_DRIVER_H

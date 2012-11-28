@@ -19,8 +19,12 @@
 #include <linux/slab.h>
 #include <linux/sched.h>
 
-#include "gsl.h"
-#include "gsl_hal.h"
+#include "kgsl_types.h"
+#include "kgsl_driver.h"
+#include "kgsl_sharedmem.h"
+#include "kgsl_hwaccess.h"
+#include "kgsl_debug.h"
+#include "kgsl_log.h"
 
 /////////////////////////////////////////////////////////////////////////////
 // macros

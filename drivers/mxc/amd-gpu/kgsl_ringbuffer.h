@@ -29,6 +29,14 @@
 #ifndef __GSL_RINGBUFFER_H
 #define __GSL_RINGBUFFER_H
 
+// CONFIGURATION ITEMS
+#define GSL_RB_USE_MEM_RPTR
+#define GSL_RB_USE_MEM_TIMESTAMP
+#define GSL_RB_TIMESTAMP_INTERUPT
+/* #define GSL_RB_USE_WPTR_POLLING */
+
+#include "kgsl_types.h"
+
 
 //////////////////////////////////////////////////////////////////////////////
 //  defines
@@ -64,7 +72,7 @@
 #define GSL_HAL_SUBBLOCK_OFFSET(reg)            ((unsigned int)((reg) - (0x2000)))
 
 // CP timestamp register
-#define mmCP_TIMESTAMP                          mmSCRATCH_REG0
+#define REG_CP_TIMESTAMP                          REG_SCRATCH_REG0
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -179,7 +187,7 @@ typedef struct _gsl_ringbuffer_t {
 
 #else
 #define GSL_RB_MEMPTRS_SCRATCH_MASK         0x0     // disable
-#define GSL_RB_INIT_TIMESTAMP(rb)           kgsl_device_regwrite((rb)->device->id, mmCP_TIMESTAMP, 0);
+#define GSL_RB_INIT_TIMESTAMP(rb)           kgsl_device_regwrite((rb)->device->id, REG_CP_TIMESTAMP, 0);
 #endif // GSL_RB_USE_MEMTIMESTAMP
 
 // --------
@@ -190,7 +198,7 @@ typedef struct _gsl_ringbuffer_t {
 #define GSL_RB_GET_READPTR(rb, data)        kgsl_sharedmem_read0(&(rb)->memptrs_desc, (data), GSL_RB_MEMPTRS_RPTR_OFFSET, 4, false)
 #else
 #define GSL_RB_CNTL_NO_UPDATE               0x1     // disable
-#define GSL_RB_GET_READPTR(rb, data)        (rb)->device->fbtl.device_regread((rb)->device, mmCP_RB_RPTR,(data))
+#define GSL_RB_GET_READPTR(rb, data)        (rb)->device->fbtl.device_regread((rb)->device, REG_CP_RB_RPTR,(data))
 #endif // GSL_RB_USE_MEMRPTR
 
 // ------------

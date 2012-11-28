@@ -19,9 +19,15 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 
-#include "gsl.h"
-#include "gsl_hal.h"
-#include "gsl_cmdstream.h"
+#include "kgsl_types.h"
+#include "kgsl_hal.h"
+#include "kgsl_cmdstream.h"
+#include "kgsl_sharedmem.h"
+#include "kgsl_driver.h"
+#include "kgsl_hwaccess.h"
+#include "kgsl_ioctl.h"
+
+#include "g12_reg.h"
 #include "kgsl_g12_vgv3types.h"
 
 #ifdef CONFIG_ARCH_MX35

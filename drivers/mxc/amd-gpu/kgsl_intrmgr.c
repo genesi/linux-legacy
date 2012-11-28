@@ -19,7 +19,13 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 
-#include "gsl.h"
+#include "kgsl_types.h"
+#include "kgsl_intrmgr.h"
+#include "kgsl_device.h"
+
+#include "yamato_reg.h"
+
+#include "kgsl_config.h" //gsl_cfg_intrblock_reg
 
 //////////////////////////////////////////////////////////////////////////////
 // macros

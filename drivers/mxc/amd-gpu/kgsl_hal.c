@@ -21,10 +21,6 @@
  * Copyright (C) 2010-2011 Freescale Semiconductor, Inc. All Rights Reserved.
  */
 
-#include "gsl_hal.h"
-#include "gsl_halconfig.h"
-#include "gsl_linux_map.h"
-
 #include <linux/clk.h>
 #include <linux/kernel.h>
 #include <linux/pci.h>
@@ -34,6 +30,14 @@
 #include <linux/uaccess.h>
 #include <asm/tlbflush.h>
 #include <asm/cacheflush.h>
+
+#include "kgsl_hal.h"
+#include "kgsl_halconfig.h"
+#include "kgsl_linux_map.h"
+#include "kgsl_driver.h"
+
+#include "yamato_reg.h"
+#include "g12_reg.h"
 
 #define DRVNAME "amd-gpu"
 

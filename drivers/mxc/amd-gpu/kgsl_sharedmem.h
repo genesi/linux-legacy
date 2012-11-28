@@ -29,6 +29,8 @@
 #ifndef __GSL_SHAREDMEM_H
 #define __GSL_SHAREDMEM_H
 
+#include "kgsl_hal.h" // MAX_APERTURES
+#include "kgsl_memmgr.h"
 
 //////////////////////////////////////////////////////////////////////////////
 //  defines
@@ -106,5 +108,18 @@ int             kgsl_sharedmem_write0(const struct kgsl_memdesc *memdesc, unsign
 int             kgsl_sharedmem_set0(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes);
 int             kgsl_sharedmem_querystats(gsl_sharedmem_t *shmem, gsl_sharedmem_stats_t *stats);
 unsigned int    kgsl_sharedmem_convertaddr(unsigned int addr, int type);
+
+
+int                kgsl_sharedmem_alloc(unsigned int device_id, gsl_flags_t flags, int sizebytes, struct kgsl_memdesc *memdesc);
+int                kgsl_sharedmem_free(struct kgsl_memdesc *memdesc);
+int                kgsl_sharedmem_read(const struct kgsl_memdesc *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace);
+int                kgsl_sharedmem_write(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace);
+int                kgsl_sharedmem_set(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes);
+unsigned int       kgsl_sharedmem_largestfreeblock(unsigned int device_id, gsl_flags_t flags);
+int                kgsl_sharedmem_map(unsigned int device_id, gsl_flags_t flags, const gsl_scatterlist_t *scatterlist, struct kgsl_memdesc *memdesc);
+int                kgsl_sharedmem_unmap(struct kgsl_memdesc *memdesc);
+int                kgsl_sharedmem_getmap(const struct kgsl_memdesc *memdesc, gsl_scatterlist_t *scatterlist);
+int                kgsl_sharedmem_cacheoperation(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int sizebytes, unsigned int operation);
+int                kgsl_sharedmem_fromhostpointer(unsigned int device_id, struct kgsl_memdesc *memdesc, void* hostptr);
 
 #endif // __GSL_SHAREDMEM_H

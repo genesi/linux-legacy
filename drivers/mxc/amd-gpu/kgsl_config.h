@@ -33,6 +33,13 @@
 #ifndef __GSL__CONFIG_H
 #define __GSL__CONFIG_H
 
+#include "kgsl_types.h" // GSL_DEVICE_MAX
+#include "kgsl_mmu.h" // kgsl_mmu_stuff
+
+#include "kgsl_ringbuffer.h" // GSL_RB_SIZE_*
+
+#include "g12_reg.h" // MH stuff
+#include "yamato_reg.h" // bleh
 /* ------------------------
  * Yamato ringbuffer config
  * ------------------------ */

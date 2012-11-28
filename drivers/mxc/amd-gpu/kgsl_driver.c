@@ -18,9 +18,11 @@
 
 #include <linux/sched.h>
 
-#include "gsl.h"
-#include "gsl_hal.h"
-
+#include "kgsl_driver.h"
+#include "kgsl_debug.h"
+#include "kgsl_device.h"
+#include "kgsl_cmdstream.h"
+#include "kgsl_log.h"
 
 //////////////////////////////////////////////////////////////////////////////
 //  defines
@@ -131,8 +133,7 @@ kgsl_driver_close0(gsl_flags_t flags)
 
 //----------------------------------------------------------------------------
 
-int
-kgsl_driver_init()
+int kgsl_driver_init(void)
 {
     // only an external (platform specific device driver) component should call this
 
@@ -141,8 +142,7 @@ kgsl_driver_init()
 
 //----------------------------------------------------------------------------
 
-int
-kgsl_driver_close()
+int kgsl_driver_close(void)
 {
     // only an external (platform specific device driver) component should call this
 

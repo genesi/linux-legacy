@@ -31,6 +31,8 @@
 
 #include <linux/sched.h>
 
+#include "kgsl_types.h"
+
 //////////////////////////////////////////////////////////////////////////////
 //  types
 //////////////////////////////////////////////////////////////////////////////
@@ -101,5 +103,7 @@ int             kgsl_intr_enable(gsl_intr_t *intr, gsl_intrid_t id);
 int             kgsl_intr_disable(gsl_intr_t *intr, gsl_intrid_t id);
 int             kgsl_intr_isenabled(gsl_intr_t *intr, gsl_intrid_t id);
 void            kgsl_intr_decode(struct kgsl_device *device, gsl_intrblock_t block_id);
+
+void               kgsl_intr_isr(struct kgsl_device *device);
 
 #endif  // __GSL_INTMGR_H

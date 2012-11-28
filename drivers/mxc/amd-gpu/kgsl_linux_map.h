@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2010, Advanced Micro Devices. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -7,7 +7,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of Code Aurora Forum nor
+ *     * Neither the name of Advanced Micro Devices nor
  *       the names of its contributors may be used to endorse or promote
  *       products derived from this software without specific prior written
  *       permission.
@@ -26,13 +26,19 @@
  *
  */
 
-#ifndef __GSL_TBDUMP_H
-#define __GSL_TBDUMP_H
+#ifndef __GSL_LINUX_MAP_H__
+#define __GSL_LINUX_MAP_H__
 
-void tbdump_open(char* filename);
-void tbdump_close();
-void tbdump_syncmem(unsigned int addr, unsigned int src, unsigned int sizebytes);
-void tbdump_setmem(unsigned int addr, unsigned int value, unsigned int sizebytes);
-void tbdump_slavewrite(unsigned int addr, unsigned int value);
+#define GSL_LINUX_MAP_RANGE_START (1024*1024)
+#define GSL_LINUX_MAP_RANGE_END (GSL_LINUX_MAP_RANGE_START+GSL_HAL_SHMEM_SIZE_EMEM_MMU)
 
-#endif // __GSL_TBDUMP_H
+int gsl_linux_map_init(void);
+void *gsl_linux_map_alloc(unsigned int gpu_addr, unsigned int size);
+void gsl_linux_map_free(unsigned int gpu_addr);
+void *gsl_linux_map_find(unsigned int gpu_addr);
+void *gsl_linux_map_read(void *dst, unsigned int gpuoffset, unsigned int sizebytes, unsigned int touserspace);
+void *gsl_linux_map_write(void *src, unsigned int gpuoffset, unsigned int sizebytes, unsigned int fromuserspace);
+void *gsl_linux_map_set(unsigned int gpuoffset, unsigned int value, unsigned int sizebytes);
+int gsl_linux_map_destroy(void);
+
+#endif

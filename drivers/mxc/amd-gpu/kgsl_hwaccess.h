@@ -33,7 +33,8 @@
 #include <asm/system.h>
 #include <asm/uaccess.h>
 
-#include "gsl_linux_map.h"
+#include "kgsl_halconfig.h" // EMEM_MMU stuff
+#include "kgsl_linux_map.h" // GSL_LINUX_MAP_RANGE_START etc.
 
 static __inline void
 kgsl_hwaccess_memread(void *dst, unsigned int gpubase, unsigned int gpuoffset, unsigned int sizebytes, unsigned int touserspace)

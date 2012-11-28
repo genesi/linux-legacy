@@ -28,12 +28,13 @@
 
 #ifndef __GSL_KMOD_CLEANUP_H
 #define __GSL_KMOD_CLEANUP_H
-#include "gsl_types.h"
 
 #include <linux/gfp.h>
 #include <linux/slab.h>
 #include <linux/fs.h>
 #include <linux/list.h>
+
+#include "kgsl_types.h"
 
 #if (GSL_CONTEXT_MAX > 127)
     #error created_contexts_array supports context numbers only 127 or less.

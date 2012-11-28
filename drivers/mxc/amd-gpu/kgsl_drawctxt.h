@@ -29,6 +29,8 @@
 #ifndef __GSL_DRAWCTXT_H
 #define __GSL_DRAWCTXT_H
 
+#include "kgsl_types.h"
+
 //////////////////////////////////////////////////////////////////////////////
 // Flags
 //////////////////////////////////////////////////////////////////////////////
@@ -114,5 +116,11 @@ int     kgsl_drawctxt_destroyall(struct kgsl_device *device);
 void    kgsl_drawctxt_switch(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, gsl_flags_t flags);
 int     kgsl_drawctxt_create(struct kgsl_device* device, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags);
 int     kgsl_drawctxt_destroy(struct kgsl_device* device, unsigned int drawctxt_id);
+
+int                kgsl_drawctxt_bind_gmem_shadow(unsigned int device_id, unsigned int drawctxt_id, const struct kgsl_gmem_desc* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const struct kgsl_buffer_desc* shadow_buffer, unsigned int buffer_id);
+
+/* these are in the wrong place..! */
+int                kgsl_context_create(unsigned int device_id, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags);
+int                kgsl_context_destroy(unsigned int device_id, unsigned int drawctxt_id);
 
 #endif  // __GSL_DRAWCTXT_H

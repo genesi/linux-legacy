@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2010, Advanced Micro Devices. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -7,7 +7,7 @@
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in the
  *       documentation and/or other materials provided with the distribution.
- *     * Neither the name of Code Aurora Forum nor
+ *     * Neither the name of Advanced Micro Devices nor
  *       the names of its contributors may be used to endorse or promote
  *       products derived from this software without specific prior written
  *       permission.
@@ -26,18 +26,32 @@
  *
  */
 
-#ifndef __GSL_UTILS_H
-#define __GSL_UTILS_H
-
+#ifndef __GSL_DEBUG_H
+#define __GSL_DEBUG_H
 
 //////////////////////////////////////////////////////////////////////////////
 //  macros
 //////////////////////////////////////////////////////////////////////////////
-#define GSL_QUADPOW2_TO_SIZEBYTES(quadpow2)     (8 << (quadpow2))
-#define GSL_QUADPOW2_TO_SIZEDWORDS(quadpow2)    (2 << (quadpow2))
-#define GSL_POW2TEST(size)                      ((size) && !((size) & ((size) - 1)))
-#define GSL_POW2ALIGN_DOWN(addr, alignsize)     ((addr) & ~((alignsize) - 1));
-#define GSL_POW2ALIGN_UP(addr, alignsize)       (((addr) + ((alignsize) - 1)) & ~((alignsize) - 1))
+#ifdef _DEBUG
+#define KGSL_DEBUG(flag, action)                            if (gsl_driver.flags_debug & flag) {action;}
+#else
+#define KGSL_DEBUG(flag, action)
+#endif
 
+#define KGSL_DEBUG_DUMPPM4(cmds, sizedwords)
+#define KGSL_DEBUG_DUMPREGWRITE(addr, value)
+#define KGSL_DEBUG_DUMPMEMWRITE(addr, sizebytes, data)
+#define KGSL_DEBUG_DUMPMEMSET(addr, sizebytes, value)
+#define KGSL_DEBUG_DUMPFBSTART(device)
+#define KGSL_DEBUG_DUMPREGSPACE(device)
+#define KGSL_DEBUG_DUMPWINDOW(addr, width, height)
+#define KGSL_DEBUG_DUMPX(cmd, par1, par2, par3, comment)
 
-#endif  // __GSL_UTILS_H
+#define KGSL_DEBUG_TBDUMP_OPEN(file)
+#define KGSL_DEBUG_TBDUMP_CLOSE()
+#define KGSL_DEBUG_TBDUMP_SYNCMEM(addr, src, sizebytes)
+#define KGSL_DEBUG_TBDUMP_SETMEM(addr, value, sizebytes)
+#define KGSL_DEBUG_TBDUMP_SLAVEWRITE(addr, value)
+#define KGSL_DEBUG_TBDUMP_WAITIRQ()
+
+#endif // __GSL_DEBUG_H

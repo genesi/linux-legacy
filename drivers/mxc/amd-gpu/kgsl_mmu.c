@@ -19,9 +19,13 @@
 #include <linux/slab.h>
 #include <linux/sched.h>
 
-#include "gsl.h"
-#include "gsl_hal.h"
-
+#include "kgsl_sharedmem.h"
+#include "kgsl_mmu.h"
+#include "kgsl_device.h"
+#include "kgsl_log.h"
+#include "kgsl_config.h"
+#include "kgsl_driver.h"
+#include "kgsl_debug.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // types

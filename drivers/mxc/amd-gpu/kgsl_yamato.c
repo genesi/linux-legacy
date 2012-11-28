@@ -19,12 +19,18 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 
-#include "gsl.h"
-#include "gsl_hal.h"
+#include "kgsl_types.h"
+#include "kgsl_device.h"
+#include "kgsl_driver.h"
+#include "kgsl_ringbuffer.h" // needed for rb config
+#include "kgsl_drawctxt.h"
+#include "kgsl_cmdstream.h"
+#include "kgsl_hwaccess.h"
 
-#include "gsl_ringbuffer.h"
-#include "gsl_drawctxt.h"
+#include "yamato_reg.h"
+#include "kgsl_pm4types.h"
 
+#include "kgsl_debug.h"
 
 /* Yamato MH arbiter config*/
 #define KGSL_CFG_YAMATO_MHARB \

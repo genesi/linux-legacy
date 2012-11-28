@@ -18,8 +18,17 @@
 
 #include <linux/sched.h>
 
-#include "gsl.h"
-#include "gsl_hal.h"
+#include "kgsl_types.h"
+#include "kgsl_hal.h"
+#include "kgsl_log.h"
+#include "kgsl_device.h"
+#include "kgsl_driver.h"
+#include "kgsl_cmdstream.h"
+#include "kgsl_ioctl.h"
+#include "kgsl_debug.h"
+
+int kgsl_device_stop(unsigned int device_id);
+
 
 //////////////////////////////////////////////////////////////////////////////
 //  inline functions
@@ -557,7 +566,7 @@ kgsl_device_regread(unsigned int device_id, unsigned int offsetwords, unsigned i
 
 
 #ifdef CONFIG_KGSL_LOGGING
-    if( offsetwords != mmRBBM_STATUS && offsetwords != mmCP_RB_RPTR ) // Would otherwise flood the log
+    if( offsetwords != REG_RBBM_STATUS && offsetwords != REG_CP_RB_RPTR ) // Would otherwise flood the log
         kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
                         "--> int kgsl_device_regread(unsigned int device_id=%D, unsigned int offsetwords=%R, unsigned int *value=0x%08x)\n", device_id, offsetwords, value );
 #endif
@@ -577,7 +586,7 @@ kgsl_device_regread(unsigned int device_id, unsigned int offsetwords, unsigned i
     mutex_unlock(&gsl_driver.lock);
 
 #ifdef CONFIG_KGSL_LOGGING
-    if( offsetwords != mmRBBM_STATUS && offsetwords != mmCP_RB_RPTR )
+    if( offsetwords != REG_RBBM_STATUS && offsetwords != REG_CP_RB_RPTR )
         kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_regread. Return value %B\n", status );
 #endif
 

@@ -29,8 +29,8 @@
 #ifndef _GSL_IOCTL_H
 #define _GSL_IOCTL_H
 
-#include "gsl_types.h"
-#include "gsl_properties.h"
+#include "kgsl_types.h"
+#include "kgsl_properties.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // types

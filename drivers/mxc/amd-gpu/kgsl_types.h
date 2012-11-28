@@ -508,4 +508,6 @@ typedef enum _gsl_intrid_t
   GSL_INTR_FOOBAR = 0x7FFFFFFF
 } gsl_intrid_t;
 
+#define DEBUG_ASSERT(x)
+
 #endif  // __GSL_TYPES_H

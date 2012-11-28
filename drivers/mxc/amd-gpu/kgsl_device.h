@@ -36,6 +36,18 @@
 //  types
 //////////////////////////////////////////////////////////////////////////////
 
+
+// forward declaration
+struct kgsl_device;
+
+#include "kgsl_types.h"
+#include "kgsl_intrmgr.h" // for gsl_intr_t
+#include "kgsl_ringbuffer.h" // for gsl_ringbuffer_t
+#include "kgsl_drawctxt.h" // gsl_drawctxt_t
+#include "kgsl_cmdwindow.h" // for GSL_G12_INTR_COUNT
+#include "kgsl_properties.h" // for gsl_property_type_t
+#include "kgsl_mmu.h" // for kgsl_mmu
+
 // --------------
 // function table
 // --------------
@@ -61,6 +73,8 @@ struct kgsl_functable {
 	int (*context_create)         (struct kgsl_device *device, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags);
 	int (*context_destroy)        (struct kgsl_device *device_id, unsigned int drawctxt_id);
 };
+
+#define GSL_CALLER_PROCESS_MAX		64
 
 // device object
 struct kgsl_device {
@@ -115,6 +129,16 @@ int     kgsl_device_runpending(struct kgsl_device *device);
 
 int     kgsl_yamato_getfunctable(struct kgsl_functable *ftbl);
 int     kgsl_g12_getfunctable(struct kgsl_functable *ftbl);
+
+int                kgsl_device_start(unsigned int device_id, gsl_flags_t flags);
+int                kgsl_device_stop(unsigned int device_id);
+int                kgsl_device_idle(unsigned int device_id, unsigned int timeout);
+int                kgsl_device_isidle(unsigned int device_id);
+int                kgsl_device_getproperty(unsigned int device_id, gsl_property_type_t type, void *value, unsigned int sizebytes);
+int                kgsl_device_setproperty(unsigned int device_id, gsl_property_type_t type, void *value, unsigned int sizebytes);
+int                kgsl_device_regread(unsigned int device_id, unsigned int offsetwords, unsigned int *value);
+int                kgsl_device_regwrite(unsigned int device_id, unsigned int offsetwords, unsigned int value);
+int                kgsl_device_waitirq(unsigned int device_id, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout);
 
 int kgsl_clock(unsigned int dev, int enable);
 int kgsl_device_active(struct kgsl_device *dev);

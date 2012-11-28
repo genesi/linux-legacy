@@ -16,8 +16,22 @@
  *
  */
 
-#include "gsl.h"
-#include "gsl_hal.h"
+#include "kgsl_types.h"
+#include "kgsl_mmu.h"
+#include "kgsl_buildconfig.h"
+#include "kgsl_hal.h"
+#include "kgsl_halconfig.h"
+#include "kgsl_memmgr.h"
+#include "kgsl_sharedmem.h"
+#include "kgsl_properties.h"
+#include "kgsl_intrmgr.h"
+#include "kgsl_ringbuffer.h"
+#include "kgsl_drawctxt.h"
+#include "kgsl_cmdwindow.h"
+#include "kgsl_device.h"
+#include "kgsl_driver.h"
+#include "kgsl_linux_map.h"
+#include "kgsl_hwaccess.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // functions

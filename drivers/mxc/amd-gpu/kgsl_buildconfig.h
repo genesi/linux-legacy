@@ -26,37 +26,13 @@
  *
  */
 
-#ifndef __GSL_DISPLAY_H
-#define __GSL_DISPLAY_H
+/*
+ * Copyright (C) 2012 Freescale Semiconductor, Inc. All Rights Reserved.
+ */
 
-#define __GSLDISPLAY_EXPORTS
+#ifndef __GSL__BUILDCONFIG_H
+#define __GSL__BUILDCONFIG_H
 
-#include "gsl_libapi.h"
-#include "gsl_klibapi.h"    // hack to enable direct reg write
-#include "gsl_displayapi.h"
+#define GSL_CALLER_PROCESS_MAX      64
 
-
-//////////////////////////////////////////////////////////////////////////////
-//  defines                    
-//////////////////////////////////////////////////////////////////////////////
-#define GSL_LIB_MAXDISPLAYS     1
-#define GSL_LIB_MAXSURFACES     3
-
-
-//////////////////////////////////////////////////////////////////////////////
-//  types
-//////////////////////////////////////////////////////////////////////////////
-typedef struct _gsl_display_t {
-    int                   numdisplays;
-    gsl_displaymode_t     mode[GSL_LIB_MAXDISPLAYS];
-    gsl_devhandle_t       devhandle;
-} gsl_display_t;
-
-
-//////////////////////////////////////////////////////////////////////////////
-//  prototypes
-//////////////////////////////////////////////////////////////////////////////
-int     gsl_display_hitachi_240x320_tft_init(int display_id);
-int     gsl_display_toshiba_640x480_tft_init(int display_id);
-
-#endif // __GSL_DISPLAY_H
+#endif /* __GSL__BUILDCONFIG_H */

@@ -33,9 +33,7 @@
 extern "C" {
 #endif // __cplusplus
 
-#include "gsl.h"
-#include "gsl_hwaccess.h"
-
+#include "kgsl_types.h"
 
 //////////////////////////////////////////////////////////////////////////////
 // linkage
@@ -85,6 +83,8 @@ typedef struct _gsl_apertureconfig_t
     unsigned int      gpubase;
     unsigned int      sizebytes;
 } gsl_apertureconfig_t;
+
+#define GSL_SHMEM_MAX_APERTURES     2
 
 // --------------------
 // shared memory config

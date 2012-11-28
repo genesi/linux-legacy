@@ -389,7 +389,6 @@ union reg_cp_rb_cntl {
 
 #define REG_SCRATCH_ADDR                 0x01DD
 #define REG_SCRATCH_REG0                 0x0578
-#define REG_CP_TIMESTAMP		 REG_SCRATCH_REG0 // hack for fsl/qcom compat
 #define REG_SCRATCH_REG2                 0x057A
 #define REG_SCRATCH_REG7		 0x057F // fsl
 #define REG_SCRATCH_UMSK                 0x01DC

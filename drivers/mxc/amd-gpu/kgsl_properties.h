@@ -26,46 +26,70 @@
  *
  */
 
-#ifndef __GSL_H
-#define __GSL_H
+#ifndef __GSL_PROPERTIES_H
+#define __GSL_PROPERTIES_H
 
-#define __KERNEL_MODE__
-
-
-struct kgsl_device;
-
+#include "kgsl_types.h"
 
 //////////////////////////////////////////////////////////////////////////////
-//  includes
+// types
 //////////////////////////////////////////////////////////////////////////////
-#include "gsl_buildconfig.h"
 
-#include "gsl_klibapi.h"
+// --------------
+// property types
+// --------------
+typedef enum _gsl_property_type_t
+{
+    GSL_PROP_DEVICE_INFO      = 0x00000001,
+    GSL_PROP_DEVICE_SHADOW    = 0x00000002,
+    GSL_PROP_DEVICE_POWER     = 0x00000003,
+    GSL_PROP_SHMEM            = 0x00000004,
+    GSL_PROP_SHMEM_APERTURES  = 0x00000005,
+    GSL_PROP_DEVICE_DMI       = 0x00000006
+} gsl_property_type_t;
 
-// Z430
-#include <yamato_reg.h>
-#include "gsl_pm4types.h"
-#include "gsl_utils.h"
-#include "gsl_drawctxt.h"
-#include "gsl_ringbuffer.h"
+// -----------------
+// aperture property
+// -----------------
+typedef struct _gsl_apertureprop_t {
+    unsigned int  gpuaddr;
+    unsigned int  hostaddr;
+} gsl_apertureprop_t;
 
-// Z160/Z180
-#include <g12_reg.h>
-#include "gsl_cmdwindow.h"
+// --------------
+// shmem property
+// --------------
+typedef struct _gsl_shmemprop_t {
+    int                 numapertures;
+    unsigned int        aperture_mask;
+    unsigned int        aperture_shift;
+    gsl_apertureprop_t  *aperture;
+} gsl_shmemprop_t;
 
-#include "gsl_debug.h"
-#include "gsl_mmu.h"
-#include "gsl_memmgr.h"
-#include "gsl_sharedmem.h"
-#include "gsl_intrmgr.h"
-#include "gsl_cmdstream.h"
-#include "gsl_device.h"
-#include "gsl_driver.h"
-#include "gsl_log.h"
+// -----------------------------
+// device shadow memory property
+// -----------------------------
+typedef struct _gsl_shadowprop_t {
+    unsigned int  hostaddr;
+    unsigned int  size;
+    gsl_flags_t   flags;
+} gsl_shadowprop_t;
 
-#include "gsl_config.h"
+// ---------------------
+// device power property
+// ---------------------
+typedef struct _gsl_powerprop_t {
+    unsigned int  value;
+    gsl_flags_t   flags;
+} gsl_powerprop_t;
 
 
-#define DEBUG_ASSERT(x)
+// ---------------------
+// device DMI property
+// ---------------------
+typedef struct _gsl_dmiprop_t {
+    unsigned int  value;
+    gsl_flags_t   flags;
+} gsl_dmiprop_t;
 
-#endif // __GSL_H
+#endif  // __GSL_PROPERTIES_H

@@ -18,8 +18,10 @@
 
 #include <linux/slab.h>
 
-#include "gsl.h"
-#include "gsl_hal.h"
+#include "kgsl_types.h"
+#include "kgsl_memmgr.h"
+#include "kgsl_debug.h"
+#include "kgsl_log.h"
 
 /*
  * defines
