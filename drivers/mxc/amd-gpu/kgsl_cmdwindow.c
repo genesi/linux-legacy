@@ -29,19 +29,23 @@
 
 int kgsl_cmdwindow_init(struct kgsl_device *device)
 {
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
 	device->cmdwindow_mutex = kmalloc(sizeof(struct mutex), GFP_KERNEL);
 	if (!device->cmdwindow_mutex)
 		return GSL_FAILURE;
 	mutex_init(device->cmdwindow_mutex);
+#endif
 	return GSL_SUCCESS;
 }
 
 int kgsl_cmdwindow_close(struct kgsl_device *device)
 {
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
 	if (!device->cmdwindow_mutex)
 		return GSL_FAILURE;
 	kfree(device->cmdwindow_mutex);
 	device->cmdwindow_mutex = NULL;
+#endif
 	return GSL_SUCCESS;
 }
 
@@ -92,7 +96,9 @@ kgsl_cmdwindow_write0(unsigned int device_id, enum kgsl_cmdwindow_type target, u
     cmdwinaddr  = ((target << GSL_CMDWINDOW_TARGET_SHIFT) & GSL_CMDWINDOW_TARGET_MASK);
     cmdwinaddr |= ((addr   << GSL_CMDWINDOW_ADDR_SHIFT)   & GSL_CMDWINDOW_ADDR_MASK);
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(device->cmdwindow_mutex);
+#endif
 
 #ifdef CONFIG_KGSL_MMU_ENABLE
     // set mmu pagetable
@@ -105,8 +111,9 @@ kgsl_cmdwindow_write0(unsigned int device_id, enum kgsl_cmdwindow_type target, u
     // write data
     device->ftbl.regwrite(device, (cmdstream)>>2, data);
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_unlock(device->cmdwindow_mutex);
-
+#endif
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_cmdwindow_write. Return value %B\n", GSL_SUCCESS );
 
     return (GSL_SUCCESS);

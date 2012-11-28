@@ -390,7 +390,9 @@ kgsl_mmu_setpagetable(struct kgsl_device *device, unsigned int pid)
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> struct kgsl_pagetable* kgsl_mmu_setpagetable(struct kgsl_device *device=0x%08x)\n", device );
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(mmu->mutex);
+#endif
 
     if (mmu->flags & GSL_FLAGS_STARTED)
     {
@@ -430,8 +432,9 @@ kgsl_mmu_setpagetable(struct kgsl_device *device, unsigned int pid)
 		}
 	}
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_unlock(mmu->mutex);
-
+#endif
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_setpagetable. Return value %B\n", status );
 
     return (status);
@@ -518,9 +521,10 @@ kgsl_mmu_init(struct kgsl_device *device)
         if ((mmu->config & ~0x1) > 0)
         {
 	    // this needs to be error checked better
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
 	    mmu->mutex = kmalloc(sizeof(struct mutex), GFP_KERNEL);
 	    mutex_init(mmu->mutex);
-
+#endif
             // make sure virtual address range is a multiple of 64Kb
             DEBUG_ASSERT((mmu->va_range & ((1 << 16)-1)) == 0);
 
@@ -613,12 +617,16 @@ kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t
     // get gpu access permissions
     ap = GSL_PT_PAGE_AP[((flags & GSL_MEMFLAGS_GPUAP_MASK) >> GSL_MEMFLAGS_GPUAP_SHIFT)];
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(mmu->mutex);
+#endif
 
     pagetable = kgsl_mmu_getpagetableobject(mmu, pid);
     if (!pagetable)
     {
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
 	mutex_unlock(mmu->mutex);
+#endif
         return (GSL_FAILURE);
     }
 
@@ -693,7 +701,9 @@ kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t
         status = GSL_FAILURE;
     }
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_unlock(mmu->mutex);
+#endif
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_map. Return value %B\n", GSL_SUCCESS );
 
@@ -741,11 +751,15 @@ kgsl_mmu_unmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, unsigned i
         numpages++;
     }
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(mmu->mutex);
+#endif
     pagetable = kgsl_mmu_getpagetableobject(mmu, pid);
     if (!pagetable)
     {
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
 	mutex_unlock(mmu->mutex);
+#endif
         return (GSL_FAILURE);
     }
 
@@ -800,8 +814,9 @@ kgsl_mmu_unmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, unsigned i
     // invalidate tlb, debug only
 	KGSL_DEBUG(GSL_DBGFLAGS_MMU, mmu->device->ftbl.mmu_tlbinvalidate(mmu->device, gsl_cfg_mmu_reg[mmu->device->id-1].INVALIDATE, pagetable->pid));
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_unlock(mmu->mutex);
-
+#endif
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_unmap. Return value %B\n", GSL_SUCCESS );
 
     return (status);
@@ -836,12 +851,15 @@ kgsl_mmu_getmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, gsl_scatt
         return (GSL_FAILURE);
     }
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(mmu->mutex);
-
+#endif
     pagetable = kgsl_mmu_getpagetableobject(mmu, pid);
     if (!pagetable)
     {
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
 	mutex_unlock(mmu->mutex);
+#endif
         return (GSL_FAILURE);
     }
 
@@ -875,8 +893,9 @@ kgsl_mmu_getmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, gsl_scatt
         scatterlist->pages[0] = GSL_PT_MAP_GETADDR(ptefirst);
     }
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_unlock(mmu->mutex);
-
+#endif
     scatterlist->contiguous = contiguous;
 
     return (GSL_SUCCESS);
@@ -946,10 +965,11 @@ kgsl_mmu_close(struct kgsl_device *device)
                 kgsl_sharedmem_free0(&mmu->dummyspace, current->tgid);
             }
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
 	    // this needs to be error checked better!
 	    kfree(mmu->mutex);
 	    mmu->mutex = NULL;
-
+#endif
             mmu->flags &= ~GSL_FLAGS_STARTED;
             mmu->flags &= ~GSL_FLAGS_INITIALIZED;
             mmu->flags &= ~GSL_FLAGS_INITIALIZED0;
@@ -976,8 +996,9 @@ kgsl_mmu_attachcallback(struct kgsl_mmu *mmu, unsigned int pid)
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_mmu_attachcallback(struct kgsl_mmu *mmu=0x%08x, uint pid=0x%08x)\n", mmu, pid );
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(mmu->mutex);
-
+#endif
     if (mmu->flags & GSL_FLAGS_INITIALIZED0)
     {
         // attach to current device mmu
@@ -998,8 +1019,9 @@ kgsl_mmu_attachcallback(struct kgsl_mmu *mmu, unsigned int pid)
         }
     }
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_unlock(mmu->mutex);
-
+#endif
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_attachcallback. Return value %B\n", status );
 
     return (status);
@@ -1018,8 +1040,9 @@ kgsl_mmu_detachcallback(struct kgsl_mmu *mmu, unsigned int pid)
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_mmu_detachcallback(struct kgsl_mmu *mmu=0x%08x, uint pid=0x%08x)\n", mmu, pid );
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(mmu->mutex);
-
+#endif
     if (mmu->flags & GSL_FLAGS_INITIALIZED0)
     {
         // detach from current device mmu
@@ -1040,8 +1063,9 @@ kgsl_mmu_detachcallback(struct kgsl_mmu *mmu, unsigned int pid)
         }
     }
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_unlock(mmu->mutex);
-
+#endif
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_mmu_detachcallback. Return value %B\n", status );
 
     return (status);
@@ -1057,8 +1081,9 @@ kgsl_mmu_querystats(struct kgsl_mmu *mmu, gsl_mmustats_t *stats)
 
     DEBUG_ASSERT(stats);
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(mmu->mutex);
-
+#endif
     if (mmu->flags & GSL_FLAGS_STARTED)
     {
 		memcpy(stats, &mmu->stats, sizeof(gsl_mmustats_t));
@@ -1068,8 +1093,9 @@ kgsl_mmu_querystats(struct kgsl_mmu *mmu, gsl_mmustats_t *stats)
 		memset(stats, 0, sizeof(gsl_mmustats_t));
     }
 
+#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_unlock(mmu->mutex);
-
+#endif
     return (status);
 #else
     // unreferenced formal parameters

@@ -21,6 +21,14 @@ config KGSL_MMU_ENABLE
 	depends on MXC_KGSL && MMU
 	default y
 
+config KGSL_FINE_GRAINED_LOCKING
+	bool "Enable fine-grained locking in the KGSL driver"
+	depends on MXC_KGSL
+	default n
+	---help---
+	 Currently has some serialization issues, only enable if
+	 you are willing to solve them. For now, N!
+
 config KGSL_PER_PROCESS_PAGE_TABLE
 	bool "Enable Per Process page tables for the KGSL driver"
 	default n
