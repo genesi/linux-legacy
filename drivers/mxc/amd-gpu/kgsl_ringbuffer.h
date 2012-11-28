@@ -108,7 +108,7 @@ typedef struct _gsl_rb_debug_t {
 // ringbuffer watchdog
 // -------------------
 typedef struct _gsl_rbwatchdog_t {
-    gsl_flags_t   flags;
+    unsigned int   flags;
     unsigned int  rptr_sample;
 } gsl_rbwatchdog_t;
 
@@ -143,7 +143,7 @@ typedef struct _gsl_rbstats_t {
 typedef struct _gsl_ringbuffer_t {
 
     struct kgsl_device      *device;
-    gsl_flags_t       flags;
+    unsigned int       flags;
     struct mutex	*mutex;
     struct kgsl_memdesc     buffer_desc;              // allocated memory descriptor
     struct kgsl_memdesc     memptrs_desc;
@@ -230,7 +230,7 @@ int             kgsl_ringbuffer_close(gsl_ringbuffer_t *rb);
 int             kgsl_ringbuffer_start(gsl_ringbuffer_t *rb);
 int             kgsl_ringbuffer_stop(gsl_ringbuffer_t *rb);
 unsigned int	kgsl_ringbuffer_issuecmds(struct kgsl_device *device, int pmodeoff, unsigned int *cmdaddr, int sizedwords, unsigned int pid);
-int             kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, gsl_flags_t flags);
+int             kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags);
 void            kgsl_ringbuffer_watchdog(void);
 
 int             kgsl_ringbuffer_querystats(gsl_ringbuffer_t *rb, gsl_rbstats_t *stats);

@@ -38,7 +38,7 @@
 
 typedef struct _kgsl_device_start_t {
     unsigned int  device_id;
-    gsl_flags_t flags;
+    unsigned int flags;
 } kgsl_device_start_t;
 
 typedef struct _kgsl_device_stop_t {
@@ -93,7 +93,7 @@ typedef struct _kgsl_cmdstream_issueibcmds_t {
     uint32_t   ibaddr;
     int     sizedwords;
     unsigned int *timestamp;
-    gsl_flags_t flags;
+    unsigned int flags;
 } kgsl_cmdstream_issueibcmds_t;
 
 typedef struct _kgsl_cmdstream_readtimestamp_t {
@@ -126,7 +126,7 @@ typedef struct _kgsl_context_create_t {
     unsigned int  device_id;
     gsl_context_type_t  type;
     unsigned int    *drawctxt_id;
-    gsl_flags_t flags;
+    unsigned int flags;
 } kgsl_context_create_t;
 
 typedef struct _kgsl_context_destroy_t {
@@ -146,7 +146,7 @@ typedef struct _kgsl_drawctxt_bind_gmem_shadow_t {
 
 typedef struct _kgsl_sharedmem_alloc_t {
     unsigned int  device_id;
-    gsl_flags_t flags;
+    unsigned int flags;
     int     sizebytes;
     struct kgsl_memdesc   *memdesc;
 } kgsl_sharedmem_alloc_t;
@@ -178,7 +178,7 @@ typedef struct _kgsl_sharedmem_set_t {
 
 typedef struct _kgsl_sharedmem_largestfreeblock_t {
     unsigned int  device_id;
-    gsl_flags_t flags;
+    unsigned int flags;
     unsigned int    *largestfreeblock;
 } kgsl_sharedmem_largestfreeblock_t;
 

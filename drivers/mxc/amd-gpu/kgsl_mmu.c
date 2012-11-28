@@ -299,7 +299,7 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu, unsigned int pid)
     unsigned int   tmp_id;
     struct kgsl_device     *tmp_device;
     int              pindex;
-    gsl_flags_t      flags;
+    unsigned int      flags;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> struct kgsl_pagetable* kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu=0x%08x, uint pid=0x%08x)\n", mmu, pid );
 
@@ -455,7 +455,7 @@ kgsl_mmu_init(struct kgsl_device *device)
     // call this with the global lock held
     //
     int              status;
-    gsl_flags_t      flags;
+    unsigned int      flags;
     struct kgsl_pagetable  *pagetable;
     unsigned int     devindex = device->id-1;       // device_id is 1 based
     struct kgsl_mmu        *mmu     = &device->mmu;
@@ -593,7 +593,7 @@ kgsl_mmu_init(struct kgsl_device *device)
 //----------------------------------------------------------------------------
 
 int
-kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t *scatterlist, gsl_flags_t flags, unsigned int pid)
+kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t *scatterlist, unsigned int flags, unsigned int pid)
 {
     //
     // map physical pages into the gpu page table
@@ -605,7 +605,7 @@ kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t
     struct kgsl_pagetable  *pagetable;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_mmu_map(struct kgsl_mmu *mmu=0x%08x, uint32_t gpubaseaddr=0x%08x, gsl_scatterlist_t *scatterlist=%S, gsl_flags_t flags=%x, uint pid=0x%08x)\n",
+                    "--> int kgsl_mmu_map(struct kgsl_mmu *mmu=0x%08x, uint32_t gpubaseaddr=0x%08x, gsl_scatterlist_t *scatterlist=%S, unsigned int flags=%x, uint pid=0x%08x)\n",
                     mmu, gpubaseaddr, scatterlist, flags, pid );
 
     DEBUG_ASSERT(scatterlist);

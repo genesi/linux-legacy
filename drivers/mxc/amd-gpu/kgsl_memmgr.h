@@ -115,10 +115,10 @@ gsl_memarena_t* kgsl_memarena_create(int aperture_id, int mmu_virtualized, unsig
 int             kgsl_memarena_destroy(gsl_memarena_t *memarena);
 int             kgsl_memarena_isvirtualized(gsl_memarena_t *memarena);
 int             kgsl_memarena_querystats(gsl_memarena_t *memarena, gsl_memarena_stats_t *stats);
-int             kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, struct kgsl_memdesc *memdesc);
+int             kgsl_memarena_alloc(gsl_memarena_t *memarena, unsigned int flags, int size, struct kgsl_memdesc *memdesc);
 void            kgsl_memarena_free(gsl_memarena_t *memarena, struct kgsl_memdesc *memdesc);
 void*           kgsl_memarena_gethostptr(gsl_memarena_t *memarena, uint32_t gpuaddr);
 unsigned int    kgsl_memarena_getgpuaddr(gsl_memarena_t *memarena, void *hostptr);
-unsigned int    kgsl_memarena_getlargestfreeblock(gsl_memarena_t *memarena, gsl_flags_t flags);
+unsigned int    kgsl_memarena_getlargestfreeblock(gsl_memarena_t *memarena, unsigned int flags);
 
 #endif  // __GSL_MEMMGR_H

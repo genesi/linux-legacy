@@ -44,7 +44,7 @@
 // driver object
 // -------------
 typedef struct _gsl_driver_t {
-    gsl_flags_t      flags_debug;
+    unsigned int      flags_debug;
     int              refcnt;
     unsigned int     callerprocess[GSL_CALLER_PROCESS_MAX]; // caller process table
     struct mutex     lock;                                 // global API mutex
@@ -52,7 +52,7 @@ typedef struct _gsl_driver_t {
     gsl_sharedmem_t  shmem;
     struct kgsl_device     device[GSL_DEVICE_MAX];
     int              dmi_state;     //  OS_TRUE = enabled, OS_FALSE otherwise
-    gsl_flags_t      dmi_mode;      //  single, double, or triple buffering
+    unsigned int      dmi_mode;      //  single, double, or triple buffering
     int              dmi_frame;     //  set to -1 when DMI is enabled
     int              dmi_max_frame; //  indicates the maximum frame # that we will support
     int              enable_mmu;
@@ -87,7 +87,7 @@ kgsl_driver_getcallerprocessindex(unsigned int pid, int *index)
 }
 int                kgsl_driver_init(void);
 int                kgsl_driver_close(void);
-int                kgsl_driver_entry(gsl_flags_t flags);
+int                kgsl_driver_entry(unsigned int flags);
 int                kgsl_driver_exit(void);
 int                kgsl_driver_destroy(unsigned int pid);
 

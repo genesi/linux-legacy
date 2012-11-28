@@ -39,7 +39,7 @@ void kgsl_cmdstream_memqueue_drain(struct kgsl_device *device);
 int kgsl_cmdstream_init(struct kgsl_device *device);
 int kgsl_cmdstream_close(struct kgsl_device *device);
 
-int                kgsl_cmdstream_issueibcmds(unsigned int device_id, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, gsl_flags_t flags);
+int                kgsl_cmdstream_issueibcmds(unsigned int device_id, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags);
 unsigned int    kgsl_cmdstream_readtimestamp(unsigned int device_id, enum kgsl_timestamp_type type);
 int                kgsl_cmdstream_freememontimestamp(unsigned int device_id, struct kgsl_memdesc *memdesc, unsigned int timestamp, enum kgsl_timestamp_type type);
 int                kgsl_cmdstream_waittimestamp(unsigned int device_id, unsigned int timestamp, unsigned int timeout);

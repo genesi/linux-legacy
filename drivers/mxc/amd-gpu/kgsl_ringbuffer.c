@@ -672,7 +672,7 @@ int
 kgsl_ringbuffer_init(struct kgsl_device *device)
 {
     int               status;
-    gsl_flags_t       flags;
+    unsigned int       flags;
     gsl_ringbuffer_t  *rb = &device->ringbuffer;
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
@@ -875,7 +875,7 @@ kgsl_ringbuffer_issuecmds(struct kgsl_device *device, int pmodeoff, unsigned int
 
 //----------------------------------------------------------------------------
 int
-kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, gsl_flags_t flags)
+kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags)
 {
     unsigned int  link[3];
     gsl_ringbuffer_t  *rb = &device->ringbuffer;

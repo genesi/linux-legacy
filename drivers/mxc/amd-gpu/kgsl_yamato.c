@@ -449,7 +449,7 @@ kgsl_yamato_destroy(struct kgsl_device *device)
 //----------------------------------------------------------------------------
 
 int
-kgsl_yamato_start(struct kgsl_device *device, gsl_flags_t flags)
+kgsl_yamato_start(struct kgsl_device *device, unsigned int flags)
 {
     int           status = GSL_FAILURE;
     unsigned int  pm1, pm2;

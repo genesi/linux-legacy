@@ -72,7 +72,7 @@ typedef struct _gsl_shmemprop_t {
 typedef struct _gsl_shadowprop_t {
     unsigned int  hostaddr;
     unsigned int  size;
-    gsl_flags_t   flags;
+    unsigned int   flags;
 } gsl_shadowprop_t;
 
 // ---------------------
@@ -80,7 +80,7 @@ typedef struct _gsl_shadowprop_t {
 // ---------------------
 typedef struct _gsl_powerprop_t {
     unsigned int  value;
-    gsl_flags_t   flags;
+    unsigned int   flags;
 } gsl_powerprop_t;
 
 
@@ -89,7 +89,7 @@ typedef struct _gsl_powerprop_t {
 // ---------------------
 typedef struct _gsl_dmiprop_t {
     unsigned int  value;
-    gsl_flags_t   flags;
+    unsigned int   flags;
 } gsl_dmiprop_t;
 
 #endif  // __GSL_PROPERTIES_H

@@ -37,10 +37,10 @@
 // globals
 //////////////////////////////////////////////////////////////////////////////
 #ifndef KGSL_USER_MODE
-static gsl_flags_t  gsl_driver_initialized = 0;
+static unsigned int  gsl_driver_initialized = 0;
 gsl_driver_t        gsl_driver;
 #else
-extern gsl_flags_t  gsl_driver_initialized;
+extern unsigned int  gsl_driver_initialized;
 extern gsl_driver_t gsl_driver;
 #endif
 
@@ -50,7 +50,7 @@ extern gsl_driver_t gsl_driver;
 //////////////////////////////////////////////////////////////////////////////
 
 int
-kgsl_driver_init0(gsl_flags_t flags, gsl_flags_t flags_debug)
+kgsl_driver_init0(unsigned int flags, unsigned int flags_debug)
 {
     int  status = GSL_SUCCESS;
 
@@ -102,7 +102,7 @@ kgsl_driver_init0(gsl_flags_t flags, gsl_flags_t flags_debug)
 //----------------------------------------------------------------------------
 
 int
-kgsl_driver_close0(gsl_flags_t flags)
+kgsl_driver_close0(unsigned int flags)
 {
     int  status = GSL_SUCCESS;
 
@@ -152,7 +152,7 @@ int kgsl_driver_close(void)
 //----------------------------------------------------------------------------
 
 int
-kgsl_driver_entry(gsl_flags_t flags)
+kgsl_driver_entry(unsigned int flags)
 {
     int           status = GSL_FAILURE;
     int           index, i;
@@ -163,7 +163,7 @@ kgsl_driver_entry(gsl_flags_t flags)
         return (GSL_FAILURE);
     }
 
-    kgsl_log_write( KGSL_LOG_GROUP_DRIVER | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_driver_entry( gsl_flags_t flags=%x )\n", flags );
+    kgsl_log_write( KGSL_LOG_GROUP_DRIVER | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_driver_entry( unsigned int flags=%x )\n", flags );
 
     mutex_lock(&gsl_driver.lock);
 

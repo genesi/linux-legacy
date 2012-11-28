@@ -55,7 +55,7 @@ struct kgsl_functable {
 	int (*init)            (struct kgsl_device *device);
 	int (*close)           (struct kgsl_device *device);
 	int (*destroy)         (struct kgsl_device *device);
-	int (*start)           (struct kgsl_device *device, gsl_flags_t flags);
+	int (*start)           (struct kgsl_device *device, unsigned int flags);
 	int (*stop)            (struct kgsl_device *device);
 	int (*getproperty)     (struct kgsl_device *device, gsl_property_type_t type, void *value, unsigned int sizebytes);
 	int (*setproperty)     (struct kgsl_device *device, gsl_property_type_t type, void *value, unsigned int sizebytes);
@@ -69,8 +69,8 @@ struct kgsl_functable {
 	int (*intr_isr)               (struct kgsl_device *device);
 	int (*mmu_tlbinvalidate)      (struct kgsl_device *device, unsigned int reg_invalidate, unsigned int pid);
 	int (*mmu_setpagetable)       (struct kgsl_device *device, unsigned int reg_ptbase, uint32_t ptbase, unsigned int pid);
-	int (*cmdstream_issueibcmds)  (struct kgsl_device *device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, gsl_flags_t flags);
-	int (*context_create)         (struct kgsl_device *device, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags);
+	int (*cmdstream_issueibcmds)  (struct kgsl_device *device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags);
+	int (*context_create)         (struct kgsl_device *device, gsl_context_type_t type, unsigned int *drawctxt_id, unsigned int flags);
 	int (*context_destroy)        (struct kgsl_device *device_id, unsigned int drawctxt_id);
 };
 
@@ -81,7 +81,7 @@ struct kgsl_device {
 	unsigned int      refcnt;
 	unsigned int      callerprocess[GSL_CALLER_PROCESS_MAX];    // caller process table
 	struct kgsl_functable   ftbl;
-	gsl_flags_t       flags;
+	unsigned int       flags;
 	unsigned int    id;
 	unsigned int      chip_id;
 	struct kgsl_memregion   regspace;
@@ -130,7 +130,7 @@ int     kgsl_device_runpending(struct kgsl_device *device);
 int     kgsl_yamato_getfunctable(struct kgsl_functable *ftbl);
 int     kgsl_g12_getfunctable(struct kgsl_functable *ftbl);
 
-int                kgsl_device_start(unsigned int device_id, gsl_flags_t flags);
+int                kgsl_device_start(unsigned int device_id, unsigned int flags);
 int                kgsl_device_stop(unsigned int device_id);
 int                kgsl_device_idle(unsigned int device_id, unsigned int timeout);
 int                kgsl_device_isidle(unsigned int device_id);

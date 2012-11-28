@@ -84,7 +84,7 @@ typedef struct _gsl_intr_handler_t
 // -----------------
 typedef struct _gsl_intr_t
 {
-    gsl_flags_t         flags;
+    unsigned int         flags;
     struct kgsl_device        *device;
     unsigned int        enabled[GSL_INTR_BLOCK_COUNT];
     gsl_intr_handler_t  handler[GSL_INTR_COUNT];

@@ -72,7 +72,7 @@
 
 //  block alignment shift count
 static __inline unsigned int
-gsl_memarena_alignmentshift(gsl_flags_t flags)
+gsl_memarena_alignmentshift(unsigned int flags)
 {
     int alignshift = ((flags & GSL_MEMFLAGS_ALIGN_MASK) >> GSL_MEMFLAGS_ALIGN_SHIFT);
     if (alignshift == 0)
@@ -481,7 +481,7 @@ kgsl_memarena_checkfreeblock(gsl_memarena_t *memarena, int bytesneeded)
 //----------------------------------------------------------------------------
 
 int
-kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, struct kgsl_memdesc *memdesc)
+kgsl_memarena_alloc(gsl_memarena_t *memarena, unsigned int flags, int size, struct kgsl_memdesc *memdesc)
 {
     int           result = GSL_FAILURE_OUTOFMEM;
     memblk_t      *ptrfree, *ptrlast, *p;
@@ -493,7 +493,7 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, struc
     int		  err;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_memarena_alloc(gsl_memarena_t *memarena=0x%08x, gsl_flags_t flags=%x, int size=%d, struct kgsl_memdesc *memdesc=%M)\n", memarena, flags, size, memdesc );
+                    "--> int kgsl_memarena_alloc(gsl_memarena_t *memarena=0x%08x, unsigned int flags=%x, int size=%d, struct kgsl_memdesc *memdesc=%M)\n", memarena, flags, size, memdesc );
 
     GSL_MEMARENA_VALIDATE(memarena);
 
@@ -936,7 +936,7 @@ uint32_t kgsl_memarena_getgpuaddr(gsl_memarena_t *memarena, void *hostptr)
 //----------------------------------------------------------------------------
 
 unsigned int
-kgsl_memarena_getlargestfreeblock(gsl_memarena_t *memarena, gsl_flags_t flags)
+kgsl_memarena_getlargestfreeblock(gsl_memarena_t *memarena, unsigned int flags)
 {
     memblk_t      *ptrfree;
     unsigned int  blocksize, largestblocksize = 0;
@@ -944,7 +944,7 @@ kgsl_memarena_getlargestfreeblock(gsl_memarena_t *memarena, gsl_flags_t flags)
     int           err;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> unsigned int kgsl_memarena_getlargestfreeblock(gsl_memarena_t *memarena=0x%08x, gsl_flags_t flags=%x)\n", memarena, flags );
+                    "--> unsigned int kgsl_memarena_getlargestfreeblock(gsl_memarena_t *memarena=0x%08x, unsigned int flags=%x)\n", memarena, flags );
 
     DEBUG_ASSERT(memarena);
     if (GSL_MEMARENA_GET_SIGNATURE != GSL_MEMARENA_INSTANCE_SIGNATURE)

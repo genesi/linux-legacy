@@ -208,7 +208,7 @@ kgsl_sharedmem_close(gsl_sharedmem_t *shmem)
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_alloc0(unsigned int device_id, gsl_flags_t flags, int sizebytes, struct kgsl_memdesc *memdesc)
+kgsl_sharedmem_alloc0(unsigned int device_id, unsigned int flags, int sizebytes, struct kgsl_memdesc *memdesc)
 {
     gsl_apertureid_t  aperture_id;
     gsl_channelid_t   channel_id;
@@ -219,7 +219,7 @@ kgsl_sharedmem_alloc0(unsigned int device_id, gsl_flags_t flags, int sizebytes, 
     gsl_sharedmem_t   *shmem  = &gsl_driver.shmem;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_alloc(unsigned int device_id=%D, gsl_flags_t flags=%x, int sizebytes=%d, struct kgsl_memdesc *memdesc=%M)\n",
+                    "--> int kgsl_sharedmem_alloc(unsigned int device_id=%D, unsigned int flags=%x, int sizebytes=%d, struct kgsl_memdesc *memdesc=%M)\n",
                     device_id, flags, sizebytes, memdesc );
 
     DEBUG_ASSERT(sizebytes);
@@ -392,7 +392,7 @@ kgsl_sharedmem_alloc0(unsigned int device_id, gsl_flags_t flags, int sizebytes, 
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_alloc(unsigned int device_id, gsl_flags_t flags, int sizebytes, struct kgsl_memdesc *memdesc)
+kgsl_sharedmem_alloc(unsigned int device_id, unsigned int flags, int sizebytes, struct kgsl_memdesc *memdesc)
 {
 	int status = GSL_SUCCESS;
 	mutex_lock(&gsl_driver.lock);
@@ -643,7 +643,7 @@ kgsl_sharedmem_set(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes,
 //----------------------------------------------------------------------------
 
 unsigned int
-kgsl_sharedmem_largestfreeblock(unsigned int device_id, gsl_flags_t flags)
+kgsl_sharedmem_largestfreeblock(unsigned int device_id, unsigned int flags)
 {
     gsl_apertureid_t  aperture_id;
     gsl_channelid_t   channel_id;
@@ -657,7 +657,7 @@ kgsl_sharedmem_largestfreeblock(unsigned int device_id, gsl_flags_t flags)
     (void) device_id;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_largestfreeblock(unsigned int device_id=%D, gsl_flags_t flags=%x)\n",
+                    "--> int kgsl_sharedmem_largestfreeblock(unsigned int device_id=%D, unsigned int flags=%x)\n",
                     device_id, flags );
 
     GSL_MEMFLAGS_APERTURE_GET(flags, aperture_id);
@@ -692,7 +692,7 @@ kgsl_sharedmem_largestfreeblock(unsigned int device_id, gsl_flags_t flags)
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_map(unsigned int device_id, gsl_flags_t flags, const gsl_scatterlist_t *scatterlist, struct kgsl_memdesc *memdesc)
+kgsl_sharedmem_map(unsigned int device_id, unsigned int flags, const gsl_scatterlist_t *scatterlist, struct kgsl_memdesc *memdesc)
 {
     int              status = GSL_FAILURE;
     gsl_sharedmem_t  *shmem = &gsl_driver.shmem;
@@ -700,7 +700,7 @@ kgsl_sharedmem_map(unsigned int device_id, gsl_flags_t flags, const gsl_scatterl
     unsigned int   tmp_id;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_sharedmem_map(unsigned int device_id=%D, gsl_flags_t flags=%x, gsl_scatterlist_t scatterlist=%S, struct kgsl_memdesc *memdesc=%M)\n",
+                    "--> int kgsl_sharedmem_map(unsigned int device_id=%D, unsigned int flags=%x, gsl_scatterlist_t scatterlist=%S, struct kgsl_memdesc *memdesc=%M)\n",
                     device_id, flags, memdesc, scatterlist );
 
     // execute pending device action

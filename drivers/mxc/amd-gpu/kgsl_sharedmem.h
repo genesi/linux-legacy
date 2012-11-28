@@ -88,7 +88,7 @@ typedef struct _gsl_aperture_t
 // --------------------
 typedef struct _gsl_sharedmem_t
 {
-    gsl_flags_t     flags;
+    unsigned int     flags;
     unsigned int    priv;
     int             numapertures;
     gsl_aperture_t  apertures[GSL_SHMEM_MAX_APERTURES]; 
@@ -101,7 +101,7 @@ typedef struct _gsl_sharedmem_t
 //////////////////////////////////////////////////////////////////////////////
 int             kgsl_sharedmem_init(gsl_sharedmem_t *shmem);
 int             kgsl_sharedmem_close(gsl_sharedmem_t *shmem);
-int             kgsl_sharedmem_alloc0(unsigned int device_id, gsl_flags_t flags, int sizebytes, struct kgsl_memdesc *memdesc);
+int             kgsl_sharedmem_alloc0(unsigned int device_id, unsigned int flags, int sizebytes, struct kgsl_memdesc *memdesc);
 int             kgsl_sharedmem_free0(struct kgsl_memdesc *memdesc, unsigned int pid);
 int             kgsl_sharedmem_read0(const struct kgsl_memdesc *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace);
 int             kgsl_sharedmem_write0(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace);
@@ -110,13 +110,13 @@ int             kgsl_sharedmem_querystats(gsl_sharedmem_t *shmem, gsl_sharedmem_
 unsigned int    kgsl_sharedmem_convertaddr(unsigned int addr, int type);
 
 
-int                kgsl_sharedmem_alloc(unsigned int device_id, gsl_flags_t flags, int sizebytes, struct kgsl_memdesc *memdesc);
+int                kgsl_sharedmem_alloc(unsigned int device_id, unsigned int flags, int sizebytes, struct kgsl_memdesc *memdesc);
 int                kgsl_sharedmem_free(struct kgsl_memdesc *memdesc);
 int                kgsl_sharedmem_read(const struct kgsl_memdesc *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace);
 int                kgsl_sharedmem_write(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace);
 int                kgsl_sharedmem_set(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes);
-unsigned int       kgsl_sharedmem_largestfreeblock(unsigned int device_id, gsl_flags_t flags);
-int                kgsl_sharedmem_map(unsigned int device_id, gsl_flags_t flags, const gsl_scatterlist_t *scatterlist, struct kgsl_memdesc *memdesc);
+unsigned int       kgsl_sharedmem_largestfreeblock(unsigned int device_id, unsigned int flags);
+int                kgsl_sharedmem_map(unsigned int device_id, unsigned int flags, const gsl_scatterlist_t *scatterlist, struct kgsl_memdesc *memdesc);
 int                kgsl_sharedmem_unmap(struct kgsl_memdesc *memdesc);
 int                kgsl_sharedmem_getmap(const struct kgsl_memdesc *memdesc, gsl_scatterlist_t *scatterlist);
 int                kgsl_sharedmem_cacheoperation(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int sizebytes, unsigned int operation);

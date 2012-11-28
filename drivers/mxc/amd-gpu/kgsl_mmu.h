@@ -138,7 +138,7 @@ typedef struct _gsl_tlbflushfilter_t {
 // ----------
 struct kgsl_mmu {
     unsigned int          refcnt;
-    gsl_flags_t           flags;
+    unsigned int           flags;
     struct kgsl_device          *device;
     unsigned int          config;
     uint32_t             mpu_base;
@@ -177,7 +177,7 @@ int    kgsl_mmu_close(struct kgsl_device *device);
 int    kgsl_mmu_attachcallback(struct kgsl_mmu *mmu, unsigned int pid);
 int    kgsl_mmu_detachcallback(struct kgsl_mmu *mmu, unsigned int pid);
 int    kgsl_mmu_setpagetable(struct kgsl_device *device, unsigned int pid);
-int    kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t *scatterlist, gsl_flags_t flags, unsigned int pid);
+int    kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t *scatterlist, unsigned int flags, unsigned int pid);
 int    kgsl_mmu_unmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, unsigned int pid);
 int    kgsl_mmu_getmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, gsl_scatterlist_t *scatterlist, unsigned int pid);
 int    kgsl_mmu_querystats(struct kgsl_mmu *mmu, gsl_mmustats_t *stats);

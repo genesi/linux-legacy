@@ -775,7 +775,7 @@ static int gsl_kmod_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 
 static int gsl_kmod_open(struct inode *inode, struct file *fd)
 {
-    gsl_flags_t flags = 0;
+    unsigned int flags = 0;
     struct gsl_kmod_per_fd_data *datp;
     int err = 0;
 

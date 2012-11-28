@@ -235,9 +235,6 @@ typedef struct _os_cputimer_t {
 //////////////////////////////////////////////////////////////////////////////
 // types
 //////////////////////////////////////////////////////////////////////////////
-typedef unsigned int        gsl_devhandle_t;
-typedef unsigned int        gsl_ctxthandle_t;
-typedef unsigned int        gsl_flags_t;
 typedef unsigned int        uint32_t;
 
 // ---------

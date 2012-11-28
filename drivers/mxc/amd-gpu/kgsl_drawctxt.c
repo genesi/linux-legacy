@@ -1305,7 +1305,7 @@ build_shader_save_restore_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
 static int
 create_gpustate_shadow(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, ctx_t *ctx)
 {
-    gsl_flags_t flags;
+    unsigned int flags;
 
     flags = (GSL_MEMFLAGS_CONPHYS | GSL_MEMFLAGS_ALIGN8K);
     KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, flags = (GSL_MEMFLAGS_EMEM | GSL_MEMFLAGS_ALIGN8K));
@@ -1436,7 +1436,7 @@ int kgsl_drawctxt_close(struct kgsl_device *device)
 //////////////////////////////////////////////////////////////////////////////
 
 int
-kgsl_drawctxt_create(struct kgsl_device* device, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags)
+kgsl_drawctxt_create(struct kgsl_device* device, gsl_context_type_t type, unsigned int *drawctxt_id, unsigned int flags)
 {
     gsl_drawctxt_t  *drawctxt;
     int             index;
@@ -1692,7 +1692,7 @@ int kgsl_drawctxt_bind_gmem_shadow(unsigned int device_id, unsigned int drawctxt
 //////////////////////////////////////////////////////////////////////////////
 
 void
-kgsl_drawctxt_switch(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, gsl_flags_t flags)
+kgsl_drawctxt_switch(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, unsigned int flags)
 {
     gsl_drawctxt_t *active_ctxt = device->drawctxt_active;
 
