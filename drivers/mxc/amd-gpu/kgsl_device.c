@@ -100,6 +100,21 @@ kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
             status = GSL_FAILURE_NOTINITIALIZED;
         }
 
+        // init memqueue
+        device->memqueue.head = NULL;
+        device->memqueue.tail = NULL;
+
+        // init cmdstream
+        status = kgsl_cmdstream_init(device);
+        if (status != GSL_SUCCESS)
+        {
+            kgsl_device_stop(device->id);
+            return (status);
+        }
+
+	// Create timestamp wait queue
+	init_waitqueue_head(&device->timestamp_waitq);
+
         // allocate memory store
         status = kgsl_sharedmem_alloc0(device->id, GSL_MEMFLAGS_ALIGNPAGE | GSL_MEMFLAGS_CONPHYS, sizeof(struct kgsl_devmemstore), &device->memstore);
 
@@ -116,21 +131,6 @@ kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
             return (status);
         }
         kgsl_sharedmem_set0(&device->memstore, 0, 0, device->memstore.size);
-
-        // init memqueue
-        device->memqueue.head = NULL;
-        device->memqueue.tail = NULL;
-
-        // init cmdstream
-        status = kgsl_cmdstream_init(device);
-        if (status != GSL_SUCCESS)
-        {
-            kgsl_device_stop(device->id);
-            return (status);
-        }
-
-	// Create timestamp wait queue
-	init_waitqueue_head(&device->timestamp_waitq);
 
         //
         //  Read the chip ID after the device has been initialized.
