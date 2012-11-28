@@ -86,27 +86,27 @@ typedef struct _gsl_aperture_t
 // --------------------
 // shared memory object
 // --------------------
-typedef struct _gsl_sharedmem_t
+struct kgsl_sharedmem
 {
-    unsigned int     flags;
+    unsigned int    flags;
     unsigned int    priv;
     int             numapertures;
-    gsl_aperture_t  apertures[GSL_SHMEM_MAX_APERTURES]; 
+    gsl_aperture_t  apertures[GSL_SHMEM_MAX_APERTURES];
     int             aperturelookup[GSL_APERTURE_MAX][GSL_CHANNEL_MAX];
-} gsl_sharedmem_t;
+};
 
 
 //////////////////////////////////////////////////////////////////////////////
 //  prototypes
 //////////////////////////////////////////////////////////////////////////////
-int             kgsl_sharedmem_init(gsl_sharedmem_t *shmem);
-int             kgsl_sharedmem_close(gsl_sharedmem_t *shmem);
+int             kgsl_sharedmem_init(struct kgsl_sharedmem *shmem);
+int             kgsl_sharedmem_close(struct kgsl_sharedmem *shmem);
 int             kgsl_sharedmem_alloc0(unsigned int device_id, unsigned int flags, int sizebytes, struct kgsl_memdesc *memdesc);
 int             kgsl_sharedmem_free0(struct kgsl_memdesc *memdesc, unsigned int pid);
 int             kgsl_sharedmem_read0(const struct kgsl_memdesc *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace);
 int             kgsl_sharedmem_write0(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace);
 int             kgsl_sharedmem_set0(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes);
-int             kgsl_sharedmem_querystats(gsl_sharedmem_t *shmem, gsl_sharedmem_stats_t *stats);
+int             kgsl_sharedmem_querystats(struct kgsl_sharedmem *shmem, gsl_sharedmem_stats_t *stats);
 unsigned int    kgsl_sharedmem_convertaddr(unsigned int addr, int type);
 
 

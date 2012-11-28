@@ -33,7 +33,7 @@
 
 #include "kgsl_types.h" // KGSL_DEVICE_MAX
 #include "kgsl_device.h" // kgsl_device etc.
-#include "kgsl_sharedmem.h" // gsl_sharedmem_t
+#include "kgsl_sharedmem.h" // struct kgsl_sharedmem
 #include "kgsl_buildconfig.h" // GSL_CALLER_PROCESS_MAX
 
 //////////////////////////////////////////////////////////////////////////////
@@ -49,7 +49,7 @@ typedef struct _gsl_driver_t {
     unsigned int     callerprocess[GSL_CALLER_PROCESS_MAX]; // caller process table
     struct mutex     lock;                                 // global API mutex
     void             *hal;
-    gsl_sharedmem_t  shmem;
+    struct kgsl_sharedmem  shmem;
     struct kgsl_device     device[KGSL_DEVICE_MAX];
     int              dmi_state;     //  OS_TRUE = enabled, OS_FALSE otherwise
     unsigned int      dmi_mode;      //  single, double, or triple buffering
