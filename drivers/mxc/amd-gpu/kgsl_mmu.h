@@ -73,8 +73,7 @@ typedef struct _gsl_mmu_debug_t {
 // ------------
 // mmu register
 // ------------
-typedef struct _gsl_mmu_reg_t
-{
+struct kgsl_mmu_reg {
     unsigned int  CONFIG;
     unsigned int  MPU_BASE;
     unsigned int  MPU_END;
@@ -83,7 +82,12 @@ typedef struct _gsl_mmu_reg_t
     unsigned int  PAGE_FAULT;
     unsigned int  TRAN_ERROR;
     unsigned int  INVALIDATE;
-} gsl_mmu_reg_t;
+/*
+    unsigned int interrupt_mask;
+    unsigned int interrupt_status;
+    unsigned int interrupt_clear;
+*/
+};
 
 // ------------
 // mh interrupt
@@ -98,17 +102,17 @@ typedef struct _gsl_mh_intr_t
 // ----------------
 // page table stats
 // ----------------
-typedef struct _gsl_ptstats_t {
+struct kgsl_ptstats {
     __s64  maps;
     __s64  unmaps;
-	__s64  switches;
-} gsl_ptstats_t;
+    __s64  switches;
+};
 
 // ---------
 // mmu stats
 // ---------
 typedef struct _gsl_mmustats_t {
-	gsl_ptstats_t  pt;
+	struct kgsl_ptstats pt;
 	__s64        tlbflushes;
 } gsl_mmustats_t;
 
@@ -128,10 +132,10 @@ struct kgsl_pagetable {
 // -------------------------
 // tlb flush filter object
 // -------------------------
-typedef struct _gsl_tlbflushfilter_t {
+struct kgsl_tlbflushfilter {
     unsigned int  *base;
     unsigned int  size;
-} gsl_tlbflushfilter_t;
+};
 
 // ----------
 // mmu object
@@ -146,7 +150,7 @@ struct kgsl_mmu {
     uint32_t             va_base;
     unsigned int          va_range;
     struct kgsl_memdesc         dummyspace;
-    gsl_tlbflushfilter_t  tlbflushfilter;
+    struct kgsl_tlbflushfilter  tlbflushfilter;
     struct kgsl_pagetable       *hwpagetable;                     // current page table object being used by device mmu
     struct kgsl_pagetable       *pagetable[GSL_MMU_PAGETABLE_MAX];    // page table object table
     struct mutex		*mutex;

@@ -143,7 +143,7 @@ static const int gsl_cfg_intr_mask[GSL_INTR_COUNT] = {
 /* -----------------
  * mmu register data
  * ----------------- */
-static const gsl_mmu_reg_t gsl_cfg_mmu_reg[KGSL_DEVICE_MAX] = {
+static const struct kgsl_mmu_reg gsl_cfg_mmu_reg[KGSL_DEVICE_MAX] = {
     {   /* Yamato */
 	REG_MH_MMU_CONFIG,
 	REG_MH_MMU_MPU_BASE,
