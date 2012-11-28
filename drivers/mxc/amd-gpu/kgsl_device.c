@@ -656,10 +656,10 @@ kgsl_device_runpending(struct kgsl_device *device)
         {
             status = device->ftbl.runpending(device);
         }
-    }
 
-    // free any pending freeontimestamps
-    kgsl_cmdstream_memqueue_drain(device);
+	// free any pending freeontimestamps
+	kgsl_cmdstream_memqueue_drain(device);
+    }
 
     kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_runpending. Return value %B\n", status );
 
