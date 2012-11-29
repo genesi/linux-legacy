@@ -760,7 +760,7 @@ int
 kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)
 {
     int               status  = GSL_FAILURE;
-    gsl_ringbuffer_t  *rb     = &device->ringbuffer;
+    struct kgsl_ringbuffer  *rb     = &device->ringbuffer;
     unsigned int  rbbm_status;
 
     (void) timeout;      // unreferenced formal parameter

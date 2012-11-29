@@ -31,8 +31,37 @@
 
 #include "kgsl_device.h"
 
-#define GSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, data)   kgsl_sharedmem_read0(&device->memstore, (data), GSL_DEVICE_MEMSTORE_OFFSET(soptimestamp), 4, false)
-#define GSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, data)   kgsl_sharedmem_read0(&device->memstore, (data), GSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp), 4, false)
+#ifdef KGSL_DEVICE_SHADOW_MEMSTORE_TO_USER
+#define KGSL_CMDSTREAM_USE_MEM_TIMESTAMP
+#endif /* KGSL_DEVICE_SHADOW_MEMSTORE_TO_USER */
+
+/* old
+-#define GSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, data)   kgsl_sharedmem_read0(&device->memstore, (data), GSL_DEVICE_MEMSTORE_OFFSET(soptimestamp), 4, false)
+-#define GSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, data)   kgsl_sharedmem_read0(&device->memstore, (data), GSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp), 4, false)
+*/
+
+/* new
+#ifdef KGSL_CMDSTREAM_USE_MEM_TIMESTAMP
+#define KGSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, data) \
+	kgsl_sharedmem_read0(&device->memstore, (data), \
+		KGSL_DEVICE_MEMSTORE_OFFSET(soptimestamp), 4, false)
+	// the false above is not in qualcomm's driver
+#else
+#define KGSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, data)  \
+        do { \
+                device->fbtl.device_regread(device, REG_CP_TIMESTAMP,(data)); \
+        } while (0)
+	// qcom: use yamato directly!
+#endif // KGSL_CMDSTREAM_USE_MEM_TIMESTAMP
+*/
+
+#define KGSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, data) \
+	kgsl_sharedmem_read0(&device->memstore, (data), \
+		KGSL_DEVICE_MEMSTORE_OFFSET(soptimestamp), 4, false)
+
+#define KGSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, data) \
+	kgsl_sharedmem_read0(&device->memstore, (data), \
+		KGSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp), 4, false)
 
 unsigned int kgsl_cmdstream_readtimestamp0(unsigned int device_id, enum kgsl_timestamp_type type);
 void kgsl_cmdstream_memqueue_drain(struct kgsl_device *device);

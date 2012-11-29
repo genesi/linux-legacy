@@ -308,7 +308,7 @@ struct kgsl_devmemstore {
     unsigned int           sbz2;
 };
 
-#define GSL_DEVICE_MEMSTORE_OFFSET(field)       offsetof(struct kgsl_devmemstore, field)
+#define KGSL_DEVICE_MEMSTORE_OFFSET(field)       offsetof(struct kgsl_devmemstore, field)
 
 // -----------
 // aperture id

@@ -256,7 +256,7 @@ static void kgsl_g12_updatetimestamp(struct kgsl_device *device)
 	    kgsl_cmdwindow_write0(2, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 0);
 	}
 #endif
-	kgsl_sharedmem_write0(&device->memstore, GSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp), &device->timestamp, 4, 0);
+	kgsl_sharedmem_write0(&device->memstore, KGSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp), &device->timestamp, 4, 0);
 }
 
 //----------------------------------------------------------------------------
@@ -749,13 +749,13 @@ kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_t ib
     (void) flags;
 
     // read what is the latest timestamp device have processed
-    GSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, (int *)&processed_timestamp);
+    KGSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, (int *)&processed_timestamp);
 
 	/* wait for the next buffer's timestamp to occur */
     while(processed_timestamp < g_z1xx.timestamp[nextbuf])
     {
 		kgsl_cmdstream_waittimestamp(device->id, g_z1xx.timestamp[nextbuf], 1000);
-		GSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, (int *)&processed_timestamp);
+		KGSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, (int *)&processed_timestamp);
     }
 
     *timestamp = g_z1xx.timestamp[nextbuf] = device->current_timestamp + 1;
@@ -795,7 +795,7 @@ kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_t ib
 
     /* increment consumed timestamp */
     device->current_timestamp++;
-    kgsl_sharedmem_write0(&device->memstore, GSL_DEVICE_MEMSTORE_OFFSET(soptimestamp), &device->current_timestamp, 4, 0);
+    kgsl_sharedmem_write0(&device->memstore, KGSL_DEVICE_MEMSTORE_OFFSET(soptimestamp), &device->current_timestamp, 4, 0);
     return (GSL_SUCCESS);
 }
 

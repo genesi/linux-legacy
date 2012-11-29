@@ -16,6 +16,7 @@
  *
  */
 
+#include <linux/io.h> // writel
 #include <linux/sched.h>
 
 #include "kgsl_types.h"
@@ -71,7 +72,7 @@ gsl_ringbuffer_sizelog2quadwords(unsigned int sizedwords)
 // private prototypes
 //////////////////////////////////////////////////////////////////////////////
 #ifdef _DEBUG
-static void     kgsl_ringbuffer_debug(gsl_ringbuffer_t *rb, gsl_rb_debug_t *rb_debug);
+static void     kgsl_ringbuffer_debug(struct kgsl_ringbuffer *rb, gsl_rb_debug_t *rb_debug);
 #endif
 
 
@@ -82,7 +83,7 @@ static void     kgsl_ringbuffer_debug(gsl_ringbuffer_t *rb, gsl_rb_debug_t *rb_d
 void
 kgsl_cp_intrcallback(gsl_intrid_t id, void *cookie)
 {
-    gsl_ringbuffer_t  *rb = (gsl_ringbuffer_t *) cookie;
+    struct kgsl_ringbuffer  *rb = (struct kgsl_ringbuffer *) cookie;
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
                     "--> void kgsl_cp_intrcallback(gsl_intrid_t id=%I, void *cookie=0x%08x)\n", id, cookie );
@@ -122,7 +123,7 @@ kgsl_cp_intrcallback(gsl_intrid_t id, void *cookie)
 void
 kgsl_ringbuffer_watchdog()
 {
-    gsl_ringbuffer_t  *rb = &(gsl_driver.device[KGSL_DEVICE_YAMATO-1]).ringbuffer;       // device_id is 1 based
+    struct kgsl_ringbuffer  *rb = &(gsl_driver.device[KGSL_DEVICE_YAMATO-1]).ringbuffer;       // device_id is 1 based
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
                     "--> void kgsl_ringbuffer_watchdog()\n" );
@@ -351,10 +352,10 @@ kgsl_ringbuffer_checkpm4(unsigned int* cmds, unsigned int sizedwords, int pmodeo
 //----------------------------------------------------------------------------
 
 static void
-kgsl_ringbuffer_submit(gsl_ringbuffer_t *rb)
+kgsl_ringbuffer_submit(struct kgsl_ringbuffer *rb)
 {
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> static void kgsl_ringbuffer_submit(gsl_ringbuffer_t *rb=0x%08x)\n", rb );
+                    "--> static void kgsl_ringbuffer_submit(struct kgsl_ringbuffer *rb=0x%08x)\n", rb );
 
     DEBUG_ASSERT(rb->wptr != 0);
 
@@ -373,14 +374,14 @@ kgsl_ringbuffer_submit(gsl_ringbuffer_t *rb)
 //----------------------------------------------------------------------------
 
 static int
-kgsl_ringbuffer_waitspace(gsl_ringbuffer_t *rb, unsigned int numcmds, int wptr_ahead)
+kgsl_ringbuffer_waitspace(struct kgsl_ringbuffer *rb, unsigned int numcmds, int wptr_ahead)
 {
     int           nopcount;
     unsigned int  freecmds;
     unsigned int  *cmds;
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> static int kgsl_ringbuffer_waitspace(gsl_ringbuffer_t *rb=0x%08x, unsigned int numcmds=%d, int wptr_ahead=%d)\n",
+                    "--> static int kgsl_ringbuffer_waitspace(struct kgsl_ringbuffer *rb=0x%08x, unsigned int numcmds=%d, int wptr_ahead=%d)\n",
                     rb, numcmds, wptr_ahead );
 
 
@@ -424,13 +425,13 @@ kgsl_ringbuffer_waitspace(gsl_ringbuffer_t *rb, unsigned int numcmds, int wptr_a
 //----------------------------------------------------------------------------
 
 static unsigned int *
-kgsl_ringbuffer_addcmds(gsl_ringbuffer_t *rb, unsigned int numcmds)
+kgsl_ringbuffer_addcmds(struct kgsl_ringbuffer *rb, unsigned int numcmds)
 {
     unsigned int  *ptr;
     int           status = GSL_SUCCESS;
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> static unsigned int* kgsl_ringbuffer_addcmds(gsl_ringbuffer_t *rb=0x%08x, unsigned int numcmds=%d)\n",
+                    "--> static unsigned int* kgsl_ringbuffer_addcmds(struct kgsl_ringbuffer *rb=0x%08x, unsigned int numcmds=%d)\n",
                     rb, numcmds );
 
     DEBUG_ASSERT(numcmds < rb->sizedwords);
@@ -482,7 +483,7 @@ kgsl_ringbuffer_addcmds(gsl_ringbuffer_t *rb, unsigned int numcmds)
 
 //----------------------------------------------------------------------------
 int
-kgsl_ringbuffer_start(gsl_ringbuffer_t *rb)
+kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb)
 {
     int           status;
     /*cp_rb_cntl_u  cp_rb_cntl;*/
@@ -492,7 +493,7 @@ kgsl_ringbuffer_start(gsl_ringbuffer_t *rb)
     struct kgsl_device  *device = rb->device;
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> static int kgsl_ringbuffer_start(gsl_ringbuffer_t *rb=0x%08x)\n", rb );
+                    "--> static int kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb=0x%08x)\n", rb );
 
     if (rb->flags & GSL_FLAGS_STARTED)
     {
@@ -501,7 +502,7 @@ kgsl_ringbuffer_start(gsl_ringbuffer_t *rb)
     }
 
     // clear memptrs values
-    kgsl_sharedmem_set0(&rb->memptrs_desc, 0, 0, sizeof(gsl_rbmemptrs_t));
+    kgsl_sharedmem_set0(&rb->memptrs_desc, 0, 0, sizeof(struct kgsl_rbmemptrs));
 
     // clear ringbuffer
     kgsl_sharedmem_set0(&rb->buffer_desc, 0, 0x12341234, (rb->sizedwords << 2));
@@ -535,7 +536,7 @@ kgsl_ringbuffer_start(gsl_ringbuffer_t *rb)
     }
 
     // setup scratch/timestamp addr
-    device->ftbl.regwrite(device, REG_SCRATCH_ADDR, device->memstore.gpuaddr + GSL_DEVICE_MEMSTORE_OFFSET(soptimestamp));
+    device->ftbl.regwrite(device, REG_SCRATCH_ADDR, device->memstore.gpuaddr + KGSL_DEVICE_MEMSTORE_OFFSET(soptimestamp));
 
     // setup scratch/timestamp mask
     device->ftbl.regwrite(device, REG_SCRATCH_UMSK, GSL_RB_MEMPTRS_SCRATCH_MASK);
@@ -637,10 +638,10 @@ kgsl_ringbuffer_start(gsl_ringbuffer_t *rb)
 //----------------------------------------------------------------------------
 
 int
-kgsl_ringbuffer_stop(gsl_ringbuffer_t *rb)
+kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb)
 {
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> static int kgsl_ringbuffer_stop(gsl_ringbuffer_t *rb=0x%08x)\n", rb );
+                    "--> static int kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb=0x%08x)\n", rb );
 
     if (rb->flags & GSL_FLAGS_STARTED)
     {
@@ -673,7 +674,7 @@ kgsl_ringbuffer_init(struct kgsl_device *device)
 {
     int               status;
     unsigned int       flags;
-    gsl_ringbuffer_t  *rb = &device->ringbuffer;
+    struct kgsl_ringbuffer  *rb = &device->ringbuffer;
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_ringbuffer_init(struct kgsl_device *device=0x%08x)\n", device );
@@ -709,7 +710,7 @@ kgsl_ringbuffer_init(struct kgsl_device *device)
     flags = (GSL_MEMFLAGS_ALIGN32 | GSL_MEMFLAGS_CONPHYS);
     KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, flags = GSL_MEMFLAGS_ALIGN32);
 
-    status = kgsl_sharedmem_alloc0(device->id, flags, sizeof(gsl_rbmemptrs_t), &rb->memptrs_desc);
+    status = kgsl_sharedmem_alloc0(device->id, flags, sizeof(struct kgsl_rbmemptrs), &rb->memptrs_desc);
 
     if (status != GSL_SUCCESS)
     {
@@ -719,7 +720,7 @@ kgsl_ringbuffer_init(struct kgsl_device *device)
     }
 
     // overlay structure on memptrs memory
-    rb->memptrs = (gsl_rbmemptrs_t *)rb->memptrs_desc.hostptr;
+    rb->memptrs = (struct kgsl_rbmemptrs *)rb->memptrs_desc.hostptr;
 
     rb->flags |= GSL_FLAGS_INITIALIZED;
 
@@ -746,10 +747,10 @@ kgsl_ringbuffer_init(struct kgsl_device *device)
 //----------------------------------------------------------------------------
 
 int
-kgsl_ringbuffer_close(gsl_ringbuffer_t *rb)
+kgsl_ringbuffer_close(struct kgsl_ringbuffer *rb)
 {
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_ringbuffer_close(gsl_ringbuffer_t *rb=0x%08x)\n", rb );
+                    "--> int kgsl_ringbuffer_close(struct kgsl_ringbuffer *rb=0x%08x)\n", rb );
 
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(rb->mutex);
@@ -776,7 +777,7 @@ kgsl_ringbuffer_close(gsl_ringbuffer_t *rb)
     kfree(rb->mutex);
 #endif
 
-    memset(rb, 0, sizeof(gsl_ringbuffer_t));
+    memset(rb, 0, sizeof(struct kgsl_ringbuffer));
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_close. Return value %B\n", GSL_SUCCESS );
     return (GSL_SUCCESS);
@@ -787,7 +788,7 @@ kgsl_ringbuffer_close(gsl_ringbuffer_t *rb)
 unsigned int
 kgsl_ringbuffer_issuecmds(struct kgsl_device *device, int pmodeoff, unsigned int *cmds, int sizedwords, unsigned int pid)
 {
-    gsl_ringbuffer_t  *rb = &device->ringbuffer;
+    struct kgsl_ringbuffer  *rb = &device->ringbuffer;
     unsigned int      pmodesizedwords;
     unsigned int      *ringcmds;
     unsigned int      timestamp;
@@ -851,10 +852,10 @@ kgsl_ringbuffer_issuecmds(struct kgsl_device *device, int pmodeoff, unsigned int
     *ringcmds++ = rb->timestamp;
     *ringcmds++ = pm4_type3_packet(PM4_EVENT_WRITE, 3);
     *ringcmds++ = CACHE_FLUSH_TS;
-    *ringcmds++ = device->memstore.gpuaddr + GSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp);
+    *ringcmds++ = device->memstore.gpuaddr + KGSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp);
     *ringcmds++ = rb->timestamp;
 
-#if defined GSL_RB_TIMESTAMP_INTERUPT    
+#if defined GSL_RB_TIMESTAMP_INTERUPT
     *ringcmds++ = pm4_type3_packet(PM4_INTERRUPT, 1);
     *ringcmds++ = 0x80000000;
 #endif
@@ -878,7 +879,7 @@ int
 kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags)
 {
     unsigned int  link[3];
-    gsl_ringbuffer_t  *rb = &device->ringbuffer;
+    struct kgsl_ringbuffer  *rb = &device->ringbuffer;
     int dumpx_swap;
     (void)dumpx_swap; // used only when BB_DUMPX is defined
 
@@ -944,7 +945,7 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint
 
 #ifdef _DEBUG
 static void
-kgsl_ringbuffer_debug(gsl_ringbuffer_t *rb, gsl_rb_debug_t *rb_debug)
+kgsl_ringbuffer_debug(struct kgsl_ringbuffer *rb, gsl_rb_debug_t *rb_debug)
 {
     memset(rb_debug, 0, sizeof(gsl_rb_debug_t));
 
@@ -973,7 +974,7 @@ kgsl_ringbuffer_debug(gsl_ringbuffer_t *rb, gsl_rb_debug_t *rb_debug)
 //----------------------------------------------------------------------------
 
 int
-kgsl_ringbuffer_querystats(gsl_ringbuffer_t *rb, gsl_rbstats_t *stats)
+kgsl_ringbuffer_querystats(struct kgsl_ringbuffer *rb, struct kgsl_rbstats *stats)
 {
 #ifdef GSL_STATS_RINGBUFFER
     DEBUG_ASSERT(stats);
@@ -998,7 +999,7 @@ kgsl_ringbuffer_querystats(gsl_ringbuffer_t *rb, gsl_rbstats_t *stats)
 //----------------------------------------------------------------------------
 
 int
-kgsl_ringbuffer_bist(gsl_ringbuffer_t *rb)
+kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb)
 {
     unsigned int    *cmds;
     unsigned int    temp, k, j;
@@ -1009,7 +1010,7 @@ kgsl_ringbuffer_bist(gsl_ringbuffer_t *rb)
 #endif
 
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_ringbuffer_bist(gsl_ringbuffer_t *rb=0x%08x)\n", rb );
+                    "--> int kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb=0x%08x)\n", rb );
 
     if (!(rb->flags & GSL_FLAGS_STARTED))
     {
@@ -1170,7 +1171,7 @@ kgsl_ringbuffer_bist(gsl_ringbuffer_t *rb)
     // rptr memptr validate
 #endif // GSL_RB_USE_MEM_RPTR
 
-#ifdef  GSL_RB_USE_WPTR_POLLING
+#ifdef GSL_RB_USE_WPTR_POLLING
     // wptr memptr validate
 #endif // GSL_RB_USE_WPTR_POLLING
 

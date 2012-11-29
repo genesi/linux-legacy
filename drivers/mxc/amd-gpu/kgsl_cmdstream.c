@@ -28,6 +28,7 @@
 #include "kgsl_linux_map.h"
 #include "kgsl_halconfig.h"
 #include "kgsl_hal.h"
+#include "kgsl_ringbuffer.h" // for defines for the include below!
 #include "kgsl_cmdstream.h"
 #include "kgsl_g12_vgv3types.h"
 #include "kgsl_log.h"
@@ -67,12 +68,12 @@ unsigned int kgsl_cmdstream_readtimestamp0(unsigned int device_id, enum kgsl_tim
     if (type == GSL_TIMESTAMP_CONSUMED)
     {
         // start-of-pipeline timestamp
-        GSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, &timestamp);
+        KGSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, &timestamp);
     }
     else if (type == GSL_TIMESTAMP_RETIRED)
     {
 		// end-of-pipeline timestamp
-		GSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, &timestamp);
+		KGSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, &timestamp);
     }
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_readtimestamp. Return value %d\n", timestamp );
     return (timestamp);

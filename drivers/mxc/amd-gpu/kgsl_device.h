@@ -42,7 +42,7 @@ struct kgsl_device;
 
 #include "kgsl_types.h"
 #include "kgsl_intrmgr.h" // for gsl_intr_t
-#include "kgsl_ringbuffer.h" // for gsl_ringbuffer_t
+#include "kgsl_ringbuffer.h" // for struct kgsl_ringbuffer
 #include "kgsl_drawctxt.h" // gsl_drawctxt_t
 #include "kgsl_cmdwindow.h" // for GSL_G12_INTR_COUNT
 #include "kgsl_properties.h" // for gsl_property_type_t
@@ -98,7 +98,7 @@ struct kgsl_device {
 #endif
 
 	struct kgsl_memregion   gmemspace;
-	gsl_ringbuffer_t  ringbuffer;
+	struct kgsl_ringbuffer  ringbuffer;
 	struct mutex 	  *drawctxt_mutex;
 	unsigned int      drawctxt_count;
 	gsl_drawctxt_t    *drawctxt_active;
