@@ -1,9 +1,5 @@
-EXTRA_CFLAGS := \
-	-I$(obj)/include \
-	-I$(obj)/include/api
-
-obj-$(CONFIG_MXC_KGSL) += kgsl.o
-kgsl-objs += 	kgsl_cmdstream.o \
+obj-$(CONFIG_MXC_KGSL) += mxc_kgsl.o
+mxc_kgsl-objs += kgsl_cmdstream.o \
 		kgsl_cmdwindow.o \
 		kgsl_context.o \
 		kgsl_device.o \
@@ -23,5 +19,5 @@ kgsl-objs += 	kgsl_cmdstream.o \
 		kgsl_pwrctrl.o
 
 ifdef CONFIG_KGSL_LOGGING
-kgsl-objs += kgsl_log.o
+mxc_kgsl-objs += kgsl_log.o
 endif
