@@ -103,7 +103,7 @@ kgsl_hal_init(void)
     unsigned long res_size;
     unsigned int va, pa;
 
-	pr_err("amd-gpu: built for kernel %s\n", UTS_VERSION);
+	pr_info("amd-gpu: built for kernel %s\n", UTS_VERSION);
 
     if (!gpu_reserved_mem || !gpu_reserved_mem_size) {
 	printk(KERN_ERR "%s: no GPU reserved memory! Cannot continue!\n", DRVNAME);
