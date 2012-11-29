@@ -21,6 +21,9 @@
  * Copyright (C) 2010-2011 Freescale Semiconductor, Inc. All Rights Reserved.
  */
 
+/* compile string for debug */
+#include <linux/compile.h>
+
 #include <linux/clk.h>
 #include <linux/kernel.h>
 #include <linux/pci.h>
@@ -99,6 +102,8 @@ kgsl_hal_init(void)
     gsl_hal_t *hal;
     unsigned long res_size;
     unsigned int va, pa;
+
+	pr_err("amd-gpu: built for kernel %s\n", UTS_VERSION);
 
     if (!gpu_reserved_mem || !gpu_reserved_mem_size) {
 	printk(KERN_ERR "%s: no GPU reserved memory! Cannot continue!\n", DRVNAME);
