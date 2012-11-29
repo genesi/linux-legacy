@@ -18,13 +18,13 @@
 
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/io.h>
 
 #include "kgsl_types.h"
 #include "kgsl_hal.h"
 #include "kgsl_cmdstream.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_driver.h"
-#include "kgsl_hwaccess.h"
 #include "kgsl_ioctl.h"
 
 #include "g12_reg.h"
@@ -36,6 +36,9 @@
 
 #define GSL_IRQ_TIMEOUT         200
 
+
+int kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords, unsigned int *value);
+int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords, unsigned int value);
 
 //----------------------------------------------------------------------------
 
@@ -181,7 +184,7 @@ kgsl_g12_isr(struct kgsl_device *device)
 #endif // DEBUG
 
     // determine if G12 is interrupting
-    device->ftbl.regread(device, (ADDR_VGC_IRQSTATUS >> 2), &status);
+    kgsl_g12_regread(device, (ADDR_VGC_IRQSTATUS >> 2), &status);
 
     if (status)
     {
@@ -190,8 +193,8 @@ kgsl_g12_isr(struct kgsl_device *device)
         {
 #ifdef _DEBUG
             // obtain mh error information
-            device->ftbl.regread(device, ADDR_MH_MMU_PAGE_FAULT, (unsigned int *)&page_fault);
-            device->ftbl.regread(device, ADDR_MH_AXI_ERROR, (unsigned int *)&axi_error);
+            kgsl_g12_regread(device, ADDR_MH_MMU_PAGE_FAULT, (unsigned int *)&page_fault);
+            kgsl_g12_regread(device, ADDR_MH_AXI_ERROR, (unsigned int *)&axi_error);
 #endif // DEBUG
 
             kgsl_intr_decode(device, GSL_INTR_BLOCK_G12_MH);
@@ -214,7 +217,7 @@ kgsl_g12_tlbinvalidate(struct kgsl_device *device, unsigned int reg_invalidate, 
     // unreferenced formal parameter
     (void) pid;
 
-    device->ftbl.regwrite(device, reg_invalidate, *(unsigned int *) &mh_mmu_invalidate);
+    kgsl_g12_regwrite(device, reg_invalidate, *(unsigned int *) &mh_mmu_invalidate);
 #else
     (void)device;
     (void)reg_invalidate;
@@ -231,7 +234,7 @@ kgsl_g12_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase, uint3
 	(void) pid;
 #ifdef CONFIG_KGSL_MMU_ENABLE
     device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT);
-	device->ftbl.regwrite(device, reg_ptbase, ptbase);
+	kgsl_g12_regwrite(device, reg_ptbase, ptbase);
 #else
     (void)device;
     (void)reg_ptbase;
@@ -245,7 +248,7 @@ kgsl_g12_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase, uint3
 static void kgsl_g12_updatetimestamp(struct kgsl_device *device)
 {
 	unsigned int count = 0;
-	device->ftbl.regread(device, (ADDR_VGC_IRQ_ACTIVE_CNT >> 2), &count);
+	kgsl_g12_regread(device, (ADDR_VGC_IRQ_ACTIVE_CNT >> 2), &count);
 	count >>= 8;
 	count &= 255;
 	device->timestamp += count;
@@ -287,7 +290,7 @@ kgsl_g12_init(struct kgsl_device *device)
     kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_POWER_ON, 100);
 
     // setup MH arbiter - MH offsets are considered to be dword based, therefore no down shift
-    device->ftbl.regwrite(device, ADDR_MH_ARBITER_CONFIG, KGSL_G12_CFG_G12_MHARB);
+    kgsl_g12_regwrite(device, ADDR_MH_ARBITER_CONFIG, KGSL_G12_CFG_G12_MHARB);
 
     // init interrupt
     status = kgsl_intr_init(device);
@@ -298,7 +301,7 @@ kgsl_g12_init(struct kgsl_device *device)
     }
 
     // enable irq
-    device->ftbl.regwrite(device, (ADDR_VGC_IRQENABLE >> 2), 0x3);
+    kgsl_g12_regwrite(device, (ADDR_VGC_IRQENABLE >> 2), 0x3);
 
 #ifdef CONFIG_KGSL_MMU_ENABLE
     // enable master interrupt for G12 MH
@@ -536,53 +539,67 @@ kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout)
 
 //----------------------------------------------------------------------------
 
-int
-kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords, unsigned int *value)
+int kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords, unsigned int *value)
 {
-    // G12 MH register values can only be retrieved via dedicated read registers
-    if ((offsetwords >= ADDR_MH_ARBITER_CONFIG && offsetwords <= ADDR_MH_AXI_HALT_CONTROL) ||
-        (offsetwords >= ADDR_MH_MMU_CONFIG     && offsetwords <= ADDR_MH_MMU_MPU_END))
-    {
+	unsigned int *reg;
+	// G12 MH register values can only be retrieved via dedicated read registers
+	if ((offsetwords >= ADDR_MH_ARBITER_CONFIG &&
+	     offsetwords <= ADDR_MH_AXI_HALT_CONTROL) ||
+	    (offsetwords >= ADDR_MH_MMU_CONFIG     &&
+	     offsetwords <= ADDR_MH_MMU_MPU_END)) {
+		kgsl_g12_regwrite(device, (ADDR_VGC_MH_READ_ADDR >> 2), offsetwords);
 #ifdef _Z180
-        device->ftbl.regwrite(device, (ADDR_VGC_MH_READ_ADDR >> 2), offsetwords);
-        kgsl_hwaccess_regread(device->id, (unsigned int) device->regspace.mmio_virt_base, (ADDR_VGC_MH_READ_ADDR >> 2), value);
+		reg = (unsigned int *)(device->regspace.mmio_virt_base
+				+ (ADDR_VGC_MH_READ_ADDR << 2));
 #else
-        device->ftbl.regwrite(device, (ADDR_VGC_MH_READ_ADDR >> 2), offsetwords);
-        kgsl_hwaccess_regread(device->id, (unsigned int) device->regspace.mmio_virt_base, (ADDR_VGC_MH_DATA_ADDR >> 2), value);
+		reg = (unsigned int *)(device->regspace.mmio_virt_base
+				+ (ADDR_VGC_MH_DATA_ADDR << 2));
 #endif
-    }
-    else
-    {
-        kgsl_hwaccess_regread(device->id, (unsigned int) device->regspace.mmio_virt_base, offsetwords, value);
-    }
+	} else {
+		if (offsetwords * sizeof(unsigned int) >= device->regspace.sizebytes) {
+			pr_err("g12 read invalid offset %d\n", offsetwords);
+			return GSL_FAILURE;//-ERANGE
+		}
 
-    return (GSL_SUCCESS);
+		reg = (unsigned int *)(device->regspace.mmio_virt_base
+				+ (offsetwords << 2));
+	}
+
+	*value = readl(reg);
+	return GSL_SUCCESS;
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords, unsigned int value)
+int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords, unsigned int value)
 {
-    // G12 MH registers can only be written via the command window
-    if ((offsetwords >= ADDR_MH_ARBITER_CONFIG && offsetwords <= ADDR_MH_AXI_HALT_CONTROL) ||
-        (offsetwords >= ADDR_MH_MMU_CONFIG     && offsetwords <= ADDR_MH_MMU_MPU_END))
-    {
-        kgsl_cmdwindow_write0(device->id, GSL_CMDWINDOW_MMU, offsetwords, value);
-    }
-    else
-    {
-        kgsl_hwaccess_regwrite(device->id, (unsigned int) device->regspace.mmio_virt_base, offsetwords, value);
-    }
+	unsigned int *reg;
+	// G12 MH registers can only be written via the command window
+	if ((offsetwords >= ADDR_MH_ARBITER_CONFIG &&
+	     offsetwords <= ADDR_MH_AXI_HALT_CONTROL) ||
+	    (offsetwords >= ADDR_MH_MMU_CONFIG     &&
+	     offsetwords <= ADDR_MH_MMU_MPU_END)) {
+		kgsl_cmdwindow_write0(device->id, GSL_CMDWINDOW_MMU, offsetwords, value);
+	} else {
+		if (offsetwords * sizeof(unsigned int) >= device->regspace.sizebytes) {
+			pr_err("g12 write invalid offset %d\n", offsetwords);
+			return GSL_FAILURE;//-ERANGE
+		}
 
-    // idle device when running in safe mode
-    if (device->flags & GSL_FLAGS_SAFEMODE)
-    {
-        device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT);
-    }
+		reg = (unsigned int *)(device->regspace.mmio_virt_base
+				+ (offsetwords << 2));
+		writel(value, reg);
+		/* Drain write buffer */
+		dsb();
 
-    return (GSL_SUCCESS);
+		/* Memory fence to ensure all data has posted.  On some systems,
+		 * like 7x27, the register block is not allocated as strongly
+		 * ordered memory.  Adding a memory fence ensures ordering
+		 * during ringbuffer submits.*/
+                mb();
+	}
+
+	return GSL_SUCCESS;
 }
+
 
 //----------------------------------------------------------------------------
 
@@ -619,7 +636,7 @@ kgsl_g12_waitirq(struct kgsl_device *device, gsl_intrid_t intr_id, unsigned int 
                     kgsl_device_active(device);
 
                     INIT_COMPLETION(*comp);
-                    device->ftbl.regread(device, (ADDR_VGC_IRQ_ACTIVE_CNT >> 2), &cntrs);
+                    kgsl_g12_regread(device, (ADDR_VGC_IRQ_ACTIVE_CNT >> 2), &cntrs);
 
                     for (i = 0; i < GSL_G12_INTR_COUNT; i++)
                     {

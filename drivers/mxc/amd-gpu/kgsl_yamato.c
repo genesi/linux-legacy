@@ -18,6 +18,7 @@
 
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <linux/io.h>
 
 #include "kgsl_types.h"
 #include "kgsl_device.h"
@@ -25,7 +26,6 @@
 #include "kgsl_ringbuffer.h" // needed for rb config
 #include "kgsl_drawctxt.h"
 #include "kgsl_cmdstream.h"
-#include "kgsl_hwaccess.h"
 
 #include "yamato_reg.h"
 #include "kgsl_pm4types.h"
@@ -756,82 +756,78 @@ kgsl_yamato_setproperty(struct kgsl_device *device, gsl_property_type_t type, vo
 
 //----------------------------------------------------------------------------
 
-int
-kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)
+int kgsl_yamato_regread(struct kgsl_device *device, unsigned int offsetwords, unsigned int *value)
 {
-    int               status  = GSL_FAILURE;
-    struct kgsl_ringbuffer  *rb     = &device->ringbuffer;
-    unsigned int  rbbm_status;
+	unsigned int *reg;
 
-    (void) timeout;      // unreferenced formal parameter
+	if (offsetwords * sizeof(unsigned int) >= device->regspace.sizebytes) {
+		return GSL_FAILURE; // -ERANGE, print some debug about invalid offset
+	}
 
-    KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, KGSL_DEBUG_DUMPX(BB_DUMP_REGPOLL, device->id, REG_RBBM_STATUS, 0x80000000, "kgsl_yamato_idle"));
+	reg = (unsigned int *)(device->regspace.mmio_virt_base + (offsetwords << 2));
 
-    // first, wait until the CP has consumed all the commands in the ring buffer
-    if (rb->flags & GSL_FLAGS_STARTED)
-    {
-        do
-        {
-            GSL_RB_GET_READPTR(rb, &rb->rptr);
+	*value = readl(reg);
 
-        } while (rb->rptr != rb->wptr);
-    }
-
-    // now, wait for the GPU to finish its operations
-    for ( ; ; )
-    {
-        device->ftbl.regread(device, REG_RBBM_STATUS, (unsigned int *)&rbbm_status);
-
-	// qcom uses 0x110
-        if (!(rbbm_status & 0x80000000))
-        {
-            status = GSL_SUCCESS;
-            break;
-        }
-
-    }
-
-    return (status);
+	return GSL_SUCCESS;
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_yamato_regread(struct kgsl_device *device, unsigned int offsetwords, unsigned int *value)
+int kgsl_yamato_regwrite(struct kgsl_device *device, unsigned int offsetwords, unsigned int value)
 {
-    KGSL_DEBUG(GSL_DBGFLAGS_DUMPX,
-            {
-                if (!(gsl_driver.flags_debug & GSL_DBGFLAGS_DUMPX_WITHOUT_IFH))
-                {
-                    if(offsetwords == REG_CP_RB_RPTR || offsetwords == REG_CP_RB_WPTR)
-                    {
-                        *value = device->ringbuffer.wptr;
-                        return (GSL_SUCCESS);
-                    }
-                }
-            });
+	unsigned int *reg;
 
-    kgsl_hwaccess_regread(device->id, (unsigned int) device->regspace.mmio_virt_base, offsetwords, value);
+	if (offsetwords * sizeof(unsigned int) >= device->regspace.sizebytes) {
+		return GSL_FAILURE; // -ERANGE, invalid offset
+	}
 
-    return (GSL_SUCCESS);
+	reg = (unsigned int *)(device->regspace.mmio_virt_base + (offsetwords << 2));
+
+	writel(value, reg);
+
+	return (GSL_SUCCESS);
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_yamato_regwrite(struct kgsl_device *device, unsigned int offsetwords, unsigned int value)
+int kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)
 {
-    KGSL_DEBUG(GSL_DBGFLAGS_PM4, KGSL_DEBUG_DUMPREGWRITE(offsetwords, value));
+	int status = GSL_FAILURE;
+	struct kgsl_ringbuffer *rb = &device->ringbuffer;
+	unsigned int rbbm_status;
+	int idle_count = 0;
+#define IDLE_COUNT_MAX 1500000
 
-    kgsl_hwaccess_regwrite(device->id, (unsigned int) device->regspace.mmio_virt_base, offsetwords, value);
+	(void) timeout;
 
-    // idle device when running in safe mode
-    if (device->flags & GSL_FLAGS_SAFEMODE)
-    {
-        device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT);
-    }
+	// first, wait until the CP has consumed all the commands in the ring buffer
+	if (rb->flags & GSL_FLAGS_STARTED) {
+		do {
+			idle_count++;
+			GSL_RB_GET_READPTR(rb, &rb->rptr);
+		} while ((rb->rptr != rb->wptr) && (idle_count < IDLE_COUNT_MAX));
 
-    return (GSL_SUCCESS);
+		if (idle_count == IDLE_COUNT_MAX) {
+			pr_err("spun too long waiting for RB to idle\n");
+			// -EINVAL, now do a ringbuffer dump, mmu dump
+			goto done;
+		}
+	}
+
+	// now, wait for the GPU to finish its operations
+	for (idle_count = 0; idle_count < IDLE_COUNT_MAX; idle_count++) {
+		kgsl_yamato_regread(device, REG_RBBM_STATUS, &rbbm_status);
+
+		//if (!(rbbm_status & 0x80000000)) {
+		if (rbbm_status == 0x110) {
+			status = GSL_SUCCESS;
+			break;
+		}
+	}
+
+	if (idle_count == IDLE_COUNT_MAX) {
+		pr_err("spun too long waiting for rbbm status to idle\n");
+		// -EINVAL, now do a ringbuffer dump, mmu dump
+		goto done;
+	}
+done:
+	return status;
 }
 
 //----------------------------------------------------------------------------
@@ -869,45 +865,46 @@ kgsl_yamato_waitirq(struct kgsl_device *device, gsl_intrid_t intr_id, unsigned i
     return (status);
 }
 
-int kgsl_yamato_check_timestamp(unsigned int device_id, unsigned int timestamp)
+int kgsl_yamato_check_timestamp(struct kgsl_device *device, unsigned int timestamp)
 {
 	int i;
+
 	/* Reason to use a wait loop:
 	 * When bus is busy, for example vpu is working too, the timestamp is
-	 * possiblly not yet refreshed to memory by yamato. For most cases, it
+	 * possibly not yet refreshed to memory by yamato. For most cases, it
 	 * will hit on first loop cycle. So it don't effect performance.
 	 */
 	for (i = 0; i < 10; i++) {
-		if (kgsl_cmdstream_check_timestamp(device_id, timestamp))
+		if (kgsl_cmdstream_check_timestamp(device->id, timestamp))
 			return 1;
 		udelay(10);
 	}
+
 	return 0;
 }
 
-int
-kgsl_yamato_waittimestamp(struct kgsl_device *device, unsigned int timestamp, unsigned int timeout)
+int kgsl_yamato_waittimestamp(struct kgsl_device *device, unsigned int timestamp, unsigned int msecs)
 {
-#if defined GSL_RB_TIMESTAMP_INTERUPT
-	int status = wait_event_interruptible_timeout(device->timestamp_waitq,
-							kgsl_yamato_check_timestamp(device->id, timestamp),
-							msecs_to_jiffies(timeout));
-	if (status > 0)
-		return GSL_SUCCESS;
-	else
-		return GSL_FAILURE;
-#else
-	return (GSL_SUCCESS);
-#endif
+	int status = GSL_SUCCESS;
+	long timeout;
+
+	timeout = wait_event_interruptible_timeout(device->timestamp_waitq,
+			kgsl_yamato_check_timestamp(device, timestamp),
+			msecs_to_jiffies(msecs));
+	if (timeout > 0)
+		status = GSL_SUCCESS; // 0
+	else if (timeout == 0) {
+		// check timestamp?
+		status = GSL_FAILURE; // -ETIMEDOUT
+		// register dump?
+	}
+	return status;
 }
-//----------------------------------------------------------------------------
 
-int
-kgsl_yamato_runpending(struct kgsl_device *device)
+int kgsl_yamato_runpending(struct kgsl_device *device)
 {
-    (void) device;
-
-    return (GSL_SUCCESS);
+	(void) device;
+	return GSL_SUCCESS;
 }
 
 //----------------------------------------------------------------------------

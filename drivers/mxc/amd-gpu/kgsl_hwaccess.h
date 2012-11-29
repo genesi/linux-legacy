@@ -90,32 +90,4 @@ kgsl_hwaccess_memset(unsigned int gpubase, unsigned int gpuoffset, unsigned int 
     }
 }
 
-//----------------------------------------------------------------------------
-
-static __inline void
-kgsl_hwaccess_regread(unsigned int device_id, unsigned int gpubase, unsigned int offsetwords, unsigned int *data)
-{
-    unsigned int *reg;
-
-    // unreferenced formal parameter
-    (void) device_id;
-
-    reg = (unsigned int *)(gpubase + (offsetwords << 2));
-
-    *data = readl(reg);
-}
-
-//----------------------------------------------------------------------------
-
-static __inline void
-kgsl_hwaccess_regwrite(unsigned int device_id, unsigned int gpubase, unsigned int offsetwords, unsigned int data)
-{
-    unsigned int *reg;
-
-    // unreferenced formal parameter
-    (void) device_id;
-
-    reg = (unsigned int *)(gpubase + (offsetwords << 2));
-    writel(data, reg);
-}
 #endif  // __GSL_HWACCESS_WINCE_MX51_H
