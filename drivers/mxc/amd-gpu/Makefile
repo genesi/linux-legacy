@@ -15,9 +15,6 @@ mxc_kgsl-objs += kgsl_cmdstream.o \
 		kgsl_linux_map.o \
 		kgsl_kmod.o \
 		kgsl_hal.o \
+		kgsl_log.o \
 		kgsl_kmod_cleanup.o \
 		kgsl_pwrctrl.o
-
-ifdef CONFIG_KGSL_LOGGING
-mxc_kgsl-objs += kgsl_log.o
-endif

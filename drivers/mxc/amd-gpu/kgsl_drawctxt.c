@@ -1308,7 +1308,6 @@ create_gpustate_shadow(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, ctx
     unsigned int flags;
 
     flags = (GSL_MEMFLAGS_CONPHYS | GSL_MEMFLAGS_ALIGN8K);
-    KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, flags = (GSL_MEMFLAGS_EMEM | GSL_MEMFLAGS_ALIGN8K));
 
     // allocate memory to allow HW to save sub-blocks for efficient context save/restore
     if (kgsl_sharedmem_alloc0(device->id, flags, CONTEXT_SIZE, &drawctxt->gpustate) != GSL_SUCCESS)
@@ -1767,8 +1766,6 @@ kgsl_drawctxt_switch(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, unsig
     // restore new context, when not running in safe mode
     if (drawctxt != GSL_CONTEXT_NONE && !(device->flags & GSL_FLAGS_SAFEMODE))
     {
-        KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, KGSL_DEBUG_DUMPX(BB_DUMP_MEMWRITE, drawctxt->gpustate.gpuaddr, (unsigned int)drawctxt->gpustate.hostptr, LCC_SHADOW_SIZE + REG_SHADOW_SIZE + CMD_BUFFER_SIZE + TEX_SHADOW_SIZE , "kgsl_drawctxt_switch"));
-
         // restore gmem.  (note: changes shader.  shader must not already be restored.)
         if (drawctxt->flags & CTXT_FLAGS_GMEM_RESTORE)
         {

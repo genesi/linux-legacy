@@ -168,8 +168,6 @@ typedef struct _os_cputimer_t {
 #define GSL_DBGFLAGS_PM4                0x00000080
 #define GSL_DBGFLAGS_PM4MEM             0x00000100
 #define GSL_DBGFLAGS_PM4CHECK           0x00000200
-#define GSL_DBGFLAGS_DUMPX              0x00000400
-#define GSL_DBGFLAGS_DUMPX_WITHOUT_IFH  0x00000800
 #define GSL_DBGFLAGS_IFH                0x00001000
 #define GSL_DBGFLAGS_NULL               0x00002000
 

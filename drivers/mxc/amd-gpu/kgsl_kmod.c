@@ -971,7 +971,7 @@ static int gpu_probe(struct platform_device *pdev)
 
     if (!IS_ERR(dev))
     {
-    //    gsl_kmod_data.device = dev;
+        gsl_driver.pdev = pdev;
         return 0;
     }
 

@@ -36,13 +36,8 @@
 //////////////////////////////////////////////////////////////////////////////
 // globals
 //////////////////////////////////////////////////////////////////////////////
-#ifndef KGSL_USER_MODE
 static unsigned int  gsl_driver_initialized = 0;
-gsl_driver_t        gsl_driver;
-#else
-extern unsigned int  gsl_driver_initialized;
-extern gsl_driver_t gsl_driver;
-#endif
+struct kgsl_driver        gsl_driver;
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -56,29 +51,11 @@ kgsl_driver_init0(unsigned int flags, unsigned int flags_debug)
 
     if (!(gsl_driver_initialized & GSL_FLAGS_INITIALIZED0))
     {
-#ifdef CONFIG_KGSL_LOGGING
-        kgsl_log_start( KGSL_LOG_GROUP_ALL | KGSL_LOG_LEVEL_ALL | KGSL_LOG_TIMESTAMP
-                              | KGSL_LOG_THREAD_ID | KGSL_LOG_PROCESS_ID );
-#endif
-        memset(&gsl_driver, 0, sizeof(gsl_driver_t));
+        memset(&gsl_driver, 0, sizeof(struct kgsl_driver));
 	mutex_init(&gsl_driver.lock);
     }
 
-#ifdef _DEBUG
-    // set debug flags on every entry, and prior to hal initialization
-    gsl_driver.flags_debug |= flags_debug;
-#else
     (void) flags_debug;     // unref formal parameter
-#endif // _DEBUG
-
-
-    KGSL_DEBUG(GSL_DBGFLAGS_DUMPX,
-    {
-        KGSL_DEBUG_DUMPX_OPEN("dumpx.tb", 0);
-        KGSL_DEBUG_DUMPX( BB_DUMP_ENABLE, 0, 0, 0, " ");
-    });
-
-    KGSL_DEBUG_TBDUMP_OPEN("tbdump.txt");
 
     if (!(gsl_driver_initialized & GSL_FLAGS_INITIALIZED0))
     {
@@ -113,19 +90,8 @@ kgsl_driver_close0(unsigned int flags)
         status = kgsl_hal_close();
 	mutex_unlock(&gsl_driver.lock);
 
-#ifdef CONFIG_KGSL_LOGGING
-        kgsl_log_finish();
-#endif
-
         gsl_driver_initialized &= ~flags;
         gsl_driver_initialized &= ~GSL_FLAGS_INITIALIZED0;
-
-        KGSL_DEBUG(GSL_DBGFLAGS_DUMPX,
-        {
-            KGSL_DEBUG_DUMPX_CLOSE();
-        });
-
-        KGSL_DEBUG_TBDUMP_CLOSE();
     }
 
     return (status);
@@ -163,7 +129,7 @@ kgsl_driver_entry(unsigned int flags)
         return (GSL_FAILURE);
     }
 
-    kgsl_log_write( KGSL_LOG_GROUP_DRIVER | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_driver_entry( unsigned int flags=%x )\n", flags );
+	KGSL_DRV_VDBG("flags=%x )\n", flags);
 
     mutex_lock(&gsl_driver.lock);
 
@@ -232,8 +198,6 @@ kgsl_driver_entry(unsigned int flags)
     }
 
     mutex_unlock(&gsl_driver.lock);
-
-    kgsl_log_write( KGSL_LOG_GROUP_DRIVER | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_driver_entry. Return value: %B\n", status );
 
     return (status);
 }
@@ -304,11 +268,9 @@ kgsl_driver_exit(void)
 {
     int status;
 
-    kgsl_log_write( KGSL_LOG_GROUP_DRIVER | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_driver_exit()\n" );
+	KGSL_DRV_VDBG("exit\n");
 
     status = kgsl_driver_exit0(current->tgid);
-
-    kgsl_log_write( KGSL_LOG_GROUP_DRIVER | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_driver_exit(). Return value: %B\n", status );
 
     return (status);
 }

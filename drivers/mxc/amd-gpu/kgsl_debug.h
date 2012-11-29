@@ -29,29 +29,6 @@
 #ifndef __GSL_DEBUG_H
 #define __GSL_DEBUG_H
 
-//////////////////////////////////////////////////////////////////////////////
-//  macros
-//////////////////////////////////////////////////////////////////////////////
-#ifdef _DEBUG
-#define KGSL_DEBUG(flag, action)                            if (gsl_driver.flags_debug & flag) {action;}
-#else
 #define KGSL_DEBUG(flag, action)
-#endif
-
-#define KGSL_DEBUG_DUMPPM4(cmds, sizedwords)
-#define KGSL_DEBUG_DUMPREGWRITE(addr, value)
-#define KGSL_DEBUG_DUMPMEMWRITE(addr, sizebytes, data)
-#define KGSL_DEBUG_DUMPMEMSET(addr, sizebytes, value)
-#define KGSL_DEBUG_DUMPFBSTART(device)
-#define KGSL_DEBUG_DUMPREGSPACE(device)
-#define KGSL_DEBUG_DUMPWINDOW(addr, width, height)
-#define KGSL_DEBUG_DUMPX(cmd, par1, par2, par3, comment)
-
-#define KGSL_DEBUG_TBDUMP_OPEN(file)
-#define KGSL_DEBUG_TBDUMP_CLOSE()
-#define KGSL_DEBUG_TBDUMP_SYNCMEM(addr, src, sizebytes)
-#define KGSL_DEBUG_TBDUMP_SETMEM(addr, value, sizebytes)
-#define KGSL_DEBUG_TBDUMP_SLAVEWRITE(addr, value)
-#define KGSL_DEBUG_TBDUMP_WAITIRQ()
 
 #endif // __GSL_DEBUG_H

@@ -29,6 +29,7 @@
 #ifndef __GSL_DRIVER_H
 #define __GSL_DRIVER_H
 
+#include <linux/platform_device.h>
 #include <linux/mutex.h>
 
 #include "kgsl_types.h" // KGSL_DEVICE_MAX
@@ -43,7 +44,7 @@
 // -------------
 // driver object
 // -------------
-typedef struct _gsl_driver_t {
+struct kgsl_driver {
     unsigned int      flags_debug;
     int              refcnt;
     unsigned int     callerprocess[GSL_CALLER_PROCESS_MAX]; // caller process table
@@ -56,13 +57,14 @@ typedef struct _gsl_driver_t {
     int              dmi_frame;     //  set to -1 when DMI is enabled
     int              dmi_max_frame; //  indicates the maximum frame # that we will support
     int              enable_mmu;
-} gsl_driver_t;
+	struct platform_device *pdev;
+};
 
 
 //////////////////////////////////////////////////////////////////////////////
 // external variable declarations
 //////////////////////////////////////////////////////////////////////////////
-extern gsl_driver_t  gsl_driver;
+extern struct kgsl_driver gsl_driver;
 
 
 //////////////////////////////////////////////////////////////////////////////

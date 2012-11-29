@@ -85,8 +85,8 @@ kgsl_cp_intrcallback(gsl_intrid_t id, void *cookie)
 {
     struct kgsl_ringbuffer  *rb = (struct kgsl_ringbuffer *) cookie;
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> void kgsl_cp_intrcallback(gsl_intrid_t id=%I, void *cookie=0x%08x)\n", id, cookie );
+    KGSL_CMD_VDBG(
+                    "--> void kgsl_cp_intrcallback(gsl_intrid_t id=%d, void *cookie=0x%08x)\n", id, (unsigned int) cookie );
 
     switch(id)
     {
@@ -115,7 +115,7 @@ kgsl_cp_intrcallback(gsl_intrid_t id, void *cookie)
             break;
     }
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_cp_intrcallback.\n" );
+    KGSL_CMD_VDBG( "<-- kgsl_cp_intrcallback.\n" );
 }
 
 //----------------------------------------------------------------------------
@@ -125,7 +125,7 @@ kgsl_ringbuffer_watchdog()
 {
     struct kgsl_ringbuffer  *rb = &(gsl_driver.device[KGSL_DEVICE_YAMATO-1]).ringbuffer;       // device_id is 1 based
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
+    KGSL_CMD_VDBG(
                     "--> void kgsl_ringbuffer_watchdog()\n" );
 
     if (rb->flags & GSL_FLAGS_STARTED)
@@ -145,7 +145,7 @@ kgsl_ringbuffer_watchdog()
                 if (rb->rptr == rb->watchdog.rptr_sample)
                 {
                     // then the core has hung
-                    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_FATAL,
+                    KGSL_CMD_VDBG(
                                      "ERROR: Watchdog detected core hung.\n" );
 
                     rb->device->ftbl.destroy(rb->device);
@@ -167,7 +167,7 @@ kgsl_ringbuffer_watchdog()
 	mutex_unlock(rb->mutex);
 #endif
     }
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_watchdog.\n" );
+    KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_watchdog.\n" );
 }
 
 //----------------------------------------------------------------------------
@@ -182,7 +182,7 @@ kgsl_ringbuffer_checkregister(unsigned int reg, int pmodecheck)
 		// check for register protection mode violation
 		if (reg <= (GSL_RB_PROTECTED_MODE_CONTROL & 0x3FFF))
 		{
-			kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: Register protection mode violation.\n" );
+			KGSL_CMD_VDBG("ERROR: Register protection mode violation.\n" );
 			DEBUG_ASSERT(0);
 		}
 	}
@@ -190,7 +190,7 @@ kgsl_ringbuffer_checkregister(unsigned int reg, int pmodecheck)
 	// range check register offset 
 	if (reg > (gsl_driver.device[KGSL_DEVICE_YAMATO-1].regspace.sizebytes >> 2))
 	{
-		kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: Register out of range.\n" );
+		KGSL_CMD_VDBG("ERROR: Register out of range.\n" );
 		DEBUG_ASSERT(0);
 	}
 }
@@ -230,7 +230,7 @@ kgsl_ringbuffer_checkpm4type3(unsigned int header, unsigned int** cmds, int indi
 	// check indirect buffer level
 	if (indirection > 2)
 	{
-		kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: Only two levels of indirection supported.\n" );
+		KGSL_CMD_VDBG("ERROR: Only two levels of indirection supported.\n" );
 		DEBUG_ASSERT(0);
 	}
 
@@ -269,7 +269,7 @@ kgsl_ringbuffer_checkpm4type3(unsigned int header, unsigned int** cmds, int indi
 
         if(indirection != 0)
         {
-			kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: ME INIT packet cannot reside in an ib.\n" );
+			KGSL_CMD_VDBG("ERROR: ME INIT packet cannot reside in an ib.\n" );
             DEBUG_ASSERT(0);
         }
         break;
@@ -354,8 +354,8 @@ kgsl_ringbuffer_checkpm4(unsigned int* cmds, unsigned int sizedwords, int pmodeo
 static void
 kgsl_ringbuffer_submit(struct kgsl_ringbuffer *rb)
 {
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> static void kgsl_ringbuffer_submit(struct kgsl_ringbuffer *rb=0x%08x)\n", rb );
+    KGSL_CMD_VDBG(
+                    "--> static void kgsl_ringbuffer_submit(struct kgsl_ringbuffer *rb=0x%08x)\n", (unsigned int) rb );
 
     DEBUG_ASSERT(rb->wptr != 0);
 
@@ -368,7 +368,7 @@ kgsl_ringbuffer_submit(struct kgsl_ringbuffer *rb)
 
     rb->flags |= GSL_FLAGS_ACTIVE;
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_submit.\n" );
+    KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_submit.\n" );
 }
 
 //----------------------------------------------------------------------------
@@ -380,9 +380,9 @@ kgsl_ringbuffer_waitspace(struct kgsl_ringbuffer *rb, unsigned int numcmds, int 
     unsigned int  freecmds;
     unsigned int  *cmds;
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
+    KGSL_CMD_VDBG(
                     "--> static int kgsl_ringbuffer_waitspace(struct kgsl_ringbuffer *rb=0x%08x, unsigned int numcmds=%d, int wptr_ahead=%d)\n",
-                    rb, numcmds, wptr_ahead );
+                    (unsigned int) rb, numcmds, wptr_ahead );
 
 
     // if wptr ahead, fill the remaining with NOPs
@@ -401,8 +401,6 @@ kgsl_ringbuffer_waitspace(struct kgsl_ringbuffer *rb, unsigned int numcmds, int 
         GSL_RB_STATS(rb->stats.wraps++);
     }
 
-    KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, KGSL_DEBUG_DUMPX(BB_DUMP_RBWAIT, KGSL_DEVICE_YAMATO, rb->wptr, numcmds, "kgsl_ringbuffer_waitspace"));
-
     // wait for space in ringbuffer
     for( ; ; )
     {
@@ -417,7 +415,7 @@ kgsl_ringbuffer_waitspace(struct kgsl_ringbuffer *rb, unsigned int numcmds, int 
 
     }
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_waitspace. Return value %B\n", GSL_SUCCESS );
+    KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_waitspace. Return value %d\n", GSL_SUCCESS );
 
     return (GSL_SUCCESS);
 }
@@ -430,9 +428,9 @@ kgsl_ringbuffer_addcmds(struct kgsl_ringbuffer *rb, unsigned int numcmds)
     unsigned int  *ptr;
     int           status = GSL_SUCCESS;
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
+    KGSL_CMD_VDBG(
                     "--> static unsigned int* kgsl_ringbuffer_addcmds(struct kgsl_ringbuffer *rb=0x%08x, unsigned int numcmds=%d)\n",
-                    rb, numcmds );
+                    (unsigned int) rb, numcmds );
 
     DEBUG_ASSERT(numcmds < rb->sizedwords);
 
@@ -471,12 +469,12 @@ kgsl_ringbuffer_addcmds(struct kgsl_ringbuffer *rb, unsigned int numcmds)
 
     if (status == GSL_SUCCESS)
     {
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_waitspace. Return value 0x%08x\n", ptr );
+        KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_waitspace. Return value 0x%08x\n", (unsigned int) ptr );
         return (ptr);
     }
     else
     {
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_waitspace. Return value 0x%08x\n", NULL );
+        KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_waitspace. Return value 0x%08x\n", (unsigned int) NULL );
         return (NULL);
     }
 }
@@ -492,12 +490,12 @@ kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb)
     unsigned int  *cmds;
     struct kgsl_device  *device = rb->device;
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> static int kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb=0x%08x)\n", rb );
+    KGSL_CMD_VDBG(
+                    "--> static int kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb=0x%08x)\n", (unsigned int) rb );
 
     if (rb->flags & GSL_FLAGS_STARTED)
     {
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_start. Return value %B\n", GSL_SUCCESS );
+        KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_start. Return value %d\n", GSL_SUCCESS );
         return (GSL_SUCCESS);
     }
 
@@ -630,7 +628,7 @@ kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb)
     kgsl_intr_enable(&device->intr, GSL_INTR_YDX_CP_IB1_INT);
     kgsl_intr_enable(&device->intr, GSL_INTR_YDX_CP_RING_BUFFER);
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_start. Return value %B\n", status );
+    KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_start. Return value %d\n", status );
 
     return (status);
 }
@@ -640,8 +638,8 @@ kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb)
 int
 kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb)
 {
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> static int kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb=0x%08x)\n", rb );
+    KGSL_CMD_VDBG(
+                    "--> static int kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb=0x%08x)\n", (unsigned int) rb );
 
     if (rb->flags & GSL_FLAGS_STARTED)
     {
@@ -662,7 +660,7 @@ kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb)
         rb->flags &= ~GSL_FLAGS_STARTED;
     }
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_stop. Return value %B\n", GSL_SUCCESS );
+    KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_stop. Return value %d\n", GSL_SUCCESS );
 
     return (GSL_SUCCESS);
 }
@@ -676,8 +674,8 @@ kgsl_ringbuffer_init(struct kgsl_device *device)
     unsigned int       flags;
     struct kgsl_ringbuffer  *rb = &device->ringbuffer;
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_ringbuffer_init(struct kgsl_device *device=0x%08x)\n", device );
+    KGSL_CMD_VDBG(
+                    "--> int kgsl_ringbuffer_init(struct kgsl_device *device=0x%08x)\n", (unsigned int) device );
 
     rb->device           = device;
     rb->sizedwords       = (2 << gsl_cfg_rb_sizelog2quadwords);
@@ -693,29 +691,25 @@ kgsl_ringbuffer_init(struct kgsl_device *device)
     // allocate memory for ringbuffer, needs to be double octword aligned
     // align on page from contiguous physical memory
     flags = (GSL_MEMFLAGS_ALIGNPAGE | GSL_MEMFLAGS_CONPHYS | GSL_MEMFLAGS_STRICTREQUEST);
-    KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, flags = (GSL_MEMFLAGS_ALIGNPAGE | GSL_MEMFLAGS_STRICTREQUEST)); /* set MMU table for ringbuffer */
 
     status = kgsl_sharedmem_alloc0(device->id, flags, (rb->sizedwords << 2), &rb->buffer_desc);
-
-    KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, KGSL_DEBUG_DUMPX(BB_DUMP_RINGBUF_SET, (unsigned int)rb->buffer_desc.gpuaddr, (unsigned int)rb->buffer_desc.hostptr, 0, "kgsl_ringbuffer_init"));
 
     if (status != GSL_SUCCESS)
     {
         kgsl_ringbuffer_close(rb);
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_init. Return value %B\n", status );
+        KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_init. Return value %d\n", status );
         return (status);
     }
 
     // allocate memory for polling and timestamps
     flags = (GSL_MEMFLAGS_ALIGN32 | GSL_MEMFLAGS_CONPHYS);
-    KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, flags = GSL_MEMFLAGS_ALIGN32);
 
     status = kgsl_sharedmem_alloc0(device->id, flags, sizeof(struct kgsl_rbmemptrs), &rb->memptrs_desc);
 
     if (status != GSL_SUCCESS)
     {
         kgsl_ringbuffer_close(rb);
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_init. Return value %B\n", status );
+        KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_init. Return value %d\n", status );
         return (status);
     }
 
@@ -736,11 +730,11 @@ kgsl_ringbuffer_init(struct kgsl_device *device)
     if (status != GSL_SUCCESS)
     {
         kgsl_ringbuffer_close(rb);
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_init. Return value %B\n", status );
+        KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_init. Return value %d\n", status );
         return (status);
     }
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_init. Return value %B\n", GSL_SUCCESS );
+    KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_init. Return value %d\n", GSL_SUCCESS );
     return (GSL_SUCCESS);
 }
 
@@ -749,8 +743,8 @@ kgsl_ringbuffer_init(struct kgsl_device *device)
 int
 kgsl_ringbuffer_close(struct kgsl_ringbuffer *rb)
 {
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_ringbuffer_close(struct kgsl_ringbuffer *rb=0x%08x)\n", rb );
+    KGSL_CMD_VDBG(
+                    "--> int kgsl_ringbuffer_close(struct kgsl_ringbuffer *rb=0x%08x)\n", (unsigned int) rb );
 
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(rb->mutex);
@@ -779,7 +773,7 @@ kgsl_ringbuffer_close(struct kgsl_ringbuffer *rb)
 
     memset(rb, 0, sizeof(struct kgsl_ringbuffer));
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_close. Return value %B\n", GSL_SUCCESS );
+    KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_close. Return value %d\n", GSL_SUCCESS );
     return (GSL_SUCCESS);
 }
 
@@ -795,9 +789,9 @@ kgsl_ringbuffer_issuecmds(struct kgsl_device *device, int pmodeoff, unsigned int
 
     pmodeoff = 0;
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
+    KGSL_CMD_VDBG(
                     "--> unsigned int kgsl_ringbuffer_issuecmds(struct kgsl_device *device=0x%08x, int pmodeoff=%d, unsigned int *cmds=0x%08x, int sizedwords=%d, unsigned int pid=0x%08x)\n",
-                     device, pmodeoff, cmds, sizedwords, pid );
+                     (unsigned int) device, pmodeoff, (unsigned int) cmds, sizedwords, pid );
 
 	if (!(device->ringbuffer.flags & GSL_FLAGS_STARTED))
 	{
@@ -859,7 +853,6 @@ kgsl_ringbuffer_issuecmds(struct kgsl_device *device, int pmodeoff, unsigned int
     *ringcmds++ = pm4_type3_packet(PM4_INTERRUPT, 1);
     *ringcmds++ = 0x80000000;
 #endif
-    KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, KGSL_DEBUG_DUMPX(BB_DUMP_MEMWRITE, (unsigned int)((char*)ringcmds - ((pmodesizedwords + sizedwords + 6) << 2)), (unsigned int)((char*)ringcmds - ((pmodesizedwords + sizedwords + 6) << 2)), (pmodesizedwords + sizedwords + 6) << 2, "kgsl_ringbuffer_issuecmds"));
 
     // issue the commands
     kgsl_ringbuffer_submit(rb);
@@ -868,7 +861,7 @@ kgsl_ringbuffer_issuecmds(struct kgsl_device *device, int pmodeoff, unsigned int
     GSL_RB_STATS(rb->stats.wordstotal += sizedwords);
     GSL_RB_STATS(rb->stats.issues++);
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_issuecmds. Return value %d\n", timestamp );
+    KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_issuecmds. Return value %d\n", timestamp );
 
     // return timestamp of issued commands
     return (timestamp);
@@ -880,23 +873,19 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint
 {
     unsigned int  link[3];
     struct kgsl_ringbuffer  *rb = &device->ringbuffer;
-    int dumpx_swap;
-    (void)dumpx_swap; // used only when BB_DUMPX is defined
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> unsigned int kgsl_ringbuffer_issueibcmds(struct kgsl_device device=%0x%08x, int drawctxt_index=%d, uint32_t ibaddr=0x%08x, int sizedwords=%d, unsigned int *timestamp=0x%08x)\n",
-                     device, drawctxt_index, ibaddr, sizedwords, timestamp );
+    KGSL_CMD_VDBG(
+                    "--> unsigned int kgsl_ringbuffer_issueibcmds(struct kgsl_device device=%08x, int drawctxt_index=%d, uint32_t ibaddr=0x%08x, int sizedwords=%d, unsigned int *timestamp=0x%08x)\n",
+                     (unsigned int) device, drawctxt_index, ibaddr, sizedwords, (unsigned int) timestamp );
 
     if (!(rb->flags & GSL_FLAGS_STARTED))
     {
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_issueibcmds. Return value %B\n", GSL_FAILURE );
+        KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_issueibcmds. Return value %d\n", GSL_FAILURE );
         return (GSL_FAILURE);
     }
 
     DEBUG_ASSERT(ibaddr);
     DEBUG_ASSERT(sizedwords);
-
-    KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, dumpx_swap = kgsl_dumpx_parse_ibs(ibaddr, sizedwords));
 
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(rb->mutex);
@@ -918,25 +907,8 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint
     {
         device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT);
     }
-    else
-    {
-        KGSL_DEBUG(GSL_DBGFLAGS_DUMPX,
-        {
-            // insert wait for idle after every IB1
-            // this is conservative but works reliably and is ok even for performance simulations
-            device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT);
-        });
-    }
-    KGSL_DEBUG(GSL_DBGFLAGS_DUMPX,
-    {
-        if(dumpx_swap)
-        {
-            KGSL_DEBUG_DUMPX( BB_DUMP_EXPORT_CBUF, 0, 0, 0, "resolve");
-            KGSL_DEBUG_DUMPX( BB_DUMP_FLUSH,0,0,0," ");
-        }
-    });
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_issueibcmds. Return value %B\n", GSL_SUCCESS );
+    KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_issueibcmds. Return value %d\n", GSL_SUCCESS );
 
     return (GSL_SUCCESS);
 }
@@ -1009,12 +981,12 @@ kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb)
     gsl_rb_debug_t  rb_debug;
 #endif
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb=0x%08x)\n", rb );
+    KGSL_CMD_VDBG(
+                    "--> int kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb=0x%08x)\n", (unsigned int) rb );
 
     if (!(rb->flags & GSL_FLAGS_STARTED))
     {
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_FAILURE );
+        KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_FAILURE );
         return (GSL_FAILURE);
     }
 
@@ -1025,7 +997,7 @@ kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb)
 #ifdef _DEBUG
         kgsl_ringbuffer_debug(rb, &rb_debug);
 #endif
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_FAILURE );
+        KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_FAILURE );
         return (GSL_FAILURE);
     }
 
@@ -1041,7 +1013,7 @@ kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb)
 #ifdef _DEBUG
         kgsl_ringbuffer_debug(rb, &rb_debug);
 #endif
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_bist. Return value %d\n", status );
+        KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_bist. Return value %d\n", status );
         return (status);
     }
 
@@ -1052,7 +1024,7 @@ kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb)
 #ifdef _DEBUG
         kgsl_ringbuffer_debug(rb, &rb_debug);
 #endif
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_FAILURE );
+        KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_FAILURE );
         return (GSL_FAILURE);
     }
 
@@ -1068,7 +1040,7 @@ kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb)
 #ifdef _DEBUG
         kgsl_ringbuffer_debug(rb, &rb_debug);
 #endif
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_bist. Return value %d\n", status );
+        KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_bist. Return value %d\n", status );
         return (status);
     }
 
@@ -1079,7 +1051,7 @@ kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb)
 #ifdef _DEBUG
         kgsl_ringbuffer_debug(rb, &rb_debug);
 #endif
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_FAILURE );
+        KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_FAILURE );
         return (GSL_FAILURE);
     }
 
@@ -1094,7 +1066,7 @@ kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb)
 #ifdef _DEBUG
             kgsl_ringbuffer_debug(rb, &rb_debug);
 #endif
-            kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_FAILURE );
+            KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_FAILURE );
             return (GSL_FAILURE);
         }
 
@@ -1116,7 +1088,7 @@ kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb)
 #ifdef _DEBUG
             kgsl_ringbuffer_debug(rb, &rb_debug);
 #endif
-            kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_bist. Return value %d\n", status );
+            KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_bist. Return value %d\n", status );
             return (status);
         }
 
@@ -1127,7 +1099,7 @@ kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb)
 #ifdef _DEBUG
             kgsl_ringbuffer_debug(rb, &rb_debug);
 #endif
-            kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_FAILURE );
+            KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_FAILURE );
             return (GSL_FAILURE);
         }
     }
@@ -1141,7 +1113,7 @@ kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb)
 #ifdef _DEBUG
             kgsl_ringbuffer_debug(rb, &rb_debug);
 #endif
-            kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_FAILURE );
+            KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_FAILURE );
             return (GSL_FAILURE);
         }
 
@@ -1156,7 +1128,7 @@ kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb)
 #ifdef _DEBUG
             kgsl_ringbuffer_debug(rb, &rb_debug);
 #endif
-            kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_bist. Return value %d\n", status );
+            KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_bist. Return value %d\n", status );
             return (status);
         }
     }
@@ -1175,7 +1147,7 @@ kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb)
     // wptr memptr validate
 #endif // GSL_RB_USE_WPTR_POLLING
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_SUCCESS );
+    KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_SUCCESS );
 
     return (GSL_SUCCESS);
 }

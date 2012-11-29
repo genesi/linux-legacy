@@ -10,12 +10,6 @@ config MXC_KGSL
 	---help---
 	 Say Y to get the KGSL (AMD Imageon Z160/Z430) GPU driver support.
 
-#config KGSL_LOGGING
-#	bool "Enable Logging"
-#	depends on MXC_KGSL
-#	---help---
-#	 Enable logging to kernel messages for GPU kernel module
-
 config KGSL_MMU_ENABLE
 	bool "Enable the GPU MMU in the KGSL driver"
 	depends on MXC_KGSL && MMU

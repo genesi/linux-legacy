@@ -59,8 +59,7 @@ kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
     struct kgsl_devconfig  config;
     gsl_hal_t        *hal = (gsl_hal_t *)gsl_driver.hal;
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_init(struct kgsl_device *device=0x%08x, device_id=%D )\n", device, device_id );
+    KGSL_DRV_VDBG("device=0x%08x device_id=%d \n", (unsigned int) device, device_id );
 
     if ((KGSL_DEVICE_YAMATO == device_id) && !(hal->has_z430)) {
 	return GSL_FAILURE_NOTSUPPORTED;
@@ -72,7 +71,6 @@ kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
 
     if (device->flags & GSL_FLAGS_INITIALIZED)
     {
-        kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_init. Return value %B\n", GSL_SUCCESS );
         return (GSL_SUCCESS);
     }
 
@@ -125,13 +123,6 @@ kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
         // allocate memory store
         status = kgsl_sharedmem_alloc0(device->id, GSL_MEMFLAGS_ALIGNPAGE | GSL_MEMFLAGS_CONPHYS, sizeof(struct kgsl_devmemstore), &device->memstore);
 
-        KGSL_DEBUG(GSL_DBGFLAGS_DUMPX,
-        {
-            // dumpx needs this to be in EMEM0 aperture
-            kgsl_sharedmem_free0(&device->memstore, current->tgid);
-            status = kgsl_sharedmem_alloc0(device->id, GSL_MEMFLAGS_ALIGNPAGE, sizeof(struct kgsl_devmemstore), &device->memstore);
-        });
-
         if (status != GSL_SUCCESS)
         {
             kgsl_device_stop(device->id);
@@ -145,9 +136,6 @@ kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
         device->chip_id       = kgsl_hal_getchipid(device->id);
     }
 
-
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_init. Return value %B\n", status );
-
     return (status);
 }
 
@@ -158,8 +146,7 @@ kgsl_device_close(struct kgsl_device *device)
 {
     int  status = GSL_FAILURE_NOTINITIALIZED;
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_close(struct kgsl_device *device=0x%08x )\n", device );
+    KGSL_DRV_VDBG("device=0x%08x \n", (unsigned int) device);
 
     if (!(device->flags & GSL_FLAGS_INITIALIZED)) {
 	return status;
@@ -182,16 +169,7 @@ kgsl_device_close(struct kgsl_device *device)
 	status = device->ftbl.close(device);
     }
 
-    // DumpX allocates memstore from MMU aperture
-    if ((device->refcnt == 0) && device->memstore.hostptr
-	&& !(gsl_driver.flags_debug & GSL_DBGFLAGS_DUMPX))
-    {
-	kgsl_sharedmem_free0(&device->memstore, current->tgid);
-    }
-
     wake_up_interruptible_all(&(device->timestamp_waitq));
-
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_close. Return value %B\n", status );
 
     return (status);
 }
@@ -203,8 +181,7 @@ kgsl_device_destroy(struct kgsl_device *device)
 {
     int  status = GSL_FAILURE_NOTINITIALIZED;
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_destroy(struct kgsl_device *device=0x%08x )\n", device );
+    KGSL_DRV_VDBG("device=0x%08x\n", (unsigned int) device );
 
     if (device->flags & GSL_FLAGS_INITIALIZED)
     {
@@ -213,8 +190,6 @@ kgsl_device_destroy(struct kgsl_device *device)
             status = device->ftbl.destroy(device);
         }
     }
-
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_destroy. Return value %B\n", status );
 
     return (status);
 }
@@ -229,7 +204,7 @@ kgsl_device_attachcallback(struct kgsl_device *device, unsigned int pid)
 
 #ifdef CONFIG_KGSL_MMU_ENABLE
 
-    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_device_attachcallback(struct kgsl_device *device=0x%08x, pid=0x%08x)\n", device, pid );
+    KGSL_DRV_VDBG("device=0x%08x, pid=0x%08x\n", (unsigned int) device, pid );
 
     if (device->flags & GSL_FLAGS_INITIALIZED)
     {
@@ -240,8 +215,6 @@ kgsl_device_attachcallback(struct kgsl_device *device, unsigned int pid)
             status = kgsl_mmu_attachcallback(&device->mmu, pid);
         }
     }
-
-    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_attachcallback. Return value: %B\n", status );
 
 #else
     (void)pid;
@@ -261,7 +234,7 @@ kgsl_device_detachcallback(struct kgsl_device *device, unsigned int pid)
 
 #ifdef CONFIG_KGSL_MMU_ENABLE
 
-    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_device_detachcallback(struct kgsl_device *device=0x%08x, pid=0x%08x)\n", device, pid );
+    KGSL_DRV_VDBG("device=0x%08x, pid=0x%08x\n", (unsigned int) device, pid);
 
     if (device->flags & GSL_FLAGS_INITIALIZED)
     {
@@ -272,8 +245,6 @@ kgsl_device_detachcallback(struct kgsl_device *device, unsigned int pid)
             device->callerprocess[pindex] = 0;
         }
     }
-
-    kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_detachcallback. Return value: %B\n", status );
 
 #else
     (void)pid;
@@ -291,8 +262,7 @@ kgsl_device_getproperty(unsigned int device_id, gsl_property_type_t type, void *
     int           status  = GSL_SUCCESS;
     struct kgsl_device  *device = &gsl_driver.device[device_id-1];        // device_id is 1 based
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_getproperty(device_id=%D, gsl_property_type_t type=%T, void *value=0x%08x, sizebytes=%u)\n", device_id, type, value, sizebytes );
+    KGSL_DRV_VDBG("device_id=%d, type=%d, value=0x%08x, sizebytes=%u\n", device_id, (int) type, (unsigned int) value, sizebytes);
 
     DEBUG_ASSERT(value);
 
@@ -371,8 +341,6 @@ kgsl_device_getproperty(unsigned int device_id, gsl_property_type_t type, void *
         }
     }
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_getproperty. Return value %B\n", status );
-
     return (status);
 }
 
@@ -384,8 +352,7 @@ kgsl_device_setproperty(unsigned int device_id, gsl_property_type_t type, void *
     int           status = GSL_SUCCESS;
     struct kgsl_device  *device;
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_setproperty(device_id=%D, gsl_property_type_t type=%T, void *value=0x%08x, sizebytes=%u)\n", device_id, type, value, sizebytes );
+    KGSL_DRV_VDBG("device_id=%d, type=%d, value=0x%08x, sizebytes=%u\n", device_id, type, (unsigned int) value, sizebytes);
 
     DEBUG_ASSERT(value);
 
@@ -403,8 +370,6 @@ kgsl_device_setproperty(unsigned int device_id, gsl_property_type_t type, void *
 
     mutex_unlock(&gsl_driver.lock);
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_setproperty. Return value %B\n", status );
-
     return (status);
 }
 
@@ -417,8 +382,7 @@ kgsl_device_start(unsigned int device_id, unsigned int flags)
     struct kgsl_device  *device;
     gsl_hal_t     *hal = (gsl_hal_t *)gsl_driver.hal;
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_start(unsigned int device_id=%D,  flags=%d)\n", device_id, flags );
+    KGSL_DRV_VDBG("device_id=%d, flags=%d\n", device_id, flags);
 
     mutex_lock(&gsl_driver.lock);
 
@@ -433,15 +397,13 @@ kgsl_device_start(unsigned int device_id, unsigned int flags)
     }
 
     device = &gsl_driver.device[device_id-1];       // device_id is 1 based
-    
+
     kgsl_device_active(device);
-    
+
     if (!(device->flags & GSL_FLAGS_INITIALIZED))
     {
         mutex_unlock(&gsl_driver.lock);
-
-        kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_ERROR, "ERROR: Trying to start uninitialized device.\n" );
-        kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_start. Return value %B\n", GSL_FAILURE );
+        KGSL_DRV_VDBG("ERROR: Trying to start uninitialized device.\n");
         return (GSL_FAILURE);
     }
 
@@ -450,14 +412,13 @@ kgsl_device_start(unsigned int device_id, unsigned int flags)
     if (device->flags & GSL_FLAGS_STARTED)
     {
         mutex_unlock(&gsl_driver.lock);
-        kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_start. Return value %B\n", GSL_SUCCESS );
         return (GSL_SUCCESS);
     }
 
     // start device in safe mode
     if (flags & GSL_FLAGS_SAFEMODE)
     {
-        kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_INFO, "Running the device in safe mode.\n" );
+        KGSL_DRV_VDBG("Running the device in safe mode.\n");
         device->flags |= GSL_FLAGS_SAFEMODE;
     }
 
@@ -467,8 +428,6 @@ kgsl_device_start(unsigned int device_id, unsigned int flags)
     }
 
     mutex_unlock(&gsl_driver.lock);
-
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_start. Return value %B\n", status );
 
     return (status);
 }
@@ -481,8 +440,7 @@ kgsl_device_stop(unsigned int device_id)
     int           status = GSL_FAILURE_NOTINITIALIZED;
     struct kgsl_device  *device;
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_stop(device_id=%D)\n", device_id );
+    KGSL_DRV_VDBG("device_id=%d\n", device_id );
 
     mutex_lock(&gsl_driver.lock);
 
@@ -509,8 +467,6 @@ kgsl_device_stop(unsigned int device_id)
 
     mutex_unlock(&gsl_driver.lock);
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_stop. Return value %B\n", status );
-
     return (status);
 }
 
@@ -522,8 +478,7 @@ kgsl_device_idle(unsigned int device_id, unsigned int timeout)
     int           status = GSL_FAILURE_NOTINITIALIZED;
     struct kgsl_device  *device;
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_idle(device_id=%D, unsigned int timeout=%d)\n", device_id, timeout );
+    KGSL_DRV_VDBG("device_id=%d, timeout=%d\n", device_id, timeout );
 
     mutex_lock(&gsl_driver.lock);
 
@@ -537,8 +492,6 @@ kgsl_device_idle(unsigned int device_id, unsigned int timeout)
     }
 
     mutex_unlock(&gsl_driver.lock);
-
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_idle. Return value %B\n", status );
 
     return (status);
 }
@@ -562,13 +515,6 @@ kgsl_device_regread(unsigned int device_id, unsigned int offsetwords, unsigned i
     int           status = GSL_FAILURE_NOTINITIALIZED;
     struct kgsl_device  *device;
 
-
-#ifdef CONFIG_KGSL_LOGGING
-    if( offsetwords != REG_RBBM_STATUS && offsetwords != REG_CP_RB_RPTR ) // Would otherwise flood the log
-        kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                        "--> int kgsl_device_regread(device_id=%D, unsigned int offsetwords=%R, unsigned int *value=0x%08x)\n", device_id, offsetwords, value );
-#endif
-
     mutex_lock(&gsl_driver.lock);
 
     device = &gsl_driver.device[device_id-1];       // device_id is 1 based
@@ -583,11 +529,6 @@ kgsl_device_regread(unsigned int device_id, unsigned int offsetwords, unsigned i
 
     mutex_unlock(&gsl_driver.lock);
 
-#ifdef CONFIG_KGSL_LOGGING
-    if( offsetwords != REG_RBBM_STATUS && offsetwords != REG_CP_RB_RPTR )
-        kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_regread. Return value %B\n", status );
-#endif
-
     return (status);
 }
 
@@ -599,8 +540,7 @@ kgsl_device_regwrite(unsigned int device_id, unsigned int offsetwords, unsigned 
     int           status = GSL_FAILURE_NOTINITIALIZED;
     struct kgsl_device  *device;
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_regwrite(device_id=%D, unsigned int offsetwords=%R, uint value=0x%08x)\n", device_id, offsetwords, value );
+    KGSL_DRV_VDBG("device_id=%d, offsetwords=%d, value=0x%08x\n", device_id, offsetwords, value );
 
     mutex_lock(&gsl_driver.lock);
 
@@ -615,8 +555,6 @@ kgsl_device_regwrite(unsigned int device_id, unsigned int offsetwords, unsigned 
 
     mutex_unlock(&gsl_driver.lock);
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_regwrite. Return value %B\n", status );
-
     return (status);
 }
 
@@ -628,8 +566,7 @@ kgsl_device_waitirq(unsigned int device_id, gsl_intrid_t intr_id, unsigned int *
     int           status = GSL_FAILURE_NOTINITIALIZED;
     struct kgsl_device  *device;
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_waitirq(device_id=%D, gsl_intrid_t intr_id=%d, unsigned int *count=0x%08x, unsigned int timout=0x%08x)\n", device_id, intr_id, count, timeout);
+    KGSL_DRV_VDBG("device_id=%d, intr_id=%d, count=0x%08x, timoute=0x%08x\n", device_id, intr_id, (unsigned int) count, timeout);
 
     mutex_lock(&gsl_driver.lock);
 
@@ -642,8 +579,6 @@ kgsl_device_waitirq(unsigned int device_id, gsl_intrid_t intr_id, unsigned int *
 
     mutex_unlock(&gsl_driver.lock);
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_waitirq. Return value %B\n", status );
-
     return (status);
 }
 
@@ -654,8 +589,7 @@ kgsl_device_runpending(struct kgsl_device *device)
 {
     int  status = GSL_FAILURE_NOTINITIALIZED;
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_runpending(struct kgsl_device *device=0x%08x )\n", device );
+    KGSL_DRV_VDBG("device=0x%08x\n", (unsigned int) device );
 
     if (device->flags & GSL_FLAGS_INITIALIZED)
     {
@@ -668,7 +602,7 @@ kgsl_device_runpending(struct kgsl_device *device)
 	kgsl_cmdstream_memqueue_drain(device);
     }
 
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_runpending. Return value %B\n", status );
+    KGSL_DRV_VDBG("done %d\n", status );
 
     return (status);
 }

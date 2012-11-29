@@ -67,23 +67,20 @@ kgsl_cmdwindow_write0(unsigned int device_id, enum kgsl_cmdwindow_type target, u
     unsigned int  cmdwinaddr;
     unsigned int  cmdstream;
 
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_cmdwindow_write( gsl_device_id_t device_id=%D, enum kgsl_cmdwindow_type target=%d, uint addr=0x%08x, uint data=0x%08x)\n", device_id, target, addr, data );
+	KGSL_DRV_INFO("enter (device=%p,addr=%08x,data=0x%x)\n", device, addr, data);
 
     device = &gsl_driver.device[device_id-1];       // device_id is 1 based
 
     if (target < GSL_CMDWINDOW_MIN || target > GSL_CMDWINDOW_MAX)
     {
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_ERROR, "ERROR: Invalid target.\n" );
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_cmdwindow_write. Return value %B\n", GSL_FAILURE );
-        return (GSL_FAILURE);
+	KGSL_DRV_ERR("dev %p invalid target\n", device);
+        return GSL_FAILURE;
     }
 
     if ((!(device->flags & GSL_FLAGS_INITIALIZED) && target == GSL_CMDWINDOW_MMU) ||
         (!(device->flags & GSL_FLAGS_STARTED)     && target != GSL_CMDWINDOW_MMU))
     {
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_ERROR, "ERROR: Invalid device state to write to selected targer.\n" );
-        kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_cmdwindow_write. Return value %B\n", GSL_FAILURE );
+	KGSL_DRV_ERR("Trying to write uninitialized device.\n");
         return (GSL_FAILURE);
     }
 
@@ -123,7 +120,6 @@ kgsl_cmdwindow_write0(unsigned int device_id, enum kgsl_cmdwindow_type target, u
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_unlock(device->cmdwindow_mutex);
 #endif
-    kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_cmdwindow_write. Return value %B\n", GSL_SUCCESS );
 
     return (GSL_SUCCESS);
 }
