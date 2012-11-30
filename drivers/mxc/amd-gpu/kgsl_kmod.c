@@ -67,13 +67,13 @@ int gpu_reserved_mem_size;
 int z160_version;
 int enable_mmu;
 
-static ssize_t gsl_kmod_read(struct file *fd, char __user *buf, size_t len, loff_t *ptr);
-static ssize_t gsl_kmod_write(struct file *fd, const char __user *buf, size_t len, loff_t *ptr);
-static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, unsigned long arg);
-static int gsl_kmod_mmap(struct file *fd, struct vm_area_struct *vma);
-static int gsl_kmod_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
-static int gsl_kmod_open(struct inode *inode, struct file *fd);
-static int gsl_kmod_release(struct inode *inode, struct file *fd);
+static ssize_t kgsl_read(struct file *fd, char __user *buf, size_t len, loff_t *ptr);
+static ssize_t kgsl_write(struct file *fd, const char __user *buf, size_t len, loff_t *ptr);
+static int kgsl_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, unsigned long arg);
+static int kgsl_mmap(struct file *fd, struct vm_area_struct *vma);
+static int kgsl_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
+static int kgsl_open(struct inode *inode, struct file *fd);
+static int kgsl_release(struct inode *inode, struct file *fd);
 static irqreturn_t z160_irq_handler(int irq, void *dev_id);
 static irqreturn_t z430_irq_handler(int irq, void *dev_id);
 
@@ -81,677 +81,720 @@ static int gsl_kmod_major;
 static struct class *gsl_kmod_class;
 DEFINE_MUTEX(gsl_mutex);
 
-static const struct file_operations gsl_kmod_fops =
+static const struct file_operations kgsl_fops =
 {
-    .owner = THIS_MODULE,
-    .read = gsl_kmod_read,
-    .write = gsl_kmod_write,
-    .ioctl = gsl_kmod_ioctl,
-    .mmap = gsl_kmod_mmap,
-    .open = gsl_kmod_open,
-    .release = gsl_kmod_release
+	.owner = THIS_MODULE,
+	.ioctl = kgsl_ioctl,
+	.mmap = kgsl_mmap,
+	.open = kgsl_open,
+	.release = kgsl_release
+	/* good chance these aren't required to be set */
+	//.read = kgsl_read,
+	//.write = kgsl_write,
 };
 
-static struct vm_operations_struct gsl_kmod_vmops =
+static struct vm_operations_struct kgsl_vmops =
 {
-	.fault = gsl_kmod_fault,
+	.fault = kgsl_fault,
 };
 
-static ssize_t gsl_kmod_read(struct file *fd, char __user *buf, size_t len, loff_t *ptr)
+static ssize_t kgsl_read(struct file *fd, char __user *buf, size_t len, loff_t *ptr)
 {
     return 0;
 }
 
-static ssize_t gsl_kmod_write(struct file *fd, const char __user *buf, size_t len, loff_t *ptr)
+static ssize_t kgsl_write(struct file *fd, const char __user *buf, size_t len, loff_t *ptr)
 {
     return 0;
 }
 
-static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, unsigned long arg)
+static int kgsl_ioctl_cmdwindow_write(struct file *fd, void __user *arg)
 {
-    int kgslStatus = GSL_FAILURE;
+	int result = GSL_SUCCESS;
+	struct kgsl_cmdwindow_write param;
 
-    switch (cmd) {
-    case IOCTL_KGSL_DEVICE_START:
-        {
-            struct kgsl_device_start param;
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		result = GSL_FAILURE; // -EFAULT
+		goto done;
+	}
+	if (param.device_id == KGSL_DEVICE_YAMATO) {
+		result = GSL_FAILURE; // -EINVAL
+	} else if (param.device_id == KGSL_DEVICE_G12) {
+		// qcom: pre-hw-access, kgsl_g12_cmdwindow_write
+		result = kgsl_cmdwindow_write0(param.device_id,
+				param.target, param.addr, param.data);
+	} else {
+		result = GSL_FAILURE; // -EINVAL
+	}
 
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_START\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_device_start)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_device_start(param.device_id, param.flags);
-            break;
-        }
-    case IOCTL_KGSL_DEVICE_STOP:
-        {
-            struct kgsl_device_stop param;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_STOP\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_device_stop)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_device_stop(param.device_id);
-            break;
-        }
-    case IOCTL_KGSL_DEVICE_IDLE:
-        {
-            struct kgsl_device_idle param;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_IDLE\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_device_idle)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_device_idle(param.device_id, param.timeout);
-            break;
-        }
-    case IOCTL_KGSL_DEVICE_ISIDLE:
-        {
-            struct kgsl_device_isidle param;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_ISIDLE\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_device_isidle)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_device_isidle(param.device_id);
-            break;
-        }
-    case IOCTL_KGSL_DEVICE_GETPROPERTY:
-        {
-            struct kgsl_device_getproperty param;
-            void *tmp;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_GETPROPERTY\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_device_getproperty)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            tmp = kmalloc(param.sizebytes, GFP_KERNEL);
-            if (!tmp)
-            {
-                printk(KERN_ERR "%s:kmalloc error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_device_getproperty(param.device_id, param.type, tmp, param.sizebytes);
-            if (kgslStatus == GSL_SUCCESS)
-            {
-                if (copy_to_user(param.value, tmp, param.sizebytes))
-                {
-                    printk(KERN_ERR "%s: copy_to_user error\n", __func__);
-                    kgslStatus = GSL_FAILURE;
-                    kfree(tmp);
-                    break;
-                }
-            }
-            else
-            {
-                printk(KERN_ERR "%s: kgsl_device_getproperty error\n", __func__);
-            }
-            kfree(tmp);
-            break;
-        }
-    case IOCTL_KGSL_DEVICE_SETPROPERTY:
-        {
-            struct kgsl_device_setproperty param;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_SETPROPERTY\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_device_setproperty)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_device_setproperty(param.device_id, param.type, param.value, param.sizebytes);
-            if (kgslStatus != GSL_SUCCESS)
-            {
-                printk(KERN_ERR "%s: kgsl_device_setproperty error\n", __func__);
-            }
-            break;
-        }
-    case IOCTL_KGSL_DEVICE_REGREAD:
-        {
-            struct kgsl_device_regread param;
-            unsigned int tmp;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_REGREAD\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_device_regread)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_device_regread(param.device_id, param.offsetwords, &tmp);
-            if (kgslStatus == GSL_SUCCESS)
-            {
-                if (copy_to_user(param.value, &tmp, sizeof(unsigned int)))
-                {
-                    printk(KERN_ERR "%s: copy_to_user error\n", __func__);
-                    kgslStatus = GSL_FAILURE;
-                    break;
-                }
-            }
-            break;
-        }
-    case IOCTL_KGSL_DEVICE_REGWRITE:
-        {
-            struct kgsl_device_regwrite param;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_REGWRITE\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_device_regwrite)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_device_regwrite(param.device_id, param.offsetwords, param.value);
-            break;
-        }
-    case IOCTL_KGSL_DEVICE_WAITIRQ:
-        {
-            struct kgsl_device_waitirq param;
-            unsigned int count;
+	if (result != GSL_SUCCESS)
+		goto done;
 
-            printk(KERN_ERR "%s: IOCTL_KGSL_DEVICE_WAITIRQ obsoleted!\n", __func__);
-//          kgslStatus = -ENOTTY; break;
+/* qcom:
+	if (copy_to_user(arg, &param, sizeof(param))) {
+		result = -EFAULT;
+		goto done;
+	}
+*/
 
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_device_waitirq)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_device_waitirq(param.device_id, param.intr_id, &count, param.timeout);
-            if (kgslStatus == GSL_SUCCESS)
-            {
-                if (copy_to_user(param.count, &count, sizeof(unsigned int)))
-                {
-                    printk(KERN_ERR "%s: copy_to_user error\n", __func__);
-                    kgslStatus = GSL_FAILURE;
-                    break;
+done:
+	return result;
+}
+
+static int kgsl_ioctl_device_getproperty(struct file *fd, void __user *arg)
+{
+	int result = GSL_SUCCESS;
+	struct kgsl_device_getproperty param;
+	void *tmp;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		result = GSL_FAILURE; // -EFAULT
+		goto done;
+	}
+
+	tmp = kmalloc(param.sizebytes, GFP_KERNEL);
+	if (!tmp) {
+                pr_err("%s:kmalloc error\n", __func__);
+                result = GSL_FAILURE;
+                goto done;
+	}
+
+	/* qcom:
+	 * - call yamato_getproperty or g12_getproperty
+	 * - those functions allocate return value on stack
+	 * - copy_to_user the result
+	 * - no idea how FSL code is even meant to work here!?
+	 */
+	result = kgsl_device_getproperty(param.device_id, param.type, tmp, param.sizebytes);
+
+	kfree(tmp);
+done:
+	return result;
+}
+
+
+static int kgsl_ioctl_device_setproperty(struct file *fd, void __user *arg)
+{
+	int status;
+	struct kgsl_device_setproperty param;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		status = GSL_FAILURE; // -EFAULT
+		goto done;
+	}
+	status = kgsl_device_setproperty(param.device_id, param.type, param.value, param.sizebytes);
+
+done:
+	return status;
+}
+
+static int kgsl_ioctl_device_regread(struct file *fd, void __user *arg)
+{
+	int status = GSL_SUCCESS;
+	struct kgsl_device_regread param;
+	unsigned int tmp;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+		status = GSL_FAILURE; // -EFAULT
+		goto done;
+	}
+
+	/* qcom: call direct predicated on device id. g12 has pre-hw-access */
+	status = kgsl_device_regread(param.device_id, param.offsetwords, &tmp);
+
+	if (status == GSL_SUCCESS) {
+		if (copy_to_user(param.value, &tmp, sizeof(unsigned int))) {
+			pr_err("%s: copy_to_user error\n", __func__);
+			status = GSL_FAILURE;
                 }
-            }
-            break;
-        }
-    case IOCTL_KGSL_CMDSTREAM_ISSUEIBCMDS:
-        {
-            struct kgsl_cmdstream_issueibcmds param;
-            unsigned int tmp;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CMDSTREAM_ISSUEIBCMDS\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_cmdstream_issueibcmds)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_cmdstream_issueibcmds(param.device_id, param.drawctxt_index, param.ibaddr, param.sizedwords, &tmp, param.flags);
-            if (kgslStatus == GSL_SUCCESS)
-            {
-                if (copy_to_user(param.timestamp, &tmp, sizeof(unsigned int)))
-                {
-                    printk(KERN_ERR "%s: copy_to_user error\n", __func__);
-                    kgslStatus = GSL_FAILURE;
-                    break;
+	}
+done:
+	return status;
+}
+
+/* not implemented in qcom kernel? */
+static int kgsl_ioctl_device_regwrite(struct file *fd, void __user *arg)
+{
+	int status = GSL_SUCCESS;
+	struct kgsl_device_regwrite param;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+		return GSL_FAILURE;
+	}
+
+	status = kgsl_device_regwrite(param.device_id, param.offsetwords, param.value);
+
+	return status;
+}
+
+/* device_waittimestamp in qcom */
+static int kgsl_ioctl_cmdstream_waittimestamp(struct file *fd, void __user *arg)
+{
+	int result = GSL_SUCCESS;
+	struct kgsl_cmdstream_waittimestamp param;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+                pr_err("%s: copy_from_user error\n", __func__);
+		return GSL_FAILURE;
+	}
+
+	result = kgsl_cmdstream_waittimestamp(param.device_id, param.timestamp, param.timeout);
+
+	return result;
+}
+
+/* ringbuffer_issueibcmds in qcom */
+static int kgsl_ioctl_cmdstream_issueibcmds(struct file *fd, void __user *arg)
+{
+	int status = GSL_SUCCESS;
+	struct kgsl_cmdstream_issueibcmds param;
+	unsigned int tmp;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+                pr_err("%s: copy_from_user error\n", __func__);
+		return GSL_FAILURE;
+	}
+
+	status = kgsl_cmdstream_issueibcmds(param.device_id, param.drawctxt_index,
+						param.ibaddr, param.sizedwords, &tmp, param.flags);
+
+	if (status == GSL_SUCCESS) {
+		if (copy_to_user(param.timestamp, &tmp, sizeof(unsigned int))) {
+			pr_err("%s: copy_to_user error\n", __func__);
+			status = GSL_FAILURE;
                 }
-            }
-            break;
+	}
+
+	return status;
+}
+
+static int kgsl_ioctl_sharedmem_alloc(struct file *fd, void __user *arg)
+{
+	struct kgsl_sharedmem_alloc param;
+	struct kgsl_memdesc tmp;
+	int status;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+                pr_err("%s: copy_from_user error\n", __func__);
+		return GSL_FAILURE;
+	}
+
+	/* alternative for us: lock, alloc0, unlock */
+	status = kgsl_sharedmem_alloc(param.device_id, param.flags, param.sizebytes, &tmp);
+	if (status == GSL_SUCCESS) {
+		if (copy_to_user(param.memdesc, &tmp, sizeof(struct kgsl_memdesc))) {
+			kgsl_sharedmem_free(&tmp); // check result?
+
+	                pr_err("%s: copy_to_user error\n", __func__);
+			return GSL_FAILURE;
+		}
+		add_memblock_to_allocated_list(fd, &tmp);
+	} else {
+		pr_err("%s (id=%d,flags=%x,size=%d) failed!\n", __func__,
+				param.device_id, param.flags, param.sizebytes);
         }
-    case IOCTL_KGSL_CMDSTREAM_READTIMESTAMP:
-        {
-            struct kgsl_cmdstream_readtimestamp param;
-            unsigned int tmp;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CMDSTREAM_READTIMESTAMP\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_cmdstream_readtimestamp)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            tmp = kgsl_cmdstream_readtimestamp(param.device_id, param.type);
-            if (copy_to_user(param.timestamp, &tmp, sizeof(unsigned int)))
-            {
-                    printk(KERN_ERR "%s: copy_to_user error\n", __func__);
-                    kgslStatus = GSL_FAILURE;
-                    break;
-            }
-            kgslStatus = GSL_SUCCESS;
-            break;
-        }
-    case IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP:
-        {
-            int err;
-            struct kgsl_cmdstream_freememontimestamp param;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_cmdstream_freememontimestamp)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            err = del_memblock_from_allocated_list(fd, param.memdesc);
-            if(err)
-            {
-                /* tried to remove a block of memory that is not allocated! 
-                 * NOTE that -EINVAL is Linux kernel's error codes! 
-                 * the drivers error codes COULD mix up with kernel's. */
-                kgslStatus = -EINVAL;
-            }
-            else
-            {
-                kgslStatus = kgsl_cmdstream_freememontimestamp(param.device_id,
-                                                               param.memdesc,
-                                                               param.timestamp,
-                                                               param.type);
-            }
-            break;
-        }
-    case IOCTL_KGSL_CMDSTREAM_WAITTIMESTAMP:
-        {
-            struct kgsl_cmdstream_waittimestamp param;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CMDSTREAM_WAITTIMESTAMP\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_cmdstream_waittimestamp)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_cmdstream_waittimestamp(param.device_id, param.timestamp, param.timeout);
-            break;
-        }
-    case IOCTL_KGSL_CMDWINDOW_WRITE:
-        {
-            struct kgsl_cmdwindow_write param;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CMDWINDOW_WRITE\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_cmdwindow_write)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_cmdwindow_write(param.device_id, param.target, param.addr, param.data);
-            break;
-        }
-    case IOCTL_KGSL_CONTEXT_CREATE:
-        {
-            struct kgsl_context_create param;
-            unsigned int tmp;
-            int tmpStatus;
+
+	return status;
+}
+
+static int kgsl_ioctl_sharedmem_free(struct file *fd, void __user *arg)
+{
+	struct kgsl_sharedmem_free param;
+	struct kgsl_memdesc tmp;
+	int status;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+                pr_err("%s: copy_from_user error\n", __func__);
+		return GSL_FAILURE;
+	}
+
+	if (copy_from_user(&tmp, arg, sizeof(tmp))) {
+                pr_err("%s: copy_from_user error\n", __func__);
+		return GSL_FAILURE;
+	}
+
+	status = del_memblock_from_allocated_list(fd, &tmp);
+	if (status) {
+		pr_err("%s: tried to free memdesc that was not allocated!\n", __func__);
+	}
+
+	status = kgsl_sharedmem_free(&tmp);
+	if (status == GSL_SUCCESS) {
+		if (copy_to_user(param.memdesc, &tmp, sizeof(tmp))) {
+        	        pr_err("%s: copy_to_user error\n", __func__);
+			return GSL_FAILURE;
+		}
+	}
+
+	return status;
+}
+
+static int kgsl_ioctl_sharedmem_read(struct file *fd, void __user *arg)
+{
+	struct kgsl_sharedmem_read param;
+	struct kgsl_memdesc tmp;
+	int status;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+                pr_err("%s: copy_from_user error\n", __func__);
+		return GSL_FAILURE;
+	}
+
+	if (copy_from_user(&tmp, param.memdesc, sizeof(tmp))) {
+                pr_err("%s: copy_from_user error\n", __func__);
+		return GSL_FAILURE;
+	}
+
+	status = kgsl_sharedmem_read(&tmp, param.dst, param.offsetbytes, param.sizebytes, true);
+	if (status != GSL_SUCCESS) {
+                pr_err("%s: kgsl_sharedmem_read failed\n", __func__);
+	}
+
+	return status;
+}
+
+static int kgsl_ioctl_sharedmem_write(struct file *fd, void __user *arg)
+{
+	struct kgsl_sharedmem_read param;
+	struct kgsl_memdesc tmp;
+	int status;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+                pr_err("%s: copy_from_user error\n", __func__);
+		return GSL_FAILURE;
+	}
+
+	if (copy_from_user(&tmp, param.memdesc, sizeof(tmp))) {
+                pr_err("%s: copy_from_user error\n", __func__);
+		return GSL_FAILURE;
+	}
+
+	status = kgsl_sharedmem_write(&tmp, param.offsetbytes, param.dst, param.sizebytes, true);
+	if (status != GSL_SUCCESS) {
+                pr_err("%s: kgsl_sharedmem_write failed\n", __func__);
+	}
+
+	return status;
+}
+
+static int kgsl_ioctl_sharedmem_set(struct file *fd, void __user *arg)
+{
+	struct kgsl_sharedmem_set param;
+	struct kgsl_memdesc tmp;
+	int status;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+                pr_err("%s: copy_from_user error\n", __func__);
+		return GSL_FAILURE;
+	}
+
+	if (copy_from_user(&tmp, param.memdesc, sizeof(tmp))) {
+                pr_err("%s: copy_from_user error\n", __func__);
+		return GSL_FAILURE;
+	}
+
+	status = kgsl_sharedmem_set(&tmp, param.offsetbytes, param.value, param.sizebytes);
+	if (status != GSL_SUCCESS) {
+                pr_err("%s: kgsl_sharedmem_set failed\n", __func__);
+	}
+
+	return status;
+}
+
+static int kgsl_ioctl_device_start(struct file *fd, void __user *arg)
+{
+	int status;
+	struct kgsl_device_start param;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	status = kgsl_device_start(param.device_id, param.flags);
+	return status;
+}
+
+static int kgsl_ioctl_device_stop(struct file *fd, void __user *arg)
+{
+	int status;
+	struct kgsl_device_stop param;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	status = kgsl_device_stop(param.device_id);
+	return status;
+}
+
+static int kgsl_ioctl_device_idle(struct file *fd, void __user *arg)
+{
+	int status;
+	struct kgsl_device_idle param;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	status = kgsl_device_idle(param.device_id, param.timeout);
+	return status;
+}
+
+static int kgsl_ioctl_device_isidle(struct file *fd, void __user *arg)
+{
+	int status;
+	struct kgsl_device_isidle param;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	status = kgsl_device_isidle(param.device_id);
+	return status;
+}
+
+static int kgsl_ioctl_device_clock(struct file *fd, void __user *arg)
+{
+	int status;
+	struct kgsl_device_clock param;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	status = kgsl_device_clock(param.device, param.enable);
+	return status;
+}
+
+static int kgsl_ioctl_cmdstream_readtimestamp(struct file *fd, void __user *arg)
+{
+	int status = GSL_SUCCESS;
+	struct kgsl_cmdstream_readtimestamp param;
+	unsigned int tmp;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	tmp = kgsl_cmdstream_readtimestamp(param.device_id, param.type);
+	if (copy_to_user(param.timestamp, &tmp, sizeof(unsigned int))) {
+		pr_err("%s: copy_to_user error\n", __func__);
+		status = GSL_FAILURE;
+	}
+	return status;
+}
+
+static int kgsl_ioctl_cmdstream_freememontimestamp(struct file *fd, void __user *arg)
+{
+	int status = GSL_SUCCESS;
+	struct kgsl_cmdstream_freememontimestamp param;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	status = del_memblock_from_allocated_list(fd, param.memdesc);
+	if (status) {
+		/* tried to remove a block of memory that is not allocated!
+		 * NOTE that -EINVAL is Linux kernel's error codes!
+		 * the drivers error codes COULD mix up with kernel's.
+		 */
+                status = -EINVAL;
+	} else {
+		status = kgsl_cmdstream_freememontimestamp(param.device_id,
+							param.memdesc,
+							param.timestamp,
+							param.type);
+	}
+	return status;
+}
+
+static int kgsl_ioctl_context_create(struct file *fd, void __user *arg)
+{
+	int status;
+	struct kgsl_context_create param;
+	unsigned int tmp;
 	struct kgsl_device *device;
 
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CONTEXT_CREATE\n", __func__);
-#endif
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
 
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_context_create)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-		device = &gsl_driver.device[param.device_id-1];
-		mutex_lock(&gsl_driver.lock);
-		kgslStatus = device->ftbl.device_drawctxt_create(device, param.type, &tmp, param.flags);
-		mutex_unlock(&gsl_driver.lock);
+	device = &gsl_driver.device[param.device_id-1];
+	mutex_lock(&gsl_driver.lock);
+	status = device->ftbl.device_drawctxt_create(device, param.type, &tmp, param.flags);
+	mutex_unlock(&gsl_driver.lock);
 
-            if (kgslStatus == GSL_SUCCESS)
-            {
-                if (copy_to_user(param.drawctxt_id, &tmp, sizeof(unsigned int)))
-                {
+	if (status == GSL_SUCCESS) {
+		if (copy_to_user(param.drawctxt_id, &tmp, sizeof(unsigned int))) {
 			mutex_lock(&gsl_driver.lock);
-			tmpStatus = device->ftbl.device_drawctxt_destroy(device, *param.drawctxt_id);
+			device->ftbl.device_drawctxt_destroy(device, *param.drawctxt_id); // check result?
 			mutex_unlock(&gsl_driver.lock);
-                    /* is asserting ok? Basicly we should return the error from copy_to_user
-                     * but will the user space interpret it correctly? Will the user space
-                     * always check against GSL_SUCCESS  or GSL_FAILURE as they are not the only
-                     * return values.
-                     */
-                    DEBUG_ASSERT(tmpStatus == GSL_SUCCESS);
-                    printk(KERN_ERR "%s: copy_to_user error\n", __func__);
-                    kgslStatus = GSL_FAILURE;
-                    break;
-                }
-                else
-                {
-                    add_device_context_to_array(fd, param.device_id, tmp);
-                }
-            }
-            break;
-        }
-    case IOCTL_KGSL_CONTEXT_DESTROY:
-        {
-            struct kgsl_context_destroy param;
-		struct kgsl_device *device;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CONTEXT_DESTROY\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_context_destroy)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-		device = &gsl_driver.device[param.device_id-1];
 
-		mutex_lock(&gsl_driver.lock);
-		kgslStatus = device->ftbl.device_drawctxt_destroy(device, param.drawctxt_id);
-		mutex_unlock(&gsl_driver.lock);
-
-            del_device_context_from_array(fd, param.device_id, param.drawctxt_id);
-            break;
-        }
-    case IOCTL_KGSL_DRAWCTXT_BIND_GMEM_SHADOW:
-        {
-            struct kgsl_drawctxt_bind_gmem_shadow param;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DRAWCTX_BIND_GMEM_SHADOW\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_drawctxt_bind_gmem_shadow)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_drawctxt_bind_gmem_shadow(param.device_id, param.drawctxt_id, param.gmem_rect, param.shadow_x, param.shadow_y, param.shadow_buffer, param.buffer_id);
-            break;
-        }
-    case IOCTL_KGSL_SHAREDMEM_ALLOC:
-        {
-            struct kgsl_sharedmem_alloc param;
-            struct kgsl_memdesc tmp;
-            int tmpStatus;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_ALLOC\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_sharedmem_alloc)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_sharedmem_alloc(param.device_id, param.flags, param.sizebytes, &tmp);
-            if (kgslStatus == GSL_SUCCESS)
-            {
-                if (copy_to_user(param.memdesc, &tmp, sizeof(struct kgsl_memdesc)))
-                {
-                    tmpStatus = kgsl_sharedmem_free(&tmp);
-                    DEBUG_ASSERT(tmpStatus == GSL_SUCCESS);
-                    printk(KERN_ERR "%s: copy_to_user error\n", __func__);
-                    kgslStatus = GSL_FAILURE;
-                    break;
-                }
-                else
-                {
-                    add_memblock_to_allocated_list(fd, &tmp);
-                }
-            } else {
-		pr_err("amd-gpu: kgsl_sharedmem_alloc ioctl failed!\n");
-	    }
-
-            break;
-        }
-    case IOCTL_KGSL_SHAREDMEM_FREE:
-        {
-            struct kgsl_sharedmem_free param;
-            struct kgsl_memdesc tmp;
-            int err;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_FREE\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_sharedmem_free)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            if (copy_from_user(&tmp, (void __user *)param.memdesc, sizeof(struct kgsl_memdesc)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            err = del_memblock_from_allocated_list(fd, &tmp);
-            if(err)
-            {
-                printk(KERN_ERR "%s: tried to free memdesc that was not allocated!\n", __func__);
-                kgslStatus = err;
-                break;
-            }
-            kgslStatus = kgsl_sharedmem_free(&tmp);
-            if (kgslStatus == GSL_SUCCESS)
-            {
-                if (copy_to_user(param.memdesc, &tmp, sizeof(struct kgsl_memdesc)))
-                {
-                    printk(KERN_ERR "%s: copy_to_user error\n", __func__);
-                    kgslStatus = GSL_FAILURE;
-                    break;
-                }
-            }
-            break;
-        }
-    case IOCTL_KGSL_SHAREDMEM_READ:
-        {
-            struct kgsl_sharedmem_read param;
-            struct kgsl_memdesc memdesc;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_READ\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_sharedmem_read)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            if (copy_from_user(&memdesc, (void __user *)param.memdesc, sizeof(struct kgsl_memdesc)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_sharedmem_read(&memdesc, param.dst, param.offsetbytes, param.sizebytes, true);
-            if (kgslStatus != GSL_SUCCESS)
-            {
-                printk(KERN_ERR "%s: kgsl_sharedmem_read failed\n", __func__);
-            }
-            break;
-        }
-    case IOCTL_KGSL_SHAREDMEM_WRITE:
-        {
-            struct kgsl_sharedmem_write param;
-            struct kgsl_memdesc memdesc;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_WRITE\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_sharedmem_write)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            if (copy_from_user(&memdesc, (void __user *)param.memdesc, sizeof(struct kgsl_memdesc)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_sharedmem_write(&memdesc, param.offsetbytes, param.src, param.sizebytes, true);
-            if (kgslStatus != GSL_SUCCESS)
-            {
-                printk(KERN_ERR "%s: kgsl_sharedmem_write failed\n", __func__);
-            }
-
-            break;
-        }
-    case IOCTL_KGSL_SHAREDMEM_SET:
-        {
-            struct kgsl_sharedmem_set param;
-            struct kgsl_memdesc memdesc;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_SET\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_sharedmem_set)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            if (copy_from_user(&memdesc, (void __user *)param.memdesc, sizeof(struct kgsl_memdesc)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_sharedmem_set(&memdesc, param.offsetbytes, param.value, param.sizebytes);
-            break;
-        }
-    case IOCTL_KGSL_SHAREDMEM_LARGESTFREEBLOCK:
-        {
-            struct kgsl_sharedmem_largestfreeblock param;
-            unsigned int largestfreeblock;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_LARGESTFREEBLOCK\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_sharedmem_largestfreeblock)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            largestfreeblock = kgsl_sharedmem_largestfreeblock(param.device_id, param.flags);
-            if (copy_to_user(param.largestfreeblock, &largestfreeblock, sizeof(unsigned int)))
-            {
-                printk(KERN_ERR "%s: copy_to_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = GSL_SUCCESS;
-            break;
-        }
-    case IOCTL_KGSL_SHAREDMEM_CACHEOPERATION:
-        {
-            struct kgsl_sharedmem_cacheoperation param;
-            struct kgsl_memdesc memdesc;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_CACHEOPERATION\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_sharedmem_cacheoperation)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            if (copy_from_user(&memdesc, (void __user *)param.memdesc, sizeof(struct kgsl_memdesc)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_sharedmem_cacheoperation(&memdesc, param.offsetbytes, param.sizebytes, param.operation);
-            break;
-        }
-    case IOCTL_KGSL_SHAREDMEM_FROMHOSTPOINTER:
-        {
-            struct kgsl_sharedmem_fromhostpointer param;
-            struct kgsl_memdesc memdesc;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_SHAREDMEM_FROMHOSTPOINTER\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_sharedmem_fromhostpointer)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            if (copy_from_user(&memdesc, (void __user *)param.memdesc, sizeof(struct kgsl_memdesc)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_sharedmem_fromhostpointer(param.device_id, &memdesc, param.hostptr);
-            break;
-        }
-    case IOCTL_KGSL_ADD_TIMESTAMP:
-        {
-            struct kgsl_add_timestamp param;
-            unsigned int tmp;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_ADD_TIMESTAMP\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_add_timestamp)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            tmp = kgsl_add_timestamp(param.device_id, &tmp);
-            if (copy_to_user(param.timestamp, &tmp, sizeof(unsigned int)))
-            {
-                    printk(KERN_ERR "%s: copy_to_user error\n", __func__);
-                    kgslStatus = GSL_FAILURE;
-                    break;
-            }
-            kgslStatus = GSL_SUCCESS;
-            break;
-        }
-
-    case IOCTL_KGSL_DEVICE_CLOCK:
-        {
-            struct kgsl_device_clock param;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_CLOCK\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(struct kgsl_device_clock)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_device_clock(param.device, param.enable);
-            break;
-        }
-    default:
-        kgslStatus = -ENOTTY;
-        break;
-    }
-
-    return kgslStatus;
+			pr_err("%s: copy_to_user error\n", __func__);
+			status = GSL_FAILURE;
+                } else {
+			add_device_context_to_array(fd, param.device_id, tmp);
+		}
+	}
+	return status;
 }
 
-static int gsl_kmod_mmap(struct file *fd, struct vm_area_struct *vma)
+static int kgsl_ioctl_context_destroy(struct file *fd, void __user *arg)
 {
+	int status;
+	struct kgsl_context_destroy param;
+	struct kgsl_device *device;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	device = &gsl_driver.device[param.device_id-1];
+	mutex_lock(&gsl_driver.lock);
+	status = device->ftbl.device_drawctxt_destroy(device, param.drawctxt_id);
+	mutex_unlock(&gsl_driver.lock);
+
+	del_device_context_from_array(fd, param.device_id, param.drawctxt_id);
+
+	return status;
+}
+
+static int kgsl_ioctl_sharedmem_largestfreeblock(struct file *fd, void __user *arg)
+{
+	struct kgsl_sharedmem_largestfreeblock param;
+	unsigned int largestfreeblock;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	largestfreeblock = kgsl_sharedmem_largestfreeblock(param.device_id, param.flags);
+	if (copy_to_user(param.largestfreeblock, &largestfreeblock, sizeof(unsigned int))) {
+		pr_err("%s: copy_to_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	return GSL_SUCCESS;
+}
+
+
+static int kgsl_ioctl_sharedmem_cacheoperation(struct file *fd, void __user *arg)
+{
+	int status;
+	struct kgsl_sharedmem_cacheoperation param;
+	struct kgsl_memdesc tmp;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	if (copy_from_user(&tmp, (void __user *)param.memdesc, sizeof(tmp))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+        status = kgsl_sharedmem_cacheoperation(&tmp, param.offsetbytes, param.sizebytes, param.operation);
+	return status;
+}
+
+static int kgsl_ioctl_sharedmem_fromhostpointer(struct file *fd, void __user *arg)
+{
+	int status;
+	struct kgsl_sharedmem_fromhostpointer param;
+	struct kgsl_memdesc tmp;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	if (copy_from_user(&tmp, (void __user *)param.memdesc, sizeof(tmp))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	status = kgsl_sharedmem_fromhostpointer(param.device_id, &tmp, param.hostptr);
+	return status;
+}
+
+#if 0
+/* this and all it's associated crap can go away as userspace doesn't call it.
+	c2d_z430 has a reference that's never called */
+static int kgsl_ioctl_device_waitirq(struct file *fd, void __user *arg)
+{
+	int status;
+	struct kgsl_device_waitirq param;
+	unsigned int count;
+
+	pr_err("%s: IOCTL_KGSL_DEVICE_WAITIRQ obsoleted!\n", __func__);
+	// return -ENOTTY;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	status = kgsl_device_waitirq(param.device_id, param.intr_id, &count, param.timeout);
+	if (status == GSL_SUCCESS) {
+		if (copy_to_user(param.count, &count, sizeof(unsigned int))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+}
+#endif
+
+static int kgsl_ioctl_drawctxt_bind_gmem_shadow(struct file *fd, void __user *arg)
+{
+	int status;
+	struct kgsl_drawctxt_bind_gmem_shadow param;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	status = kgsl_drawctxt_bind_gmem_shadow(param.device_id, param.drawctxt_id,
+						param.gmem_rect, param.shadow_x,
+						param.shadow_y, param.shadow_buffer,
+						param.buffer_id);
+	return status;
+}
+
+static int kgsl_ioctl_add_timestamp(struct file *fd, void __user *arg)
+{
+	struct kgsl_add_timestamp param;
+	unsigned int tmp;
+
+	if (copy_from_user(&param, arg, sizeof(param))) {
+		pr_err("%s: copy_from_user error\n", __func__);
+                return GSL_FAILURE;
+	}
+
+	tmp = kgsl_add_timestamp(param.device_id, &tmp);
+
+	if (copy_to_user(param.timestamp, &tmp, sizeof(unsigned int))) {
+		pr_err("%s: copy_to_user error\n", __func__);
+		return GSL_FAILURE;
+	}
+	return GSL_SUCCESS;
+}
+
+static int kgsl_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, unsigned long arg)
+{
+	int result = GSL_FAILURE;
+
+	switch (cmd) {
+	case IOCTL_KGSL_DEVICE_REGREAD:
+		result = kgsl_ioctl_device_regread(fd, (void __user *)arg);
+		break;
+	case IOCTL_KGSL_DEVICE_REGWRITE:
+		result = kgsl_ioctl_device_regwrite(fd, (void __user *)arg);
+		break;
+	case IOCTL_KGSL_DEVICE_GETPROPERTY:
+		result = kgsl_ioctl_device_getproperty(fd, (void __user *)arg);
+		break;
+	case IOCTL_KGSL_DEVICE_SETPROPERTY:
+		result = kgsl_ioctl_device_setproperty(fd, (void __user *)arg);
+		break;
+	case IOCTL_KGSL_SHAREDMEM_ALLOC:
+		result = kgsl_ioctl_sharedmem_alloc(fd, (void __user *)arg);
+		break;
+	case IOCTL_KGSL_SHAREDMEM_FREE:
+		result = kgsl_ioctl_sharedmem_free(fd, (void __user *)arg);
+		break;
+	case IOCTL_KGSL_SHAREDMEM_READ:
+		result = kgsl_ioctl_sharedmem_read(fd, (void __user *)arg);
+		break;
+	case IOCTL_KGSL_SHAREDMEM_WRITE:
+		result = kgsl_ioctl_sharedmem_write(fd, (void __user *)arg);
+		break;
+	case IOCTL_KGSL_SHAREDMEM_SET:
+		result = kgsl_ioctl_sharedmem_set(fd, (void __user *)arg);
+		break;
+	case IOCTL_KGSL_SHAREDMEM_FROMHOSTPOINTER:
+		result = kgsl_ioctl_sharedmem_fromhostpointer(fd, (void __user *)arg);
+		break;
+	case IOCTL_KGSL_SHAREDMEM_LARGESTFREEBLOCK:
+		result = kgsl_ioctl_sharedmem_largestfreeblock(fd, (void __user *)arg);
+		break;
+	case IOCTL_KGSL_SHAREDMEM_CACHEOPERATION:
+		result = kgsl_ioctl_sharedmem_cacheoperation(fd, (void __user *)arg);
+		break;
+	case IOCTL_KGSL_CMDSTREAM_ISSUEIBCMDS:
+		/* qcom: if cache enable, clean all, if drm, mem flush, THEN: */
+		result = kgsl_ioctl_cmdstream_issueibcmds(fd, (void __user *) arg);
+		break;
+	case IOCTL_KGSL_CMDSTREAM_WAITTIMESTAMP:
+		result = kgsl_ioctl_cmdstream_waittimestamp(fd, (void __user *)arg);
+		/* order reads to tbe buffer written to by the GPU */
+		rmb();
+		break;
+	case IOCTL_KGSL_CMDSTREAM_READTIMESTAMP:
+		result = kgsl_ioctl_cmdstream_readtimestamp(fd, (void __user *)arg);
+		break;
+	case IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP:
+		result = kgsl_ioctl_cmdstream_freememontimestamp(fd, (void __user *)arg);
+		break;
+	case IOCTL_KGSL_CMDWINDOW_WRITE:
+		result = kgsl_ioctl_cmdwindow_write(fd, (void __user *) arg);
+		break;
+	case IOCTL_KGSL_CONTEXT_CREATE:
+		result = kgsl_ioctl_context_create(fd, (void __user *) arg);
+		break;
+	case IOCTL_KGSL_CONTEXT_DESTROY:
+		result = kgsl_ioctl_context_destroy(fd, (void __user *) arg);
+		break;
+	case IOCTL_KGSL_DEVICE_STOP:
+		result = kgsl_ioctl_device_stop(fd, (void __user *) arg);
+		break;
+	case IOCTL_KGSL_DEVICE_START:
+		result = kgsl_ioctl_device_start(fd, (void __user *) arg);
+		break;
+	case IOCTL_KGSL_DEVICE_IDLE:
+		result = kgsl_ioctl_device_idle(fd, (void __user *) arg);
+		break;
+	case IOCTL_KGSL_DEVICE_ISIDLE:
+		result = kgsl_ioctl_device_isidle(fd, (void __user *) arg);
+		break;
+	case IOCTL_KGSL_DEVICE_CLOCK:
+		result = kgsl_ioctl_device_clock(fd, (void __user *) arg);
+		break;
+//	case IOCTL_KGSL_DEVICE_WAITIRQ:
+//		result = kgsl_ioctl_waitirq(fd, (void __user *) arg);
+//		break;
+
+	case IOCTL_KGSL_DRAWCTXT_BIND_GMEM_SHADOW:
+		result = kgsl_ioctl_drawctxt_bind_gmem_shadow(fd, (void __user *) arg);
+		break;
+
+	case IOCTL_KGSL_ADD_TIMESTAMP:
+		result = kgsl_ioctl_add_timestamp(fd, (void __user *) arg);
+		break;
+
+	default:
+		result = -ENOTTY;
+	}
+
+	return result;
+}
+
+static int kgsl_mmap(struct file *fd, struct vm_area_struct *vma)
+{
+    int result;
     int status = 0;
     unsigned long start = vma->vm_start;
     unsigned long pfn = vma->vm_pgoff;
@@ -776,17 +819,17 @@ static int gsl_kmod_mmap(struct file *fd, struct vm_area_struct *vma)
 	}
     }
 
-    vma->vm_ops = &gsl_kmod_vmops;
+    vma->vm_ops = &kgsl_vmops;
 
     return status;
 }
 
-static int gsl_kmod_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+static int kgsl_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
     return VM_FAULT_SIGBUS;
 }
 
-static int gsl_kmod_open(struct inode *inode, struct file *fd)
+static int kgsl_open(struct inode *inode, struct file *fd)
 {
     unsigned int flags = 0;
     struct gsl_kmod_per_fd_data *datp;
@@ -826,7 +869,7 @@ static int gsl_kmod_open(struct inode *inode, struct file *fd)
     return err;
 }
 
-static int gsl_kmod_release(struct inode *inode, struct file *fd)
+static int kgsl_release(struct inode *inode, struct file *fd)
 {
     struct gsl_kmod_per_fd_data *datp;
     int err = 0;
@@ -959,8 +1002,8 @@ static int gpu_probe(struct platform_device *pdev)
 	goto kgsl_driver_init_error;
     }
 
-    gsl_kmod_major = register_chrdev(0, "gsl_kmod", &gsl_kmod_fops);
-    gsl_kmod_vmops.fault = gsl_kmod_fault;
+    gsl_kmod_major = register_chrdev(0, "gsl_kmod", &kgsl_fops);
+    kgsl_vmops.fault = kgsl_fault;
 
     if (gsl_kmod_major <= 0)
     {
@@ -1079,30 +1122,32 @@ static int gpu_resume(struct platform_device *pdev)
 #define	gpu_resume	NULL
 #endif /* !CONFIG_PM */
 
-/*! Driver definition
- */
-static struct platform_driver gpu_driver = {
-    .driver = {
-        .name = "mxc_gpu",
-        },
-    .probe = gpu_probe,
-    .remove = gpu_remove,
-    .suspend = gpu_suspend,
-    .resume = gpu_resume,
+static struct platform_driver kgsl_driver = {
+	.driver = {
+		.name = "mxc_kgsl", // DRIVER_NAME please
+	},
+	.probe = gpu_probe,
+	.remove = gpu_remove,
+	.suspend = gpu_suspend,
+	.resume = gpu_resume,
 };
 
-static int __init gsl_kmod_init(void)
+static int __init kgsl_mod_init(void)
 {
-     return platform_driver_register(&gpu_driver);
+     return platform_driver_register(&kgsl_driver);
 }
 
-static void __exit gsl_kmod_exit(void)
+static void __exit kgsl_mod_exit(void)
 {
-     platform_driver_unregister(&gpu_driver);
+     platform_driver_unregister(&kgsl_driver);
 }
 
-module_init(gsl_kmod_init);
-module_exit(gsl_kmod_exit);
+#ifdef MODULE
+module_init(kgsl_mod_init);
+#else
+late_initcall(kgsl_mod_init);
+#endif
+module_exit(kgsl_mod_exit);
 MODULE_AUTHOR("Advanced Micro Devices");
 MODULE_DESCRIPTION("AMD graphics core driver for i.MX");
 MODULE_LICENSE("GPL v2");
