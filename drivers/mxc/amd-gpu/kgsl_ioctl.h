@@ -32,212 +32,350 @@
 #include "kgsl_types.h"
 #include "kgsl_properties.h"
 
-//////////////////////////////////////////////////////////////////////////////
-// types
-//////////////////////////////////////////////////////////////////////////////
+/* for porting to mxc_kgsl.h include:
+ * flag values like KGSL_FLAGS_INITIALIZED and context flags
+ *  kgsl_deviceid
+ *  kgsl_devinfo
+ *  kgsl_devmemstore
+ *  kgsl_timestamp_type
+ *  kgsl_property_type
+ *  kgsl_shadowprop ??
+ *  kgsl_platform_data
+ *  kgsl_cmdwindow_type
+ */
 
-typedef struct _kgsl_device_start_t {
-    unsigned int  device_id;
-    unsigned int flags;
-} kgsl_device_start_t;
+/*
+ * please check of NQ items are even called from FSL userspace
+ */
 
-typedef struct _kgsl_device_stop_t {
-    unsigned int  device_id;
-} kgsl_device_stop_t;
+/* ioctls - note qcom driver is 0x09 */
+#define KGSL_IOC_TYPE 0xF9
 
-typedef struct _kgsl_device_idle_t {
-    unsigned int  device_id;
-    unsigned int    timeout;
-} kgsl_device_idle_t;
+/* NQ */
+struct kgsl_device_start {
+	unsigned int device_id;
+	unsigned int flags;
+};
 
-typedef struct _kgsl_device_isidle_t {
-    unsigned int  device_id;
-} kgsl_device_isidle_t;
+#define IOCTL_KGSL_DEVICE_START \
+	_IOW(KGSL_IOC_TYPE, 0x20, struct kgsl_device_start)
 
-typedef struct _kgsl_device_getproperty_t {
-    unsigned int  device_id;
-    gsl_property_type_t type;
-    unsigned int    *value;
-    unsigned int    sizebytes;
-} kgsl_device_getproperty_t;
+/* NQ */
+struct kgsl_device_stop {
+	unsigned int device_id;
+};
 
-typedef struct _kgsl_device_setproperty_t {
-    unsigned int  device_id;
-    gsl_property_type_t type;
-    void        *value;
-    unsigned int    sizebytes;
-} kgsl_device_setproperty_t;
+#define IOCTL_KGSL_DEVICE_STOP \
+	_IOW(KGSL_IOC_TYPE, 0x21, struct kgsl_device_stop)
 
-typedef struct _kgsl_device_regread_t {
-    unsigned int  device_id;
-    unsigned int    offsetwords;
-    unsigned int    *value;
-} kgsl_device_regread_t;
+/* NQ */
+struct kgsl_device_idle {
+	unsigned int device_id;
+	unsigned int timeout;
+};
 
-typedef struct _kgsl_device_regwrite_t {
-    unsigned int  device_id;
-    unsigned int    offsetwords;
-    unsigned int    value;
-} kgsl_device_regwrite_t;
+#define IOCTL_KGSL_DEVICE_IDLE \
+	_IOW(KGSL_IOC_TYPE, 0x22, struct kgsl_device_idle)
 
-typedef struct _kgsl_device_waitirq_t {
-    unsigned int  device_id;
-    gsl_intrid_t    intr_id;
-    unsigned int    *count;
-    unsigned int    timeout;
-} kgsl_device_waitirq_t;
+/* NQ */
+struct kgsl_device_isidle {
+	unsigned int device_id;
+};
 
-typedef struct _kgsl_cmdstream_issueibcmds_t {
-    unsigned int  device_id;
-    int     drawctxt_index;
-    uint32_t   ibaddr;
-    int     sizedwords;
-    unsigned int *timestamp;
-    unsigned int flags;
-} kgsl_cmdstream_issueibcmds_t;
+#define IOCTL_KGSL_DEVICE_ISIDLE \
+	 _IOR(KGSL_IOC_TYPE, 0x23, struct kgsl_device_isidle)
 
-typedef struct _kgsl_cmdstream_readtimestamp_t {
-    unsigned int  device_id;
-    enum kgsl_timestamp_type    type;
-    unsigned int *timestamp;
-} kgsl_cmdstream_readtimestamp_t;
 
-typedef struct _kgsl_cmdstream_freememontimestamp_t {
-    unsigned int  device_id;
-    struct kgsl_memdesc   *memdesc;
-    unsigned int timestamp;
-    enum kgsl_timestamp_type    type;
-} kgsl_cmdstream_freememontimestamp_t;
+/*
+ * get misc info about the GPU
+ * type should be a value from enum kgsl_property_type
+ * value points to a structure that varies based on type
+ * sizebytes is sizeof() that structure
+ * for KGSL_PROP_DEVICE_INFO, use struct kgsl_devinfo
+ * this structure contaings hardware versioning info.
+ * for KGSL_PROP_DEVICE_SHADOW, use struct kgsl_shadowprop
+ * this is used to find mmap() offset and sizes for mapping
+ * struct kgsl_memstore into userspace.
+ *
+ * qcom: unsigned int type, void *value, IOCNR=0x2
+ * kgsl_property_type defined right here
+ */
+struct kgsl_device_getproperty {
+	unsigned int device_id;
+	gsl_property_type_t type;
+	unsigned int *value;
+	unsigned int sizebytes;
+};
 
-typedef struct _kgsl_cmdstream_waittimestamp_t {
-    unsigned int  device_id;
+#define IOCTL_KGSL_DEVICE_GETPROPERTY \
+	_IOWR(KGSL_IOC_TYPE, 0x24, struct kgsl_device_getproperty)
+
+struct kgsl_device_setproperty {
+	unsigned int  device_id;
+	gsl_property_type_t type;
+	void *value;
+	unsigned int sizebytes;
+};
+
+#define IOCTL_KGSL_DEVICE_SETPROPERTY \
+	_IOW(KGSL_IOC_TYPE, 0x25, struct kgsl_device_setproperty)
+
+/*
+ * read a GPU register
+ * offsetwords is the 32-bit word offset from the beginning of
+ * the GPU register space.
+ *
+ * qcom: unsigned int value, IOCNR=0x3
+ */
+struct kgsl_device_regread {
+	unsigned int device_id;
+	unsigned int offsetwords;
+	unsigned int *value;
+};
+
+#define IOCTL_KGSL_DEVICE_REGREAD \
+	_IOWR(KGSL_IOC_TYPE, 0x26, struct kgsl_device_regread)
+
+struct kgsl_device_regwrite {
+	unsigned int device_id;
+	unsigned int offsetwords;
+	unsigned int value;
+};
+
+#define IOCTL_KGSL_DEVICE_REGWRITE \
+	_IOW(KGSL_IOC_TYPE, 0x27, struct kgsl_device_regwrite)
+
+struct kgsl_device_waitirq {
+	unsigned int device_id;
+	gsl_intrid_t intr_id;
+	unsigned int *count;
+	unsigned int timeout;
+};
+
+#define IOCTL_KGSL_DEVICE_WAITIRQ \
+	_IOWR(KGSL_IOC_TYPE, 0x28, struct kgsl_device_waitirq)
+
+/*
+ * qcom: kgsl_ringbuffer_issueibcmds IOCNR=0x10
+ * all unsigned int (including timestamp!?)
+ */
+struct kgsl_cmdstream_issueibcmds {
+	unsigned int device_id;
+	int drawctxt_index;
+	uint32_t ibaddr;
+	int sizedwords;
+	unsigned int *timestamp; /* output param */
+	unsigned int flags;
+};
+
+#define IOCTL_KGSL_CMDSTREAM_ISSUEIBCMDS \
+	_IOWR(KGSL_IOC_TYPE, 0x29, struct kgsl_cmdstream_issueibcmds)
+
+/*
+ * read the most recently executed timestamp value
+ * type should be a value from enum kgsl_timestamp_type
+ * qcom: type is unsigned int despite comment. IOCNR=0x11, _IOR
+ */
+struct kgsl_cmdstream_readtimestamp {
+	unsigned int device_id;
+	enum kgsl_timestamp_type type;
+	unsigned int *timestamp;
+};
+
+#define IOCTL_KGSL_CMDSTREAM_READTIMESTAMP \
+	_IOWR(KGSL_IOC_TYPE, 0x2A, struct kgsl_cmdstream_readtimestamp)
+
+/*
+ * free memory when the GPU reaches a given timestamp.
+ * gpuaddr specify a memory region created by a
+ * IOCTL_KGSL_SHAREDMEM_FROM_PMEM call
+ * type should be a value from enum kgsl_timestamp_type
+ *
+ * qcom: obviously PMEM call, passes gpuaddr instead of memdesc
+ * IOCNR=0x12, _IOR (I think this is corrected in a future qcom)
+ */
+struct kgsl_cmdstream_freememontimestamp {
+	unsigned int device_id;
+	struct kgsl_memdesc *memdesc;
 	unsigned int timestamp;
-    unsigned int    timeout;
-} kgsl_cmdstream_waittimestamp_t;
+	enum kgsl_timestamp_type type;
+};
 
-typedef struct _kgsl_cmdwindow_write_t {
-    unsigned int  device_id;
-    enum kgsl_cmdwindow_type target;
-    unsigned int    addr;
-    unsigned int    data;
-} kgsl_cmdwindow_write_t;
+#define IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP \
+	_IOW(KGSL_IOC_TYPE, 0x2B, struct kgsl_cmdstream_freememontimestamp)
 
-typedef struct _kgsl_context_create_t {
-    unsigned int  device_id;
-    unsigned int  type;
-    unsigned int    *drawctxt_id;
-    unsigned int flags;
-} kgsl_context_create_t;
+/*
+ * block until the GPU has executed past a given timestamp
+ * timeout is in milliseconds
+ * qcom: IOCNR=0x6, _IOWR
+ */
+struct kgsl_cmdstream_waittimestamp {
+	unsigned int device_id;
+	unsigned int timestamp;
+	unsigned int timeout;
+};
 
-typedef struct _kgsl_context_destroy_t {
-    unsigned int  device_id;
-    unsigned int    drawctxt_id;
-} kgsl_context_destroy_t;
+#define IOCTL_KGSL_CMDSTREAM_WAITTIMESTAMP \
+	_IOW(KGSL_IOC_TYPE, 0x2C, struct kgsl_cmdstream_waittimestamp)
 
-typedef struct _kgsl_drawctxt_bind_gmem_shadow_t {
-    unsigned int device_id;
-    unsigned int drawctxt_id;
-    const struct kgsl_gmem_desc* gmem_rect;
-    unsigned int shadow_x;
-    unsigned int shadow_y;
-    const struct kgsl_buffer_desc* shadow_buffer;
-    unsigned int buffer_id;
-} kgsl_drawctxt_bind_gmem_shadow_t;
+/*
+ * write to the commend window
+ * qcom: IOCNR=0x2e, kgsl_cmdwindow_type defined just here
+ */
+struct kgsl_cmdwindow_write {
+	unsigned int  device_id;
+	enum kgsl_cmdwindow_type target;
+	unsigned int addr;
+	unsigned int data;
+};
 
-typedef struct _kgsl_sharedmem_alloc_t {
-    unsigned int  device_id;
-    unsigned int flags;
-    int     sizebytes;
-    struct kgsl_memdesc   *memdesc;
-} kgsl_sharedmem_alloc_t;
+#define IOCTL_KGSL_CMDWINDOW_WRITE \
+	_IOW(KGSL_IOC_TYPE, 0x2D, struct kgsl_cmdwindow_write)
 
-typedef struct _kgsl_sharedmem_free_t {
-    struct kgsl_memdesc   *memdesc;
-} kgsl_sharedmem_free_t;
+/*
+ * create a draw context, which is used to preserve GPU state.
+ * The flags field may contain a mask KGSL_CONTEXT_*  values
+ *
+ * qcom: kgsl_drawctxt_create, no type field, drawctxt_id is unsigned int IOCNR=0x13
+ */
+struct kgsl_context_create {
+	unsigned int device_id;
+	unsigned int type;
+	unsigned int *drawctxt_id;
+	unsigned int flags;
+};
 
-typedef struct _kgsl_sharedmem_read_t {
-    const struct kgsl_memdesc *memdesc;
-    unsigned int    *dst;
-    unsigned int    offsetbytes;
-    unsigned int    sizebytes;
-} kgsl_sharedmem_read_t;
+#define IOCTL_KGSL_CONTEXT_CREATE \
+	_IOWR(KGSL_IOC_TYPE, 0x2E, struct kgsl_context_create)
 
-typedef struct _kgsl_sharedmem_write_t {
-    const struct kgsl_memdesc *memdesc;
-    unsigned int    offsetbytes;
-    unsigned int    *src;
-    unsigned int    sizebytes;
-} kgsl_sharedmem_write_t;
+/* destroy a draw context qcom: 0x14*/
+struct kgsl_context_destroy {
+	unsigned int device_id;
+	unsigned int drawctxt_id;
+};
 
-typedef struct _kgsl_sharedmem_set_t {
-    const struct kgsl_memdesc *memdesc;
-    unsigned int    offsetbytes;
-    unsigned int    value;
-    unsigned int    sizebytes;
-} kgsl_sharedmem_set_t;
+#define IOCTL_KGSL_CONTEXT_DESTROY \
+	_IOW(KGSL_IOC_TYPE, 0x2F, struct kgsl_context_destroy)
 
-typedef struct _kgsl_sharedmem_largestfreeblock_t {
-    unsigned int  device_id;
-    unsigned int flags;
-    unsigned int    *largestfreeblock;
-} kgsl_sharedmem_largestfreeblock_t;
+/* qcom: kgsl_bind_gmem_shadow, no device_id, struct is not a pointer, IOCNR=0x22 */
+struct kgsl_drawctxt_bind_gmem_shadow {
+	unsigned int device_id;
+	unsigned int drawctxt_id;
+	const struct kgsl_gmem_desc* gmem_rect;
+	unsigned int shadow_x;
+	unsigned int shadow_y;
+	const struct kgsl_buffer_desc* shadow_buffer;
+	unsigned int buffer_id;
+};
 
-typedef struct _kgsl_sharedmem_cacheoperation_t {
-    const struct kgsl_memdesc *memdesc;
-    unsigned int    offsetbytes;
-    unsigned int    sizebytes;
-    unsigned int    operation;
-} kgsl_sharedmem_cacheoperation_t;
+#define IOCTL_KGSL_DRAWCTXT_BIND_GMEM_SHADOW \
+	_IOW(KGSL_IOC_TYPE, 0x30, struct kgsl_drawctxt_bind_gmem_shadow)
 
-typedef struct _kgsl_sharedmem_fromhostpointer_t {
-    unsigned int  device_id;
-    struct kgsl_memdesc   *memdesc;
-    void        *hostptr;
-} kgsl_sharedmem_fromhostpointer_t;
+/* qualcomm's has a different memory allocation strategy but basically doesn't
+ * tend to use memdescs
+ * IOCNRs: 0x20 FROM_PMEM, 0x23 FROM_VMALLOC
+ */
+struct kgsl_sharedmem_alloc {
+	unsigned int device_id;
+	unsigned int flags;
+	int sizebytes;
+	struct kgsl_memdesc *memdesc;
+};
 
-typedef struct _kgsl_add_timestamp_t {
-    unsigned int device_id;
-    unsigned int *timestamp;
-} kgsl_add_timestamp_t;
+#define IOCTL_KGSL_SHAREDMEM_ALLOC  _IOWR(KGSL_IOC_TYPE, 0x31, struct kgsl_sharedmem_alloc)
 
-typedef struct _kgsl_device_clock_t {
-    unsigned int device; /* GSL_DEVICE_YAMATO = 1, GSL_DEVICE_G12 = 2 */
-    int enable; /* 0: disable, 1: enable */
-} kgsl_device_clock_t;
+/* qcom: pass gpuaddr, IOCNR=0x21 */
+struct kgsl_sharedmem_free {
+	struct kgsl_memdesc *memdesc;
+};
 
-//////////////////////////////////////////////////////////////////////////////
-// ioctl numbers
-//////////////////////////////////////////////////////////////////////////////
+#define IOCTL_KGSL_SHAREDMEM_FREE \
+	_IOW(KGSL_IOC_TYPE, 0x32, struct kgsl_sharedmem_free)
 
-#define GSL_MAGIC                               0xF9
-#define IOCTL_KGSL_DEVICE_START                 _IOW(GSL_MAGIC, 0x20, struct _kgsl_device_start_t)
-#define IOCTL_KGSL_DEVICE_STOP                  _IOW(GSL_MAGIC, 0x21, struct _kgsl_device_stop_t)
-#define IOCTL_KGSL_DEVICE_IDLE                  _IOW(GSL_MAGIC, 0x22, struct _kgsl_device_idle_t)
-#define IOCTL_KGSL_DEVICE_ISIDLE                _IOR(GSL_MAGIC, 0x23, struct _kgsl_device_isidle_t)
-#define IOCTL_KGSL_DEVICE_GETPROPERTY           _IOWR(GSL_MAGIC, 0x24, struct _kgsl_device_getproperty_t)
-#define IOCTL_KGSL_DEVICE_SETPROPERTY           _IOW(GSL_MAGIC, 0x25, struct _kgsl_device_setproperty_t)
-#define IOCTL_KGSL_DEVICE_REGREAD               _IOWR(GSL_MAGIC, 0x26, struct _kgsl_device_regread_t)
-#define IOCTL_KGSL_DEVICE_REGWRITE              _IOW(GSL_MAGIC, 0x27, struct _kgsl_device_regwrite_t)
-#define IOCTL_KGSL_DEVICE_WAITIRQ               _IOWR(GSL_MAGIC, 0x28, struct _kgsl_device_waitirq_t)
-#define IOCTL_KGSL_CMDSTREAM_ISSUEIBCMDS        _IOWR(GSL_MAGIC, 0x29, struct _kgsl_cmdstream_issueibcmds_t)
-#define IOCTL_KGSL_CMDSTREAM_READTIMESTAMP      _IOWR(GSL_MAGIC, 0x2A, struct _kgsl_cmdstream_readtimestamp_t)
-#define IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP _IOW(GSL_MAGIC, 0x2B, struct _kgsl_cmdstream_freememontimestamp_t)
-#define IOCTL_KGSL_CMDSTREAM_WAITTIMESTAMP      _IOW(GSL_MAGIC, 0x2C, struct _kgsl_cmdstream_waittimestamp_t)
-#define IOCTL_KGSL_CMDWINDOW_WRITE              _IOW(GSL_MAGIC, 0x2D, struct _kgsl_cmdwindow_write_t)
-#define IOCTL_KGSL_CONTEXT_CREATE               _IOWR(GSL_MAGIC, 0x2E, struct _kgsl_context_create_t)
-#define IOCTL_KGSL_CONTEXT_DESTROY              _IOW(GSL_MAGIC, 0x2F, struct _kgsl_context_destroy_t)
-#define IOCTL_KGSL_DRAWCTXT_BIND_GMEM_SHADOW    _IOW(GSL_MAGIC, 0x30, struct _kgsl_drawctxt_bind_gmem_shadow_t)
-#define IOCTL_KGSL_SHAREDMEM_ALLOC              _IOWR(GSL_MAGIC, 0x31, struct _kgsl_sharedmem_alloc_t)
-#define IOCTL_KGSL_SHAREDMEM_FREE               _IOW(GSL_MAGIC, 0x32, struct _kgsl_sharedmem_free_t)
-#define IOCTL_KGSL_SHAREDMEM_READ               _IOWR(GSL_MAGIC, 0x33, struct _kgsl_sharedmem_read_t)
-#define IOCTL_KGSL_SHAREDMEM_WRITE              _IOW(GSL_MAGIC, 0x34, struct _kgsl_sharedmem_write_t)
-#define IOCTL_KGSL_SHAREDMEM_SET                _IOW(GSL_MAGIC, 0x35, struct _kgsl_sharedmem_set_t)
-#define IOCTL_KGSL_SHAREDMEM_LARGESTFREEBLOCK   _IOWR(GSL_MAGIC, 0x36, struct _kgsl_sharedmem_largestfreeblock_t)
-#define IOCTL_KGSL_SHAREDMEM_CACHEOPERATION     _IOW(GSL_MAGIC, 0x37, struct _kgsl_sharedmem_cacheoperation_t)
-#define IOCTL_KGSL_SHAREDMEM_FROMHOSTPOINTER    _IOW(GSL_MAGIC, 0x38, struct _kgsl_sharedmem_fromhostpointer_t)
-#define IOCTL_KGSL_ADD_TIMESTAMP                _IOWR(GSL_MAGIC, 0x39, struct _kgsl_add_timestamp_t)
-#define IOCTL_KGSL_DRIVER_EXIT		        _IOWR(GSL_MAGIC, 0x3A, NULL)
-#define IOCTL_KGSL_DEVICE_CLOCK			_IOWR(GSL_MAGIC, 0x60, struct _kgsl_device_clock_t)
+/* NQ */
+struct kgsl_sharedmem_read {
+	const struct kgsl_memdesc *memdesc;
+	unsigned int *dst;
+	unsigned int offsetbytes;
+	unsigned int sizebytes;
+};
 
+#define IOCTL_KGSL_SHAREDMEM_READ \
+	_IOWR(KGSL_IOC_TYPE, 0x33, struct kgsl_sharedmem_read)
 
-#endif
+/* NQ */
+struct kgsl_sharedmem_write {
+	const struct kgsl_memdesc *memdesc;
+	unsigned int offsetbytes;
+	unsigned int *src;
+	unsigned int sizebytes;
+};
+
+#define IOCTL_KGSL_SHAREDMEM_WRITE \
+	_IOW(KGSL_IOC_TYPE, 0x34, struct kgsl_sharedmem_write)
+
+/* NQ */
+struct kgsl_sharedmem_set {
+	const struct kgsl_memdesc *memdesc;
+	unsigned int offsetbytes;
+	unsigned int value;
+	unsigned int sizebytes;
+};
+
+#define IOCTL_KGSL_SHAREDMEM_SET \
+	_IOW(KGSL_IOC_TYPE, 0x35, struct kgsl_sharedmem_set)
+
+/* NQ */
+struct kgsl_sharedmem_largestfreeblock {
+	unsigned int device_id;
+	unsigned int flags;
+	unsigned int *largestfreeblock;
+};
+
+#define IOCTL_KGSL_SHAREDMEM_LARGESTFREEBLOCK \
+	_IOWR(KGSL_IOC_TYPE, 0x36, struct kgsl_sharedmem_largestfreeblock)
+
+/* NQ although they have FLUSH_CACHE (0x24) which takes a gpuaddr */
+struct kgsl_sharedmem_cacheoperation {
+	const struct kgsl_memdesc *memdesc;
+	unsigned int offsetbytes;
+	unsigned int sizebytes;
+	unsigned int operation;
+};
+
+#define IOCTL_KGSL_SHAREDMEM_CACHEOPERATION \
+	_IOW(KGSL_IOC_TYPE, 0x37, struct kgsl_sharedmem_cacheoperation)
+
+/* NQ */
+struct kgsl_sharedmem_fromhostpointer {
+	unsigned int device_id;
+	struct kgsl_memdesc *memdesc;
+	void *hostptr;
+};
+
+#define IOCTL_KGSL_SHAREDMEM_FROMHOSTPOINTER \
+	_IOW(KGSL_IOC_TYPE, 0x38, struct kgsl_sharedmem_fromhostpointer)
+
+/* NQ */
+struct kgsl_add_timestamp {
+	unsigned int device_id;
+	unsigned int *timestamp;
+};
+
+#define IOCTL_KGSL_ADD_TIMESTAMP \
+	_IOWR(KGSL_IOC_TYPE, 0x39, struct kgsl_add_timestamp)
+
+/* NQ */
+#define IOCTL_KGSL_DRIVER_EXIT \
+	_IOWR(KGSL_IOC_TYPE, 0x3A, NULL)
+
+/* NQ */
+struct kgsl_device_clock {
+	unsigned int device;
+	int enable;
+};
+
+#define IOCTL_KGSL_DEVICE_CLOCK \
+	_IOWR(KGSL_IOC_TYPE, 0x60, struct kgsl_device_clock)
+
+#endif /* _GSL_IOCTL_H */
