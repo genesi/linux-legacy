@@ -90,12 +90,12 @@ typedef struct _gmem_shadow_t
 
 #define GSL_MAX_GMEM_SHADOW_BUFFERS 2
 
-typedef struct _gsl_drawctxt_t {
+struct kgsl_drawctxt {
 	unsigned int        pid;
     unsigned int         flags;
-    gsl_context_type_t  type;
+    unsigned int  type;
     struct kgsl_memdesc       gpustate;
-    
+
     unsigned int        reg_save[3];
     unsigned int        reg_restore[3];
     unsigned int        shader_save[3];
@@ -104,7 +104,7 @@ typedef struct _gsl_drawctxt_t {
     unsigned int        chicken_restore[3];
     gmem_shadow_t       context_gmem_shadow;    // Information of the GMEM shadow that is created in context create
     gmem_shadow_t       user_gmem_shadow[GSL_MAX_GMEM_SHADOW_BUFFERS]; // User defined GMEM shadow buffers
-} gsl_drawctxt_t;
+};
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -113,14 +113,14 @@ typedef struct _gsl_drawctxt_t {
 int     kgsl_drawctxt_init(struct kgsl_device *device);
 int     kgsl_drawctxt_close(struct kgsl_device *device);
 int     kgsl_drawctxt_destroyall(struct kgsl_device *device);
-void    kgsl_drawctxt_switch(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, unsigned int flags);
-int     kgsl_drawctxt_create(struct kgsl_device* device, gsl_context_type_t type, unsigned int *drawctxt_id, unsigned int flags);
+void    kgsl_drawctxt_switch(struct kgsl_device *device, struct kgsl_drawctxt *drawctxt, unsigned int flags);
+int     kgsl_drawctxt_create(struct kgsl_device* device, unsigned int type, unsigned int *drawctxt_id, unsigned int flags);
 int     kgsl_drawctxt_destroy(struct kgsl_device* device, unsigned int drawctxt_id);
 
-int                kgsl_drawctxt_bind_gmem_shadow(unsigned int device_id, unsigned int drawctxt_id, const struct kgsl_gmem_desc* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const struct kgsl_buffer_desc* shadow_buffer, unsigned int buffer_id);
+int     kgsl_drawctxt_bind_gmem_shadow(unsigned int device_id, unsigned int drawctxt_id, const struct kgsl_gmem_desc* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const struct kgsl_buffer_desc* shadow_buffer, unsigned int buffer_id);
 
 /* these are in the wrong place..! */
-int                kgsl_context_create(unsigned int device_id, gsl_context_type_t type, unsigned int *drawctxt_id, unsigned int flags);
-int                kgsl_context_destroy(unsigned int device_id, unsigned int drawctxt_id);
+int     kgsl_context_create(unsigned int device_id, unsigned int type, unsigned int *drawctxt_id, unsigned int flags);
+int     kgsl_context_destroy(unsigned int device_id, unsigned int drawctxt_id);
 
 #endif  // __GSL_DRAWCTXT_H

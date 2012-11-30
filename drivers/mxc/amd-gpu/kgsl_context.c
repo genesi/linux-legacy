@@ -38,7 +38,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 int
-kgsl_context_create(unsigned int device_id, gsl_context_type_t type, unsigned int *drawctxt_id, unsigned int flags)
+kgsl_context_create(unsigned int device_id, unsigned int type, unsigned int *drawctxt_id, unsigned int flags)
 {
     struct kgsl_device* device  = &gsl_driver.device[device_id-1];
     int status;

@@ -43,7 +43,7 @@ struct kgsl_device;
 #include "kgsl_types.h"
 #include "kgsl_intrmgr.h" // for gsl_intr_t
 #include "kgsl_ringbuffer.h" // for struct kgsl_ringbuffer
-#include "kgsl_drawctxt.h" // gsl_drawctxt_t
+#include "kgsl_drawctxt.h" // struct kgsl_drawctxt
 #include "kgsl_cmdwindow.h" // for GSL_G12_INTR_COUNT
 #include "kgsl_properties.h" // for gsl_property_type_t
 #include "kgsl_mmu.h" // for kgsl_mmu
@@ -70,7 +70,7 @@ struct kgsl_functable {
 	int (*mmu_tlbinvalidate)      (struct kgsl_device *device, unsigned int reg_invalidate, unsigned int pid);
 	int (*mmu_setpagetable)       (struct kgsl_device *device, unsigned int reg_ptbase, uint32_t ptbase, unsigned int pid);
 	int (*cmdstream_issueibcmds)  (struct kgsl_device *device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags);
-	int (*context_create)         (struct kgsl_device *device, gsl_context_type_t type, unsigned int *drawctxt_id, unsigned int flags);
+	int (*context_create)         (struct kgsl_device *device, unsigned int type, unsigned int *drawctxt_id, unsigned int flags);
 	int (*context_destroy)        (struct kgsl_device *device_id, unsigned int drawctxt_id);
 };
 
@@ -101,8 +101,8 @@ struct kgsl_device {
 	struct kgsl_ringbuffer  ringbuffer;
 	struct mutex 	  *drawctxt_mutex;
 	unsigned int      drawctxt_count;
-	gsl_drawctxt_t    *drawctxt_active;
-	gsl_drawctxt_t    drawctxt[GSL_CONTEXT_MAX];
+	struct kgsl_drawctxt    *drawctxt_active;
+	struct kgsl_drawctxt    drawctxt[GSL_CONTEXT_MAX];
 
 	unsigned int		intrcnt[GSL_G12_INTR_COUNT];
 	unsigned int		current_timestamp;

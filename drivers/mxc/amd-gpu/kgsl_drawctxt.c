@@ -478,7 +478,7 @@ gpuaddr(unsigned int *cmd, struct kgsl_memdesc *memdesc)
 //////////////////////////////////////////////////////////////////////////////
 
 static void
-create_ib1(gsl_drawctxt_t *drawctxt, unsigned int *cmd, unsigned int *start, unsigned int *end)
+create_ib1(struct kgsl_drawctxt *drawctxt, unsigned int *cmd, unsigned int *start, unsigned int *end)
 {
     cmd[0] = PM4_HDR_INDIRECT_BUFFER_PFD;
     cmd[1] = gpuaddr(start, &drawctxt->gpustate);
@@ -523,7 +523,7 @@ reg_to_mem(unsigned int *cmds, uint32_t dst, uint32_t src, int dwords)
 
 #ifdef DISABLE_SHADOW_WRITES
 
-static void build_reg_to_mem_range(unsigned int start, unsigned int end, unsigned int** cmd, gsl_drawctxt_t *drawctxt)
+static void build_reg_to_mem_range(unsigned int start, unsigned int end, unsigned int** cmd, struct kgsl_drawctxt *drawctxt)
 {
     unsigned int i = start;
 
@@ -541,7 +541,7 @@ static void build_reg_to_mem_range(unsigned int start, unsigned int end, unsigne
 // chicken restore
 //////////////////////////////////////////////////////////////////////////////
 static unsigned int*
-build_chicken_restore_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
+build_chicken_restore_cmds(struct kgsl_drawctxt *drawctxt, ctx_t *ctx)
 {
     unsigned int *start = ctx->cmd;
     unsigned int *cmds = start;
@@ -573,7 +573,7 @@ build_chicken_restore_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
 //////////////////////////////////////////////////////////////////////////////
 
 static void
-build_regsave_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
+build_regsave_cmds(struct kgsl_drawctxt *drawctxt, ctx_t *ctx)
 {
     unsigned int *start = ctx->cmd;
     unsigned int *cmd = start;
@@ -653,7 +653,7 @@ build_regsave_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
 //////////////////////////////////////////////////////////////////////////////
 
 static unsigned int*
-build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
+build_gmem2sys_cmds(struct kgsl_drawctxt *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
 {
     unsigned int *cmds = shadow->gmem_save_commands;
     unsigned int *start = cmds;
@@ -821,7 +821,7 @@ build_gmem2sys_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
 //////////////////////////////////////////////////////////////////////////////
 
 static unsigned int*
-build_sys2gmem_cmds(gsl_drawctxt_t *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
+build_sys2gmem_cmds(struct kgsl_drawctxt *drawctxt, ctx_t* ctx, gmem_shadow_t *shadow)
 {
     unsigned int *cmds = shadow->gmem_restore_commands;
     unsigned int *start = cmds;
@@ -1014,7 +1014,7 @@ reg_range(unsigned int *cmd, unsigned int start, unsigned int end)
 //////////////////////////////////////////////////////////////////////////////
 
 static void
-build_regrestore_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
+build_regrestore_cmds(struct kgsl_drawctxt *drawctxt, ctx_t *ctx)
 {
     unsigned int *start = ctx->cmd;
     unsigned int *cmd = start;
@@ -1136,7 +1136,7 @@ static void set_gmem_copy_quad( gmem_shadow_t* shadow )
 
 
 static void
-build_quad_vtxbuff(gsl_drawctxt_t *drawctxt, ctx_t *ctx, gmem_shadow_t* shadow)
+build_quad_vtxbuff(struct kgsl_drawctxt *drawctxt, ctx_t *ctx, gmem_shadow_t* shadow)
 {
     unsigned int *cmd = ctx->cmd;
 
@@ -1162,7 +1162,7 @@ build_quad_vtxbuff(gsl_drawctxt_t *drawctxt, ctx_t *ctx, gmem_shadow_t* shadow)
 //////////////////////////////////////////////////////////////////////////////
 
 static void
-build_shader_save_restore_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
+build_shader_save_restore_cmds(struct kgsl_drawctxt *drawctxt, ctx_t *ctx)
 {
     unsigned int *cmd = ctx->cmd;
     unsigned int *save, *restore, *fixup;
@@ -1303,7 +1303,7 @@ build_shader_save_restore_cmds(gsl_drawctxt_t *drawctxt, ctx_t *ctx)
 //////////////////////////////////////////////////////////////////////////////
 
 static int
-create_gpustate_shadow(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, ctx_t *ctx)
+create_gpustate_shadow(struct kgsl_device *device, struct kgsl_drawctxt *drawctxt, ctx_t *ctx)
 {
     unsigned int flags;
 
@@ -1335,7 +1335,7 @@ create_gpustate_shadow(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, ctx
 // Allocate GMEM shadow buffer
 //////////////////////////////////////////////////////////////////////////////
 static int
-allocate_gmem_shadow_buffer(struct kgsl_device *device, gsl_drawctxt_t *drawctxt)
+allocate_gmem_shadow_buffer(struct kgsl_device *device, struct kgsl_drawctxt *drawctxt)
 {
     // allocate memory for GMEM shadow
     if (kgsl_sharedmem_alloc0(device->id, (GSL_MEMFLAGS_CONPHYS | GSL_MEMFLAGS_ALIGN8K),
@@ -1354,7 +1354,7 @@ allocate_gmem_shadow_buffer(struct kgsl_device *device, gsl_drawctxt_t *drawctxt
 //////////////////////////////////////////////////////////////////////////////
 
 static int
-create_gmem_shadow(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, ctx_t *ctx)
+create_gmem_shadow(struct kgsl_device *device, struct kgsl_drawctxt *drawctxt, ctx_t *ctx)
 {
     unsigned int i;
     config_gmemsize(&drawctxt->context_gmem_shadow, device->gmemspace.sizebytes);
@@ -1435,9 +1435,9 @@ int kgsl_drawctxt_close(struct kgsl_device *device)
 //////////////////////////////////////////////////////////////////////////////
 
 int
-kgsl_drawctxt_create(struct kgsl_device* device, gsl_context_type_t type, unsigned int *drawctxt_id, unsigned int flags)
+kgsl_drawctxt_create(struct kgsl_device* device, unsigned int type, unsigned int *drawctxt_id, unsigned int flags)
 {
-    gsl_drawctxt_t  *drawctxt;
+    struct kgsl_drawctxt  *drawctxt;
     int             index;
     ctx_t           ctx;
 
@@ -1529,7 +1529,7 @@ kgsl_drawctxt_create(struct kgsl_device* device, gsl_context_type_t type, unsign
 int
 kgsl_drawctxt_destroy(struct kgsl_device* device, unsigned int drawctxt_id)
 {
-    gsl_drawctxt_t *drawctxt;
+    struct kgsl_drawctxt *drawctxt;
 
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(device->drawctxt_mutex);
@@ -1599,7 +1599,7 @@ kgsl_drawctxt_destroy(struct kgsl_device* device, unsigned int drawctxt_id)
 int kgsl_drawctxt_bind_gmem_shadow(unsigned int device_id, unsigned int drawctxt_id, const struct kgsl_gmem_desc* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const struct kgsl_buffer_desc* shadow_buffer, unsigned int buffer_id)
 {
     struct kgsl_device   *device = &gsl_driver.device[device_id-1];
-    gsl_drawctxt_t *drawctxt = &device->drawctxt[drawctxt_id];
+    struct kgsl_drawctxt *drawctxt = &device->drawctxt[drawctxt_id];
     gmem_shadow_t  *shadow = &drawctxt->user_gmem_shadow[buffer_id];
     unsigned int    i;
 
@@ -1691,9 +1691,9 @@ int kgsl_drawctxt_bind_gmem_shadow(unsigned int device_id, unsigned int drawctxt
 //////////////////////////////////////////////////////////////////////////////
 
 void
-kgsl_drawctxt_switch(struct kgsl_device *device, gsl_drawctxt_t *drawctxt, unsigned int flags)
+kgsl_drawctxt_switch(struct kgsl_device *device, struct kgsl_drawctxt *drawctxt, unsigned int flags)
 {
-    gsl_drawctxt_t *active_ctxt = device->drawctxt_active;
+    struct kgsl_drawctxt *active_ctxt = device->drawctxt_active;
 
 	if (drawctxt != GSL_CONTEXT_NONE)
 	{
@@ -1812,7 +1812,7 @@ int
 kgsl_drawctxt_destroyall(struct kgsl_device *device)
 {
     int             i;
-    gsl_drawctxt_t  *drawctxt;
+    struct kgsl_drawctxt  *drawctxt;
 
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(device->drawctxt_mutex);

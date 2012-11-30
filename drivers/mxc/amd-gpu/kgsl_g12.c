@@ -132,7 +132,7 @@ extern int z160_version;
 
 static int kgsl_g12_addtimestamp(struct kgsl_device* device, unsigned int *timestamp);
 static int kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags);
-static int kgsl_g12_context_create(struct kgsl_device* device, gsl_context_type_t type, unsigned int *drawctxt_id, unsigned int flags);
+static int kgsl_g12_context_create(struct kgsl_device* device, unsigned int type, unsigned int *drawctxt_id, unsigned int flags);
 static int kgsl_g12_context_destroy(struct kgsl_device* device, unsigned int drawctxt_id);
 static unsigned int drawctx_id  = 0;
 static int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout);
@@ -819,7 +819,7 @@ kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_t ib
 //----------------------------------------------------------------------------
 
 static int
-kgsl_g12_context_create(struct kgsl_device* device, gsl_context_type_t type, unsigned int *drawctxt_id, unsigned int flags)
+kgsl_g12_context_create(struct kgsl_device* device, unsigned int type, unsigned int *drawctxt_id, unsigned int flags)
 {
     int status = 0;
     int i;

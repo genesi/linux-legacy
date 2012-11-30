@@ -124,7 +124,7 @@ typedef struct _kgsl_cmdwindow_write_t {
 
 typedef struct _kgsl_context_create_t {
     unsigned int  device_id;
-    gsl_context_type_t  type;
+    unsigned int  type;
     unsigned int    *drawctxt_id;
     unsigned int flags;
 } kgsl_context_create_t;

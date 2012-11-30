@@ -408,17 +408,15 @@ enum kgsl_timestamp_type {
     GSL_TIMESTAMP_FOOBAR   = 0x7FFFFFFF
 };
 
-// ------------
-// context type
-// ------------
-typedef enum _gsl_context_type_t
+/* unused? */
+enum kgsl_context_type
 {
     GSL_CONTEXT_TYPE_GENERIC = 1,
     GSL_CONTEXT_TYPE_OPENGL  = 2,
     GSL_CONTEXT_TYPE_OPENVG  = 3,
 
     GSL_CONTEXT_TYPE_FOOBAR  = 0x7FFFFFFF
-} gsl_context_type_t;
+};
 
 // ---------
 // rectangle
