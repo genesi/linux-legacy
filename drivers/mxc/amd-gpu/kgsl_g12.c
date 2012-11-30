@@ -26,6 +26,8 @@
 #include "kgsl_sharedmem.h"
 #include "kgsl_driver.h"
 #include "kgsl_ioctl.h"
+#include "kgsl_g12_drawctxt.h"
+#include "kgsl_g12_cmdstream.h"
 
 #include "g12_reg.h"
 #include "kgsl_g12_vgv3types.h"
@@ -36,14 +38,8 @@
 
 #define GSL_IRQ_TIMEOUT         200
 
-
 int kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords, unsigned int *value);
 int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords, unsigned int value);
-
-//----------------------------------------------------------------------------
-
-#define GSL_HAL_NUMCMDBUFFERS           5
-#define GSL_HAL_CMDBUFFERSIZE           (1024 + 13) * sizeof(unsigned int)
 
 /* G12 MH arbiter config*/
 #define KGSL_G12_CFG_G12_MHARB \
@@ -63,81 +59,8 @@ int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords, unsi
 		| (1 << MH_ARBITER_CONFIG__RB_CLNT_ENABLE__SHIFT) \
 		| (1 << MH_ARBITER_CONFIG__PA_CLNT_ENABLE__SHIFT))
 
-#define     ALIGN_IN_BYTES( dim, alignment ) ( ( (dim) + (alignment-1) ) & ~(alignment-1) )
-
-
-#ifdef _Z180
-#define     NUMTEXUNITS                         4
-#define     TEXUNITREGCOUNT                     25
-#define     VG_REGCOUNT                         0x39
-#define     GSL_HAL_EDGE0BUFSIZE                0x3E8+64
-#define     GSL_HAL_EDGE1BUFSIZE                0x8000+64
-#define     GSL_HAL_EDGE2BUFSIZE                0x80020+64
-#define     GSL_HAL_EDGE0REG                    ADDR_VGV1_CBUF
-#define     GSL_HAL_EDGE1REG                    ADDR_VGV1_BBUF
-#define     GSL_HAL_EDGE2REG                    ADDR_VGV1_EBUF
-#else
-#define     NUMTEXUNITS                          2
-#define     TEXUNITREGCOUNT                      24
-#define     VG_REGCOUNT                          0x3A
-#define     L1TILESIZE                           64
-#define     GSL_HAL_EDGE0BUFSIZE                 L1TILESIZE*L1TILESIZE*4+64
-#define     GSL_HAL_EDGE1BUFSIZE                 L1TILESIZE*L1TILESIZE*16+64
-#define     GSL_HAL_EDGE0REG                     ADDR_VGV1_CBASE1
-#define     GSL_HAL_EDGE1REG                     ADDR_VGV1_UBASE2
-#endif
-
-#define     PACKETSIZE_BEGIN        3
-#define     PACKETSIZE_G2DCOLOR     2
-#define     PACKETSIZE_TEXUNIT      (TEXUNITREGCOUNT*2)
-#define     PACKETSIZE_REG          (VG_REGCOUNT*2)
-#define     PACKETSIZE_STATE        (PACKETSIZE_TEXUNIT*NUMTEXUNITS + PACKETSIZE_REG + PACKETSIZE_BEGIN + PACKETSIZE_G2DCOLOR)
-#define     PACKETSIZE_STATESTREAM   ALIGN_IN_BYTES((PACKETSIZE_STATE*sizeof(unsigned int)), 32) / sizeof(unsigned int) 
-
-//----------------------------------------------------------------------------
-
-typedef struct
-{
-    unsigned int id;
-   // unsigned int regs[];
-}gsl_hal_z1xxdrawctx_t;
-
-typedef struct
-{
-  unsigned int      offs;
-  unsigned int      curr;
-  unsigned int      prevctx;
-
-  struct kgsl_memdesc     e0;
-  struct kgsl_memdesc     e1;
-  struct kgsl_memdesc     e2;
-  unsigned int*     cmdbuf[GSL_HAL_NUMCMDBUFFERS];
-  struct kgsl_memdesc     cmdbufdesc[GSL_HAL_NUMCMDBUFFERS];
-  unsigned int   timestamp[GSL_HAL_NUMCMDBUFFERS];
-
-  unsigned int      numcontext;
-  unsigned int      nextUniqueContextID;
-}gsl_z1xx_t;
-
-static gsl_z1xx_t   g_z1xx      = {0}; 
-
-extern int z160_version;
-
-//----------------------------------------------------------------------------
-
-
-//////////////////////////////////////////////////////////////////////////////
-// functions
-//////////////////////////////////////////////////////////////////////////////
-
-static int kgsl_g12_addtimestamp(struct kgsl_device* device, unsigned int *timestamp);
-static int kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags);
-static int kgsl_g12_context_create(struct kgsl_device* device, unsigned int type, unsigned int *drawctxt_id, unsigned int flags);
-static int kgsl_g12_context_destroy(struct kgsl_device* device, unsigned int drawctxt_id);
 static unsigned int drawctx_id  = 0;
 static int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout);
-
-//----------------------------------------------------------------------------
 
 void
 kgsl_g12_intrcallback(gsl_intrid_t id, void *cookie)
@@ -172,8 +95,6 @@ kgsl_g12_intrcallback(gsl_intrid_t id, void *cookie)
     }
 }
 
-//----------------------------------------------------------------------------
-
 int
 kgsl_g12_isr(struct kgsl_device *device)
 {
@@ -206,8 +127,6 @@ kgsl_g12_isr(struct kgsl_device *device)
     return (GSL_SUCCESS);
 }
 
-//----------------------------------------------------------------------------
-
 int
 kgsl_g12_tlbinvalidate(struct kgsl_device *device, unsigned int reg_invalidate, unsigned int pid)
 {
@@ -225,8 +144,6 @@ kgsl_g12_tlbinvalidate(struct kgsl_device *device, unsigned int reg_invalidate, 
     return (GSL_SUCCESS);
 }
 
-//----------------------------------------------------------------------------
-
 int
 kgsl_g12_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase, uint32_t ptbase, unsigned int pid)
 {
@@ -242,8 +159,6 @@ kgsl_g12_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase, uint3
 #endif
     return (GSL_SUCCESS);
 }
-
-//----------------------------------------------------------------------------
 
 static void kgsl_g12_updatetimestamp(struct kgsl_device *device)
 {
@@ -262,8 +177,6 @@ static void kgsl_g12_updatetimestamp(struct kgsl_device *device)
 	kgsl_sharedmem_write0(&device->memstore, KGSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp), &device->timestamp, 4, 0);
 }
 
-//----------------------------------------------------------------------------
-
 static void kgsl_g12_irqtask(struct work_struct *work)
 {
 	struct kgsl_device *device = &gsl_driver.device[KGSL_DEVICE_G12-1];
@@ -277,8 +190,6 @@ static void kgsl_g12_irqerr(struct work_struct *work)
 	device->ftbl.destroy(device);
 }
 
-
-//----------------------------------------------------------------------------
 
 int
 kgsl_g12_init(struct kgsl_device *device)
@@ -336,8 +247,6 @@ kgsl_g12_init(struct kgsl_device *device)
     return (status);
 }
 
-//----------------------------------------------------------------------------
-
 int
 kgsl_g12_close(struct kgsl_device *device)
 {
@@ -379,13 +288,11 @@ kgsl_g12_close(struct kgsl_device *device)
 
         DEBUG_ASSERT(g_z1xx.numcontext == 0);
 
-	memset(&g_z1xx, 0, sizeof(gsl_z1xx_t));
+	memset(&g_z1xx, 0, sizeof(struct kgsl_g12_z1xx));
     }
 
     return (GSL_SUCCESS);
 }
-
-//----------------------------------------------------------------------------
 
 int
 kgsl_g12_destroy(struct kgsl_device *device)
@@ -415,8 +322,6 @@ kgsl_g12_destroy(struct kgsl_device *device)
     return (GSL_SUCCESS);
 }
 
-//----------------------------------------------------------------------------
-
 int
 kgsl_g12_start(struct kgsl_device *device, unsigned int flags)
 {
@@ -441,8 +346,6 @@ kgsl_g12_start(struct kgsl_device *device, unsigned int flags)
     return (status);
 }
 
-//----------------------------------------------------------------------------
-
 int
 kgsl_g12_stop(struct kgsl_device *device)
 {
@@ -459,8 +362,6 @@ kgsl_g12_stop(struct kgsl_device *device)
 
     return (status);
 }
-
-//----------------------------------------------------------------------------
 
 int
 kgsl_g12_getproperty(struct kgsl_device *device, gsl_property_type_t type, void *value, unsigned int sizebytes)
@@ -491,8 +392,6 @@ kgsl_g12_getproperty(struct kgsl_device *device, gsl_property_type_t type, void 
     return (status);
 }
 
-//----------------------------------------------------------------------------
-
 int
 kgsl_g12_setproperty(struct kgsl_device *device, gsl_property_type_t type, void *value, unsigned int sizebytes)
 {
@@ -517,8 +416,6 @@ kgsl_g12_setproperty(struct kgsl_device *device, gsl_property_type_t type, void 
     return (status);
 }
 
-//----------------------------------------------------------------------------
-
 int
 kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout)
 {
@@ -536,8 +433,6 @@ kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout)
 
     return (GSL_SUCCESS);
 }
-
-//----------------------------------------------------------------------------
 
 int kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords, unsigned int *value)
 {
@@ -599,9 +494,6 @@ int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords, unsi
 
 	return GSL_SUCCESS;
 }
-
-
-//----------------------------------------------------------------------------
 
 int
 kgsl_g12_waitirq(struct kgsl_device *device, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout)
@@ -670,8 +562,6 @@ kgsl_g12_waitirq(struct kgsl_device *device, gsl_intrid_t intr_id, unsigned int 
     return (status);
 }
 
-//----------------------------------------------------------------------------
-
 int
 kgsl_g12_waittimestamp(struct kgsl_device *device, unsigned int timestamp, unsigned int timeout)
 {
@@ -687,255 +577,26 @@ kgsl_g12_waittimestamp(struct kgsl_device *device, unsigned int timestamp, unsig
 int
 kgsl_g12_getfunctable(struct kgsl_functable *ftbl)
 {
-    ftbl->init           = kgsl_g12_init;
-    ftbl->close          = kgsl_g12_close;
-    ftbl->destroy        = kgsl_g12_destroy;
-    ftbl->start          = kgsl_g12_start;
-    ftbl->stop           = kgsl_g12_stop;
-    ftbl->getproperty    = kgsl_g12_getproperty;
-    ftbl->setproperty    = kgsl_g12_setproperty;
-    ftbl->idle           = kgsl_g12_idle;
-    ftbl->regread        = kgsl_g12_regread;
-    ftbl->regwrite       = kgsl_g12_regwrite;
-    ftbl->waitirq        = kgsl_g12_waitirq;
-	ftbl->waittimestamp  = kgsl_g12_waittimestamp;
-    ftbl->runpending     = NULL;
-    ftbl->addtimestamp   = kgsl_g12_addtimestamp;
-    ftbl->intr_isr              = kgsl_g12_isr;
-    ftbl->mmu_tlbinvalidate     = kgsl_g12_tlbinvalidate;
-    ftbl->mmu_setpagetable      = kgsl_g12_setpagetable;
-    ftbl->cmdstream_issueibcmds = kgsl_g12_issueibcmds;
-    ftbl->context_create        = kgsl_g12_context_create;
-    ftbl->context_destroy       = kgsl_g12_context_destroy;
+	ftbl->init		= kgsl_g12_init;
+	ftbl->close		= kgsl_g12_close;
+	ftbl->destroy		= kgsl_g12_destroy;
+	ftbl->start		= kgsl_g12_start;
+	ftbl->stop		= kgsl_g12_stop;
+	ftbl->getproperty	= kgsl_g12_getproperty;
+	ftbl->setproperty	= kgsl_g12_setproperty;
+	ftbl->idle		= kgsl_g12_idle;
+	ftbl->regread		= kgsl_g12_regread;
+	ftbl->regwrite		= kgsl_g12_regwrite;
+	ftbl->waitirq		= kgsl_g12_waitirq;
+	ftbl->waittimestamp	= kgsl_g12_waittimestamp;
+	ftbl->runpending	= NULL;
+	ftbl->addtimestamp	= kgsl_g12_addtimestamp;
+	ftbl->intr_isr		= kgsl_g12_isr;
+	ftbl->mmu_tlbinvalidate	= kgsl_g12_tlbinvalidate;
+	ftbl->mmu_setpagetable	= kgsl_g12_setpagetable;
+	ftbl->cmdstream_issueibcmds	= kgsl_g12_issueibcmds;
+	ftbl->device_drawctxt_create	= kgsl_g12_drawctxt_create;
+	ftbl->device_drawctxt_destroy	= kgsl_g12_drawctxt_destroy;
 
-    return (GSL_SUCCESS);
-}
-
-//----------------------------------------------------------------------------
-
-static void addmarker(gsl_z1xx_t* z1xx)
-{
-    DEBUG_ASSERT(z1xx);
-    {
-        unsigned int *p = z1xx->cmdbuf[z1xx->curr];
-        /* todo: use symbolic values */
-        p[z1xx->offs++] = 0x7C000176;
-        p[z1xx->offs++] = (0x8000|5);
-        p[z1xx->offs++] = ADDR_VGV3_LAST<<24;
-        p[z1xx->offs++] = ADDR_VGV3_LAST<<24;
-        p[z1xx->offs++] = ADDR_VGV3_LAST<<24;
-        p[z1xx->offs++] = 0x7C000176;
-        p[z1xx->offs++] = 5;
-        p[z1xx->offs++] = ADDR_VGV3_LAST<<24;
-        p[z1xx->offs++] = ADDR_VGV3_LAST<<24;
-        p[z1xx->offs++] = ADDR_VGV3_LAST<<24;
-    }
-}
-
-//----------------------------------------------------------------------------
-static void beginpacket(gsl_z1xx_t* z1xx, uint32_t cmd, unsigned int nextcnt)
-{
-    unsigned int *p = z1xx->cmdbuf[z1xx->curr];
-
-    p[z1xx->offs++] = 0x7C000176;
-    p[z1xx->offs++] = 5;
-    p[z1xx->offs++] = ADDR_VGV3_LAST<<24;
-    p[z1xx->offs++] = ADDR_VGV3_LAST<<24;
-    p[z1xx->offs++] = ADDR_VGV3_LAST<<24;
-    p[z1xx->offs++] = 0x7C000275;
-    p[z1xx->offs++] = cmd;
-    p[z1xx->offs++] = 0x1000|nextcnt;  // nextcount
-    p[z1xx->offs++] = ADDR_VGV3_LAST<<24;
-    p[z1xx->offs++] = ADDR_VGV3_LAST<<24;
-}
-
-//----------------------------------------------------------------------------
-
-static int
-kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags)
-{
-    unsigned int ofs      = PACKETSIZE_STATESTREAM*sizeof(unsigned int);
-    unsigned int cnt      = 5;
-    unsigned int cmd      = ibaddr;
-    unsigned int nextbuf  = (g_z1xx.curr+1)%GSL_HAL_NUMCMDBUFFERS;
-    unsigned int nextaddr = g_z1xx.cmdbufdesc[nextbuf].gpuaddr;
-    unsigned int nextcnt  = 0x9000|5;
-    struct kgsl_memdesc tmp     = {0};
-    unsigned int processed_timestamp;
-
-    (void) flags;
-
-    // read what is the latest timestamp device have processed
-    KGSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, (int *)&processed_timestamp);
-
-	/* wait for the next buffer's timestamp to occur */
-    while(processed_timestamp < g_z1xx.timestamp[nextbuf])
-    {
-		kgsl_cmdstream_waittimestamp(device->id, g_z1xx.timestamp[nextbuf], 1000);
-		KGSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, (int *)&processed_timestamp);
-    }
-
-    *timestamp = g_z1xx.timestamp[nextbuf] = device->current_timestamp + 1;
-
-    /* context switch */
-    if (drawctxt_index != (int)g_z1xx.prevctx)
-    {
-        cnt = PACKETSIZE_STATESTREAM;
-        ofs = 0;
-    }
-    g_z1xx.prevctx = drawctxt_index;
-
-    g_z1xx.offs = 10;
-    beginpacket(&g_z1xx, cmd+ofs, cnt);
-
-    tmp.gpuaddr=ibaddr+(sizedwords*sizeof(unsigned int));
-    kgsl_sharedmem_write0(&tmp, 4, &nextaddr, 4, false);
-    kgsl_sharedmem_write0(&tmp, 8, &nextcnt,  4, false);
-
-    /* sync mem */
-    kgsl_sharedmem_write0((const struct kgsl_memdesc *)&g_z1xx.cmdbufdesc[g_z1xx.curr], 0, g_z1xx.cmdbuf[g_z1xx.curr], (512 + 13) * sizeof(unsigned int), false);
-
-    g_z1xx.offs = 0;
-    g_z1xx.curr = nextbuf;
-
-    /* increment mark counter */
-#ifdef V3_SYNC
-    if (device->timestamp == device->current_timestamp)
-    {
-		kgsl_cmdwindow_write0(2, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, flags);
-		kgsl_cmdwindow_write0(2, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 0);
-    }
-#else
-	kgsl_cmdwindow_write0(2, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, flags);
-	kgsl_cmdwindow_write0(2, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 0);
-#endif
-
-    /* increment consumed timestamp */
-    device->current_timestamp++;
-    kgsl_sharedmem_write0(&device->memstore, KGSL_DEVICE_MEMSTORE_OFFSET(soptimestamp), &device->current_timestamp, 4, 0);
-    return (GSL_SUCCESS);
-}
-
-//----------------------------------------------------------------------------
-
-static int
-kgsl_g12_context_create(struct kgsl_device* device, unsigned int type, unsigned int *drawctxt_id, unsigned int flags)
-{
-    int status = 0;
-    int i;
-    int cmd;
-	unsigned int gslflags = (GSL_MEMFLAGS_CONPHYS | GSL_MEMFLAGS_ALIGNPAGE);
-
-    // unreferenced formal parameters
-    (void) device;
-    (void) type;
-    //(void) drawctxt_id;
-    (void) flags;
-
-    kgsl_device_active(device);
-
-    if (g_z1xx.numcontext==0)
-    {
-	g_z1xx.nextUniqueContextID = 0;
-         /* todo: move this to device create or start. Error checking!! */
-        for (i=0;i<GSL_HAL_NUMCMDBUFFERS;i++)
-        {
-            status = kgsl_sharedmem_alloc0(KGSL_DEVICE_ANY, gslflags, GSL_HAL_CMDBUFFERSIZE, &g_z1xx.cmdbufdesc[i]);
-            DEBUG_ASSERT(status == GSL_SUCCESS);
-            g_z1xx.cmdbuf[i]=kmalloc(GSL_HAL_CMDBUFFERSIZE, GFP_KERNEL);
-            DEBUG_ASSERT(g_z1xx.cmdbuf[i]);
-            memset((void*)g_z1xx.cmdbuf[i], 0, GSL_HAL_CMDBUFFERSIZE);
-
-            g_z1xx.curr = i;
-            g_z1xx.offs = 0;
-            addmarker(&g_z1xx);
-            status = kgsl_sharedmem_write0(&g_z1xx.cmdbufdesc[i],0, g_z1xx.cmdbuf[i],  (512 + 13) * sizeof(unsigned int), false);
-            DEBUG_ASSERT(status == GSL_SUCCESS);
-        }
-        g_z1xx.curr = 0;
-        cmd = VGV3_NEXTCMD_JUMP << VGV3_NEXTCMD_NEXTCMD_FSHIFT;
-
-        /* set cmd stream buffer to hw */
-        status |= kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D, ADDR_VGV3_MODE, 4);
-        status |= kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D, ADDR_VGV3_NEXTADDR, g_z1xx.cmdbufdesc[0].gpuaddr );
-        status |= kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D, ADDR_VGV3_NEXTCMD,  cmd | 5);
-
-        DEBUG_ASSERT(status == GSL_SUCCESS);
-
-        /* Edge buffer setup todo: move register setup to own function.
-           This function can be then called, if power managemnet is used and clocks are turned off and then on.
-        */
-        status |= kgsl_sharedmem_alloc0(KGSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE0BUFSIZE, &g_z1xx.e0);
-        status |= kgsl_sharedmem_alloc0(KGSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE1BUFSIZE, &g_z1xx.e1);
-        status |= kgsl_sharedmem_set0(&g_z1xx.e0, 0, 0, GSL_HAL_EDGE0BUFSIZE);
-        status |= kgsl_sharedmem_set0(&g_z1xx.e1, 0, 0, GSL_HAL_EDGE1BUFSIZE);
-
-        status |= kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D, GSL_HAL_EDGE0REG, g_z1xx.e0.gpuaddr);
-        status |= kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D, GSL_HAL_EDGE1REG, g_z1xx.e1.gpuaddr);
-#ifdef _Z180
-        kgsl_sharedmem_alloc0(KGSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE2BUFSIZE, &g_z1xx.e2);
-        kgsl_sharedmem_set0(&g_z1xx.e2, 0, 0, GSL_HAL_EDGE2BUFSIZE);
-        kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D, GSL_HAL_EDGE2REG, g_z1xx.e2.gpuaddr);
-#endif
-        DEBUG_ASSERT(status == GSL_SUCCESS);
-    }
-
-    if(g_z1xx.numcontext < GSL_CONTEXT_MAX)
-    {
-        g_z1xx.numcontext++;
-	g_z1xx.nextUniqueContextID++;
-	*drawctxt_id=g_z1xx.nextUniqueContextID;
-        status = GSL_SUCCESS;
-    }
-    else
-    {
-        status = GSL_FAILURE;
-    }
-
-    return status;
-}
-
-//----------------------------------------------------------------------------
-
-static int
-kgsl_g12_context_destroy(struct kgsl_device* device, unsigned int drawctxt_id)
-{
-
-    // unreferenced formal parameters
-    (void) device;
-    (void) drawctxt_id;
-
-    g_z1xx.numcontext--;
-    if (g_z1xx.numcontext<0)
-    {
-        g_z1xx.numcontext=0;
-        return (GSL_FAILURE);
-    }
-
-    if (g_z1xx.numcontext==0)
-    {
-        int i;
-        for (i=0;i<GSL_HAL_NUMCMDBUFFERS;i++)
-        {
-            kgsl_sharedmem_free0(&g_z1xx.cmdbufdesc[i], current->tgid);
-            kfree(g_z1xx.cmdbuf[i]);
-        }
-        kgsl_sharedmem_free0(&g_z1xx.e0, current->tgid);
-        kgsl_sharedmem_free0(&g_z1xx.e1, current->tgid);
-#ifdef _Z180
-        kgsl_sharedmem_free0(&g_z1xx.e2, current->tgid);
-#endif
-    }
-    return (GSL_SUCCESS);
-}
-
-//----------------------------------------------------------------------------
-
-static int
-kgsl_g12_addtimestamp(struct kgsl_device* device, unsigned int *timestamp)
-{
-    device->current_timestamp++;
-    *timestamp = device->current_timestamp;
-
-    return (GSL_SUCCESS);
+	return GSL_SUCCESS;
 }

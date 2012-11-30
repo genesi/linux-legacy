@@ -409,6 +409,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
             kgsl_context_create_t param;
             unsigned int tmp;
             int tmpStatus;
+	struct kgsl_device *device;
 
 #if defined(GSL_IOCTL_DEBUG)
 	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CONTEXT_CREATE\n", __func__);
@@ -420,14 +421,20 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
                 kgslStatus = GSL_FAILURE;
                 break;
             }
-            kgslStatus = kgsl_context_create(param.device_id, param.type, &tmp, param.flags);
+		device = &gsl_driver.device[param.device_id-1];
+		mutex_lock(&gsl_driver.lock);
+		kgslStatus = device->ftbl.device_drawctxt_create(device, param.type, &tmp, param.flags);
+		mutex_unlock(&gsl_driver.lock);
+
             if (kgslStatus == GSL_SUCCESS)
             {
                 if (copy_to_user(param.drawctxt_id, &tmp, sizeof(unsigned int)))
                 {
-                    tmpStatus = kgsl_context_destroy(param.device_id, tmp);
+			mutex_lock(&gsl_driver.lock);
+			tmpStatus = device->ftbl.device_drawctxt_destroy(device, *param.drawctxt_id);
+			mutex_unlock(&gsl_driver.lock);
                     /* is asserting ok? Basicly we should return the error from copy_to_user
-                     * but will the user space interpret it correctly? Will the user space 
+                     * but will the user space interpret it correctly? Will the user space
                      * always check against GSL_SUCCESS  or GSL_FAILURE as they are not the only
                      * return values.
                      */
@@ -446,6 +453,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
     case IOCTL_KGSL_CONTEXT_DESTROY:
         {
             kgsl_context_destroy_t param;
+		struct kgsl_device *device;
 #if defined(GSL_IOCTL_DEBUG)
 	    printk(KERN_INFO "--> %s: IOCTL_KGSL_CONTEXT_DESTROY\n", __func__);
 #endif
@@ -455,7 +463,12 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
                 kgslStatus = GSL_FAILURE;
                 break;
             }
-            kgslStatus = kgsl_context_destroy(param.device_id, param.drawctxt_id);
+		device = &gsl_driver.device[param.device_id-1];
+
+		mutex_lock(&gsl_driver.lock);
+		kgslStatus = device->ftbl.device_drawctxt_destroy(device, param.drawctxt_id);
+		mutex_unlock(&gsl_driver.lock);
+
             del_device_context_from_array(fd, param.device_id, param.drawctxt_id);
             break;
         }

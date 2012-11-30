@@ -929,8 +929,8 @@ kgsl_yamato_getfunctable(struct kgsl_functable *ftbl)
     ftbl->mmu_tlbinvalidate     = kgsl_yamato_tlbinvalidate;
     ftbl->mmu_setpagetable      = kgsl_yamato_setpagetable;
     ftbl->cmdstream_issueibcmds = kgsl_ringbuffer_issueibcmds;
-    ftbl->context_create        = kgsl_drawctxt_create;
-    ftbl->context_destroy       = kgsl_drawctxt_destroy;
+    ftbl->device_drawctxt_create        = kgsl_drawctxt_create;
+    ftbl->device_drawctxt_destroy       = kgsl_drawctxt_destroy;
 
     return (GSL_SUCCESS);
 }

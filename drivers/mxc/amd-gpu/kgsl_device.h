@@ -70,8 +70,8 @@ struct kgsl_functable {
 	int (*mmu_tlbinvalidate)      (struct kgsl_device *device, unsigned int reg_invalidate, unsigned int pid);
 	int (*mmu_setpagetable)       (struct kgsl_device *device, unsigned int reg_ptbase, uint32_t ptbase, unsigned int pid);
 	int (*cmdstream_issueibcmds)  (struct kgsl_device *device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags);
-	int (*context_create)         (struct kgsl_device *device, unsigned int type, unsigned int *drawctxt_id, unsigned int flags);
-	int (*context_destroy)        (struct kgsl_device *device_id, unsigned int drawctxt_id);
+	int (*device_drawctxt_create)         (struct kgsl_device *device, unsigned int type, unsigned int *drawctxt_id, unsigned int flags);
+	int (*device_drawctxt_destroy)        (struct kgsl_device *device_id, unsigned int drawctxt_id);
 };
 
 #define GSL_CALLER_PROCESS_MAX		64

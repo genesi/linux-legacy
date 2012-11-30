@@ -19,6 +19,7 @@
 #include <linux/kernel.h>
 #include <linux/fs.h>
 
+#include "kgsl_driver.h"
 #include "kgsl_kmod_cleanup.h"
 #include "kgsl_device.h"
 #include "kgsl_drawctxt.h"
@@ -243,7 +244,7 @@ void del_all_devices_contexts(struct file *fd)
     u32 ctx_array_index;
     s8 ctx;
     int err;
-    
+
     datp = get_fd_private_data(fd);
 
     /* device_id is 1 based */
@@ -255,7 +256,15 @@ void del_all_devices_contexts(struct file *fd)
             ctx = datp->created_contexts_array[device_index][ctx_array_index];
             if(ctx != EMPTY_ENTRY)
             {
-                err = kgsl_context_destroy(id, ctx);
+		struct kgsl_device *device = &gsl_driver.device[id];
+
+		if (device && device->ftbl.device_drawctxt_destroy) {
+			mutex_lock(&gsl_driver.lock);
+        	        err = device->ftbl.device_drawctxt_destroy(device, ctx);
+			mutex_unlock(&gsl_driver.lock);
+		} else
+			err = GSL_FAILURE;
+
                 if(err != GSL_SUCCESS)
                 {
                     printk(KERN_ERR "%s: could not destroy context %d on device id = %u\n", __func__, ctx, id);
