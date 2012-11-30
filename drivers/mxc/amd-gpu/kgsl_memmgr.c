@@ -482,7 +482,7 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, unsigned int flags, int size, stru
     unsigned int fitsize = ~0UL;
     int		  err;
 
-KGSL_MEM_VDBG(                    "--> int kgsl_memarena_alloc(gsl_memarena_t *memarena=0x%08x, unsigned int flags=%x, int size=%d, struct kgsl_memdesc *memdesc=%M)\n", 
+KGSL_MEM_VDBG(                    "--> int kgsl_memarena_alloc(gsl_memarena_t *memarena=0x%08x, unsigned int flags=%x, int size=%d, struct kgsl_memdesc *memdesc=%x)\n", 
 		(unsigned int) memarena, flags, size, (unsigned int) memdesc );
 
     GSL_MEMARENA_VALIDATE(memarena);
@@ -873,7 +873,6 @@ KGSL_MEM_VDBG(                    "--> void* kgsl_memarena_gethostptr(gsl_memare
     DEBUG_ASSERT(memarena);
     if (GSL_MEMARENA_GET_SIGNATURE != GSL_MEMARENA_INSTANCE_SIGNATURE)
     {
-        KGSL_MEM_VDBG("<-- kgsl_memarena_gethostptr. Return value: 0x%08x\n", NULL );
         return (NULL);
     }
 
