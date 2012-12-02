@@ -45,7 +45,7 @@
 
 #include "kgsl_sharedmem.h"
 #include "kgsl_cmdstream.h"
-#include "kgsl_cmdwindow.h"
+#include "kgsl_g12_cmdwindow.h"
 
 #include "kgsl_halconfig.h"
 

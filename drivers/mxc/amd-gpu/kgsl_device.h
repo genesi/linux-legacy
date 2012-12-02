@@ -44,7 +44,7 @@ struct kgsl_device;
 #include "kgsl_intrmgr.h" // for gsl_intr_t
 #include "kgsl_ringbuffer.h" // for struct kgsl_ringbuffer
 #include "kgsl_drawctxt.h" // struct kgsl_drawctxt
-#include "kgsl_cmdwindow.h" // for GSL_G12_INTR_COUNT
+#include "kgsl_g12_cmdwindow.h" // for GSL_G12_INTR_COUNT
 #include "kgsl_properties.h" // for gsl_property_type_t
 #include "kgsl_mmu.h" // for kgsl_mmu
 
