@@ -31,65 +31,49 @@
 
 #include "kgsl_types.h"
 
-//////////////////////////////////////////////////////////////////////////////
-// types
-//////////////////////////////////////////////////////////////////////////////
-
-// --------------
-// property types
-// --------------
-typedef enum _gsl_property_type_t
+/* move me and my friends to include/linux/mxc_kgsl.h */
+enum kgsl_property_type
 {
-    GSL_PROP_DEVICE_INFO      = 0x00000001,
-    GSL_PROP_DEVICE_SHADOW    = 0x00000002,
-    GSL_PROP_DEVICE_POWER     = 0x00000003,
-    GSL_PROP_SHMEM            = 0x00000004,
-    GSL_PROP_SHMEM_APERTURES  = 0x00000005,
-    GSL_PROP_DEVICE_DMI       = 0x00000006
-} gsl_property_type_t;
+	KGSL_PROP_DEVICE_INFO      = 0x00000001,
+	KGSL_PROP_DEVICE_SHADOW    = 0x00000002,
+	KGSL_PROP_DEVICE_POWER     = 0x00000003,
+	KGSL_PROP_SHMEM            = 0x00000004,
+	KGSL_PROP_SHMEM_APERTURES  = 0x00000005,
+	KGSL_PROP_DEVICE_DMI       = 0x00000006  /* qcom: MMU_ENABLE */
+};
 
-// -----------------
-// aperture property
-// -----------------
-typedef struct _gsl_apertureprop_t {
+/* qcom: kgsl_devinfo is the structure returned by PROP_DEVICE_INFO, qcom code ignores anything other than 0x1 or 0x2 */
+
+/* NQ */
+struct kgsl_apertureprop {
     unsigned int  gpuaddr;
     unsigned int  hostaddr;
-} gsl_apertureprop_t;
+};
 
-// --------------
-// shmem property
-// --------------
-typedef struct _gsl_shmemprop_t {
-    int                 numapertures;
-    unsigned int        aperture_mask;
-    unsigned int        aperture_shift;
-    gsl_apertureprop_t  *aperture;
-} gsl_shmemprop_t;
+/* NQ */
+struct kgsl_shmemprop {
+	int numapertures;
+	unsigned int aperture_mask;
+	unsigned int aperture_shift;
+	struct kgsl_apertureprop *aperture;
+};
 
-// -----------------------------
-// device shadow memory property
-// -----------------------------
-typedef struct _gsl_shadowprop_t {
-    unsigned int  hostaddr;
-    unsigned int  size;
-    unsigned int   flags;
-} gsl_shadowprop_t;
+struct kgsl_shadowprop {
+	unsigned int hostaddr; /* qcom: called gpuaddr */
+	unsigned int size;
+	unsigned int flags; /* contains KGSL_FLAGS_ values */
+};
 
-// ---------------------
-// device power property
-// ---------------------
-typedef struct _gsl_powerprop_t {
-    unsigned int  value;
-    unsigned int   flags;
-} gsl_powerprop_t;
+/* NQ */
+struct kgsl_powerprop {
+	unsigned int value;
+	unsigned int flags;
+};
 
-
-// ---------------------
-// device DMI property
-// ---------------------
-typedef struct _gsl_dmiprop_t {
-    unsigned int  value;
-    unsigned int   flags;
-} gsl_dmiprop_t;
+/* NQ */
+struct kgsl_dmiprop {
+	unsigned int value;
+	unsigned int flags;
+};
 
 #endif  // __GSL_PROPERTIES_H

@@ -102,7 +102,7 @@ struct kgsl_device_isidle {
  */
 struct kgsl_device_getproperty {
 	unsigned int device_id;
-	gsl_property_type_t type;
+	enum kgsl_property_type type;
 	unsigned int *value;
 	unsigned int sizebytes;
 };
@@ -112,7 +112,7 @@ struct kgsl_device_getproperty {
 
 struct kgsl_device_setproperty {
 	unsigned int  device_id;
-	gsl_property_type_t type;
+	enum kgsl_property_type type;
 	void *value;
 	unsigned int sizebytes;
 };

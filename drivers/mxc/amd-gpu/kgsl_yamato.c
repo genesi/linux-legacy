@@ -553,208 +553,6 @@ kgsl_yamato_stop(struct kgsl_device *device)
     return (GSL_SUCCESS);
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_yamato_getproperty(struct kgsl_device *device, gsl_property_type_t type, void *value, unsigned int sizebytes)
-{
-    int  status = GSL_FAILURE;
-
-#ifndef _DEBUG
-    (void) sizebytes;       // unreferenced formal parameter
-#endif
-
-    if (type == GSL_PROP_DEVICE_INFO)
-    {
-        struct kgsl_devinfo  *devinfo = (struct kgsl_devinfo *) value;
-
-        DEBUG_ASSERT(sizebytes == sizeof(struct kgsl_devinfo));
-
-        devinfo->device_id         = device->id;
-        devinfo->chip_id           = (unsigned int)device->chip_id;
-        devinfo->mmu_enabled       = kgsl_mmu_isenabled(&device->mmu);
-        devinfo->gmem_hostbaseaddr = device->gmemspace.mmio_virt_base;
-        devinfo->gmem_gpubaseaddr  = device->gmemspace.gpu_base;
-        devinfo->gmem_sizebytes    = device->gmemspace.sizebytes;
-	devinfo->high_precision    = 0;
-
-        status = GSL_SUCCESS;
-    }
-
-    return (status);
-}
-
-//----------------------------------------------------------------------------
-
-int
-kgsl_yamato_setproperty(struct kgsl_device *device, gsl_property_type_t type, void *value, unsigned int sizebytes)
-{
-    int  status = GSL_FAILURE;
-
-#ifndef _DEBUG
-    (void) sizebytes;           // unreferenced formal parameter
-#endif
-
-    if (type == GSL_PROP_DEVICE_POWER)
-    {
-        gsl_powerprop_t  *power = (gsl_powerprop_t *) value;
-
-        DEBUG_ASSERT(sizebytes == sizeof(gsl_powerprop_t));
-
-        if (!(device->flags & GSL_FLAGS_SAFEMODE))
-        {
-            if (power->flags & GSL_PWRFLAGS_OVERRIDE_ON)
-            {
-                device->ftbl.regwrite(device, REG_RBBM_PM_OVERRIDE1, 0xfffffffe);
-                device->ftbl.regwrite(device, REG_RBBM_PM_OVERRIDE2, 0xffffffff);
-            }
-            else if (power->flags & GSL_PWRFLAGS_OVERRIDE_OFF)
-            {
-                device->ftbl.regwrite(device, REG_RBBM_PM_OVERRIDE1, 0x00000000);
-                device->ftbl.regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x00000000);
-            }
-            else
-            {
-                kgsl_hal_setpowerstate(device->id, power->flags, power->value);
-            }
-        }
-
-        status = GSL_SUCCESS;
-    }
-    else if (type == GSL_PROP_DEVICE_DMI)
-    {
-        gsl_dmiprop_t  *dmi = (gsl_dmiprop_t *) value;
-
-        DEBUG_ASSERT(sizebytes == sizeof(gsl_dmiprop_t));
-
-        //
-        //  In order to enable DMI, it must not already be enabled.
-        //
-        switch (dmi->flags)
-        {
-            case GSL_DMIFLAGS_ENABLE_SINGLE:
-            case GSL_DMIFLAGS_ENABLE_DOUBLE:
-                if (!gsl_driver.dmi_state)
-                {
-                    gsl_driver.dmi_state = OS_TRUE;
-                    gsl_driver.dmi_mode  = dmi->flags;
-                    gsl_driver.dmi_frame = -1;
-                    status = GSL_SUCCESS;
-                }
-                break;
-            case GSL_DMIFLAGS_DISABLE:
-                //
-                //  To disable, we must be enabled.
-                //
-                if (gsl_driver.dmi_state)
-                {
-                    gsl_driver.dmi_state = OS_FALSE;
-                    gsl_driver.dmi_mode  = -1;
-                    gsl_driver.dmi_frame = -2;
-                    status = GSL_SUCCESS;
-                }
-                break;
-            case GSL_DMIFLAGS_NEXT_BUFFER:
-                //
-                //  Going to the next buffer is dependent upon what mod we are in with respect to single, double, or triple buffering.
-                //  DMI must also be enabled.
-                //
-                if (gsl_driver.dmi_state)
-                {
-                    unsigned int    cmdbuf[10];
-                    unsigned int    *cmds = &cmdbuf[0];
-                    int             size;
-
-                    if (gsl_driver.dmi_frame == -1)
-                    {
-                        size = 8;
-
-                        *cmds++ =  pm4_type0_packet(REG_RBBM_DSPLY, 1);
-                        switch (gsl_driver.dmi_mode)
-                        {
-                            case GSL_DMIFLAGS_ENABLE_SINGLE:
-                                gsl_driver.dmi_max_frame = 1;
-                                *cmds++ = 0x041000410;
-                                break;
-                            case GSL_DMIFLAGS_ENABLE_DOUBLE:
-                                gsl_driver.dmi_max_frame = 2;
-                                *cmds++ = 0x041000510;
-                                break;
-                            case GSL_DMIFLAGS_ENABLE_TRIPLE:
-                                gsl_driver.dmi_max_frame = 3;
-                                *cmds++ = 0x041000610;
-                                break;
-                        }
-                    }
-                    else
-                    {
-                        size = 6;
-                    }
-
-
-                    //
-                    //  Wait for 3D core to be idle and wait for vsync
-                    //
-                    *cmds++ =  pm4_type0_packet(REG_WAIT_UNTIL, 1);
-                    *cmds++ = 0x00008000;           //  3d idle
-                    // *cmds++ = 0x00008008;         //  3d idle & vsync
-
-                    //
-                    //  Update the render latest register.
-                    //
-                    *cmds++ =  pm4_type0_packet(REG_RBBM_RENDER_LATEST, 1);
-                    switch (gsl_driver.dmi_frame)
-                    {
-                        case 0:
-                            //
-                            //  Render frame 0
-                            //
-                            *cmds++ = 0;
-                            //
-                            //  Wait for our max frame # indicator to be de-asserted
-                            //
-                            *cmds++ =  pm4_type0_packet(REG_WAIT_UNTIL, 1);
-                            *cmds++ = 0x00000008 << gsl_driver.dmi_max_frame;
-                            gsl_driver.dmi_frame = 1;
-                            break;
-                        case -1:
-                        case 1:
-                            //
-                            //  Render frame 1
-                            //
-                            *cmds++ = 1;
-                            *cmds++ =  pm4_type0_packet(REG_WAIT_UNTIL, 1);
-                            *cmds++ = 0x00000010;   //  Wait for frame 0 to be deasserted
-                            gsl_driver.dmi_frame = 2;
-                            break;
-                        case 2:
-                            //
-                            //  Render frame 2
-                            //
-                            *cmds++ = 2;
-                            *cmds++ =  pm4_type0_packet(REG_WAIT_UNTIL, 1);
-                            *cmds++ = 0x00000020;   //  Wait for frame 1 to be deasserted
-                            gsl_driver.dmi_frame = 0;
-                            break;
-                    }
-                    
-                    // issue the commands
-                    kgsl_ringbuffer_issuecmds(device, 1, &cmdbuf[0], size, current->tgid);
-
-                    gsl_driver.dmi_frame %= gsl_driver.dmi_max_frame;
-                    status = GSL_SUCCESS;
-                }
-                break;
-            default:
-                status = GSL_FAILURE;
-                break;
-        }
-    }
-
-    return (status);
-}
-
-//----------------------------------------------------------------------------
 
 int kgsl_yamato_regread(struct kgsl_device *device, unsigned int offsetwords, unsigned int *value)
 {
@@ -783,7 +581,60 @@ int kgsl_yamato_regwrite(struct kgsl_device *device, unsigned int offsetwords, u
 
 	writel(value, reg);
 
-	return (GSL_SUCCESS);
+	return GSL_SUCCESS;
+}
+
+int kgsl_yamato_getproperty(struct kgsl_device *device, enum kgsl_property_type type, void *value, unsigned int sizebytes)
+{
+	int status = GSL_FAILURE;
+	(void) sizebytes;
+
+	if (type == KGSL_PROP_DEVICE_INFO) {
+		struct kgsl_devinfo  *devinfo = (struct kgsl_devinfo *) value;
+
+		DEBUG_ASSERT(sizebytes == sizeof(struct kgsl_devinfo));
+
+		devinfo->device_id         = device->id;
+		devinfo->chip_id           = (unsigned int)device->chip_id;
+		devinfo->mmu_enabled       = kgsl_mmu_isenabled(&device->mmu);
+		devinfo->gmem_hostbaseaddr = device->gmemspace.mmio_virt_base;
+		devinfo->gmem_gpubaseaddr  = device->gmemspace.gpu_base;
+		devinfo->gmem_sizebytes    = device->gmemspace.sizebytes;
+		devinfo->high_precision    = 0;
+
+		status = GSL_SUCCESS;
+	}
+
+	return status;
+}
+
+int kgsl_yamato_setproperty(struct kgsl_device *device, enum kgsl_property_type type, void *value, unsigned int sizebytes)
+{
+	int status = GSL_FAILURE;
+	(void) sizebytes;
+
+	if (type == KGSL_PROP_DEVICE_POWER) {
+		struct kgsl_powerprop  *power = (struct kgsl_powerprop *) value;
+
+		DEBUG_ASSERT(sizebytes == sizeof(struct kgsl_powerprop));
+
+		if (!(device->flags & GSL_FLAGS_SAFEMODE)) {
+			if (power->flags & GSL_PWRFLAGS_OVERRIDE_ON) {
+				kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0xfffffffe);
+				kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0xffffffff);
+			} else if (power->flags & GSL_PWRFLAGS_OVERRIDE_OFF) {
+				kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0x00000000);
+				kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x00000000);
+			} else {
+				kgsl_hal_setpowerstate(device->id, power->flags, power->value);
+			}
+		}
+		status = GSL_SUCCESS;
+	} else {
+		status = GSL_FAILURE;
+	}
+
+	return status;
 }
 
 int kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)

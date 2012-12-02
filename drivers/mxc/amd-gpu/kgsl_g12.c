@@ -40,6 +40,7 @@
 
 int kgsl_g12_regread(struct kgsl_device *device, unsigned int offsetwords, unsigned int *value);
 int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords, unsigned int value);
+int kgsl_g12_stop(struct kgsl_device *device);
 
 /* G12 MH arbiter config*/
 #define KGSL_G12_CFG_G12_MHARB \
@@ -323,98 +324,93 @@ kgsl_g12_destroy(struct kgsl_device *device)
     return (GSL_SUCCESS);
 }
 
-int
-kgsl_g12_start(struct kgsl_device *device, unsigned int flags)
+int kgsl_g12_start(struct kgsl_device *device, unsigned int flags)
 {
-    int  status = GSL_SUCCESS;
+	int  status = GSL_SUCCESS;
+	(void) flags;
 
-    (void) flags;       // unreferenced formal parameter
+	kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_CLK_ON, 100);
 
-    kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_CLK_ON, 100);
+	/* qcom: bitch if not initialized */
 
-    // init command window
-    status = kgsl_g12_cmdwindow_init(device);
-    if (status != GSL_SUCCESS)
-    {
-        device->ftbl.stop(device);
-        return (status);
-    }
+	if (device->flags & GSL_FLAGS_STARTED) {
+		/* already started */
+		return 0;
+	}
 
-    DEBUG_ASSERT(g_z1xx.numcontext == 0);
+	status = kgsl_g12_cmdwindow_init(device);
+	if (status != GSL_SUCCESS) {
+		kgsl_g12_stop(device);
+		return status;
+	}
 
-    device->flags |= GSL_FLAGS_STARTED;
+	device->flags |= GSL_FLAGS_STARTED;
+	/* qcom: init idle timer work, init ringbuffer.memqueue */
 
-    return (status);
+	return status;
 }
 
-int
-kgsl_g12_stop(struct kgsl_device *device)
+int kgsl_g12_stop(struct kgsl_device *device)
 {
-    int status;
+	int status;
 
-    DEBUG_ASSERT(device->refcnt == 0);
+	/* qcom: delete idle timer */
 
-    /* wait for device to idle before setting it's clock off */
-    status = device->ftbl.idle(device, 1000);
-    DEBUG_ASSERT(status == GSL_SUCCESS);
+	/* wait for device to idle before setting it's clock off */
+	if (device->flags & GSL_FLAGS_STARTED) {
+		status = kgsl_g12_idle(device, 1000);
+	}
 
-    status = kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_CLK_OFF, 0);
-    device->flags &= ~GSL_FLAGS_STARTED;
+	/* qcom: destroy irq work */
 
-    return (status);
+	status = kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_CLK_OFF, 0);
+	device->flags &= ~GSL_FLAGS_STARTED;
+
+	return status;
 }
 
-int
-kgsl_g12_getproperty(struct kgsl_device *device, gsl_property_type_t type, void *value, unsigned int sizebytes)
+int kgsl_g12_getproperty(struct kgsl_device *device, enum kgsl_property_type type, void *value, unsigned int sizebytes)
 {
-    int  status = GSL_FAILURE;
-    // unreferenced formal parameter
-    (void) sizebytes;
+	int status = GSL_FAILURE;
+	(void) sizebytes;
 
-    if (type == GSL_PROP_DEVICE_INFO)
-    {
-        struct kgsl_devinfo  *devinfo = (struct kgsl_devinfo *) value;
+	if (type == KGSL_PROP_DEVICE_INFO) {
+		struct kgsl_devinfo  *devinfo = (struct kgsl_devinfo *) value;
 
-        DEBUG_ASSERT(sizebytes == sizeof(struct kgsl_devinfo));
+		/* BUG_ON? */
+		DEBUG_ASSERT(sizebytes == sizeof(struct kgsl_devinfo));
 
-        devinfo->device_id   = device->id;
-        devinfo->chip_id     = (unsigned int)device->chip_id;
+		devinfo->device_id   = device->id;
+		devinfo->chip_id     = (unsigned int)device->chip_id;
 #ifdef CONFIG_KGSL_MMU_ENABLE
-        devinfo->mmu_enabled = kgsl_mmu_isenabled(&device->mmu);
+		devinfo->mmu_enabled = kgsl_mmu_isenabled(&device->mmu);
 #endif
-	if (z160_version == 1)
-	    devinfo->high_precision = 1;
-	else
-	    devinfo->high_precision = 0;
+		if (z160_version == 1)
+			devinfo->high_precision = 1;
+		else
+			devinfo->high_precision = 0;
 
-        status = GSL_SUCCESS;
-    }
-
-    return (status);
+		status = GSL_SUCCESS;
+	}
+	return status;
 }
 
-int
-kgsl_g12_setproperty(struct kgsl_device *device, gsl_property_type_t type, void *value, unsigned int sizebytes)
+int kgsl_g12_setproperty(struct kgsl_device *device, enum kgsl_property_type type, void *value, unsigned int sizebytes)
 {
-    int  status = GSL_FAILURE;
+	int status = GSL_FAILURE;
 
-    // unreferenced formal parameters
-    (void) device;
+	if (type == KGSL_PROP_DEVICE_POWER) {
+		struct kgsl_powerprop  *power = (struct kgsl_powerprop *) value;
 
-    if (type == GSL_PROP_DEVICE_POWER)
-    {
-        gsl_powerprop_t  *power = (gsl_powerprop_t *) value;
+		DEBUG_ASSERT(sizebytes == sizeof(struct kgsl_powerprop));
 
-        DEBUG_ASSERT(sizebytes == sizeof(gsl_powerprop_t));
+		if (!(device->flags & GSL_FLAGS_SAFEMODE)) {
+			kgsl_hal_setpowerstate(device->id, power->flags, power->value);
+		}
 
-        if (!(device->flags & GSL_FLAGS_SAFEMODE))
-        {
-            kgsl_hal_setpowerstate(device->id, power->flags, power->value);
-        }
-
-        status = GSL_SUCCESS;
-    }
-    return (status);
+		status = GSL_SUCCESS;
+	}
+	return status;
 }
 
 int

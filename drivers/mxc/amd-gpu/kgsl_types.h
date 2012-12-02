@@ -185,10 +185,6 @@ typedef struct _os_cputimer_t {
 #define GSL_FLAGS_RESERVED1             0x00000040
 #define GSL_FLAGS_RESERVED2             0x00000080
 
-
-//////////////////////////////////////////////////////////////////////////////
-// power flags
-//////////////////////////////////////////////////////////////////////////////
 #define GSL_PWRFLAGS_POWER_OFF          0x00000001
 #define GSL_PWRFLAGS_POWER_ON           0x00000002
 #define GSL_PWRFLAGS_CLK_ON             0x00000004
@@ -196,43 +192,20 @@ typedef struct _os_cputimer_t {
 #define GSL_PWRFLAGS_OVERRIDE_ON        0x00000010
 #define GSL_PWRFLAGS_OVERRIDE_OFF       0x00000020
 
-//////////////////////////////////////////////////////////////////////////////
-// DMI flags
-//////////////////////////////////////////////////////////////////////////////
-#define GSL_DMIFLAGS_ENABLE_SINGLE      0x00000001  //  Single buffered DMI
-#define GSL_DMIFLAGS_ENABLE_DOUBLE      0x00000002  //  Double buffered DMI
-#define GSL_DMIFLAGS_ENABLE_TRIPLE      0x00000004  //  Triple buffered DMI
-#define GSL_DMIFLAGS_DISABLE            0x00000008
-#define GSL_DMIFLAGS_NEXT_BUFFER        0x00000010
-
-//////////////////////////////////////////////////////////////////////////////
-// cache flags
-//////////////////////////////////////////////////////////////////////////////
 #define GSL_CACHEFLAGS_CLEAN            0x00000001  /* flush cache          */
 #define GSL_CACHEFLAGS_INVALIDATE       0x00000002  /* invalidate cache     */
 #define GSL_CACHEFLAGS_WRITECLEAN       0x00000004  /* flush write cache    */
 
-
-//////////////////////////////////////////////////////////////////////////////
-//  context
-//////////////////////////////////////////////////////////////////////////////
 #define GSL_CONTEXT_MAX             20
 #define GSL_CONTEXT_NONE            0
 #define GSL_CONTEXT_SAVE_GMEM       1
 #define GSL_CONTEXT_NO_GMEM_ALLOC   2
 
-
-//////////////////////////////////////////////////////////////////////////////
-// other
-//////////////////////////////////////////////////////////////////////////////
 #define GSL_TIMEOUT_NONE                        0
 #define GSL_TIMEOUT_DEFAULT                     0xFFFFFFFF
 
 #define GSL_TIMESTAMP_EPSILON           20000
 
-//////////////////////////////////////////////////////////////////////////////
-// types
-//////////////////////////////////////////////////////////////////////////////
 typedef unsigned int        uint32_t;
 
 /* device id */

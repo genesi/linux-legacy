@@ -1103,38 +1103,36 @@ static int gpu_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int gpu_suspend(struct platform_device *pdev, pm_message_t state)
 {
-    int              i;
-    gsl_powerprop_t  power;
+	int i;
+	struct kgsl_powerprop power;
 
-    power.flags = GSL_PWRFLAGS_POWER_OFF;
-    for (i = 0; i < KGSL_DEVICE_MAX; i++)
-    {
-        kgsl_device_setproperty(
-                        (unsigned int) (i+1),
-                        GSL_PROP_DEVICE_POWER,
-                        &power,
-                        sizeof(gsl_powerprop_t));
-    }
+	/* this is hideous! */
+	power.flags = GSL_PWRFLAGS_POWER_OFF;
+	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
+		kgsl_device_setproperty(
+			(unsigned int) (i+1),
+			KGSL_PROP_DEVICE_POWER,
+			&power,
+			sizeof(struct kgsl_powerprop));
+	}
 
-    return 0;
+	return 0;
 }
 
 static int gpu_resume(struct platform_device *pdev)
 {
-    int              i;
-    gsl_powerprop_t  power;
+	int i;
+	struct kgsl_powerprop power;
 
-    power.flags = GSL_PWRFLAGS_POWER_ON;
-    for (i = 0; i < KGSL_DEVICE_MAX; i++)
-    {
-        kgsl_device_setproperty(
-                        (unsigned int) (i+1),
-                        GSL_PROP_DEVICE_POWER,
-                        &power,
-                        sizeof(gsl_powerprop_t));
-    }
-
-    return 0;
+	power.flags = GSL_PWRFLAGS_POWER_ON;
+	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
+		kgsl_device_setproperty(
+			(unsigned int) (i+1),
+			KGSL_PROP_DEVICE_POWER,
+			&power,
+			sizeof(struct kgsl_powerprop));
+	}
+	return 0;
 }
 #else
 #define	gpu_suspend	NULL

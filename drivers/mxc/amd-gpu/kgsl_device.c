@@ -254,123 +254,92 @@ kgsl_device_detachcallback(struct kgsl_device *device, unsigned int pid)
     return (status);
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_device_getproperty(unsigned int device_id, gsl_property_type_t type, void *value, unsigned int sizebytes)
+/* qcom: ? */
+int kgsl_device_getproperty(unsigned int device_id, enum kgsl_property_type type, void *value, unsigned int sizebytes)
 {
-    int           status  = GSL_SUCCESS;
-    struct kgsl_device  *device = &gsl_driver.device[device_id-1];        // device_id is 1 based
+	int  status  = GSL_SUCCESS;
+	struct kgsl_device  *device = &gsl_driver.device[device_id-1]; // device_id is 1 based
 
-    KGSL_DRV_VDBG("device_id=%d, type=%d, value=0x%08x, sizebytes=%u\n", device_id, (int) type, (unsigned int) value, sizebytes);
+	KGSL_DRV_VDBG("device_id=%d, type=%d, value=0x%08x, sizebytes=%u\n", device_id, (int) type, (unsigned int) value, sizebytes);
 
-    DEBUG_ASSERT(value);
+	(void) sizebytes;
 
-#ifndef _DEBUG
-    (void) sizebytes;       // unreferenced formal parameter
-#endif
+	switch (type) {
+	case KGSL_PROP_SHMEM:
+	{
+		struct kgsl_shmemprop  *shem = (struct kgsl_shmemprop *) value;
 
-    switch (type)
-    {
-    case GSL_PROP_SHMEM:
-        {
-        gsl_shmemprop_t  *shem = (gsl_shmemprop_t *) value;
+		/* BUG_ON? */
+		DEBUG_ASSERT(sizebytes == sizeof(gsl_shmemprop_t));
 
-        DEBUG_ASSERT(sizebytes == sizeof(gsl_shmemprop_t));
+		shem->numapertures   = gsl_driver.shmem.numapertures;
+		shem->aperture_mask  = GSL_APERTURE_MASK;
+		shem->aperture_shift = GSL_APERTURE_SHIFT;
+		break;
+	}
+	case KGSL_PROP_SHMEM_APERTURES:
+	{
+		int i;
+		struct kgsl_apertureprop  *aperture = (struct kgsl_apertureprop *) value;
 
-        shem->numapertures   = gsl_driver.shmem.numapertures;
-        shem->aperture_mask  = GSL_APERTURE_MASK;
-        shem->aperture_shift = GSL_APERTURE_SHIFT;
+		DEBUG_ASSERT(sizebytes == (sizeof(struct kgsl_apertureprop) * gsl_driver.shmem.numapertures));
 
-        break;
-        }
+		for (i = 0; i < gsl_driver.shmem.numapertures; i++) {
+			if (gsl_driver.shmem.apertures[i].memarena) {
+				aperture->gpuaddr  = GSL_APERTURE_GETGPUADDR(gsl_driver.shmem, i);
+				aperture->hostaddr = GSL_APERTURE_GETHOSTADDR(gsl_driver.shmem, i);
+			} else {
+				aperture->gpuaddr  = 0x0;
+				aperture->hostaddr = 0x0;
+			}
+			aperture++;
+		}
+		break;
+	}
+	case KGSL_PROP_DEVICE_SHADOW:
+	{
+		struct kgsl_shadowprop  *shadowprop = (struct kgsl_shadowprop *) value;
+		DEBUG_ASSERT(sizebytes == sizeof(struct kgsl_shadowprop));
 
-    case GSL_PROP_SHMEM_APERTURES:
-        {
-        int i;
-        gsl_apertureprop_t  *aperture = (gsl_apertureprop_t *) value;
-
-        DEBUG_ASSERT(sizebytes == (sizeof(gsl_apertureprop_t) * gsl_driver.shmem.numapertures));
-
-        for (i = 0; i < gsl_driver.shmem.numapertures; i++)
-        {
-            if (gsl_driver.shmem.apertures[i].memarena)
-            {
-                aperture->gpuaddr  = GSL_APERTURE_GETGPUADDR(gsl_driver.shmem, i);
-                aperture->hostaddr = GSL_APERTURE_GETHOSTADDR(gsl_driver.shmem, i);
-            }
-            else
-            {
-                aperture->gpuaddr  = 0x0;
-                aperture->hostaddr = 0x0;
-            }
-            aperture++;
-        }
-
-        break;
-        }
-
-    case GSL_PROP_DEVICE_SHADOW:
-        {
-        gsl_shadowprop_t  *shadowprop = (gsl_shadowprop_t *) value;
-
-        DEBUG_ASSERT(sizebytes == sizeof(gsl_shadowprop_t));
-
-        memset(shadowprop, 0, sizeof(gsl_shadowprop_t));
+		memset(shadowprop, 0, sizeof(struct kgsl_shadowprop));
 
 #ifdef  GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
-        if (device->memstore.hostptr)
-        {
-            shadowprop->hostaddr = (unsigned int) device->memstore.hostptr;
-            shadowprop->size     = device->memstore.size;
-            shadowprop->flags    = GSL_FLAGS_INITIALIZED;
-        }
+		if (device->memstore.hostptr) {
+			shadowprop->hostaddr = (unsigned int) device->memstore.hostptr;
+			shadowprop->size     = device->memstore.size;
+			shadowprop->flags    = GSL_FLAGS_INITIALIZED;
+		}
 #endif // GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
+		break;
+	}
+	default:
+		if (device->ftbl.getproperty) {
+			status = device->ftbl.getproperty(device, type, value, sizebytes);
+		}
+		break;
+	}
 
-        break;
-        }
-
-    default:
-        {
-        if (device->ftbl.getproperty)
-        {
-            status = device->ftbl.getproperty(device, type, value, sizebytes);
-        }
-
-        break;
-        }
-    }
-
-    return (status);
+	return status;
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_device_setproperty(unsigned int device_id, gsl_property_type_t type, void *value, unsigned int sizebytes)
+int kgsl_device_setproperty(unsigned int device_id, enum kgsl_property_type type, void *value, unsigned int sizebytes)
 {
-    int           status = GSL_SUCCESS;
-    struct kgsl_device  *device;
+	int status = GSL_SUCCESS;
+	struct kgsl_device  *device;
 
-    KGSL_DRV_VDBG("device_id=%d, type=%d, value=0x%08x, sizebytes=%u\n", device_id, type, (unsigned int) value, sizebytes);
+	KGSL_DRV_VDBG("device_id=%d, type=%d, value=0x%08x, sizebytes=%u\n", device_id, type, (unsigned int) value, sizebytes);
 
-    DEBUG_ASSERT(value);
+	DEBUG_ASSERT(value);
 
-    mutex_lock(&gsl_driver.lock);
-
-    device = &gsl_driver.device[device_id-1];       // device_id is 1 based
-
-    if (device->flags & GSL_FLAGS_INITIALIZED)
-    {
-        if (device->ftbl.setproperty)
-        {
-            status = device->ftbl.setproperty(device, type, value, sizebytes);
-        }
-    }
-
-    mutex_unlock(&gsl_driver.lock);
-
-    return (status);
+	mutex_lock(&gsl_driver.lock);
+	device = &gsl_driver.device[device_id-1]; // device_id is 1 based
+	if (device->flags & GSL_FLAGS_INITIALIZED) {
+		if (device->ftbl.setproperty) {
+			status = device->ftbl.setproperty(device, type, value, sizebytes);
+		}
+	}
+	mutex_unlock(&gsl_driver.lock);
+	return (status);
 }
 
 //----------------------------------------------------------------------------
