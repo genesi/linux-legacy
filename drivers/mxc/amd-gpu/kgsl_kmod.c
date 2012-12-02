@@ -92,6 +92,7 @@ static const struct file_operations kgsl_fops =
 	//.write = kgsl_write,
 };
 
+/* qcom: doesn't do this */
 static struct vm_operations_struct kgsl_vmops =
 {
 	.fault = kgsl_fault,
@@ -162,7 +163,7 @@ static int kgsl_ioctl_device_getproperty(struct file *fd, void __user *arg)
 	 * - call yamato_getproperty or g12_getproperty
 	 * - those functions allocate return value on stack
 	 * - copy_to_user the result
-	 * - no idea how FSL code is even meant to work here!?
+	 * - no idea how FSL code is even meant to work here!? does hwaccess_memread do it?
 	 */
 	result = kgsl_device_getproperty(param.device_id, param.type, tmp, param.sizebytes);
 
@@ -174,17 +175,18 @@ done:
 
 static int kgsl_ioctl_device_setproperty(struct file *fd, void __user *arg)
 {
-	int status;
+	int result;
 	struct kgsl_device_setproperty param;
 
 	if (copy_from_user(&param, arg, sizeof(param))) {
-		status = GSL_FAILURE; // -EFAULT
+		result = GSL_FAILURE; // -EFAULT
 		goto done;
 	}
-	status = kgsl_device_setproperty(param.device_id, param.type, param.value, param.sizebytes);
+
+	result = kgsl_device_setproperty(param.device_id, param.type, param.value, param.sizebytes);
 
 done:
-	return status;
+	return result;
 }
 
 static int kgsl_ioctl_device_regread(struct file *fd, void __user *arg)
@@ -203,6 +205,8 @@ static int kgsl_ioctl_device_regread(struct file *fd, void __user *arg)
 	status = kgsl_device_regread(param.device_id, param.offsetwords, &tmp);
 
 	if (status == GSL_SUCCESS) {
+		/* qcom: arg, &param, sizeof(param) */
+		/* fsl code should never work? */
 		if (copy_to_user(param.value, &tmp, sizeof(unsigned int))) {
 			pr_err("%s: copy_to_user error\n", __func__);
 			status = GSL_FAILURE;
@@ -239,6 +243,7 @@ static int kgsl_ioctl_cmdstream_waittimestamp(struct file *fd, void __user *arg)
 		return GSL_FAILURE;
 	}
 
+	/* qcom: per-device waittimestamp, driver lock around function, runpending to finish */
 	result = kgsl_cmdstream_waittimestamp(param.device_id, param.timestamp, param.timeout);
 
 	return result;
@@ -256,10 +261,13 @@ static int kgsl_ioctl_cmdstream_issueibcmds(struct file *fd, void __user *arg)
 		return GSL_FAILURE;
 	}
 
+	/* qcom: per-device opencoded */
 	status = kgsl_cmdstream_issueibcmds(param.device_id, param.drawctxt_index,
 						param.ibaddr, param.sizedwords, &tmp, param.flags);
 
 	if (status == GSL_SUCCESS) {
+		/* don't understand how copying it to param.timestamp gets it back into userspace...
+		   this is not how the newer drivers work or how any driver does it for real..? */
 		if (copy_to_user(param.timestamp, &tmp, sizeof(unsigned int))) {
 			pr_err("%s: copy_to_user error\n", __func__);
 			status = GSL_FAILURE;
@@ -314,6 +322,7 @@ static int kgsl_ioctl_sharedmem_free(struct file *fd, void __user *arg)
 		return GSL_FAILURE;
 	}
 
+	/* qcom: kgsl_sharedmem_find => kgsl_remove_mem_entry */
 	status = del_memblock_from_allocated_list(fd, &tmp);
 	if (status) {
 		pr_err("%s: tried to free memdesc that was not allocated!\n", __func__);
@@ -483,6 +492,7 @@ static int kgsl_ioctl_cmdstream_readtimestamp(struct file *fd, void __user *arg)
                 return GSL_FAILURE;
 	}
 
+	/* qcom: per device here */
 	tmp = kgsl_cmdstream_readtimestamp(param.device_id, param.type);
 	if (copy_to_user(param.timestamp, &tmp, sizeof(unsigned int))) {
 		pr_err("%s: copy_to_user error\n", __func__);
@@ -501,6 +511,7 @@ static int kgsl_ioctl_cmdstream_freememontimestamp(struct file *fd, void __user 
                 return GSL_FAILURE;
 	}
 
+	/* qcom: per device */
 	status = del_memblock_from_allocated_list(fd, param.memdesc);
 	if (status) {
 		/* tried to remove a block of memory that is not allocated!
@@ -513,6 +524,7 @@ static int kgsl_ioctl_cmdstream_freememontimestamp(struct file *fd, void __user 
 							param.memdesc,
 							param.timestamp,
 							param.type);
+		/* qcom: runpending here */
 	}
 	return status;
 }
@@ -529,6 +541,7 @@ static int kgsl_ioctl_context_create(struct file *fd, void __user *arg)
                 return GSL_FAILURE;
 	}
 
+	/* qcom: per device */
 	device = &gsl_driver.device[param.device_id-1];
 	mutex_lock(&gsl_driver.lock);
 	status = device->ftbl.device_drawctxt_create(device, param.type, &tmp, param.flags);
@@ -564,6 +577,8 @@ static int kgsl_ioctl_context_destroy(struct file *fd, void __user *arg)
 	mutex_lock(&gsl_driver.lock);
 	status = device->ftbl.device_drawctxt_destroy(device, param.drawctxt_id);
 	mutex_unlock(&gsl_driver.lock);
+
+	/* qcom: runpending */
 
 	del_device_context_from_array(fd, param.device_id, param.drawctxt_id);
 
@@ -710,6 +725,7 @@ static int kgsl_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, un
 		result = kgsl_ioctl_device_setproperty(fd, (void __user *)arg);
 		break;
 	case IOCTL_KGSL_SHAREDMEM_ALLOC:
+		/* qcom: runpending on each device first */
 		result = kgsl_ioctl_sharedmem_alloc(fd, (void __user *)arg);
 		break;
 	case IOCTL_KGSL_SHAREDMEM_FREE:
@@ -731,6 +747,7 @@ static int kgsl_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, un
 		result = kgsl_ioctl_sharedmem_largestfreeblock(fd, (void __user *)arg);
 		break;
 	case IOCTL_KGSL_SHAREDMEM_CACHEOPERATION:
+		/* qcom: only if cache enabled (debug option) */
 		result = kgsl_ioctl_sharedmem_cacheoperation(fd, (void __user *)arg);
 		break;
 	case IOCTL_KGSL_CMDSTREAM_ISSUEIBCMDS:
@@ -785,133 +802,135 @@ static int kgsl_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, un
 		break;
 
 	default:
+		pr_err("%s: invalid ioctl code %08x\n", __func__, cmd);
 		result = -ENOTTY;
+		break;
 	}
 
+	/* qcom: post hwaccess here (explains why none of their funcs do it..?) */
 	return result;
 }
 
 static int kgsl_mmap(struct file *fd, struct vm_area_struct *vma)
 {
-    int result;
-    int status = 0;
-    unsigned long start = vma->vm_start;
-    unsigned long pfn = vma->vm_pgoff;
-    unsigned long size = vma->vm_end - vma->vm_start;
-    unsigned long prot = pgprot_writecombine(vma->vm_page_prot);
-    unsigned long addr = vma->vm_pgoff << PAGE_SHIFT;
-    void *va = NULL;
+	int result;
+	int status = 0;
+	unsigned long start = vma->vm_start;
+	unsigned long pfn = vma->vm_pgoff;
+	unsigned long size = vma->vm_end - vma->vm_start;
+	unsigned long prot = pgprot_writecombine(vma->vm_page_prot);
+	unsigned long addr = vma->vm_pgoff << PAGE_SHIFT;
+	void *va = NULL;
 
-    if (gsl_driver.enable_mmu && (addr < GSL_LINUX_MAP_RANGE_END) && (addr >= GSL_LINUX_MAP_RANGE_START)) {
-	va = gsl_linux_map_find(addr);
-	while (size > 0) {
-	    if (remap_pfn_range(vma, start, vmalloc_to_pfn(va), PAGE_SIZE, prot)) {
-		return -EAGAIN;
-	    }
-	    start += PAGE_SIZE;
-	    va += PAGE_SIZE;
-	    size -= PAGE_SIZE;
+	/* qcom:
+	 * no difference between enable or disable mmu re remap_pfn_range usage
+	 * mark vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot) before remap
+	 * also holds gsl_driver.lock!
+	 */
+
+	if (gsl_driver.enable_mmu && (addr < GSL_LINUX_MAP_RANGE_END) && (addr >= GSL_LINUX_MAP_RANGE_START)) {
+		va = gsl_linux_map_find(addr);
+		while (size > 0) {
+			if (remap_pfn_range(vma, start, vmalloc_to_pfn(va), PAGE_SIZE, prot))
+				return -EAGAIN;
+		}
+		start += PAGE_SIZE;
+		va += PAGE_SIZE;
+		size -= PAGE_SIZE;
+	} else {
+		if (remap_pfn_range(vma, start, pfn, size, prot))
+			status = -EAGAIN;
 	}
-    } else {
-	if (remap_pfn_range(vma, start, pfn, size, prot)) {
-	    status = -EAGAIN;
-	}
-    }
+	vma->vm_ops = &kgsl_vmops;
 
-    vma->vm_ops = &kgsl_vmops;
-
-    return status;
+	return status;
 }
 
 static int kgsl_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 {
-    return VM_FAULT_SIGBUS;
+	return VM_FAULT_SIGBUS;
 }
 
-static int kgsl_open(struct inode *inode, struct file *fd)
+static int kgsl_open(struct inode *inodep, struct file *filep)
 {
-    unsigned int flags = 0;
-    struct kgsl_file_private *datp;
-    int err = 0;
+	unsigned int flags = 0;
+	struct kgsl_file_private *private;
+	int result = 0;
 
-    if(mutex_lock_interruptible(&gsl_mutex))
-    {
-        return -EINTR;
-    }
+	if (filep->f_flags & O_EXCL) {
+		return -EBUSY;
+	}
 
-    if (kgsl_driver_entry(flags) != GSL_SUCCESS)
-    {
-        printk(KERN_INFO "%s: kgsl_driver_entry error\n", __func__);
-        err = -EIO;  // TODO: not sure why did it fail?
-    }
-    else
-    {
-        /* allocate per file descriptor data structure */
-        datp = (struct kgsl_file_private *)kzalloc(
-                                             sizeof(struct kgsl_file_private),
-                                             GFP_KERNEL);
-        if(datp)
-        {
-            init_created_contexts_array(datp->created_contexts_array[0]);
-            INIT_LIST_HEAD(&datp->allocated_blocks_head);
+	private = kzalloc(sizeof(*private), GFP_KERNEL);
+	if (private == NULL) {
+		return -ENOMEM;
+	}
 
-            fd->private_data = (void *)datp;
-        }
-        else
-        {
-            err = -ENOMEM;
-        }
-    }
+	if(mutex_lock_interruptible(&gsl_mutex))
+		return -EINTR;
 
-    mutex_unlock(&gsl_mutex);
+	/* qcom: first_open_locked? */
+	if (kgsl_driver_entry(flags) != GSL_SUCCESS) {
+		pr_info("%s: kgsl_driver_entry error\n", __func__);
+		result = -EIO;  // TODO: not sure why did it fail?
+	}
 
-    return err;
+	init_created_contexts_array(private->created_contexts_array[0]);
+	INIT_LIST_HEAD(&private->allocated_blocks_head);
+
+	filep->private_data = (void *) private;
+
+	mutex_unlock(&gsl_mutex);
+
+	return result;
 }
 
-static int kgsl_release(struct inode *inode, struct file *fd)
+static int kgsl_release(struct inode *inodep, struct file *filep)
 {
-    struct kgsl_file_private *datp;
-    int err = 0;
+	struct kgsl_file_private *private;
+	int result = 0;
 
-    if(mutex_lock_interruptible(&gsl_mutex))
-    {
-        return -EINTR;
-    }
+	/* qcom: pre_hwaccess */
 
-    /* make sure contexts are destroyed */
-    del_all_devices_contexts(fd);
+	if(mutex_lock_interruptible(&gsl_mutex))
+		return -EINTR;
 
-    if (kgsl_driver_exit() != GSL_SUCCESS)
-    {
-        printk(KERN_INFO "%s: kgsl_driver_exit error\n", __func__);
-        err = -EIO; // TODO: find better error code
-    }
-    else
-    {
-        /* release per file descriptor data structure */
-        datp = (struct kgsl_file_private *)fd->private_data;
-        del_all_memblocks_from_allocated_list(fd);
-        kfree(datp);
-        fd->private_data = 0;
-    }
+	/* make sure contexts are destroyed */
+	/* qcom: walk lists manually here */
+	del_all_devices_contexts(filep);
 
-    mutex_unlock(&gsl_mutex);
+	/* qcom: last_release_locked? */
+	if (kgsl_driver_exit() != GSL_SUCCESS) {
+		pr_info("%s: kgsl_driver_exit error\n", __func__);
+		result = -EIO; // TODO: find better error code
+	} else {
+		/* release per file descriptor data structure */
+		private = (struct kgsl_file_private *)filep->private_data;
+		/* qcom: remove_mem_entry for_each_entry_safe */
+		del_all_memblocks_from_allocated_list(filep);
+		/* qcom: tear down mmu */
+		filep->private_data = NULL;
+		kfree(private);
+	}
 
-    return err;
+	/* qcom: post_hwaccess */
+	mutex_unlock(&gsl_mutex);
+
+	return result;
 }
 
 static struct class *gsl_kmod_class;
 
 static irqreturn_t z160_irq_handler(int irq, void *dev_id)
 {
-    kgsl_intr_isr(&gsl_driver.device[KGSL_DEVICE_G12-1]);
-    return IRQ_HANDLED;
+	kgsl_intr_isr(&gsl_driver.device[KGSL_DEVICE_G12-1]);
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t z430_irq_handler(int irq, void *dev_id)
 {
-    kgsl_intr_isr(&gsl_driver.device[KGSL_DEVICE_YAMATO-1]);
-    return IRQ_HANDLED;
+	kgsl_intr_isr(&gsl_driver.device[KGSL_DEVICE_YAMATO-1]);
+	return IRQ_HANDLED;
 }
 
 static int gpu_probe(struct platform_device *pdev)
