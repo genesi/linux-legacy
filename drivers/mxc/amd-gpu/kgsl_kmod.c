@@ -121,7 +121,8 @@ static int kgsl_ioctl_cmdwindow_write(struct file *fd, void __user *arg)
 		result = GSL_FAILURE; // -EINVAL
 	} else if (param.device_id == KGSL_DEVICE_G12) {
 		// qcom: pre-hw-access, kgsl_g12_cmdwindow_write
-		result = kgsl_cmdwindow_write0(param.device_id,
+		struct kgsl_device *device = &gsl_driver.device[param.device_id-1];
+		result = kgsl_g12_cmdwindow_write0(device,
 				param.target, param.addr, param.data);
 	} else {
 		result = GSL_FAILURE; // -EINVAL

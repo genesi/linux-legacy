@@ -163,6 +163,7 @@ kgsl_g12_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase, uint3
 static void kgsl_g12_updatetimestamp(struct kgsl_device *device)
 {
 	unsigned int count = 0;
+
 	kgsl_g12_regread(device, (ADDR_VGC_IRQ_ACTIVE_CNT >> 2), &count);
 	count >>= 8;
 	count &= 255;
@@ -170,8 +171,8 @@ static void kgsl_g12_updatetimestamp(struct kgsl_device *device)
 #ifdef V3_SYNC
 	if (device->current_timestamp > device->timestamp)
 	{
-	    kgsl_cmdwindow_write0(2, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 2);
-	    kgsl_cmdwindow_write0(2, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 0);
+	    kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 2);
+	    kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 0);
 	}
 #endif
 	kgsl_sharedmem_write0(&device->memstore, KGSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp), &device->timestamp, 4, 0);
@@ -263,7 +264,7 @@ kgsl_g12_close(struct kgsl_device *device)
 	destroy_workqueue(device->irq_workq);
 
         // shutdown command window
-        kgsl_cmdwindow_close(device);
+        kgsl_g12_cmdwindow_close(device);
 
 #ifdef CONFIG_KGSL_MMU_ENABLE
         // shutdown mmu
@@ -332,7 +333,7 @@ kgsl_g12_start(struct kgsl_device *device, unsigned int flags)
     kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_CLK_ON, 100);
 
     // init command window
-    status = kgsl_cmdwindow_init(device);
+    status = kgsl_g12_cmdwindow_init(device);
     if (status != GSL_SUCCESS)
     {
         device->ftbl.stop(device);
@@ -472,7 +473,7 @@ int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords, unsi
 	     offsetwords <= ADDR_MH_AXI_HALT_CONTROL) ||
 	    (offsetwords >= ADDR_MH_MMU_CONFIG     &&
 	     offsetwords <= ADDR_MH_MMU_MPU_END)) {
-		kgsl_cmdwindow_write0(device->id, GSL_CMDWINDOW_MMU, offsetwords, value);
+		kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_MMU, offsetwords, value);
 	} else {
 		if (offsetwords * sizeof(unsigned int) >= device->regspace.sizebytes) {
 			pr_err("g12 write invalid offset %d\n", offsetwords);

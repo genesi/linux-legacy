@@ -86,18 +86,18 @@ int kgsl_g12_drawctxt_create(struct kgsl_device* device, unsigned int type, unsi
 		cmd = VGV3_NEXTCMD_JUMP << VGV3_NEXTCMD_NEXTCMD_FSHIFT;
 
 		/* set cmd stream buffer to hw */
-		result = kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D,
+		result = kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D,
 					ADDR_VGV3_MODE, 4);
 		if (result != GSL_SUCCESS)
 			return result;
 
-		result = kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D,
+		result = kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D,
 					ADDR_VGV3_NEXTADDR,
 					g_z1xx.cmdbufdesc[0].gpuaddr );
 		if (result != GSL_SUCCESS)
 			return result;
 
-		result = kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D,
+		result = kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D,
 					ADDR_VGV3_NEXTCMD,  cmd | 5);
 		if (result != GSL_SUCCESS)
 			return result;
@@ -127,18 +127,18 @@ int kgsl_g12_drawctxt_create(struct kgsl_device* device, unsigned int type, unsi
 
 		result = kgsl_sharedmem_set0(&g_z1xx.e1, 0, 0, GSL_HAL_EDGE1BUFSIZE);
 
-		result = kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D, GSL_HAL_EDGE0REG, g_z1xx.e0.gpuaddr);
+		result = kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, GSL_HAL_EDGE0REG, g_z1xx.e0.gpuaddr);
 		if (result != GSL_SUCCESS)
 			return result;
 
-		result = kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D, GSL_HAL_EDGE1REG, g_z1xx.e1.gpuaddr);
+		result = kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, GSL_HAL_EDGE1REG, g_z1xx.e1.gpuaddr);
 		if (result != GSL_SUCCESS)
 			return result;
 
 #ifdef _Z180
 		kgsl_sharedmem_alloc0(KGSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE2BUFSIZE, &g_z1xx.e2);
 		kgsl_sharedmem_set0(&g_z1xx.e2, 0, 0, GSL_HAL_EDGE2BUFSIZE);
-		kgsl_cmdwindow_write0(KGSL_DEVICE_G12, GSL_CMDWINDOW_2D, GSL_HAL_EDGE2REG, g_z1xx.e2.gpuaddr);
+		kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, GSL_HAL_EDGE2REG, g_z1xx.e2.gpuaddr);
 #endif
 	}
 

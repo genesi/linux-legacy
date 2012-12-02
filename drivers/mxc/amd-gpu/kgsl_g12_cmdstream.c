@@ -114,12 +114,12 @@ int kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_
 	/* increment mark counter */
 #ifdef V3_SYNC
 	if (device->timestamp == device->current_timestamp) {
-		kgsl_cmdwindow_write0(2, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, flags);
-		kgsl_cmdwindow_write0(2, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 0);
+		kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, flags);
+		kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 0);
 	}
 #else
-	kgsl_cmdwindow_write0(2, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, flags);
-	kgsl_cmdwindow_write0(2, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 0);
+	kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, flags);
+	kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 0);
 #endif
 
 	/* increment consumed timestamp */

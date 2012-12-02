@@ -30,13 +30,14 @@
 
 #include "g12_reg.h"
 
-//  defines
-#define GSL_CMDWINDOW_TARGET_MASK       0x000000FF
-#define GSL_CMDWINDOW_ADDR_MASK         0x00FFFF00
-#define GSL_CMDWINDOW_TARGET_SHIFT      0
-#define GSL_CMDWINDOW_ADDR_SHIFT        8
+#define KGSL_CMDWINDOW_TARGET_MASK       0x000000FF
+#define KGSL_CMDWINDOW_ADDR_MASK         0x00FFFF00
+#define KGSL_CMDWINDOW_TARGET_SHIFT      0
+#define KGSL_CMDWINDOW_ADDR_SHIFT        8
 
-int kgsl_cmdwindow_init(struct kgsl_device *device)
+int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords, unsigned int value);
+
+int kgsl_g12_cmdwindow_init(struct kgsl_device *device)
 {
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
 	device->cmdwindow_mutex = kmalloc(sizeof(struct mutex), GFP_KERNEL);
@@ -47,7 +48,7 @@ int kgsl_cmdwindow_init(struct kgsl_device *device)
 	return GSL_SUCCESS;
 }
 
-int kgsl_cmdwindow_close(struct kgsl_device *device)
+int kgsl_g12_cmdwindow_close(struct kgsl_device *device)
 {
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
 	if (!device->cmdwindow_mutex)
@@ -58,80 +59,69 @@ int kgsl_cmdwindow_close(struct kgsl_device *device)
 	return GSL_SUCCESS;
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_cmdwindow_write0(unsigned int device_id, enum kgsl_cmdwindow_type target, unsigned int addr, unsigned int data)
+int kgsl_g12_cmdwindow_write0(struct kgsl_device *device,
+		enum kgsl_cmdwindow_type target, unsigned int addr,
+		unsigned int data)
 {
-    struct kgsl_device  *device;
-    unsigned int  cmdwinaddr;
-    unsigned int  cmdstream;
+	unsigned int  cmdwinaddr;
+	unsigned int  cmdstream;
 
 	KGSL_DRV_INFO("enter (device=%p,addr=%08x,data=0x%x)\n", device, addr, data);
 
-    device = &gsl_driver.device[device_id-1];       // device_id is 1 based
+	if (target < GSL_CMDWINDOW_MIN || target > GSL_CMDWINDOW_MAX)
+	{
+		KGSL_DRV_ERR("dev %p invalid target\n", device);
+		return GSL_FAILURE;
+	}
 
-    if (target < GSL_CMDWINDOW_MIN || target > GSL_CMDWINDOW_MAX)
-    {
-	KGSL_DRV_ERR("dev %p invalid target\n", device);
-        return GSL_FAILURE;
-    }
+	/* qcom: no differentiation between init or started? */
+	if ((!(device->flags & GSL_FLAGS_INITIALIZED) && target == GSL_CMDWINDOW_MMU) ||
+	    (!(device->flags & GSL_FLAGS_STARTED)     && target != GSL_CMDWINDOW_MMU)) {
+		KGSL_DRV_ERR("Trying to write uninitialized device.\n");
+		return GSL_FAILURE;
+	}
 
-    if ((!(device->flags & GSL_FLAGS_INITIALIZED) && target == GSL_CMDWINDOW_MMU) ||
-        (!(device->flags & GSL_FLAGS_STARTED)     && target != GSL_CMDWINDOW_MMU))
-    {
-	KGSL_DRV_ERR("Trying to write uninitialized device.\n");
-        return (GSL_FAILURE);
-    }
-
-    // set command stream
-    if (target == GSL_CMDWINDOW_MMU)
-    {
+	if (target == GSL_CMDWINDOW_MMU) {
 #ifndef CONFIG_KGSL_MMU_ENABLE
-        return (GSL_SUCCESS);
+		return GSL_SUCCESS;
 #endif
-        cmdstream = ADDR_VGC_MMUCOMMANDSTREAM;
-    }
-    else
-    {
-        cmdstream = ADDR_VGC_COMMANDSTREAM;
-    }
+		cmdstream = ADDR_VGC_MMUCOMMANDSTREAM;
+	} else {
+		cmdstream = ADDR_VGC_COMMANDSTREAM;
+	}
 
-
-    // set command window address
-    cmdwinaddr  = ((target << GSL_CMDWINDOW_TARGET_SHIFT) & GSL_CMDWINDOW_TARGET_MASK);
-    cmdwinaddr |= ((addr   << GSL_CMDWINDOW_ADDR_SHIFT)   & GSL_CMDWINDOW_ADDR_MASK);
+	cmdwinaddr = ((target << KGSL_CMDWINDOW_TARGET_SHIFT) &
+			KGSL_CMDWINDOW_TARGET_MASK);
+	cmdwinaddr |= ((addr   << KGSL_CMDWINDOW_ADDR_SHIFT) &
+			KGSL_CMDWINDOW_ADDR_MASK);
 
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_lock(device->cmdwindow_mutex);
+	mutex_lock(device->cmdwindow_mutex);
 #endif
-
+	/* qcom: no mmu mess here */
 #ifdef CONFIG_KGSL_MMU_ENABLE
-    // set mmu pagetable
 	kgsl_mmu_setpagetable(device, current->tgid);
 #endif
 
-    // write command window address
-    device->ftbl.regwrite(device, (cmdstream)>>2, cmdwinaddr);
-
-    // write data
-    device->ftbl.regwrite(device, (cmdstream)>>2, data);
+	kgsl_g12_regwrite(device, cmdstream >> 2, cmdwinaddr);
+	kgsl_g12_regwrite(device, cmdstream >> 2, data);
 
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_unlock(device->cmdwindow_mutex);
+	mutex_unlock(device->cmdwindow_mutex);
 #endif
 
-    return (GSL_SUCCESS);
+	return GSL_SUCCESS;
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_cmdwindow_write(unsigned int device_id, enum kgsl_cmdwindow_type target, unsigned int addr, unsigned int data)
+/* qcom: pass device */
+int kgsl_g12_cmdwindow_write(struct kgsl_device *device,
+		enum kgsl_cmdwindow_type target, unsigned int addr,
+		unsigned int data)
 {
 	int status = GSL_SUCCESS;
+	/* qcom: no lock held for write, no function split */
 	mutex_lock(&gsl_driver.lock);
-	status = kgsl_cmdwindow_write0(device_id, target, addr, data);
+	status = kgsl_g12_cmdwindow_write0(device, target, addr, data);
 	mutex_unlock(&gsl_driver.lock);
 	return status;
 }
