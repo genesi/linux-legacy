@@ -44,7 +44,7 @@ static const s8 EMPTY_ENTRY = -1;
 
 /* A structure to make list of allocated memory blocks. List per fd. */
 /* should probably be allocated from slab cache to minimise fragmentation */
-struct gsl_kmod_alloc_list
+struct kgsl_alloc_list
 {
     struct list_head node;
     struct kgsl_memdesc allocated_block;
@@ -52,7 +52,7 @@ struct gsl_kmod_alloc_list
 };
 
 /* A structure to hold abovementioned list of blocks. Contain per fd data. */
-struct gsl_kmod_per_fd_data
+struct kgsl_file_private
 {
     struct list_head allocated_blocks_head; // list head
     u32 maximum_number_of_blocks;

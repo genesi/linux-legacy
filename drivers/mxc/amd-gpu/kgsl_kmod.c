@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2010, Advanced Micro Devices. All rights reserved.
+ * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,9 +47,7 @@
 #include "kgsl_cmdstream.h"
 #include "kgsl_cmdwindow.h"
 
-//#include "gsl_buildconfig.h"
 #include "kgsl_halconfig.h"
-//#include "gsl_ioctl.h"
 
 #include "kgsl_kmod_cleanup.h"
 
@@ -832,7 +831,7 @@ static int kgsl_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 static int kgsl_open(struct inode *inode, struct file *fd)
 {
     unsigned int flags = 0;
-    struct gsl_kmod_per_fd_data *datp;
+    struct kgsl_file_private *datp;
     int err = 0;
 
     if(mutex_lock_interruptible(&gsl_mutex))
@@ -848,8 +847,8 @@ static int kgsl_open(struct inode *inode, struct file *fd)
     else
     {
         /* allocate per file descriptor data structure */
-        datp = (struct gsl_kmod_per_fd_data *)kzalloc(
-                                             sizeof(struct gsl_kmod_per_fd_data),
+        datp = (struct kgsl_file_private *)kzalloc(
+                                             sizeof(struct kgsl_file_private),
                                              GFP_KERNEL);
         if(datp)
         {
@@ -871,7 +870,7 @@ static int kgsl_open(struct inode *inode, struct file *fd)
 
 static int kgsl_release(struct inode *inode, struct file *fd)
 {
-    struct gsl_kmod_per_fd_data *datp;
+    struct kgsl_file_private *datp;
     int err = 0;
 
     if(mutex_lock_interruptible(&gsl_mutex))
@@ -890,7 +889,7 @@ static int kgsl_release(struct inode *inode, struct file *fd)
     else
     {
         /* release per file descriptor data structure */
-        datp = (struct gsl_kmod_per_fd_data *)fd->private_data;
+        datp = (struct kgsl_file_private *)fd->private_data;
         del_all_memblocks_from_allocated_list(fd);
         kfree(datp);
         fd->private_data = 0;

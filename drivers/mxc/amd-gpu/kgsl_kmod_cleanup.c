@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2010, Advanced Micro Devices. All rights reserved.
+ * Copyright (c) 2008-2010, Code Aurora Forum. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -39,12 +40,12 @@ static u32 device_id_to_device_index(unsigned int device_id)
 /* 
  * Local helper function to check and get pointer to per file descriptor data 
  */
-static struct gsl_kmod_per_fd_data *get_fd_private_data(struct file *fd)
+static struct kgsl_file_private *get_fd_private_data(struct file *fd)
 {
-    struct gsl_kmod_per_fd_data *datp; 
+    struct kgsl_file_private *datp; 
 
     DEBUG_ASSERT(fd);
-    datp = (struct gsl_kmod_per_fd_data *)fd->private_data;
+    datp = (struct kgsl_file_private *)fd->private_data;
     DEBUG_ASSERT(datp);
     return datp;
 }
@@ -84,8 +85,8 @@ int add_memblock_to_allocated_list(struct file *fd,
                                    struct kgsl_memdesc *allocated_block)
 {
     int err = 0;
-    struct gsl_kmod_per_fd_data *datp;
-    struct gsl_kmod_alloc_list *lisp;
+    struct kgsl_file_private *datp;
+    struct kgsl_alloc_list *lisp;
     struct list_head *head;
 
     DEBUG_ASSERT(allocated_block);
@@ -96,7 +97,7 @@ int add_memblock_to_allocated_list(struct file *fd,
     DEBUG_ASSERT(head);
 
     /* allocate and put new entry in the list of allocated memory descriptors */
-    lisp = (struct gsl_kmod_alloc_list *)kzalloc(sizeof(struct gsl_kmod_alloc_list), GFP_KERNEL);
+    lisp = (struct kgsl_alloc_list *)kzalloc(sizeof(struct kgsl_alloc_list), GFP_KERNEL);
     if(lisp)
     {
         INIT_LIST_HEAD(&lisp->node);
@@ -125,8 +126,8 @@ int add_memblock_to_allocated_list(struct file *fd,
 int del_memblock_from_allocated_list(struct file *fd,
                                      struct kgsl_memdesc *freed_block)
 {
-    struct gsl_kmod_per_fd_data *datp;
-    struct gsl_kmod_alloc_list *cursor, *next;
+    struct kgsl_file_private *datp;
+    struct kgsl_alloc_list *cursor, *next;
     struct list_head *head;
 //    int is_different;
 
@@ -162,8 +163,8 @@ int del_memblock_from_allocated_list(struct file *fd,
 /* Delete all previously allocated memdescs from a list */
 int del_all_memblocks_from_allocated_list(struct file *fd)
 {
-    struct gsl_kmod_per_fd_data *datp;
-    struct gsl_kmod_alloc_list *cursor, *next;
+    struct kgsl_file_private *datp;
+    struct kgsl_alloc_list *cursor, *next;
     struct list_head *head;
 
     datp = get_fd_private_data(fd);
@@ -199,7 +200,7 @@ void add_device_context_to_array(struct file *fd,
                                  unsigned int device_id,
                                  unsigned int context_id)
 {
-    struct gsl_kmod_per_fd_data *datp;
+    struct kgsl_file_private *datp;
     s8 *entry;
     s8 *subarray;
     u32 device_index = device_id_to_device_index(device_id);
@@ -220,7 +221,7 @@ void del_device_context_from_array(struct file *fd,
                                    unsigned int device_id,
                                    unsigned int context_id)
 {
-    struct gsl_kmod_per_fd_data *datp;
+    struct kgsl_file_private *datp;
     u32 device_index = device_id_to_device_index(device_id);
     s8 *entry;
     s8 *subarray;
@@ -238,7 +239,7 @@ void del_device_context_from_array(struct file *fd,
 
 void del_all_devices_contexts(struct file *fd)
 {
-    struct gsl_kmod_per_fd_data *datp;
+    struct kgsl_file_private *datp;
     unsigned int id;
     u32 device_index;
     u32 ctx_array_index;
