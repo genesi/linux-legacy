@@ -18,12 +18,15 @@
 
 #include <linux/slab.h>
 #include <linux/sched.h>
+#include <asm/uaccess.h>
+
 #include <linux/mxc_kgsl.h>
 
 #include "kgsl_types.h"
 #include "kgsl_driver.h"
 #include "kgsl_sharedmem.h"
-#include "kgsl_hwaccess.h"
+#include "kgsl_halconfig.h"
+#include "kgsl_linux_map.h"
 #include "kgsl_debug.h"
 #include "kgsl_log.h"
 
@@ -499,7 +502,22 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_read(struct kgsl_memde
 
     gpuoffsetbytes = (memdesc->gpuaddr - shmem->apertures[aperture_index].memarena->gpubaseaddr) + offsetbytes;
 
-    kgsl_hwaccess_memread(dst, shmem->apertures[aperture_index].memarena->hostbaseaddr, gpuoffsetbytes, sizebytes, touserspace);
+    if (gsl_driver.enable_mmu && (shmem->apertures[aperture_index].memarena->hostbaseaddr >= GSL_LINUX_MAP_RANGE_START) && (shmem->apertures[aperture_index].memarena->hostbaseaddr < GSL_LINUX_MAP_RANGE_END)) {
+        kgsl_mem_entry_read(dst, shmem->apertures[aperture_index].memarena->hostbaseaddr+gpuoffsetbytes, sizebytes, touserspace);
+    } else {
+        if (touserspace)
+        {
+            if (copy_to_user(dst, (void *)(shmem->apertures[aperture_index].memarena->hostbaseaddr + gpuoffsetbytes), sizebytes))
+            {
+                return;
+            }
+        }
+        else
+        {
+            memcpy(dst, (void *) (shmem->apertures[aperture_index].memarena->hostbaseaddr + gpuoffsetbytes), sizebytes);
+        }
+    }
+
 
     KGSL_MEM_VDBG("<-- kgsl_sharedmem_read. Return value %d\n", GSL_SUCCESS );
 
@@ -554,7 +572,21 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_write(struct kgsl_memd
 
     gpuoffsetbytes = (memdesc->gpuaddr - shmem->apertures[aperture_index].memarena->gpubaseaddr) + offsetbytes;
 
-    kgsl_hwaccess_memwrite(shmem->apertures[aperture_index].memarena->hostbaseaddr, gpuoffsetbytes, src, sizebytes, fromuserspace);
+    if (gsl_driver.enable_mmu && (shmem->apertures[aperture_index].memarena->hostbaseaddr >= GSL_LINUX_MAP_RANGE_START) && (shmem->apertures[aperture_index].memarena->hostbaseaddr < GSL_LINUX_MAP_RANGE_END)) {
+        kgsl_mem_entry_write(src, shmem->apertures[aperture_index].memarena->hostbaseaddr + gpuoffsetbytes, sizebytes, fromuserspace);
+    } else {
+        if (fromuserspace)
+        {
+            if (copy_from_user((void *)(shmem->apertures[aperture_index].memarena->hostbaseaddr + gpuoffsetbytes), src, sizebytes))
+            {
+                return;
+            }
+        }
+        else
+        {
+            memcpy((void *)(shmem->apertures[aperture_index].memarena->hostbaseaddr + gpuoffsetbytes), src, sizebytes);
+        }
+    }
 
     KGSL_DEBUG(GSL_DBGFLAGS_PM4MEM, KGSL_DEBUG_DUMPMEMWRITE((memdesc->gpuaddr + offsetbytes), sizebytes, src));
 
@@ -610,7 +642,11 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_set(struct kgsl_memdes
 
     gpuoffsetbytes = (memdesc->gpuaddr - shmem->apertures[aperture_index].memarena->gpubaseaddr) + offsetbytes;
 
-    kgsl_hwaccess_memset(shmem->apertures[aperture_index].memarena->hostbaseaddr, gpuoffsetbytes, value, sizebytes);
+    if (gsl_driver.enable_mmu && (shmem->apertures[aperture_index].memarena->hostbaseaddr >= GSL_LINUX_MAP_RANGE_START) && (shmem->apertures[aperture_index].memarena->hostbaseaddr < GSL_LINUX_MAP_RANGE_END)) {
+	kgsl_mem_entry_set(shmem->apertures[aperture_index].memarena->hostbaseaddr + gpuoffsetbytes, value, sizebytes);
+    } else {
+        memset((void *)(shmem->apertures[aperture_index].memarena->hostbaseaddr + gpuoffsetbytes), value, sizebytes);
+    }
 
     KGSL_DEBUG(GSL_DBGFLAGS_PM4MEM, KGSL_DEBUG_DUMPMEMSET((memdesc->gpuaddr + offsetbytes), sizebytes, value));
 

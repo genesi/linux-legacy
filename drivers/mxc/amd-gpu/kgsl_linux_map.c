@@ -25,7 +25,7 @@
 
 #include "kgsl_linux_map.h"
 
-struct gsl_linux_map
+struct kgsl_mem_entry
 {
 	struct list_head list;
 	unsigned int gpu_addr;
@@ -33,62 +33,62 @@ struct gsl_linux_map
 	unsigned int size;
 };
 
-static LIST_HEAD(gsl_linux_map_list);
-static DEFINE_MUTEX(gsl_linux_map_mutex);
+static LIST_HEAD(kgsl_mem_entry_list);
+static DEFINE_MUTEX(kgsl_mem_entry_mutex);
 
-int gsl_linux_map_init()
+int kgsl_mem_entry_init()
 {
-	mutex_lock(&gsl_linux_map_mutex);
-	INIT_LIST_HEAD(&gsl_linux_map_list);
-	mutex_unlock(&gsl_linux_map_mutex);
+	mutex_lock(&kgsl_mem_entry_mutex);
+	INIT_LIST_HEAD(&kgsl_mem_entry_list);
+	mutex_unlock(&kgsl_mem_entry_mutex);
 
 	return 0;
 }
 
-void *gsl_linux_map_alloc(unsigned int gpu_addr, unsigned int size)
+void *kgsl_mem_entry_alloc(unsigned int gpu_addr, unsigned int size)
 {
-	struct gsl_linux_map * map;
+	struct kgsl_mem_entry * map;
 	struct list_head *p;
 	void *va;
 
-	mutex_lock(&gsl_linux_map_mutex);
+	mutex_lock(&kgsl_mem_entry_mutex);
 
-	list_for_each(p, &gsl_linux_map_list){
-		map = list_entry(p, struct gsl_linux_map, list);
+	list_for_each(p, &kgsl_mem_entry_list){
+		map = list_entry(p, struct kgsl_mem_entry, list);
 		if(map->gpu_addr == gpu_addr){
-			mutex_unlock(&gsl_linux_map_mutex);
+			mutex_unlock(&kgsl_mem_entry_mutex);
 			return map->kernel_virtual_addr;
 		}
 	}
 
 	va = __vmalloc(size, GFP_KERNEL, pgprot_noncached(pgprot_kernel));
 	if(va == NULL){
-		mutex_unlock(&gsl_linux_map_mutex);
+		mutex_unlock(&kgsl_mem_entry_mutex);
 		return NULL;
 	}
 
-	map = (struct gsl_linux_map *)kmalloc(sizeof(*map), GFP_KERNEL);
+	map = (struct kgsl_mem_entry *)kmalloc(sizeof(*map), GFP_KERNEL);
 	map->gpu_addr = gpu_addr;
 	map->kernel_virtual_addr = va;
 	map->size = size;
 
 	INIT_LIST_HEAD(&map->list);
-	list_add_tail(&map->list, &gsl_linux_map_list);
+	list_add_tail(&map->list, &kgsl_mem_entry_list);
 
-	mutex_unlock(&gsl_linux_map_mutex);
+	mutex_unlock(&kgsl_mem_entry_mutex);
 	return va;
 }
 
-void gsl_linux_map_free(unsigned int gpu_addr)
+void kgsl_mem_entry_free(unsigned int gpu_addr)
 {
 	int found = 0;
-	struct gsl_linux_map * map;
+	struct kgsl_mem_entry * map;
 	struct list_head *p;
 
-	mutex_lock(&gsl_linux_map_mutex);
+	mutex_lock(&kgsl_mem_entry_mutex);
 
-	list_for_each(p, &gsl_linux_map_list){
-		map = list_entry(p, struct gsl_linux_map, list);
+	list_for_each(p, &kgsl_mem_entry_list){
+		map = list_entry(p, struct kgsl_mem_entry, list);
 		if(map->gpu_addr == gpu_addr){
 			found = 1;
 			break;
@@ -101,41 +101,41 @@ void gsl_linux_map_free(unsigned int gpu_addr)
 		kfree(map);
 	}
 
-	mutex_unlock(&gsl_linux_map_mutex);
+	mutex_unlock(&kgsl_mem_entry_mutex);
 }
 
 void *kgsl_sharedmem_find(unsigned int gpu_addr)
 {
-	struct gsl_linux_map * map;
+	struct kgsl_mem_entry * map;
 	struct list_head *p;
 
-	mutex_lock(&gsl_linux_map_mutex);
+	mutex_lock(&kgsl_mem_entry_mutex);
 
-	list_for_each(p, &gsl_linux_map_list){
-		map = list_entry(p, struct gsl_linux_map, list);
+	list_for_each(p, &kgsl_mem_entry_list){
+		map = list_entry(p, struct kgsl_mem_entry, list);
 		if(map->gpu_addr == gpu_addr){
-			mutex_unlock(&gsl_linux_map_mutex);
+			mutex_unlock(&kgsl_mem_entry_mutex);
 			return map->kernel_virtual_addr;
 		}
 	}
 
-	mutex_unlock(&gsl_linux_map_mutex);
+	mutex_unlock(&kgsl_mem_entry_mutex);
 	return NULL;
 }
 
-void *gsl_linux_map_read(void *dst, unsigned int gpuoffset, unsigned int sizebytes, unsigned int touserspace)
+void *kgsl_mem_entry_read(void *dst, unsigned int gpuoffset, unsigned int sizebytes, unsigned int touserspace)
 {
-	struct gsl_linux_map * map;
+	struct kgsl_mem_entry * map;
 	struct list_head *p;
 
-	mutex_lock(&gsl_linux_map_mutex);
+	mutex_lock(&kgsl_mem_entry_mutex);
 
-	list_for_each(p, &gsl_linux_map_list){
-		map = list_entry(p, struct gsl_linux_map, list);
+	list_for_each(p, &kgsl_mem_entry_list){
+		map = list_entry(p, struct kgsl_mem_entry, list);
 		if(map->gpu_addr <= gpuoffset &&
 			(map->gpu_addr +  map->size) > gpuoffset){
 			void *src = map->kernel_virtual_addr + (gpuoffset - map->gpu_addr);
-			mutex_unlock(&gsl_linux_map_mutex);
+			mutex_unlock(&kgsl_mem_entry_mutex);
                         if (touserspace)
                         {
                             return (void *)copy_to_user(dst, map->kernel_virtual_addr + gpuoffset - map->gpu_addr, sizebytes);
@@ -147,23 +147,23 @@ void *gsl_linux_map_read(void *dst, unsigned int gpuoffset, unsigned int sizebyt
 		}
 	}
 
-	mutex_unlock(&gsl_linux_map_mutex);
+	mutex_unlock(&kgsl_mem_entry_mutex);
 	return NULL;
 }
 
-void *gsl_linux_map_write(void *src, unsigned int gpuoffset, unsigned int sizebytes, unsigned int fromuserspace)
+void *kgsl_mem_entry_write(void *src, unsigned int gpuoffset, unsigned int sizebytes, unsigned int fromuserspace)
 {
-	struct gsl_linux_map * map;
+	struct kgsl_mem_entry * map;
 	struct list_head *p;
 
-	mutex_lock(&gsl_linux_map_mutex);
+	mutex_lock(&kgsl_mem_entry_mutex);
 
-	list_for_each(p, &gsl_linux_map_list){
-		map = list_entry(p, struct gsl_linux_map, list);
+	list_for_each(p, &kgsl_mem_entry_list){
+		map = list_entry(p, struct kgsl_mem_entry, list);
 		if(map->gpu_addr <= gpuoffset &&
 			(map->gpu_addr +  map->size) > gpuoffset){
 			void *dst = map->kernel_virtual_addr + (gpuoffset - map->gpu_addr);
-			mutex_unlock(&gsl_linux_map_mutex);
+			mutex_unlock(&kgsl_mem_entry_mutex);
                         if (fromuserspace)
                         {
                             return (void *)copy_from_user(map->kernel_virtual_addr + gpuoffset - map->gpu_addr, src, sizebytes);
@@ -175,47 +175,47 @@ void *gsl_linux_map_write(void *src, unsigned int gpuoffset, unsigned int sizeby
 		}
 	}
 
-	mutex_unlock(&gsl_linux_map_mutex);
+	mutex_unlock(&kgsl_mem_entry_mutex);
 	return NULL;
 }
 
-void *gsl_linux_map_set(unsigned int gpuoffset, unsigned int value, unsigned int sizebytes)
+void *kgsl_mem_entry_set(unsigned int gpuoffset, unsigned int value, unsigned int sizebytes)
 {
-	struct gsl_linux_map * map;
+	struct kgsl_mem_entry * map;
 	struct list_head *p;
 
-	mutex_lock(&gsl_linux_map_mutex);
+	mutex_lock(&kgsl_mem_entry_mutex);
 
-	list_for_each(p, &gsl_linux_map_list){
-		map = list_entry(p, struct gsl_linux_map, list);
+	list_for_each(p, &kgsl_mem_entry_list){
+		map = list_entry(p, struct kgsl_mem_entry, list);
 		if(map->gpu_addr <= gpuoffset &&
 			(map->gpu_addr +  map->size) > gpuoffset){
 			void *ptr = map->kernel_virtual_addr + (gpuoffset - map->gpu_addr);
-			mutex_unlock(&gsl_linux_map_mutex);
+			mutex_unlock(&kgsl_mem_entry_mutex);
 			return memset(ptr, value, sizebytes);
 		}
 	}
 
-	mutex_unlock(&gsl_linux_map_mutex);
+	mutex_unlock(&kgsl_mem_entry_mutex);
 	return NULL;
 }
 
-int gsl_linux_map_destroy()
+int kgsl_mem_entry_destroy()
 {
-	struct gsl_linux_map * map;
+	struct kgsl_mem_entry * map;
 	struct list_head *p, *tmp;
 
-	mutex_lock(&gsl_linux_map_mutex);
+	mutex_lock(&kgsl_mem_entry_mutex);
 
-	list_for_each_safe(p, tmp, &gsl_linux_map_list){
-		map = list_entry(p, struct gsl_linux_map, list);
+	list_for_each_safe(p, tmp, &kgsl_mem_entry_list){
+		map = list_entry(p, struct kgsl_mem_entry, list);
 		vfree(map->kernel_virtual_addr);
 		list_del(&map->list);
 		kfree(map);
 	}
 
-	INIT_LIST_HEAD(&gsl_linux_map_list);
+	INIT_LIST_HEAD(&kgsl_mem_entry_list);
 
-	mutex_unlock(&gsl_linux_map_mutex);
+	mutex_unlock(&kgsl_mem_entry_mutex);
 	return 0;
 }

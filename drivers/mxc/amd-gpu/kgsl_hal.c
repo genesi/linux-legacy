@@ -71,7 +71,7 @@ kgsl_hal_allocphysical(unsigned int virtaddr, unsigned int numpages, unsigned in
 	int i;
 	void *va;
 
-	va = gsl_linux_map_alloc(virtaddr, numpages*PAGE_SIZE);
+	va = kgsl_mem_entry_alloc(virtaddr, numpages*PAGE_SIZE);
 
 	if (!va)
 		return GSL_FAILURE_OUTOFMEM;
@@ -91,7 +91,7 @@ kgsl_hal_freephysical(unsigned int virtaddr, unsigned int numpages, unsigned int
 {
     /* free physical memory */
 
-	gsl_linux_map_free(virtaddr);
+	kgsl_mem_entry_free(virtaddr);
 
     return GSL_SUCCESS;
 }
@@ -215,7 +215,7 @@ kgsl_hal_init(void)
 #endif
 
 	if (gsl_driver.enable_mmu) {
-	    gsl_linux_map_init();
+	    kgsl_mem_entry_init();
 	    hal->memspace[GSL_HAL_MEM1].mmio_virt_base = (void *)GSL_LINUX_MAP_RANGE_START;
 	    hal->memspace[GSL_HAL_MEM1].gpu_base       = GSL_LINUX_MAP_RANGE_START;
 	    hal->memspace[GSL_HAL_MEM1].sizebytes      = GSL_HAL_SHMEM_SIZE_EMEM_MMU;
@@ -268,7 +268,7 @@ kgsl_hal_close(void)
 	}
 
 	if (gsl_driver.enable_mmu) {
-	    gsl_linux_map_destroy();
+	    kgsl_mem_entry_destroy();
 	}
 
 	/* release hal struct */
