@@ -375,10 +375,9 @@ static const struct file_operations kgsl_fops =
 	.ioctl = kgsl_ioctl,
 	.mmap = kgsl_mmap,
 	.open = kgsl_open,
-	.release = kgsl_release
-	/* good chance these aren't required to be set */
-	//.read = kgsl_read,
-	//.write = kgsl_write,
+	.release = kgsl_release,
+	.read = kgsl_read,
+	.write = kgsl_write,
 };
 
 /* qcom: doesn't do this */
