@@ -1108,7 +1108,7 @@ static struct resource mxc_gpu_resources[] = {
 };
 
 struct platform_device gpu_device = {
-	.name = "mxc_kgsl",
+	.name = "mxc_gpu",
 	.id = 0,
 	.num_resources = ARRAY_SIZE(mxc_gpu_resources),
 	.resource = mxc_gpu_resources,

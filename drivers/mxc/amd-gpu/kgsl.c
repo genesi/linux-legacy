@@ -1402,7 +1402,7 @@ static int gpu_resume(struct platform_device *pdev)
 
 static struct platform_driver kgsl_driver = {
 	.driver = {
-		.name = "mxc_kgsl", // DRIVER_NAME please
+		.name = "mxc_gpu", // DRIVER_NAME please
 	},
 	.probe = gpu_probe,
 	.remove = gpu_remove,
