@@ -64,41 +64,6 @@ extern int enable_mmu;
 
 
 KGSLHAL_API int
-kgsl_hal_allocphysical(unsigned int virtaddr, unsigned int numpages, unsigned int scattergatterlist[])
-{
-    /* allocate physically contiguous memory */
-
-	int i;
-	void *va;
-
-	va = kgsl_mem_entry_alloc(virtaddr, numpages*PAGE_SIZE);
-
-	if (!va)
-		return GSL_FAILURE_OUTOFMEM;
-
-	for (i = 0; i < numpages; i++) {
-		scattergatterlist[i] = page_to_phys(vmalloc_to_page(va));
-		va += PAGE_SIZE;
-	}
-
-	return GSL_SUCCESS;
-}
-
-/* --------------------------------------------------------------------------- */
-
-KGSLHAL_API int
-kgsl_hal_freephysical(unsigned int virtaddr, unsigned int numpages, unsigned int scattergatterlist[])
-{
-    /* free physical memory */
-
-	kgsl_mem_entry_free(virtaddr);
-
-    return GSL_SUCCESS;
-}
-
-/* ---------------------------------------------------------------------------- */
-
-KGSLHAL_API int
 kgsl_hal_init(void)
 {
     gsl_hal_t *hal;

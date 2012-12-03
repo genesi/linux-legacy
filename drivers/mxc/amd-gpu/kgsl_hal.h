@@ -114,8 +114,6 @@ KGSLHAL_API int             kgsl_hal_getshmemconfig(gsl_shmemconfig_t *config);
 KGSLHAL_API int             kgsl_hal_getdevconfig(unsigned int device_id, struct kgsl_devconfig *config);
 KGSLHAL_API int             kgsl_hal_setpowerstate(unsigned int device_id, int state, unsigned int value);
 KGSLHAL_API unsigned int    kgsl_hal_getchipid(unsigned int device_id);
-KGSLHAL_API int             kgsl_hal_allocphysical(unsigned int virtaddr, unsigned int numpages, unsigned int scattergatterlist[]);
-KGSLHAL_API int             kgsl_hal_freephysical(unsigned int virtaddr, unsigned int numpages, unsigned int scattergatterlist[]);
 
 #ifdef __cplusplus
 }

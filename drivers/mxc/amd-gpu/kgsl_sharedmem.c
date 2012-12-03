@@ -18,6 +18,7 @@
 
 #include <linux/slab.h>
 #include <linux/sched.h>
+#include <linux/mm.h>
 #include <asm/uaccess.h>
 
 #include <linux/mxc_kgsl.h>
@@ -68,6 +69,10 @@
 
 #define GSL_MEMDESC_EXTALLOC_ISMARKED(memdesc)  \
     ((memdesc->priv & GSL_EXTALLOC_MASK) >> GSL_EXTALLOC_SHIFT)
+
+
+
+
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -209,7 +214,37 @@ kgsl_sharedmem_close(struct kgsl_sharedmem *shmem)
     return (result);
 }
 
-//----------------------------------------------------------------------------
+
+int kgsl_sharedmem_allocphysical(unsigned int virtaddr, unsigned int numpages, unsigned int scattergatterlist[])
+{
+    /* allocate physically contiguous memory */
+
+	int i;
+	void *va;
+
+	va = kgsl_mem_entry_alloc(virtaddr, numpages*PAGE_SIZE);
+
+	if (!va)
+		return GSL_FAILURE_OUTOFMEM;
+
+	for (i = 0; i < numpages; i++) {
+		scattergatterlist[i] = page_to_phys(vmalloc_to_page(va));
+		va += PAGE_SIZE;
+	}
+
+	return GSL_SUCCESS;
+}
+
+int kgsl_sharedmem_freephysical(unsigned int virtaddr, unsigned int numpages, unsigned int scattergatterlist[])
+{
+    /* free physical memory */
+
+	kgsl_mem_entry_free(virtaddr);
+
+    return GSL_SUCCESS;
+}
+
+
 
 int
 kgsl_sharedmem_alloc0(unsigned int device_id, unsigned int flags, int sizebytes, struct kgsl_memdesc *memdesc)
@@ -361,13 +396,13 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_alloc(unsigned int dev
             if (scatterlist.pages)
             {
                 // allocate physical pages
-                result = kgsl_hal_allocphysical(memdesc->gpuaddr, scatterlist.num, scatterlist.pages);
+                result = kgsl_sharedmem_allocphysical(memdesc->gpuaddr, scatterlist.num, scatterlist.pages);
                 if (result == GSL_SUCCESS)
                 {
                     result = kgsl_mmu_map(mmu, memdesc->gpuaddr, &scatterlist, flags, current->tgid);
                     if (result != GSL_SUCCESS)
                     {
-                        kgsl_hal_freephysical(memdesc->gpuaddr, scatterlist.num, scatterlist.pages);
+                        kgsl_sharedmem_freephysical(memdesc->gpuaddr, scatterlist.num, scatterlist.pages);
                     }
                 }
 
@@ -402,8 +437,6 @@ kgsl_sharedmem_alloc(unsigned int device_id, unsigned int flags, int sizebytes, 
 	return status;
 }
 
-//----------------------------------------------------------------------------
-
 int
 kgsl_sharedmem_free0(struct kgsl_memdesc *memdesc, unsigned int pid)
 {
@@ -427,7 +460,7 @@ kgsl_sharedmem_free0(struct kgsl_memdesc *memdesc, unsigned int pid)
 
             if (!GSL_MEMDESC_EXTALLOC_ISMARKED(memdesc))
             {
-                status |= kgsl_hal_freephysical(memdesc->gpuaddr, memdesc->size / PAGE_SIZE, NULL);
+                status |= kgsl_sharedmem_freephysical(memdesc->gpuaddr, memdesc->size / PAGE_SIZE, NULL);
             }
         }
 
