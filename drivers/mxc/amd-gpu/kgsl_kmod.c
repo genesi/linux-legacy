@@ -368,7 +368,7 @@ static int kgsl_ioctl_sharedmem_read(struct file *fd, void __user *arg)
 
 static int kgsl_ioctl_sharedmem_write(struct file *fd, void __user *arg)
 {
-	struct kgsl_sharedmem_read param;
+	struct kgsl_sharedmem_write param;
 	struct kgsl_memdesc tmp;
 	int status;
 
@@ -648,32 +648,6 @@ static int kgsl_ioctl_sharedmem_fromhostpointer(struct file *fd, void __user *ar
 	return status;
 }
 
-#if 0
-/* this and all it's associated crap can go away as userspace doesn't call it.
-	c2d_z430 has a reference that's never called */
-static int kgsl_ioctl_device_waitirq(struct file *fd, void __user *arg)
-{
-	int status;
-	struct kgsl_device_waitirq param;
-	unsigned int count;
-
-	pr_err("%s: IOCTL_KGSL_DEVICE_WAITIRQ obsoleted!\n", __func__);
-	// return -ENOTTY;
-
-	if (copy_from_user(&param, arg, sizeof(param))) {
-		pr_err("%s: copy_from_user error\n", __func__);
-                return GSL_FAILURE;
-	}
-
-	status = kgsl_device_waitirq(param.device_id, param.intr_id, &count, param.timeout);
-	if (status == GSL_SUCCESS) {
-		if (copy_to_user(param.count, &count, sizeof(unsigned int))) {
-		pr_err("%s: copy_from_user error\n", __func__);
-                return GSL_FAILURE;
-	}
-}
-#endif
-
 static int kgsl_ioctl_drawctxt_bind_gmem_shadow(struct file *fd, void __user *arg)
 {
 	int status;
@@ -794,18 +768,12 @@ static int kgsl_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, un
 	case IOCTL_KGSL_DEVICE_CLOCK:
 		result = kgsl_ioctl_device_clock(fd, (void __user *) arg);
 		break;
-//	case IOCTL_KGSL_DEVICE_WAITIRQ:
-//		result = kgsl_ioctl_waitirq(fd, (void __user *) arg);
-//		break;
-
 	case IOCTL_KGSL_DRAWCTXT_BIND_GMEM_SHADOW:
 		result = kgsl_ioctl_drawctxt_bind_gmem_shadow(fd, (void __user *) arg);
 		break;
-
 	case IOCTL_KGSL_ADD_TIMESTAMP:
 		result = kgsl_ioctl_add_timestamp(fd, (void __user *) arg);
 		break;
-
 	default:
 		pr_err("%s: invalid ioctl code %08x\n", __func__, cmd);
 		result = -ENOTTY;
