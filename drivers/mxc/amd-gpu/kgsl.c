@@ -743,20 +743,6 @@ static int kgsl_ioctl_device_isidle(struct file *fd, void __user *arg)
 	return status;
 }
 
-static int kgsl_ioctl_device_clock(struct file *fd, void __user *arg)
-{
-	int status;
-	struct kgsl_device_clock param;
-
-	if (copy_from_user(&param, arg, sizeof(param))) {
-		pr_err("%s: copy_from_user error\n", __func__);
-                return GSL_FAILURE;
-	}
-
-	status = kgsl_device_clock(param.device, param.enable);
-	return status;
-}
-
 static int kgsl_ioctl_cmdstream_readtimestamp(struct file *fd, void __user *arg)
 {
 	int status = GSL_SUCCESS;
@@ -1016,15 +1002,9 @@ static int kgsl_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, un
 	case IOCTL_KGSL_DEVICE_ISIDLE:
 		result = kgsl_ioctl_device_isidle(fd, (void __user *) arg);
 		break;
-	case IOCTL_KGSL_DEVICE_CLOCK:
-		result = kgsl_ioctl_device_clock(fd, (void __user *) arg);
-		break;
 	case IOCTL_KGSL_DRAWCTXT_BIND_GMEM_SHADOW:
 		result = kgsl_ioctl_drawctxt_bind_gmem_shadow(fd, (void __user *) arg);
 		break;
-//	case IOCTL_KGSL_ADD_TIMESTAMP:
-//		result = kgsl_ioctl_add_timestamp(fd, (void __user *) arg);
-//		break;
 	default:
 		pr_err("%s: invalid ioctl code %08x\n", __func__, cmd);
 		result = -ENOTTY;

@@ -219,6 +219,7 @@ struct kgsl_device_getproperty {
 #define IOCTL_KGSL_DEVICE_GETPROPERTY \
 	_IOWR(KGSL_IOC_TYPE, 0x24, struct kgsl_device_getproperty)
 
+/* note: only used in fsl code for power control */
 struct kgsl_device_setproperty {
 	unsigned int  device_id;
 	enum kgsl_property_type type;
@@ -424,7 +425,7 @@ struct kgsl_sharedmem_read {
 #define IOCTL_KGSL_SHAREDMEM_READ \
 	_IOWR(KGSL_IOC_TYPE, 0x33, struct kgsl_sharedmem_read)
 
-/* NQ */
+/* NQ - note only used a couple times in driver/vg11 */
 struct kgsl_sharedmem_write {
 	const struct kgsl_memdesc *memdesc;
 	unsigned int offsetbytes;
@@ -435,7 +436,7 @@ struct kgsl_sharedmem_write {
 #define IOCTL_KGSL_SHAREDMEM_WRITE \
 	_IOW(KGSL_IOC_TYPE, 0x34, struct kgsl_sharedmem_write)
 
-/* NQ */
+/* NQ - note only used twice in driver/vg11 */
 struct kgsl_sharedmem_set {
 	const struct kgsl_memdesc *memdesc;
 	unsigned int offsetbytes;
@@ -446,7 +447,7 @@ struct kgsl_sharedmem_set {
 #define IOCTL_KGSL_SHAREDMEM_SET \
 	_IOW(KGSL_IOC_TYPE, 0x35, struct kgsl_sharedmem_set)
 
-/* NQ */
+/* NQ - note only called from c2dz430 twice */
 struct kgsl_sharedmem_largestfreeblock {
 	unsigned int device_id;
 	unsigned int flags;
@@ -467,7 +468,7 @@ struct kgsl_sharedmem_cacheoperation {
 #define IOCTL_KGSL_SHAREDMEM_CACHEOPERATION \
 	_IOW(KGSL_IOC_TYPE, 0x37, struct kgsl_sharedmem_cacheoperation)
 
-/* NQ */
+/* NQ - note: only used a couple times from vg11 */
 struct kgsl_sharedmem_fromhostpointer {
 	unsigned int device_id;
 	struct kgsl_memdesc *memdesc;
@@ -480,14 +481,5 @@ struct kgsl_sharedmem_fromhostpointer {
 /* NQ */
 #define IOCTL_KGSL_DRIVER_EXIT \
 	_IOWR(KGSL_IOC_TYPE, 0x3A, NULL)
-
-/* NQ */
-struct kgsl_device_clock {
-	unsigned int device;
-	int enable;
-};
-
-#define IOCTL_KGSL_DEVICE_CLOCK \
-	_IOWR(KGSL_IOC_TYPE, 0x60, struct kgsl_device_clock)
 
 #endif /* _MXC_KGSL_H */
