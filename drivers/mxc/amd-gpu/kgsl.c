@@ -462,7 +462,6 @@ done:
 	return result;
 }
 
-
 static int kgsl_ioctl_device_setproperty(struct file *fd, void __user *arg)
 {
 	int result;
@@ -955,6 +954,7 @@ static int kgsl_ioctl_drawctxt_bind_gmem_shadow(struct file *fd, void __user *ar
 	return status;
 }
 
+#if 0
 static int kgsl_ioctl_add_timestamp(struct file *fd, void __user *arg)
 {
 	struct kgsl_add_timestamp param;
@@ -973,6 +973,7 @@ static int kgsl_ioctl_add_timestamp(struct file *fd, void __user *arg)
 	}
 	return GSL_SUCCESS;
 }
+#endif
 
 static int kgsl_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, unsigned long arg)
 {
@@ -1061,9 +1062,9 @@ static int kgsl_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, un
 	case IOCTL_KGSL_DRAWCTXT_BIND_GMEM_SHADOW:
 		result = kgsl_ioctl_drawctxt_bind_gmem_shadow(fd, (void __user *) arg);
 		break;
-	case IOCTL_KGSL_ADD_TIMESTAMP:
-		result = kgsl_ioctl_add_timestamp(fd, (void __user *) arg);
-		break;
+//	case IOCTL_KGSL_ADD_TIMESTAMP:
+//		result = kgsl_ioctl_add_timestamp(fd, (void __user *) arg);
+//		break;
 	default:
 		pr_err("%s: invalid ioctl code %08x\n", __func__, cmd);
 		result = -ENOTTY;

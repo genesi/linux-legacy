@@ -487,13 +487,13 @@ struct kgsl_sharedmem_fromhostpointer {
 	_IOW(KGSL_IOC_TYPE, 0x38, struct kgsl_sharedmem_fromhostpointer)
 
 /* NQ */
-struct kgsl_add_timestamp {
-	unsigned int device_id;
-	unsigned int *timestamp;
-};
-
-#define IOCTL_KGSL_ADD_TIMESTAMP \
-	_IOWR(KGSL_IOC_TYPE, 0x39, struct kgsl_add_timestamp)
+//struct kgsl_add_timestamp {
+//	unsigned int device_id;
+//	unsigned int *timestamp;
+//};
+//
+//#define IOCTL_KGSL_ADD_TIMESTAMP \
+//	_IOWR(KGSL_IOC_TYPE, 0x39, struct kgsl_add_timestamp)
 
 /* NQ */
 #define IOCTL_KGSL_DRIVER_EXIT \
