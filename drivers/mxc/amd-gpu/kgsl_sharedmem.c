@@ -120,6 +120,7 @@ kgsl_sharedmem_init(struct kgsl_sharedmem *shmem)
 	int memspaceidx = GSL_HAL_MEM1;
 
 	aperture_id = GSL_APERTURE_EMEM;
+	mmu_virtualized = 0;
 
 	if (i == 1) {
 		memspaceidx = GSL_HAL_MEM2;
@@ -134,6 +135,9 @@ kgsl_sharedmem_init(struct kgsl_sharedmem *shmem)
         hostbaseaddr    = (unsigned int)hal->memspace[memspaceidx].mmio_virt_base;
         gpubaseaddr     = hal->memspace[memspaceidx].gpu_base;
         sizebytes       = hal->memspace[memspaceidx].sizebytes;
+
+	pr_info("%s: ap %d channel %d hb %08x gb %08x sb %08x idx %d mmu %d\n",
+		__func__, aperture_id, channel_id, hostbaseaddr, gpubaseaddr, sizebytes, memspaceidx, mmu_virtualized);
 
         // make sure aligned to page size
         DEBUG_ASSERT((gpubaseaddr & ((1 << PAGE_SHIFT) - 1)) == 0);
@@ -539,7 +543,6 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_read(struct kgsl_memde
         {
             if (copy_to_user(dst, (void *)(shmem->apertures[aperture_index].memarena->hostbaseaddr + gpuoffsetbytes), sizebytes))
             {
-                return;
             }
         }
         else
@@ -609,7 +612,6 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_write(struct kgsl_memd
         {
             if (copy_from_user((void *)(shmem->apertures[aperture_index].memarena->hostbaseaddr + gpuoffsetbytes), src, sizebytes))
             {
-                return;
             }
         }
         else
