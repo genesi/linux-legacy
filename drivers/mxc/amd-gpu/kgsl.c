@@ -505,22 +505,6 @@ done:
 	return status;
 }
 
-/* not implemented in qcom kernel? */
-static int kgsl_ioctl_device_regwrite(struct file *fd, void __user *arg)
-{
-	int status = GSL_SUCCESS;
-	struct kgsl_device_regwrite param;
-
-	if (copy_from_user(&param, arg, sizeof(param))) {
-		pr_err("%s: copy_from_user error\n", __func__);
-		return GSL_FAILURE;
-	}
-
-	status = kgsl_device_regwrite(param.device_id, param.offsetwords, param.value);
-
-	return status;
-}
-
 /* device_waittimestamp in qcom */
 static int kgsl_ioctl_cmdstream_waittimestamp(struct file *fd, void __user *arg)
 {
@@ -954,27 +938,6 @@ static int kgsl_ioctl_drawctxt_bind_gmem_shadow(struct file *fd, void __user *ar
 	return status;
 }
 
-#if 0
-static int kgsl_ioctl_add_timestamp(struct file *fd, void __user *arg)
-{
-	struct kgsl_add_timestamp param;
-	unsigned int tmp;
-
-	if (copy_from_user(&param, arg, sizeof(param))) {
-		pr_err("%s: copy_from_user error\n", __func__);
-                return GSL_FAILURE;
-	}
-
-	tmp = kgsl_add_timestamp(param.device_id, &tmp);
-
-	if (copy_to_user(param.timestamp, &tmp, sizeof(unsigned int))) {
-		pr_err("%s: copy_to_user error\n", __func__);
-		return GSL_FAILURE;
-	}
-	return GSL_SUCCESS;
-}
-#endif
-
 static int kgsl_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, unsigned long arg)
 {
 	int result = GSL_FAILURE;
@@ -984,9 +947,6 @@ static int kgsl_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, un
 	switch (cmd) {
 	case IOCTL_KGSL_DEVICE_REGREAD:
 		result = kgsl_ioctl_device_regread(fd, (void __user *)arg);
-		break;
-	case IOCTL_KGSL_DEVICE_REGWRITE:
-		result = kgsl_ioctl_device_regwrite(fd, (void __user *)arg);
 		break;
 	case IOCTL_KGSL_DEVICE_GETPROPERTY:
 		result = kgsl_ioctl_device_getproperty(fd, (void __user *)arg);

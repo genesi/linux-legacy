@@ -245,15 +245,6 @@ struct kgsl_device_regread {
 #define IOCTL_KGSL_DEVICE_REGREAD \
 	_IOWR(KGSL_IOC_TYPE, 0x26, struct kgsl_device_regread)
 
-struct kgsl_device_regwrite {
-	unsigned int device_id;
-	unsigned int offsetwords;
-	unsigned int value;
-};
-
-#define IOCTL_KGSL_DEVICE_REGWRITE \
-	_IOW(KGSL_IOC_TYPE, 0x27, struct kgsl_device_regwrite)
-
 /*
  * qcom: kgsl_ringbuffer_issueibcmds IOCNR=0x10
  * all unsigned int (including timestamp!?)
@@ -485,15 +476,6 @@ struct kgsl_sharedmem_fromhostpointer {
 
 #define IOCTL_KGSL_SHAREDMEM_FROMHOSTPOINTER \
 	_IOW(KGSL_IOC_TYPE, 0x38, struct kgsl_sharedmem_fromhostpointer)
-
-/* NQ */
-//struct kgsl_add_timestamp {
-//	unsigned int device_id;
-//	unsigned int *timestamp;
-//};
-//
-//#define IOCTL_KGSL_ADD_TIMESTAMP \
-//	_IOWR(KGSL_IOC_TYPE, 0x39, struct kgsl_add_timestamp)
 
 /* NQ */
 #define IOCTL_KGSL_DRIVER_EXIT \
