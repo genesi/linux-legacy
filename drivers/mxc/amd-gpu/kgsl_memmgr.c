@@ -17,6 +17,7 @@
  */
 
 #include <linux/slab.h>
+#include <linux/mxc_kgsl.h>
 
 #include "kgsl_types.h"
 #include "kgsl_memmgr.h"

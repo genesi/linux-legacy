@@ -17,6 +17,7 @@
  */
 
 #include <linux/sched.h>
+#include <linux/mxc_kgsl.h>
 
 #include "kgsl_types.h"
 #include "kgsl_hal.h"
@@ -24,7 +25,6 @@
 #include "kgsl_device.h"
 #include "kgsl_driver.h"
 #include "kgsl_cmdstream.h"
-#include "kgsl_ioctl.h"
 #include "kgsl_debug.h"
 
 
@@ -69,7 +69,7 @@ kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
 	return GSL_FAILURE_NOTSUPPORTED;
     }
 
-    if (device->flags & GSL_FLAGS_INITIALIZED)
+    if (device->flags & KGSL_FLAGS_INITIALIZED)
     {
         return (GSL_SUCCESS);
     }
@@ -148,7 +148,7 @@ kgsl_device_close(struct kgsl_device *device)
 
     KGSL_DRV_VDBG("device=0x%08x \n", (unsigned int) device);
 
-    if (!(device->flags & GSL_FLAGS_INITIALIZED)) {
+    if (!(device->flags & KGSL_FLAGS_INITIALIZED)) {
 	return status;
     }
 
@@ -183,7 +183,7 @@ kgsl_device_destroy(struct kgsl_device *device)
 
     KGSL_DRV_VDBG("device=0x%08x\n", (unsigned int) device );
 
-    if (device->flags & GSL_FLAGS_INITIALIZED)
+    if (device->flags & KGSL_FLAGS_INITIALIZED)
     {
         if (device->ftbl.destroy)
         {
@@ -206,7 +206,7 @@ kgsl_device_attachcallback(struct kgsl_device *device, unsigned int pid)
 
     KGSL_DRV_VDBG("device=0x%08x, pid=0x%08x\n", (unsigned int) device, pid );
 
-    if (device->flags & GSL_FLAGS_INITIALIZED)
+    if (device->flags & KGSL_FLAGS_INITIALIZED)
     {
         if (kgsl_driver_getcallerprocessindex(pid, &pindex) == GSL_SUCCESS)
         {
@@ -236,7 +236,7 @@ kgsl_device_detachcallback(struct kgsl_device *device, unsigned int pid)
 
     KGSL_DRV_VDBG("device=0x%08x, pid=0x%08x\n", (unsigned int) device, pid);
 
-    if (device->flags & GSL_FLAGS_INITIALIZED)
+    if (device->flags & KGSL_FLAGS_INITIALIZED)
     {
         if (kgsl_driver_getcallerprocessindex(pid, &pindex) == GSL_SUCCESS)
         {
@@ -307,7 +307,7 @@ int kgsl_device_getproperty(unsigned int device_id, enum kgsl_property_type type
 		if (device->memstore.hostptr) {
 			shadowprop->hostaddr = (unsigned int) device->memstore.hostptr;
 			shadowprop->size     = device->memstore.size;
-			shadowprop->flags    = GSL_FLAGS_INITIALIZED;
+			shadowprop->flags    = KGSL_FLAGS_INITIALIZED;
 		}
 #endif // GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
 		break;
@@ -333,7 +333,7 @@ int kgsl_device_setproperty(unsigned int device_id, enum kgsl_property_type type
 
 	mutex_lock(&gsl_driver.lock);
 	device = &gsl_driver.device[device_id-1]; // device_id is 1 based
-	if (device->flags & GSL_FLAGS_INITIALIZED) {
+	if (device->flags & KGSL_FLAGS_INITIALIZED) {
 		if (device->ftbl.setproperty) {
 			status = device->ftbl.setproperty(device, type, value, sizebytes);
 		}
@@ -369,7 +369,7 @@ kgsl_device_start(unsigned int device_id, unsigned int flags)
 
     kgsl_device_active(device);
 
-    if (!(device->flags & GSL_FLAGS_INITIALIZED))
+    if (!(device->flags & KGSL_FLAGS_INITIALIZED))
     {
         mutex_unlock(&gsl_driver.lock);
         KGSL_DRV_VDBG("ERROR: Trying to start uninitialized device.\n");
@@ -378,17 +378,17 @@ kgsl_device_start(unsigned int device_id, unsigned int flags)
 
     device->refcnt++;
 
-    if (device->flags & GSL_FLAGS_STARTED)
+    if (device->flags & KGSL_FLAGS_STARTED)
     {
         mutex_unlock(&gsl_driver.lock);
         return (GSL_SUCCESS);
     }
 
     // start device in safe mode
-    if (flags & GSL_FLAGS_SAFEMODE)
+    if (flags & KGSL_FLAGS_SAFEMODE)
     {
         KGSL_DRV_VDBG("Running the device in safe mode.\n");
-        device->flags |= GSL_FLAGS_SAFEMODE;
+        device->flags |= KGSL_FLAGS_SAFEMODE;
     }
 
     if (device->ftbl.start)
@@ -415,7 +415,7 @@ kgsl_device_stop(unsigned int device_id)
 
     device = &gsl_driver.device[device_id-1];       // device_id is 1 based
 
-    if (device->flags & GSL_FLAGS_STARTED)
+    if (device->flags & KGSL_FLAGS_STARTED)
     {
         DEBUG_ASSERT(device->refcnt);
 
@@ -470,10 +470,10 @@ kgsl_device_idle(unsigned int device_id, unsigned int timeout)
 int
 kgsl_device_isidle(unsigned int device_id)
 {
-	unsigned int retired = kgsl_cmdstream_readtimestamp0(device_id, GSL_TIMESTAMP_RETIRED);
-	unsigned int consumed = kgsl_cmdstream_readtimestamp0(device_id, GSL_TIMESTAMP_CONSUMED);
+	unsigned int retired = kgsl_cmdstream_readtimestamp0(device_id, KGSL_TIMESTAMP_RETIRED);
+	unsigned int consumed = kgsl_cmdstream_readtimestamp0(device_id, KGSL_TIMESTAMP_CONSUMED);
 	unsigned int ts_diff = retired - consumed;
-	return (ts_diff >= 0) || (ts_diff < -GSL_TIMESTAMP_EPSILON) ? GSL_SUCCESS : GSL_FAILURE;
+	return (ts_diff >= 0) || (ts_diff < -KGSL_TIMESTAMP_EPSILON) ? GSL_SUCCESS : GSL_FAILURE;
 }
 
 //----------------------------------------------------------------------------
@@ -560,7 +560,7 @@ kgsl_device_runpending(struct kgsl_device *device)
 
     KGSL_DRV_VDBG("device=0x%08x\n", (unsigned int) device );
 
-    if (device->flags & GSL_FLAGS_INITIALIZED)
+    if (device->flags & KGSL_FLAGS_INITIALIZED)
     {
         if (device->ftbl.runpending)
         {

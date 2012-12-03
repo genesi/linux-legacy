@@ -18,6 +18,8 @@
 
 #include <linux/sched.h>
 
+#include <linux/mxc_kgsl.h>
+
 #include "kgsl_driver.h"
 #include "kgsl_debug.h"
 #include "kgsl_device.h"
@@ -49,7 +51,7 @@ kgsl_driver_init0(unsigned int flags, unsigned int flags_debug)
 {
     int  status = GSL_SUCCESS;
 
-    if (!(gsl_driver_initialized & GSL_FLAGS_INITIALIZED0))
+    if (!(gsl_driver_initialized & KGSL_FLAGS_INITIALIZED0))
     {
         memset(&gsl_driver, 0, sizeof(struct kgsl_driver));
 	mutex_init(&gsl_driver.lock);
@@ -57,7 +59,7 @@ kgsl_driver_init0(unsigned int flags, unsigned int flags_debug)
 
     (void) flags_debug;     // unref formal parameter
 
-    if (!(gsl_driver_initialized & GSL_FLAGS_INITIALIZED0))
+    if (!(gsl_driver_initialized & KGSL_FLAGS_INITIALIZED0))
     {
 	mutex_lock(&gsl_driver.lock);
 
@@ -67,7 +69,7 @@ kgsl_driver_init0(unsigned int flags, unsigned int flags_debug)
         if (status == GSL_SUCCESS)
         {
             gsl_driver_initialized |= flags;
-            gsl_driver_initialized |= GSL_FLAGS_INITIALIZED0;
+            gsl_driver_initialized |= KGSL_FLAGS_INITIALIZED0;
         }
 
 	mutex_unlock(&gsl_driver.lock);
@@ -83,7 +85,7 @@ kgsl_driver_close0(unsigned int flags)
 {
     int  status = GSL_SUCCESS;
 
-    if ((gsl_driver_initialized & GSL_FLAGS_INITIALIZED0) && (gsl_driver_initialized & flags))
+    if ((gsl_driver_initialized & KGSL_FLAGS_INITIALIZED0) && (gsl_driver_initialized & flags))
     {
 	mutex_lock(&gsl_driver.lock);
         // close hal
@@ -91,7 +93,7 @@ kgsl_driver_close0(unsigned int flags)
 	mutex_unlock(&gsl_driver.lock);
 
         gsl_driver_initialized &= ~flags;
-        gsl_driver_initialized &= ~GSL_FLAGS_INITIALIZED0;
+        gsl_driver_initialized &= ~KGSL_FLAGS_INITIALIZED0;
     }
 
     return (status);
@@ -150,7 +152,7 @@ kgsl_driver_entry(unsigned int flags)
 
     if (status == GSL_SUCCESS)
     {
-        if (!(gsl_driver_initialized & GSL_FLAGS_INITIALIZED))
+        if (!(gsl_driver_initialized & KGSL_FLAGS_INITIALIZED))
         {
             // init memory apertures
             status = kgsl_sharedmem_init(&gsl_driver.shmem);
@@ -168,7 +170,7 @@ kgsl_driver_entry(unsigned int flags)
 
             if (status == GSL_SUCCESS)
             {
-                gsl_driver_initialized |= GSL_FLAGS_INITIALIZED;
+                gsl_driver_initialized |= KGSL_FLAGS_INITIALIZED;
             }
         }
 
@@ -212,7 +214,7 @@ kgsl_driver_exit0(unsigned int pid)
 
     mutex_lock(&gsl_driver.lock);
 
-    if (gsl_driver_initialized & GSL_FLAGS_INITIALIZED)
+    if (gsl_driver_initialized & KGSL_FLAGS_INITIALIZED)
     {
         if (kgsl_driver_getcallerprocessindex(pid, &index) == GSL_SUCCESS)
         {
@@ -242,7 +244,7 @@ kgsl_driver_exit0(unsigned int pid)
                 // shutdown memory apertures
                 kgsl_sharedmem_close(&gsl_driver.shmem);
 
-                gsl_driver_initialized &= ~GSL_FLAGS_INITIALIZED;
+                gsl_driver_initialized &= ~KGSL_FLAGS_INITIALIZED;
             }
 
             // remove caller pid from process table
@@ -253,7 +255,7 @@ kgsl_driver_exit0(unsigned int pid)
 
     mutex_unlock(&gsl_driver.lock);
 
-    if (!(gsl_driver_initialized & GSL_FLAGS_INITIALIZED))
+    if (!(gsl_driver_initialized & KGSL_FLAGS_INITIALIZED))
     {
         kgsl_driver_close0(GSL_DRVFLAGS_INTERNAL);
     }

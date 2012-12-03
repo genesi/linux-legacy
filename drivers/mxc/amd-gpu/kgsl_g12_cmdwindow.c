@@ -18,6 +18,8 @@
 
 #include <linux/sched.h>
 
+#include <linux/mxc_kgsl.h>
+
 #include "kgsl_buildconfig.h"
 
 #include "kgsl_types.h"
@@ -75,8 +77,8 @@ int kgsl_g12_cmdwindow_write0(struct kgsl_device *device,
 	}
 
 	/* qcom: no differentiation between init or started? */
-	if ((!(device->flags & GSL_FLAGS_INITIALIZED) && target == GSL_CMDWINDOW_MMU) ||
-	    (!(device->flags & GSL_FLAGS_STARTED)     && target != GSL_CMDWINDOW_MMU)) {
+	if ((!(device->flags & KGSL_FLAGS_INITIALIZED) && target == GSL_CMDWINDOW_MMU) ||
+	    (!(device->flags & KGSL_FLAGS_STARTED)     && target != GSL_CMDWINDOW_MMU)) {
 		KGSL_DRV_ERR("Trying to write uninitialized device.\n");
 		return GSL_FAILURE;
 	}

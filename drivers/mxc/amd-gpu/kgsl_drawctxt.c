@@ -19,15 +19,15 @@
 #include <linux/sched.h>
 #include <asm/div64.h>
 
+#include <linux/mxc_kgsl.h>
+
 #include "kgsl_buildconfig.h"
 #include "kgsl_types.h"
 #include "kgsl_mmu.h"
-#include "kgsl_properties.h"
 #include "kgsl_device.h"
 #include "kgsl_driver.h"
 #include "kgsl_drawctxt.h"
 #include "kgsl_hal.h"
-#include "kgsl_properties.h"
 #include "kgsl_ringbuffer.h"
 #include "kgsl_memmgr.h"
 #include "kgsl_sharedmem.h"
@@ -1446,7 +1446,7 @@ kgsl_drawctxt_create(struct kgsl_device* device, unsigned int type, unsigned int
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(device->drawctxt_mutex);
 #endif
-    if (device->drawctxt_count >= GSL_CONTEXT_MAX)
+    if (device->drawctxt_count >= KGSL_CONTEXT_MAX)
     {
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
 	mutex_unlock(device->drawctxt_mutex);
@@ -1456,7 +1456,7 @@ kgsl_drawctxt_create(struct kgsl_device* device, unsigned int type, unsigned int
 
     // find a free context slot
     index = 0;
-    while (index < GSL_CONTEXT_MAX)
+    while (index < KGSL_CONTEXT_MAX)
     {
         if (device->drawctxt[index].flags == CTXT_FLAGS_NOT_IN_USE)
             break;
@@ -1464,7 +1464,7 @@ kgsl_drawctxt_create(struct kgsl_device* device, unsigned int type, unsigned int
         index++;
     }
 
-    if (index >= GSL_CONTEXT_MAX)
+    if (index >= KGSL_CONTEXT_MAX)
     {
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
 	mutex_unlock(device->drawctxt_mutex);
@@ -1483,7 +1483,7 @@ kgsl_drawctxt_create(struct kgsl_device* device, unsigned int type, unsigned int
     device->drawctxt_count++;
 
     // create context shadows, when not running in safe mode
-    if (!(device->flags & GSL_FLAGS_SAFEMODE))
+    if (!(device->flags & KGSL_FLAGS_SAFEMODE))
     {
         if (create_gpustate_shadow(device, drawctxt, &ctx) != GSL_SUCCESS)
         {
@@ -1544,7 +1544,7 @@ kgsl_drawctxt_destroy(struct kgsl_device* device, unsigned int drawctxt_id)
             // no need to save GMEM or shader, the context is being destroyed.
             drawctxt->flags &= ~(CTXT_FLAGS_GMEM_SAVE | CTXT_FLAGS_SHADER_SAVE);
 
-            kgsl_drawctxt_switch(device, GSL_CONTEXT_NONE, 0);
+            kgsl_drawctxt_switch(device, KGSL_CONTEXT_NONE, 0);
         }
 
         device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT);
@@ -1695,9 +1695,9 @@ kgsl_drawctxt_switch(struct kgsl_device *device, struct kgsl_drawctxt *drawctxt,
 {
     struct kgsl_drawctxt *active_ctxt = device->drawctxt_active;
 
-	if (drawctxt != GSL_CONTEXT_NONE)
+	if (drawctxt != KGSL_CONTEXT_NONE)
 	{
-		if( flags & GSL_CONTEXT_SAVE_GMEM )
+		if( flags & KGSL_CONTEXT_SAVE_GMEM )
 		{
 			// Set the flag in context so that the save is done when this context is switched out.
 			drawctxt->flags |= CTXT_FLAGS_GMEM_SAVE;
@@ -1716,7 +1716,7 @@ kgsl_drawctxt_switch(struct kgsl_device *device, struct kgsl_drawctxt *drawctxt,
     }
 
     // save old context, when not running in safe mode
-    if (active_ctxt != GSL_CONTEXT_NONE && !(device->flags & GSL_FLAGS_SAFEMODE))
+    if (active_ctxt != KGSL_CONTEXT_NONE && !(device->flags & KGSL_FLAGS_SAFEMODE))
     {
         // save registers and constants.
         kgsl_ringbuffer_issuecmds(device, 0, active_ctxt->reg_save, 3, active_ctxt->pid);
@@ -1764,7 +1764,7 @@ kgsl_drawctxt_switch(struct kgsl_device *device, struct kgsl_drawctxt *drawctxt,
     device->drawctxt_active = drawctxt;
 
     // restore new context, when not running in safe mode
-    if (drawctxt != GSL_CONTEXT_NONE && !(device->flags & GSL_FLAGS_SAFEMODE))
+    if (drawctxt != KGSL_CONTEXT_NONE && !(device->flags & KGSL_FLAGS_SAFEMODE))
     {
         // restore gmem.  (note: changes shader.  shader must not already be restored.)
         if (drawctxt->flags & CTXT_FLAGS_GMEM_RESTORE)
@@ -1818,7 +1818,7 @@ kgsl_drawctxt_destroyall(struct kgsl_device *device)
     mutex_lock(device->drawctxt_mutex);
 #endif
 
-    for (i = 0; i < GSL_CONTEXT_MAX; i++)
+    for (i = 0; i < KGSL_CONTEXT_MAX; i++)
     {
         drawctxt = &device->drawctxt[i];
 

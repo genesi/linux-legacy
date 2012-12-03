@@ -34,6 +34,8 @@
 #include <asm/tlbflush.h>
 #include <asm/cacheflush.h>
 
+#include <linux/mxc_kgsl.h>
+
 #include "kgsl_hal.h"
 #include "kgsl_halconfig.h"
 #include "kgsl_linux_map.h"

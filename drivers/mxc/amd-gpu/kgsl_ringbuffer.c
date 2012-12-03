@@ -19,6 +19,8 @@
 #include <linux/io.h> // writel
 #include <linux/sched.h>
 
+#include <linux/mxc_kgsl.h>
+
 #include "kgsl_types.h"
 #include "kgsl_hal.h"
 #include "kgsl_cmdstream.h"
@@ -128,7 +130,7 @@ kgsl_ringbuffer_watchdog()
     KGSL_CMD_VDBG(
                     "--> void kgsl_ringbuffer_watchdog()\n" );
 
-    if (rb->flags & GSL_FLAGS_STARTED)
+    if (rb->flags & KGSL_FLAGS_STARTED)
     {
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
 	mutex_lock(rb->mutex);
@@ -139,7 +141,7 @@ kgsl_ringbuffer_watchdog()
         if (rb->rptr != rb->wptr)
         {
             // and a rptr sample was taken during interval n-1
-            if (rb->watchdog.flags & GSL_FLAGS_ACTIVE)
+            if (rb->watchdog.flags & KGSL_FLAGS_ACTIVE)
             {
                 // and the rptr did not advance between interval n-1 and n
                 if (rb->rptr == rb->watchdog.rptr_sample)
@@ -154,13 +156,13 @@ kgsl_ringbuffer_watchdog()
             }
 
             // save rptr sample for interval n
-            rb->watchdog.flags       |= GSL_FLAGS_ACTIVE;
+            rb->watchdog.flags       |= KGSL_FLAGS_ACTIVE;
             rb->watchdog.rptr_sample  = rb->rptr;
         }
         else
         {
             // clear rptr sample for interval n
-            rb->watchdog.flags &= ~GSL_FLAGS_ACTIVE;
+            rb->watchdog.flags &= ~KGSL_FLAGS_ACTIVE;
         }
 
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
@@ -366,7 +368,7 @@ kgsl_ringbuffer_submit(struct kgsl_ringbuffer *rb)
     // send the wptr to the hw
     rb->device->ftbl.regwrite(rb->device, REG_CP_RB_WPTR, rb->wptr);
 
-    rb->flags |= GSL_FLAGS_ACTIVE;
+    rb->flags |= KGSL_FLAGS_ACTIVE;
 
     KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_submit.\n" );
 }
@@ -435,7 +437,7 @@ kgsl_ringbuffer_addcmds(struct kgsl_ringbuffer *rb, unsigned int numcmds)
     DEBUG_ASSERT(numcmds < rb->sizedwords);
 
     // update host copy of read pointer when running in safe mode
-    if (rb->device->flags & GSL_FLAGS_SAFEMODE)
+    if (rb->device->flags & KGSL_FLAGS_SAFEMODE)
     {
         GSL_RB_GET_READPTR(rb, &rb->rptr);
     }
@@ -493,7 +495,7 @@ kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb)
     KGSL_CMD_VDBG(
                     "--> static int kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb=0x%08x)\n", (unsigned int) rb );
 
-    if (rb->flags & GSL_FLAGS_STARTED)
+    if (rb->flags & KGSL_FLAGS_STARTED)
     {
         KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_start. Return value %d\n", GSL_SUCCESS );
         return (GSL_SUCCESS);
@@ -528,7 +530,7 @@ kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb)
     device->ftbl.regwrite(device, REG_CP_RB_RPTR_ADDR, rb->memptrs_desc.gpuaddr + GSL_RB_MEMPTRS_RPTR_OFFSET);
 
     // explicitly clear all cp interrupts when running in safe mode
-    if (rb->device->flags & GSL_FLAGS_SAFEMODE)
+    if (rb->device->flags & KGSL_FLAGS_SAFEMODE)
     {
         device->ftbl.regwrite(device, REG_CP_INT_ACK, 0xFFFFFFFF);
     }
@@ -605,7 +607,7 @@ kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb)
 
     if (status == GSL_SUCCESS)
     {
-        rb->flags |= GSL_FLAGS_STARTED;
+        rb->flags |= KGSL_FLAGS_STARTED;
     }
 
     // enable cp interrupts
@@ -641,7 +643,7 @@ kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb)
     KGSL_CMD_VDBG(
                     "--> static int kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb=0x%08x)\n", (unsigned int) rb );
 
-    if (rb->flags & GSL_FLAGS_STARTED)
+    if (rb->flags & KGSL_FLAGS_STARTED)
     {
         // disable cp interrupts
         kgsl_intr_detach(&rb->device->intr, GSL_INTR_YDX_CP_SW_INT);
@@ -657,7 +659,7 @@ kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb)
         // ME_HALT
         rb->device->ftbl.regwrite(rb->device, REG_CP_ME_CNTL, 0x10000000);
 
-        rb->flags &= ~GSL_FLAGS_STARTED;
+        rb->flags &= ~KGSL_FLAGS_STARTED;
     }
 
     KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_stop. Return value %d\n", GSL_SUCCESS );
@@ -716,10 +718,10 @@ kgsl_ringbuffer_init(struct kgsl_device *device)
     // overlay structure on memptrs memory
     rb->memptrs = (struct kgsl_rbmemptrs *)rb->memptrs_desc.hostptr;
 
-    rb->flags |= GSL_FLAGS_INITIALIZED;
+    rb->flags |= KGSL_FLAGS_INITIALIZED;
 
 	// validate command stream data when running in safe mode
-	if (device->flags & GSL_FLAGS_SAFEMODE)
+	if (device->flags & KGSL_FLAGS_SAFEMODE)
 	{
 		gsl_driver.flags_debug |= GSL_DBGFLAGS_PM4CHECK;
 	}
@@ -764,7 +766,7 @@ kgsl_ringbuffer_close(struct kgsl_ringbuffer *rb)
         kgsl_sharedmem_free0(&rb->memptrs_desc, current->tgid);
     }
 
-    rb->flags &= ~GSL_FLAGS_INITIALIZED;
+    rb->flags &= ~KGSL_FLAGS_INITIALIZED;
 
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_unlock(rb->mutex);
@@ -793,7 +795,7 @@ kgsl_ringbuffer_issuecmds(struct kgsl_device *device, int pmodeoff, unsigned int
                     "--> unsigned int kgsl_ringbuffer_issuecmds(struct kgsl_device *device=0x%08x, int pmodeoff=%d, unsigned int *cmds=0x%08x, int sizedwords=%d, unsigned int pid=0x%08x)\n",
                      (unsigned int) device, pmodeoff, (unsigned int) cmds, sizedwords, pid );
 
-	if (!(device->ringbuffer.flags & GSL_FLAGS_STARTED))
+	if (!(device->ringbuffer.flags & KGSL_FLAGS_STARTED))
 	{
 		return (0);
 	}
@@ -878,7 +880,7 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint
                     "--> unsigned int kgsl_ringbuffer_issueibcmds(struct kgsl_device device=%08x, int drawctxt_index=%d, uint32_t ibaddr=0x%08x, int sizedwords=%d, unsigned int *timestamp=0x%08x)\n",
                      (unsigned int) device, drawctxt_index, ibaddr, sizedwords, (unsigned int) timestamp );
 
-    if (!(rb->flags & GSL_FLAGS_STARTED))
+    if (!(rb->flags & KGSL_FLAGS_STARTED))
     {
         KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_issueibcmds. Return value %d\n", GSL_FAILURE );
         return (GSL_FAILURE);
@@ -903,7 +905,7 @@ kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint
     mutex_unlock(rb->mutex);
 #endif
     // idle device when running in safe mode
-    if (device->flags & GSL_FLAGS_SAFEMODE)
+    if (device->flags & KGSL_FLAGS_SAFEMODE)
     {
         device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT);
     }
@@ -951,7 +953,7 @@ kgsl_ringbuffer_querystats(struct kgsl_ringbuffer *rb, struct kgsl_rbstats *stat
 #ifdef GSL_STATS_RINGBUFFER
     DEBUG_ASSERT(stats);
 
-    if (!(rb->flags & GSL_FLAGS_STARTED))
+    if (!(rb->flags & KGSL_FLAGS_STARTED))
     {
         return (GSL_FAILURE);
     }
@@ -984,7 +986,7 @@ kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb)
     KGSL_CMD_VDBG(
                     "--> int kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb=0x%08x)\n", (unsigned int) rb );
 
-    if (!(rb->flags & GSL_FLAGS_STARTED))
+    if (!(rb->flags & KGSL_FLAGS_STARTED))
     {
         KGSL_CMD_VDBG( "<-- kgsl_ringbuffer_bist. Return value %d\n", GSL_FAILURE );
         return (GSL_FAILURE);

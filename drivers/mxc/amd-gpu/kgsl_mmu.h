@@ -167,7 +167,7 @@ static __inline int
 kgsl_mmu_isenabled(struct kgsl_mmu *mmu)
 {
     // address translation enabled
-    int enabled = ((mmu)->flags & GSL_FLAGS_STARTED) ? 1 : 0;
+    int enabled = ((mmu)->flags & KGSL_FLAGS_STARTED) ? 1 : 0;
 
     return (enabled);
 }

@@ -20,12 +20,13 @@
 #include <linux/sched.h>
 #include <linux/io.h>
 
+#include <linux/mxc_kgsl.h>
+
 #include "kgsl_types.h"
 #include "kgsl_hal.h"
 #include "kgsl_cmdstream.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_driver.h"
-#include "kgsl_ioctl.h"
 #include "kgsl_g12_drawctxt.h"
 
 #include "g12_reg.h"

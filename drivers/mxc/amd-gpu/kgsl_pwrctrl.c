@@ -24,6 +24,8 @@
 #include <linux/hardirq.h>
 #include <linux/semaphore.h>
 
+#include <linux/mxc_kgsl.h>
+
 #include "kgsl_device.h"
 #include "kgsl_driver.h"
 
@@ -115,7 +117,7 @@ int kgsl_device_clock(unsigned int id, int enable)
 	struct kgsl_device *device;
 
 	device = &gsl_driver.device[id-1];       // device_id is 1 based
-	if (device->flags & GSL_FLAGS_INITIALIZED) {
+	if (device->flags & KGSL_FLAGS_INITIALIZED) {
 		if (enable)
 			kgsl_device_active(device);
 		else

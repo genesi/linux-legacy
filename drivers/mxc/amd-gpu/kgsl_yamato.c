@@ -20,6 +20,8 @@
 #include <linux/sched.h>
 #include <linux/io.h>
 
+#include <linux/mxc_kgsl.h>
+
 #include "kgsl_types.h"
 #include "kgsl_device.h"
 #include "kgsl_driver.h"
@@ -170,7 +172,7 @@ kgsl_yamato_bist(struct kgsl_device *device)
     int           status = GSL_FAILURE;
     unsigned int  link[2];
 
-    if (!(device->flags & GSL_FLAGS_STARTED))
+    if (!(device->flags & KGSL_FLAGS_STARTED))
     {
         return (GSL_FAILURE);
     }
@@ -256,7 +258,7 @@ kgsl_yamato_tlbinvalidate(struct kgsl_device *device, unsigned int reg_invalidat
     unsigned int  mh_mmu_invalidate = 0x00000003L; // invalidate all and tc
 
 	// if possible, invalidate via command stream, otherwise via direct register writes
-	if (device->flags & GSL_FLAGS_STARTED)
+	if (device->flags & KGSL_FLAGS_STARTED)
 	{
 		// there's a wait for idle packet up front here in qcom code
 		link[0] = pm4_type0_packet(reg_invalidate, 1);
@@ -281,7 +283,7 @@ kgsl_yamato_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase, ui
 	unsigned int  link[25];
 
     // if there is an active draw context, set via command stream,
-	if (device->flags & GSL_FLAGS_STARTED)
+	if (device->flags & KGSL_FLAGS_STARTED)
     {
         // wait for graphics pipe to be idle
         link[0] = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
@@ -346,7 +348,7 @@ kgsl_yamato_init(struct kgsl_device *device)
 {
     int  status = GSL_FAILURE;
 
-    device->flags |= GSL_FLAGS_INITIALIZED;
+    device->flags |= KGSL_FLAGS_INITIALIZED;
 
     kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_POWER_ON, 100);
 
@@ -408,7 +410,7 @@ kgsl_yamato_close(struct kgsl_device *device)
 
         kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_POWER_OFF, 0);
 
-        device->flags &= ~GSL_FLAGS_INITIALIZED;
+        device->flags &= ~KGSL_FLAGS_INITIALIZED;
     }
 
     return (GSL_SUCCESS);
@@ -461,8 +463,8 @@ kgsl_yamato_start(struct kgsl_device *device, unsigned int flags)
     kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_CLK_ON, 100);
 
     // default power management override when running in safe mode
-    pm1 = (device->flags & GSL_FLAGS_SAFEMODE) ? 0xFFFFFFFE : 0x00000000;
-    pm2 = (device->flags & GSL_FLAGS_SAFEMODE) ? 0x000000FF : 0x00000000;
+    pm1 = (device->flags & KGSL_FLAGS_SAFEMODE) ? 0xFFFFFFFE : 0x00000000;
+    pm2 = (device->flags & KGSL_FLAGS_SAFEMODE) ? 0x000000FF : 0x00000000;
     device->ftbl.regwrite(device, REG_RBBM_PM_OVERRIDE1, pm1);
     device->ftbl.regwrite(device, REG_RBBM_PM_OVERRIDE2, pm2);
 
@@ -504,7 +506,7 @@ kgsl_yamato_start(struct kgsl_device *device, unsigned int flags)
         return (status);
     }
 
-    device->flags |= GSL_FLAGS_STARTED;
+    device->flags |= KGSL_FLAGS_STARTED;
 
     KGSL_DEBUG(GSL_DBGFLAGS_BIST, kgsl_yamato_bist(device));
 
@@ -548,7 +550,7 @@ kgsl_yamato_stop(struct kgsl_device *device)
         kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_CLK_OFF, 0);
     }
 
-    device->flags &= ~GSL_FLAGS_STARTED;
+    device->flags &= ~KGSL_FLAGS_STARTED;
 
     return (GSL_SUCCESS);
 }
@@ -618,7 +620,7 @@ int kgsl_yamato_setproperty(struct kgsl_device *device, enum kgsl_property_type 
 
 		DEBUG_ASSERT(sizebytes == sizeof(struct kgsl_powerprop));
 
-		if (!(device->flags & GSL_FLAGS_SAFEMODE)) {
+		if (!(device->flags & KGSL_FLAGS_SAFEMODE)) {
 			if (power->flags & GSL_PWRFLAGS_OVERRIDE_ON) {
 				kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0xfffffffe);
 				kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0xffffffff);
@@ -648,7 +650,7 @@ int kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout)
 	(void) timeout;
 
 	// first, wait until the CP has consumed all the commands in the ring buffer
-	if (rb->flags & GSL_FLAGS_STARTED) {
+	if (rb->flags & KGSL_FLAGS_STARTED) {
 		do {
 			idle_count++;
 			GSL_RB_GET_READPTR(rb, &rb->rptr);

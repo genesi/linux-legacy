@@ -19,6 +19,8 @@
 #include <linux/slab.h>
 #include <linux/sched.h>
 
+#include <linux/mxc_kgsl.h>
+
 #include "kgsl_sharedmem.h"
 #include "kgsl_mmu.h"
 #include "kgsl_device.h"
@@ -267,7 +269,7 @@ kgsl_mmu_destroypagetableobject(struct kgsl_mmu *mmu, unsigned int pid)
             {
                 tmp_device = &gsl_driver.device[tmp_id-1];
 
-                if (tmp_device->mmu.flags & GSL_FLAGS_STARTED)
+                if (tmp_device->mmu.flags & KGSL_FLAGS_STARTED)
                 {
                     tmp_device->mmu.pagetable[pindex] = NULL;
                 }
@@ -312,7 +314,7 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu, unsigned int pid)
         {
             tmp_device = &gsl_driver.device[tmp_id-1];
 
-            if (tmp_device->mmu.flags & GSL_FLAGS_STARTED)
+            if (tmp_device->mmu.flags & KGSL_FLAGS_STARTED)
             {
                 if (tmp_device->mmu.pagetable[pindex])
                 {
@@ -391,7 +393,7 @@ kgsl_mmu_setpagetable(struct kgsl_device *device, unsigned int pid)
     mutex_lock(mmu->mutex);
 #endif
 
-    if (mmu->flags & GSL_FLAGS_STARTED)
+    if (mmu->flags & KGSL_FLAGS_STARTED)
     {
 #ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
 		// page table not current, then setup mmu to use new specified page table
@@ -460,13 +462,13 @@ kgsl_mmu_init(struct kgsl_device *device)
                     "--> int kgsl_mmu_init(struct kgsl_device *device=0x%08x)\n", (unsigned int) device );
 
     if (device->ftbl.mmu_tlbinvalidate == NULL || device->ftbl.mmu_setpagetable == NULL ||
-        !(device->flags & GSL_FLAGS_INITIALIZED))
+        !(device->flags & KGSL_FLAGS_INITIALIZED))
     {
         KGSL_MEM_VDBG( "<-- kgsl_mmu_init. Return value %d\n", GSL_FAILURE );
         return (GSL_FAILURE);
     }
 
-    if (mmu->flags & GSL_FLAGS_INITIALIZED0)
+    if (mmu->flags & KGSL_FLAGS_INITIALIZED0)
     {
         KGSL_MEM_VDBG("MMU already initialized.\n" );
         KGSL_MEM_VDBG( "<-- kgsl_mmu_init. Return value %d\n", GSL_SUCCESS );
@@ -477,7 +479,7 @@ kgsl_mmu_init(struct kgsl_device *device)
     mmu->device = device;
 
     // disable MMU when running in safe mode
-    if (device->flags & GSL_FLAGS_SAFEMODE)
+    if (device->flags & KGSL_FLAGS_SAFEMODE)
     {
         mmu->config = 0x00000000;
     }
@@ -492,7 +494,7 @@ kgsl_mmu_init(struct kgsl_device *device)
     kgsl_intr_enable(&device->intr, gsl_cfg_mh_intr[devindex].AXI_WRITE_ERROR);
 
     mmu->refcnt  = 0;
-    mmu->flags  |= GSL_FLAGS_INITIALIZED0;
+    mmu->flags  |= KGSL_FLAGS_INITIALIZED0;
 
     // MMU enabled
     if (mmu->config & 0x1)
@@ -512,7 +514,7 @@ kgsl_mmu_init(struct kgsl_device *device)
         kgsl_intr_attach(&device->intr, gsl_cfg_mh_intr[devindex].MMU_PAGE_FAULT, kgsl_mh_intrcallback, (void *) mmu);
         kgsl_intr_enable(&device->intr, gsl_cfg_mh_intr[devindex].MMU_PAGE_FAULT);
 
-        mmu->flags |= GSL_FLAGS_INITIALIZED;
+        mmu->flags |= KGSL_FLAGS_INITIALIZED;
 
         // sub-client MMU lookups require address translation
         if ((mmu->config & ~0x1) > 0)
@@ -572,7 +574,7 @@ kgsl_mmu_init(struct kgsl_device *device)
 
 			GSL_MMU_STATS(mmu->stats.tlbflushes++);
 
-            mmu->flags |= GSL_FLAGS_STARTED;
+            mmu->flags |= KGSL_FLAGS_STARTED;
         }
     }
 
@@ -672,7 +674,7 @@ kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t
             // every device's tlb needs to be flushed because the current page table is shared among all devices
             for (i = 0; i < KGSL_DEVICE_MAX; i++)
             {
-                if (gsl_driver.device[i].flags & GSL_FLAGS_INITIALIZED)
+                if (gsl_driver.device[i].flags & KGSL_FLAGS_INITIALIZED)
                 {
                     gsl_driver.device[i].mmu.flags |= GSL_MMUFLAGS_TLBFLUSH;
                 }
@@ -912,9 +914,9 @@ kgsl_mmu_close(struct kgsl_device *device)
 
     KGSL_MEM_VDBG( "--> int kgsl_mmu_close(struct kgsl_device *device=0x%08x)\n", (unsigned int) device );
 
-    if (mmu->flags & GSL_FLAGS_INITIALIZED0)
+    if (mmu->flags & KGSL_FLAGS_INITIALIZED0)
     {
-        if (mmu->flags & GSL_FLAGS_STARTED)
+        if (mmu->flags & KGSL_FLAGS_STARTED)
         {
             // terminate pagetable object
             kgsl_mmu_destroypagetableobject(mmu, current->tgid);
@@ -958,9 +960,9 @@ kgsl_mmu_close(struct kgsl_device *device)
 	    kfree(mmu->mutex);
 	    mmu->mutex = NULL;
 #endif
-            mmu->flags &= ~GSL_FLAGS_STARTED;
-            mmu->flags &= ~GSL_FLAGS_INITIALIZED;
-            mmu->flags &= ~GSL_FLAGS_INITIALIZED0;
+            mmu->flags &= ~KGSL_FLAGS_STARTED;
+            mmu->flags &= ~KGSL_FLAGS_INITIALIZED;
+            mmu->flags &= ~KGSL_FLAGS_INITIALIZED0;
         }
     }
 
@@ -987,12 +989,12 @@ kgsl_mmu_attachcallback(struct kgsl_mmu *mmu, unsigned int pid)
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(mmu->mutex);
 #endif
-    if (mmu->flags & GSL_FLAGS_INITIALIZED0)
+    if (mmu->flags & KGSL_FLAGS_INITIALIZED0)
     {
         // attach to current device mmu
         mmu->refcnt++;
 
-        if (mmu->flags & GSL_FLAGS_STARTED)
+        if (mmu->flags & KGSL_FLAGS_STARTED)
         {
             // attach to pagetable object
             pagetable = kgsl_mmu_createpagetableobject(mmu, pid);
@@ -1031,12 +1033,12 @@ kgsl_mmu_detachcallback(struct kgsl_mmu *mmu, unsigned int pid)
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(mmu->mutex);
 #endif
-    if (mmu->flags & GSL_FLAGS_INITIALIZED0)
+    if (mmu->flags & KGSL_FLAGS_INITIALIZED0)
     {
         // detach from current device mmu
         mmu->refcnt--;
 
-        if (mmu->flags & GSL_FLAGS_STARTED)
+        if (mmu->flags & KGSL_FLAGS_STARTED)
         {
             // detach from pagetable object
             pagetable = kgsl_mmu_getpagetableobject(mmu, pid);
@@ -1072,7 +1074,7 @@ kgsl_mmu_querystats(struct kgsl_mmu *mmu, gsl_mmustats_t *stats)
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
     mutex_lock(mmu->mutex);
 #endif
-    if (mmu->flags & GSL_FLAGS_STARTED)
+    if (mmu->flags & KGSL_FLAGS_STARTED)
     {
 		memcpy(stats, &mmu->stats, sizeof(gsl_mmustats_t));
     }

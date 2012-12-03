@@ -16,6 +16,8 @@
  *
  */
 #include <linux/debugfs.h>
+#include <linux/mxc_kgsl.h>
+
 #include "kgsl_log.h"
 #include "kgsl_ringbuffer.h"
 #include "kgsl_device.h"

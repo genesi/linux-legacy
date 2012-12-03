@@ -19,6 +19,8 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 
+#include <linux/mxc_kgsl.h>
+
 #include "kgsl_types.h"
 #include "kgsl_intrmgr.h"
 #include "kgsl_device.h"
@@ -68,7 +70,7 @@ kgsl_intr_decode(struct kgsl_device *device, gsl_intrblock_t block_id)
 
     // read the block's interrupt status bits
     /* exclude CP block here to avoid hang in heavy loading with VPU+GPU */
-    if ((block_id == GSL_INTR_BLOCK_YDX_CP) && (device->flags & GSL_FLAGS_STARTED)) {
+    if ((block_id == GSL_INTR_BLOCK_YDX_CP) && (device->flags & KGSL_FLAGS_STARTED)) {
 	status = 0x80000000;
     } else {
 	device->ftbl.regread(device, block->status_reg, &status);
@@ -95,7 +97,7 @@ kgsl_intr_decode(struct kgsl_device *device, gsl_intrblock_t block_id)
 void
 kgsl_intr_isr(struct kgsl_device *device)
 {
-    if (device->intr.flags & GSL_FLAGS_INITIALIZED) {
+    if (device->intr.flags & KGSL_FLAGS_INITIALIZED) {
 	kgsl_device_active(device);
 	device->ftbl.intr_isr(device);
     }
@@ -110,13 +112,13 @@ int kgsl_intr_init(struct kgsl_device *device)
         return (GSL_FAILURE_BADPARAM);
     }
 
-    if (device->intr.flags & GSL_FLAGS_INITIALIZED)
+    if (device->intr.flags & KGSL_FLAGS_INITIALIZED)
     {
         return (GSL_SUCCESS);
     }
 
     device->intr.device  = device;
-    device->intr.flags  |= GSL_FLAGS_INITIALIZED;
+    device->intr.flags  |= KGSL_FLAGS_INITIALIZED;
 
     // os_interrupt_setcallback(YAMATO_INTR, kgsl_intr_isr);
     // os_interrupt_enable(YAMATO_INTR);
@@ -131,7 +133,7 @@ int kgsl_intr_close(struct kgsl_device *device)
     const gsl_intrblock_reg_t  *block;
     int                        i, id;
 
-    if (device->intr.flags & GSL_FLAGS_INITIALIZED)
+    if (device->intr.flags & KGSL_FLAGS_INITIALIZED)
     {
         // check if there are any enabled interrupts lingering around
         for (i = 0; i < GSL_INTR_BLOCK_COUNT; i++)

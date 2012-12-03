@@ -20,6 +20,8 @@
 #include <linux/kernel.h>
 #include <linux/fs.h>
 
+#include <linux/mxc_kgsl.h>
+
 #include "kgsl_driver.h"
 #include "kgsl_kmod_cleanup.h"
 #include "kgsl_device.h"
@@ -57,10 +59,10 @@ static s8 *find_first_entry_with(s8 *subarray, s8 context_id)
 
 //printk(KERN_DEBUG "At %s, ctx_id = %d\n", __func__, context_id);
 
-    DEBUG_ASSERT(context_id >= EMPTY_ENTRY);    
-    DEBUG_ASSERT(context_id <= GSL_CONTEXT_MAX);  // TODO: check the bound.
+    DEBUG_ASSERT(context_id >= EMPTY_ENTRY);
+    DEBUG_ASSERT(context_id <= KGSL_CONTEXT_MAX);  // TODO: check the bound.
 
-    for(i = 0; i < GSL_CONTEXT_MAX; i++)        // TODO: check the bound.
+    for(i = 0; i < KGSL_CONTEXT_MAX; i++)        // TODO: check the bound.
     {
         if(subarray[i] == (s8)context_id)
         {
@@ -192,7 +194,7 @@ int del_all_memblocks_from_allocated_list(struct file *fd)
 
 void init_created_contexts_array(s8 *array)
 {
-    memset((void*)array, EMPTY_ENTRY, KGSL_DEVICE_MAX * GSL_CONTEXT_MAX);
+    memset((void*)array, EMPTY_ENTRY, KGSL_DEVICE_MAX * KGSL_CONTEXT_MAX);
 }
 
 
@@ -212,7 +214,7 @@ void add_device_context_to_array(struct file *fd,
 
     DEBUG_ASSERT(entry);
     DEBUG_ASSERT((datp->created_contexts_array[device_index] <= entry) &&
-               (entry < datp->created_contexts_array[device_index] + GSL_CONTEXT_MAX));
+               (entry < datp->created_contexts_array[device_index] + KGSL_CONTEXT_MAX));
     DEBUG_ASSERT(context_id < 127);
     *entry = (s8)context_id;
 }
@@ -252,7 +254,7 @@ void del_all_devices_contexts(struct file *fd)
     for(id = KGSL_DEVICE_ANY + 1; id <= KGSL_DEVICE_MAX; id++)
     {
         device_index = device_id_to_device_index(id);
-        for(ctx_array_index = 0; ctx_array_index < GSL_CONTEXT_MAX; ctx_array_index++)
+        for(ctx_array_index = 0; ctx_array_index < KGSL_CONTEXT_MAX; ctx_array_index++)
         {
             ctx = datp->created_contexts_array[device_index][ctx_array_index];
             if(ctx != EMPTY_ENTRY)

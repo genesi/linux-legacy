@@ -26,23 +26,132 @@
  *
  */
 
-#ifndef _GSL_IOCTL_H
-#define _GSL_IOCTL_H
-
-#include "kgsl_types.h"
-#include "kgsl_properties.h"
+#ifndef _MXC_KGSL_H
+#define _MXC_KGSL_H
 
 /* for porting to mxc_kgsl.h include:
  * flag values like KGSL_FLAGS_INITIALIZED and context flags
- *  kgsl_deviceid
- *  kgsl_devinfo
- *  kgsl_devmemstore
- *  kgsl_timestamp_type
- *  kgsl_property_type
- *  kgsl_shadowprop ??
- *  kgsl_platform_data
- *  kgsl_cmdwindow_type
+ *  kgsl_platform_data?
+ *  kgsl_cmdwindow_type?
  */
+
+#define KGSL_FLAGS_NORMALMODE            0x00000000
+#define KGSL_FLAGS_SAFEMODE              0x00000001
+#define KGSL_FLAGS_INITIALIZED0          0x00000002
+#define KGSL_FLAGS_INITIALIZED           0x00000004
+#define KGSL_FLAGS_STARTED               0x00000008
+#define KGSL_FLAGS_ACTIVE                0x00000010
+#define KGSL_FLAGS_RESERVED0             0x00000020
+#define KGSL_FLAGS_RESERVED1             0x00000040
+#define KGSL_FLAGS_RESERVED2             0x00000080
+
+/* context flags */
+#define KGSL_CONTEXT_MAX             20
+#define KGSL_CONTEXT_NONE            0
+#define KGSL_CONTEXT_SAVE_GMEM       1
+#define KGSL_CONTEXT_NO_GMEM_ALLOC   2
+
+/* device id */
+enum kgsl_deviceid
+{
+	KGSL_DEVICE_ANY    = 0x00000000,
+	KGSL_DEVICE_YAMATO = 0x00000001,
+	KGSL_DEVICE_G12    = 0x00000002,
+	KGSL_DEVICE_MAX    = 0x00000002
+};
+
+struct kgsl_devinfo {
+	unsigned int device_id;
+	/* chip revision id
+	* coreid:8 majorrev:8 minorrev:8 patch:8
+	*/
+	unsigned int chip_id;
+	unsigned int mmu_enabled;        // mmu address translation enabled
+	unsigned int gmem_gpubaseaddr;
+	/* if gmem_hostbaseaddr is NULL, we would know its not mapped into
+	 * mmio space */
+	void *gmem_hostbaseaddr;
+	unsigned int gmem_sizebytes;
+	/* mx50 z160 has higher gradient/texture precision */
+	unsigned int high_precision;
+};
+
+/* this structure defines the region of memory that can be mmap()ed from this
+   driver. The timestamp fields are volatile because they are written by the
+   GPU
+*/
+struct kgsl_devmemstore {
+	volatile unsigned int  soptimestamp;
+	unsigned int           sbz;
+	volatile unsigned int  eoptimestamp;
+	unsigned int           sbz2;
+};
+
+#define KGSL_DEVICE_MEMSTORE_OFFSET(field) \
+	offsetof(struct kgsl_devmemstore, field)
+
+/* timestamp id*/
+enum kgsl_timestamp_type {
+	KGSL_TIMESTAMP_CONSUMED = 0x00000001, /* start-of-pipeline timestamp */
+	KGSL_TIMESTAMP_RETIRED  = 0x00000002, /* end-of-pipeline timestamp */
+	KGSL_TIMESTAMP_MAX      = 0x00000002,
+	KGSL_TIMESTAMP_FOOBAR   = 0x7FFFFFFF
+};
+
+#define KGSL_TIMESTAMP_EPSILON	20000
+enum kgsl_property_type
+{
+	KGSL_PROP_DEVICE_INFO      = 0x00000001,
+	KGSL_PROP_DEVICE_SHADOW    = 0x00000002,
+	KGSL_PROP_DEVICE_POWER     = 0x00000003,
+	KGSL_PROP_SHMEM            = 0x00000004,
+	KGSL_PROP_SHMEM_APERTURES  = 0x00000005,
+	KGSL_PROP_DEVICE_DMI       = 0x00000006  /* qcom: MMU_ENABLE */
+};
+
+/* qcom: not used, passes pointers directly due to simpler memory manager */
+struct kgsl_memdesc {
+	void *hostptr;
+	uint32_t gpuaddr;
+	int size;
+	unsigned int priv;
+	unsigned int unused;
+};
+
+/* qcom: kgsl_devinfo is the structure returned by PROP_DEVICE_INFO, qcom code ignores anything other than 0x1 or 0x2 */
+
+/* NQ */
+struct kgsl_apertureprop {
+	unsigned int  gpuaddr;
+	unsigned int  hostaddr;
+};
+
+/* NQ */
+struct kgsl_shmemprop {
+	int numapertures;
+	unsigned int aperture_mask;
+	unsigned int aperture_shift;
+	struct kgsl_apertureprop *aperture;
+};
+
+struct kgsl_shadowprop {
+	unsigned int hostaddr; /* qcom: called gpuaddr */
+	unsigned int size;
+	unsigned int flags; /* contains KGSL_FLAGS_ values */
+};
+
+/* NQ */
+struct kgsl_powerprop {
+	unsigned int value;
+	unsigned int flags;
+};
+
+/* NQ */
+struct kgsl_dmiprop {
+	unsigned int value;
+	unsigned int flags;
+};
+
 
 /*
  * please check of NQ items are even called from FSL userspace
@@ -145,16 +254,6 @@ struct kgsl_device_regwrite {
 #define IOCTL_KGSL_DEVICE_REGWRITE \
 	_IOW(KGSL_IOC_TYPE, 0x27, struct kgsl_device_regwrite)
 
-struct kgsl_device_waitirq {
-	unsigned int device_id;
-	gsl_intrid_t intr_id;
-	unsigned int *count;
-	unsigned int timeout;
-};
-
-#define IOCTL_KGSL_DEVICE_WAITIRQ \
-	_IOWR(KGSL_IOC_TYPE, 0x28, struct kgsl_device_waitirq)
-
 /*
  * qcom: kgsl_ringbuffer_issueibcmds IOCNR=0x10
  * all unsigned int (including timestamp!?)
@@ -218,6 +317,18 @@ struct kgsl_cmdstream_waittimestamp {
 #define IOCTL_KGSL_CMDSTREAM_WAITTIMESTAMP \
 	_IOW(KGSL_IOC_TYPE, 0x2C, struct kgsl_cmdstream_waittimestamp)
 
+
+enum kgsl_cmdwindow_type {
+    GSL_CMDWINDOW_MIN     = 0x00000000,
+    GSL_CMDWINDOW_2D      = 0x00000000,
+    GSL_CMDWINDOW_3D      = 0x00000001,     /* legacy */
+    GSL_CMDWINDOW_MMU     = 0x00000002,
+    GSL_CMDWINDOW_ARBITER = 0x000000FF,
+    GSL_CMDWINDOW_MAX     = 0x000000FF,
+
+    GSL_CMDWINDOW_FOOBAR  = 0x7FFFFFFF,
+};
+
 /*
  * write to the commend window
  * qcom: IOCNR=0x2e, kgsl_cmdwindow_type defined just here
@@ -256,6 +367,25 @@ struct kgsl_context_destroy {
 
 #define IOCTL_KGSL_CONTEXT_DESTROY \
 	_IOW(KGSL_IOC_TYPE, 0x2F, struct kgsl_context_destroy)
+
+
+struct kgsl_gmem_desc {
+	unsigned int x;
+	unsigned int y;
+	unsigned int width;
+	unsigned int height;
+	unsigned int pitch;
+};
+
+struct kgsl_buffer_desc {
+	/* qcom: hostptr, gpuaddr, size, format, pitch, enabled */
+	struct kgsl_memdesc data;
+	unsigned int width;
+	unsigned int height;
+	unsigned int pitch;
+	unsigned int format;
+	unsigned int enabled;
+};
 
 /* qcom: kgsl_bind_gmem_shadow, no device_id, struct is not a pointer, IOCNR=0x22 */
 struct kgsl_drawctxt_bind_gmem_shadow {
@@ -378,4 +508,4 @@ struct kgsl_device_clock {
 #define IOCTL_KGSL_DEVICE_CLOCK \
 	_IOWR(KGSL_IOC_TYPE, 0x60, struct kgsl_device_clock)
 
-#endif /* _GSL_IOCTL_H */
+#endif /* _MXC_KGSL_H */

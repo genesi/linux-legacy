@@ -18,6 +18,7 @@
 
 #include <linux/slab.h>
 #include <linux/sched.h>
+#include <linux/mxc_kgsl.h>
 
 #include "kgsl_types.h"
 #include "kgsl_driver.h"
@@ -97,7 +98,7 @@ kgsl_sharedmem_init(struct kgsl_sharedmem *shmem)
 
     KGSL_MEM_VDBG("--> int kgsl_sharedmem_init(struct kgsl_sharedmem *shmem=0x%08x)\n", (unsigned int) shmem );
 
-    if (shmem->flags & GSL_FLAGS_INITIALIZED)
+    if (shmem->flags & KGSL_FLAGS_INITIALIZED)
     {
         KGSL_MEM_VDBG("<-- kgsl_sharedmem_init. Return value %d\n", GSL_SUCCESS );
         return (GSL_SUCCESS);
@@ -170,7 +171,7 @@ kgsl_sharedmem_init(struct kgsl_sharedmem *shmem)
         }
     }
 
-    shmem->flags |= GSL_FLAGS_INITIALIZED;
+    shmem->flags |= KGSL_FLAGS_INITIALIZED;
 
     KGSL_MEM_VDBG("<-- kgsl_sharedmem_init. Return value %d\n", GSL_SUCCESS );
 
@@ -187,7 +188,7 @@ kgsl_sharedmem_close(struct kgsl_sharedmem *shmem)
 
     KGSL_MEM_VDBG("int kgsl_sharedmem_close(struct kgsl_sharedmem *shmem=0x%08x)\n", (unsigned int) shmem );
 
-    if (shmem->flags & GSL_FLAGS_INITIALIZED)
+    if (shmem->flags & KGSL_FLAGS_INITIALIZED)
     {
         for (i = 0; i < shmem->numapertures; i++)
         {
@@ -229,7 +230,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_alloc(unsigned int dev
 
     memset(memdesc, 0, sizeof(struct kgsl_memdesc));
 
-    if (!(shmem->flags & GSL_FLAGS_INITIALIZED))
+    if (!(shmem->flags & KGSL_FLAGS_INITIALIZED))
     {
         KGSL_MEM_VDBG("ERROR: Shared memory not initialized.\n" );
         KGSL_MEM_VDBG("<-- kgsl_sharedmem_alloc. Return value %d\n", GSL_FAILURE );
@@ -240,7 +241,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_alloc(unsigned int dev
     tmp_id = (device_id != KGSL_DEVICE_ANY) ? device_id : device_id+1;
     for ( ; tmp_id <= KGSL_DEVICE_MAX; tmp_id++)
     {
-        if (gsl_driver.device[tmp_id-1].flags & GSL_FLAGS_INITIALIZED)
+        if (gsl_driver.device[tmp_id-1].flags & KGSL_FLAGS_INITIALIZED)
         {
             kgsl_device_runpending(&gsl_driver.device[tmp_id-1]);
 
@@ -260,7 +261,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_alloc(unsigned int dev
 
             if (device_id <= KGSL_DEVICE_MAX)
             {
-                if (gsl_driver.device[device_id-1].flags & GSL_FLAGS_INITIALIZED)
+                if (gsl_driver.device[device_id-1].flags & KGSL_FLAGS_INITIALIZED)
                 {
                     break;
                 }
@@ -415,7 +416,7 @@ kgsl_sharedmem_free0(struct kgsl_memdesc *memdesc, unsigned int pid)
 
     shmem = &gsl_driver.shmem;
 
-    if (shmem->flags & GSL_FLAGS_INITIALIZED)
+    if (shmem->flags & KGSL_FLAGS_INITIALIZED)
     {
         if (kgsl_memarena_isvirtualized(shmem->apertures[aperture_index].memarena))
         {
@@ -476,7 +477,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_read(struct kgsl_memde
 
     shmem = &gsl_driver.shmem;
 
-    if (!(shmem->flags & GSL_FLAGS_INITIALIZED))
+    if (!(shmem->flags & KGSL_FLAGS_INITIALIZED))
     {
         KGSL_MEM_VDBG("ERROR: Shared memory not initialized.\n" );
         KGSL_MEM_VDBG("<-- kgsl_sharedmem_read. Return value %d\n", GSL_FAILURE );
@@ -539,7 +540,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_write(struct kgsl_memd
 
     shmem = &gsl_driver.shmem;
 
-    if (!(shmem->flags & GSL_FLAGS_INITIALIZED))
+    if (!(shmem->flags & KGSL_FLAGS_INITIALIZED))
     {
         KGSL_MEM_VDBG("ERROR: Shared memory not initialized.\n" );
         KGSL_MEM_VDBG("<-- kgsl_sharedmem_write. Return value %d\n", GSL_FAILURE );
@@ -596,7 +597,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_set(struct kgsl_memdes
 
     shmem = &gsl_driver.shmem;
 
-    if (!(shmem->flags & GSL_FLAGS_INITIALIZED))
+    if (!(shmem->flags & KGSL_FLAGS_INITIALIZED))
     {
         KGSL_MEM_VDBG("ERROR: Shared memory not initialized.\n" );
         KGSL_MEM_VDBG("<-- kgsl_sharedmem_set. Return value %d\n", GSL_FAILURE );
@@ -656,7 +657,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_largestfreeblock(unsig
 
     shmem = &gsl_driver.shmem;
 
-    if (!(shmem->flags & GSL_FLAGS_INITIALIZED))
+    if (!(shmem->flags & KGSL_FLAGS_INITIALIZED))
     {
         KGSL_MEM_VDBG("ERROR: Shared memory not initialized.\n" );
         mutex_unlock(&gsl_driver.lock);
@@ -695,7 +696,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_map(unsigned int devic
     tmp_id = (device_id != KGSL_DEVICE_ANY) ? device_id : device_id+1;
     for ( ; tmp_id <= KGSL_DEVICE_MAX; tmp_id++)
     {
-        if (gsl_driver.device[tmp_id-1].flags & GSL_FLAGS_INITIALIZED)
+        if (gsl_driver.device[tmp_id-1].flags & KGSL_FLAGS_INITIALIZED)
         {
             kgsl_device_runpending(&gsl_driver.device[tmp_id-1]);
 
@@ -715,7 +716,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_map(unsigned int devic
 
             if (device_id <= KGSL_DEVICE_MAX)
             {
-                if (gsl_driver.device[device_id-1].flags & GSL_FLAGS_INITIALIZED)
+                if (gsl_driver.device[device_id-1].flags & KGSL_FLAGS_INITIALIZED)
                 {
                     break;
                 }
@@ -731,7 +732,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_map(unsigned int devic
 
     DEBUG_ASSERT(device_id > KGSL_DEVICE_ANY && device_id <= KGSL_DEVICE_MAX);
 
-    if (shmem->flags & GSL_FLAGS_INITIALIZED)
+    if (shmem->flags & KGSL_FLAGS_INITIALIZED)
     {
         aperture_index = kgsl_sharedmem_getapertureindex(shmem, GSL_APERTURE_EMEM, GSL_CHANNEL_1);
 
@@ -789,7 +790,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_getmap(struct kgsl_mem
 
     shmem = &gsl_driver.shmem;
 
-    if (shmem->flags & GSL_FLAGS_INITIALIZED)
+    if (shmem->flags & KGSL_FLAGS_INITIALIZED)
     {
         DEBUG_ASSERT(scatterlist->num);
         DEBUG_ASSERT(scatterlist->pages);
@@ -826,7 +827,7 @@ kgsl_sharedmem_querystats(struct kgsl_sharedmem *shmem, gsl_sharedmem_stats_t *s
 
     DEBUG_ASSERT(stats);
 
-    if (shmem->flags & GSL_FLAGS_INITIALIZED)
+    if (shmem->flags & KGSL_FLAGS_INITIALIZED)
     {
         for (i = 0; i < shmem->numapertures; i++)
         {
@@ -864,7 +865,7 @@ kgsl_sharedmem_convertaddr(unsigned int addr, int type)
     unsigned int     gpubaseaddr, hostbaseaddr, sizebytes;
     int              i;
 
-    if ((shmem->flags & GSL_FLAGS_INITIALIZED))
+    if ((shmem->flags & KGSL_FLAGS_INITIALIZED))
     {
         for (i = 0; i < shmem->numapertures; i++)
         {

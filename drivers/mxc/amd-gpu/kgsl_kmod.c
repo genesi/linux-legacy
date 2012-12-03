@@ -34,11 +34,10 @@
 
 #include <linux/fsl_devices.h>
 
+#include <linux/mxc_kgsl.h>
 
 #include "kgsl_types.h"
-#include "kgsl_properties.h"
 #include "kgsl_linux_map.h"
-#include "kgsl_ioctl.h"
 #include "kgsl_driver.h"
 
 #include "kgsl_device.h"

@@ -172,19 +172,6 @@ typedef struct _os_cputimer_t {
 #define GSL_DBGFLAGS_NULL               0x00002000
 
 
-//////////////////////////////////////////////////////////////////////////////
-// generic flag values
-//////////////////////////////////////////////////////////////////////////////
-#define GSL_FLAGS_NORMALMODE            0x00000000
-#define GSL_FLAGS_SAFEMODE              0x00000001
-#define GSL_FLAGS_INITIALIZED0          0x00000002
-#define GSL_FLAGS_INITIALIZED           0x00000004
-#define GSL_FLAGS_STARTED               0x00000008
-#define GSL_FLAGS_ACTIVE                0x00000010
-#define GSL_FLAGS_RESERVED0             0x00000020
-#define GSL_FLAGS_RESERVED1             0x00000040
-#define GSL_FLAGS_RESERVED2             0x00000080
-
 #define GSL_PWRFLAGS_POWER_OFF          0x00000001
 #define GSL_PWRFLAGS_POWER_ON           0x00000002
 #define GSL_PWRFLAGS_CLK_ON             0x00000004
@@ -196,26 +183,11 @@ typedef struct _os_cputimer_t {
 #define GSL_CACHEFLAGS_INVALIDATE       0x00000002  /* invalidate cache     */
 #define GSL_CACHEFLAGS_WRITECLEAN       0x00000004  /* flush write cache    */
 
-#define GSL_CONTEXT_MAX             20
-#define GSL_CONTEXT_NONE            0
-#define GSL_CONTEXT_SAVE_GMEM       1
-#define GSL_CONTEXT_NO_GMEM_ALLOC   2
-
 #define GSL_TIMEOUT_NONE                        0
 #define GSL_TIMEOUT_DEFAULT                     0xFFFFFFFF
 
-#define GSL_TIMESTAMP_EPSILON           20000
 
 typedef unsigned int        uint32_t;
-
-/* device id */
-enum kgsl_deviceid
-{
-	KGSL_DEVICE_ANY    = 0x00000000,
-	KGSL_DEVICE_YAMATO = 0x00000001,
-	KGSL_DEVICE_G12    = 0x00000002,
-	KGSL_DEVICE_MAX    = 0x00000002
-};
 
 // ----------------
 // chip revision id
@@ -254,32 +226,6 @@ typedef enum _gsl_chipid_t
 #undef MAJORID
 #undef MINORID
 #undef PATCHID
-
-// -----------
-// device info
-// -----------
-struct kgsl_devinfo {
-
-    unsigned int  	device_id;          // ID of this device
-    unsigned int    chip_id;
-    unsigned int    mmu_enabled;        // mmu address translation enabled
-    unsigned int    gmem_gpubaseaddr;
-    void *          gmem_hostbaseaddr;  // if gmem_hostbaseaddr is NULL, we would know its not mapped into mmio space
-    unsigned int    gmem_sizebytes;
-    unsigned int    high_precision; /* mx50 z160 has higher gradient/texture precision */
-};
-
-// -------------------
-// device memory store
-// -------------------
-struct kgsl_devmemstore {
-    volatile unsigned int  soptimestamp;
-    unsigned int           sbz;
-    volatile unsigned int  eoptimestamp;
-    unsigned int           sbz2;
-};
-
-#define KGSL_DEVICE_MEMSTORE_OFFSET(field)       offsetof(struct kgsl_devmemstore, field)
 
 // -----------
 // aperture id
@@ -337,13 +283,6 @@ struct kgsl_memregion {
 // ------------------------
 // shared memory allocation
 // ------------------------
-struct kgsl_memdesc {
-    void          *hostptr;
-    uint32_t      gpuaddr;
-    int            size;
-    unsigned int   priv;
-    unsigned int   unused;
-};
 
 // ---------------------------------
 // physical page scatter/gatter list
@@ -372,61 +311,13 @@ typedef struct _gsl_memqueue_t {
     gsl_memnode_t   *tail;
 } gsl_memqueue_t;
 
-/* timestamp id*/
-enum kgsl_timestamp_type {
-    GSL_TIMESTAMP_CONSUMED = 0x00000001, // start-of-pipeline timestamp
-    GSL_TIMESTAMP_RETIRED  = 0x00000002, // end-of-pipeline timestamp
-    GSL_TIMESTAMP_MAX      = 0x00000002,
-
-    GSL_TIMESTAMP_FOOBAR   = 0x7FFFFFFF
-};
-
-/* unused? */
-enum kgsl_context_type
-{
-    GSL_CONTEXT_TYPE_GENERIC = 1,
-    GSL_CONTEXT_TYPE_OPENGL  = 2,
-    GSL_CONTEXT_TYPE_OPENVG  = 3,
-
-    GSL_CONTEXT_TYPE_FOOBAR  = 0x7FFFFFFF
-};
-
 // ---------
 // rectangle
 // ---------
-struct kgsl_gmem_desc {
-    unsigned int x;
-    unsigned int y;
-    unsigned int width;
-    unsigned int height;
-	unsigned int pitch;
-} ;
-
-// -----------------------
-// pixel buffer descriptor
-// -----------------------
-struct kgsl_buffer_desc {
-    struct kgsl_memdesc data;
-	unsigned int width;
-	unsigned int height;
-	unsigned int pitch;
-	unsigned int format;
-    unsigned int enabled;
-};
 
 // ---------------------
 // command window target
 // ---------------------
-enum kgsl_cmdwindow_type {
-    GSL_CMDWINDOW_MIN     = 0x00000000,
-    GSL_CMDWINDOW_2D      = 0x00000000,
-    GSL_CMDWINDOW_3D      = 0x00000001,     /* legacy */
-    GSL_CMDWINDOW_MMU     = 0x00000002,
-    GSL_CMDWINDOW_ARBITER = 0x000000FF,
-    GSL_CMDWINDOW_MAX     = 0x000000FF,
-
-    GSL_CMDWINDOW_FOOBAR  = 0x7FFFFFFF,
-};
 
 // ------------
 // interrupt id

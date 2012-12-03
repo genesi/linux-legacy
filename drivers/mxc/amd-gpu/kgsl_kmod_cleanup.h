@@ -36,7 +36,7 @@
 
 #include "kgsl_types.h"
 
-#if (GSL_CONTEXT_MAX > 127)
+#if (KGSL_CONTEXT_MAX > 127)
     #error created_contexts_array supports context numbers only 127 or less.
 #endif
 
@@ -57,7 +57,7 @@ struct kgsl_file_private
     struct list_head allocated_blocks_head; // list head
     u32 maximum_number_of_blocks;
     u32 number_of_allocated_blocks;
-    s8 created_contexts_array[KGSL_DEVICE_MAX][GSL_CONTEXT_MAX];
+    s8 created_contexts_array[KGSL_DEVICE_MAX][KGSL_CONTEXT_MAX];
 };
 
 

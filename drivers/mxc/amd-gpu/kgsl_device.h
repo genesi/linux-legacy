@@ -45,7 +45,6 @@ struct kgsl_device;
 #include "kgsl_ringbuffer.h" // for struct kgsl_ringbuffer
 #include "kgsl_drawctxt.h" // struct kgsl_drawctxt
 #include "kgsl_g12_cmdwindow.h" // for GSL_G12_INTR_COUNT
-#include "kgsl_properties.h" // for enum kgsl_property_type
 #include "kgsl_mmu.h" // for kgsl_mmu
 
 // --------------
@@ -102,7 +101,7 @@ struct kgsl_device {
 	struct mutex 	  *drawctxt_mutex;
 	unsigned int      drawctxt_count;
 	struct kgsl_drawctxt    *drawctxt_active;
-	struct kgsl_drawctxt    drawctxt[GSL_CONTEXT_MAX];
+	struct kgsl_drawctxt    drawctxt[KGSL_CONTEXT_MAX];
 
 	unsigned int		intrcnt[GSL_G12_INTR_COUNT];
 	unsigned int		current_timestamp;

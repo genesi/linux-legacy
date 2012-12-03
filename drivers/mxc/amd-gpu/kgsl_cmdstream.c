@@ -19,10 +19,11 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 
+#include <linux/mxc_kgsl.h>
+
 #include "kgsl_types.h"
 #include "kgsl_mmu.h"
 #include "kgsl_buildconfig.h"
-//#include "kgsl_properties.h"
 #include "kgsl_device.h"
 #include "kgsl_driver.h"
 #include "kgsl_linux_map.h"
@@ -65,10 +66,10 @@ unsigned int kgsl_cmdstream_readtimestamp0(unsigned int device_id, enum kgsl_tim
 
 	KGSL_CMD_VDBG("enter (device_id=%d, type=%d)\n", device_id, type );
 
-	if (type == GSL_TIMESTAMP_CONSUMED) {
+	if (type == KGSL_TIMESTAMP_CONSUMED) {
 		// start-of-pipeline timestamp
 		KGSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, &timestamp);
-	} else if (type == GSL_TIMESTAMP_RETIRED) {
+	} else if (type == KGSL_TIMESTAMP_RETIRED) {
 		// end-of-pipeline timestamp
 		KGSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, &timestamp);
 	}
@@ -170,10 +171,10 @@ kgsl_cmdstream_memqueue_drain(struct kgsl_device *device)
         return;
     }
     // get current EOP timestamp
-    ts_processed = kgsl_cmdstream_readtimestamp0(device->id, GSL_TIMESTAMP_RETIRED);
+    ts_processed = kgsl_cmdstream_readtimestamp0(device->id, KGSL_TIMESTAMP_RETIRED);
     timestamp = memqueue->head->timestamp;
     // check head timestamp
-    if (!(((ts_processed - timestamp) >= 0) || ((ts_processed - timestamp) < -GSL_TIMESTAMP_EPSILON)))
+    if (!(((ts_processed - timestamp) >= 0) || ((ts_processed - timestamp) < -KGSL_TIMESTAMP_EPSILON)))
     {
 #ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
 	mutex_unlock(device->cmdstream_mutex);
@@ -194,7 +195,7 @@ kgsl_cmdstream_memqueue_drain(struct kgsl_device *device)
             break;
         }
         timestamp = nextnode->timestamp;
-        if (!(((ts_processed - timestamp) >= 0) || ((ts_processed - timestamp) < -GSL_TIMESTAMP_EPSILON)))
+        if (!(((ts_processed - timestamp) >= 0) || ((ts_processed - timestamp) < -KGSL_TIMESTAMP_EPSILON)))
         {
             // drained up to a point
             memqueue->head = nextnode;
@@ -273,12 +274,12 @@ kgsl_cmdstream_freememontimestamp(unsigned int device_id, struct kgsl_memdesc *m
 static int kgsl_cmdstream_timestamp_cmp(unsigned int ts_new, unsigned int ts_old)
 {
 	unsigned int ts_diff = ts_new - ts_old;
-	return (ts_diff >= 0) || (ts_diff < -GSL_TIMESTAMP_EPSILON);
+	return (ts_diff >= 0) || (ts_diff < -KGSL_TIMESTAMP_EPSILON);
 }
 
 int kgsl_cmdstream_check_timestamp(unsigned int device_id, unsigned int timestamp)
 {
 	unsigned int ts_processed;
-	ts_processed = kgsl_cmdstream_readtimestamp0(device_id, GSL_TIMESTAMP_RETIRED);
+	ts_processed = kgsl_cmdstream_readtimestamp0(device_id, KGSL_TIMESTAMP_RETIRED);
 	return kgsl_cmdstream_timestamp_cmp(ts_processed, timestamp);
 }

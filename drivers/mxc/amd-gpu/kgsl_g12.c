@@ -20,12 +20,13 @@
 #include <linux/sched.h>
 #include <linux/io.h>
 
+#include <linux/mxc_kgsl.h>
+
 #include "kgsl_types.h"
 #include "kgsl_hal.h"
 #include "kgsl_cmdstream.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_driver.h"
-#include "kgsl_ioctl.h"
 #include "kgsl_g12_drawctxt.h"
 #include "kgsl_g12_cmdstream.h"
 
@@ -198,7 +199,7 @@ kgsl_g12_init(struct kgsl_device *device)
 {
     int  status = GSL_FAILURE;
 
-    device->flags |= GSL_FLAGS_INITIALIZED;
+    device->flags |= KGSL_FLAGS_INITIALIZED;
 
     kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_POWER_ON, 100);
 
@@ -284,7 +285,7 @@ kgsl_g12_close(struct kgsl_device *device)
 
         kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_POWER_OFF, 0);
 
-        device->flags &= ~GSL_FLAGS_INITIALIZED;
+        device->flags &= ~KGSL_FLAGS_INITIALIZED;
 
         drawctx_id = 0;
 
@@ -333,7 +334,7 @@ int kgsl_g12_start(struct kgsl_device *device, unsigned int flags)
 
 	/* qcom: bitch if not initialized */
 
-	if (device->flags & GSL_FLAGS_STARTED) {
+	if (device->flags & KGSL_FLAGS_STARTED) {
 		/* already started */
 		return 0;
 	}
@@ -344,7 +345,7 @@ int kgsl_g12_start(struct kgsl_device *device, unsigned int flags)
 		return status;
 	}
 
-	device->flags |= GSL_FLAGS_STARTED;
+	device->flags |= KGSL_FLAGS_STARTED;
 	/* qcom: init idle timer work, init ringbuffer.memqueue */
 
 	return status;
@@ -357,14 +358,14 @@ int kgsl_g12_stop(struct kgsl_device *device)
 	/* qcom: delete idle timer */
 
 	/* wait for device to idle before setting it's clock off */
-	if (device->flags & GSL_FLAGS_STARTED) {
+	if (device->flags & KGSL_FLAGS_STARTED) {
 		status = kgsl_g12_idle(device, 1000);
 	}
 
 	/* qcom: destroy irq work */
 
 	status = kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_CLK_OFF, 0);
-	device->flags &= ~GSL_FLAGS_STARTED;
+	device->flags &= ~KGSL_FLAGS_STARTED;
 
 	return status;
 }
@@ -404,7 +405,7 @@ int kgsl_g12_setproperty(struct kgsl_device *device, enum kgsl_property_type typ
 
 		DEBUG_ASSERT(sizebytes == sizeof(struct kgsl_powerprop));
 
-		if (!(device->flags & GSL_FLAGS_SAFEMODE)) {
+		if (!(device->flags & KGSL_FLAGS_SAFEMODE)) {
 			kgsl_hal_setpowerstate(device->id, power->flags, power->value);
 		}
 
@@ -416,13 +417,13 @@ int kgsl_g12_setproperty(struct kgsl_device *device, enum kgsl_property_type typ
 int
 kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout)
 {
-	if ( device->flags & GSL_FLAGS_STARTED )
+	if ( device->flags & KGSL_FLAGS_STARTED )
 	{
 		for ( ; ; )
 		{
-			unsigned int retired = kgsl_cmdstream_readtimestamp0( device->id, GSL_TIMESTAMP_RETIRED );
+			unsigned int retired = kgsl_cmdstream_readtimestamp0( device->id, KGSL_TIMESTAMP_RETIRED );
 			unsigned int ts_diff = retired - device->current_timestamp;
-			if ( ts_diff >= 0 || ts_diff < -GSL_TIMESTAMP_EPSILON )
+			if ( ts_diff >= 0 || ts_diff < -KGSL_TIMESTAMP_EPSILON )
 				break;
 			msleep(10);
 		}
