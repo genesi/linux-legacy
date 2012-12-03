@@ -29,11 +29,10 @@
 #include "kgsl_halconfig.h"
 #include "kgsl_linux_map.h"
 #include "kgsl_debug.h"
+#include "kgsl_hal.h"
 #include "kgsl_log.h"
 
-/////////////////////////////////////////////////////////////////////////////
-// macros
-//////////////////////////////////////////////////////////////////////////////
+
 #define GSL_SHMEM_APERTURE_MARK(aperture_id)    \
     (shmem->priv |= (((aperture_id + 1) << GSL_APERTURE_SHIFT) & GSL_APERTURE_MASK))
 
@@ -96,13 +95,15 @@ kgsl_sharedmem_init(struct kgsl_sharedmem *shmem)
 {
     int                i;
     int                status;
-    gsl_shmemconfig_t  config;
     int                mmu_virtualized;
+    gsl_hal_t		*hal;
     gsl_apertureid_t   aperture_id;
     gsl_channelid_t    channel_id;
     unsigned int       hostbaseaddr;
     uint32_t          gpubaseaddr;
     int                sizebytes;
+
+    hal = (gsl_hal_t *) gsl_driver.hal;
 
     KGSL_MEM_VDBG("--> int kgsl_sharedmem_init(struct kgsl_sharedmem *shmem=0x%08x)\n", (unsigned int) shmem );
 
@@ -112,31 +113,27 @@ kgsl_sharedmem_init(struct kgsl_sharedmem *shmem)
         return (GSL_SUCCESS);
     }
 
-    status = kgsl_hal_getshmemconfig(&config);
-    if (status != GSL_SUCCESS)
-    {
-        KGSL_MEM_VDBG("ERROR: Unable to get sharedmem config.\n" );
-        KGSL_MEM_VDBG("<-- kgsl_sharedmem_init. Return value %d\n", status );
-        return (status);
-    }
-
-    shmem->numapertures = config.numapertures;
+    shmem->numapertures = GSL_SHMEM_MAX_APERTURES;
 
     for (i = 0; i < shmem->numapertures; i++)
     {
-        aperture_id     = config.apertures[i].id;
-        channel_id      = config.apertures[i].channel;
-        hostbaseaddr    = config.apertures[i].hostbase;
-        gpubaseaddr     = config.apertures[i].gpubase;
-        sizebytes       = config.apertures[i].sizebytes;
-        mmu_virtualized = 0;
+	int memspaceidx = GSL_HAL_MEM1;
 
-        // handle mmu virtualized aperture
-        if (aperture_id == GSL_APERTURE_MMU)
-        {
-            mmu_virtualized = 1;
-            aperture_id     = GSL_APERTURE_EMEM;
-        }
+	aperture_id = GSL_APERTURE_EMEM;
+
+	if (i == 1) {
+		memspaceidx = GSL_HAL_MEM2;
+		aperture_id = GSL_APERTURE_PHYS;
+	}
+
+	if (gsl_driver.enable_mmu && (i == 0)) {
+		mmu_virtualized = 1;
+	}
+
+	channel_id = GSL_CHANNEL_1;
+        hostbaseaddr    = (unsigned int)hal->memspace[memspaceidx].mmio_virt_base;
+        gpubaseaddr     = hal->memspace[memspaceidx].gpu_base;
+        sizebytes       = hal->memspace[memspaceidx].sizebytes;
 
         // make sure aligned to page size
         DEBUG_ASSERT((gpubaseaddr & ((1 << PAGE_SHIFT) - 1)) == 0);

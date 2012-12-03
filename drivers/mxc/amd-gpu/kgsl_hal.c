@@ -46,10 +46,6 @@
 
 #define DRVNAME "amd-gpu"
 
-#define GSL_HAL_MEM1                        0
-#define GSL_HAL_MEM2                        1
-//#define GSL_HAL_MEM3                        2
-
 #define GSL_HAL_DEBUG
 
 extern phys_addr_t gpu_2d_regbase;
@@ -244,43 +240,6 @@ kgsl_hal_close(void)
 
     return GSL_SUCCESS;
 }
-
-/* ---------------------------------------------------------------------------- */
-
-KGSLHAL_API int
-kgsl_hal_getshmemconfig(gsl_shmemconfig_t *config)
-{
-    int        status = GSL_FAILURE_DEVICEERROR;
-    gsl_hal_t  *hal   = (gsl_hal_t *) gsl_driver.hal;
-
-    memset(config, 0, sizeof(gsl_shmemconfig_t));
-
-    if (hal) {
-	config->numapertures = GSL_SHMEM_MAX_APERTURES;
-
-	if (gsl_driver.enable_mmu) {
-	    config->apertures[0].id    = GSL_APERTURE_MMU;
-	} else {
-	    config->apertures[0].id    = GSL_APERTURE_EMEM;
-	}
-	config->apertures[0].channel   = GSL_CHANNEL_1;
-	config->apertures[0].hostbase  = (unsigned int)hal->memspace[GSL_HAL_MEM1].mmio_virt_base;
-	config->apertures[0].gpubase   = hal->memspace[GSL_HAL_MEM1].gpu_base;
-	config->apertures[0].sizebytes = hal->memspace[GSL_HAL_MEM1].sizebytes;
-
-	config->apertures[1].id        = GSL_APERTURE_PHYS;
-	config->apertures[1].channel   = GSL_CHANNEL_1;
-	config->apertures[1].hostbase  = (unsigned int)hal->memspace[GSL_HAL_MEM2].mmio_virt_base;
-	config->apertures[1].gpubase   = hal->memspace[GSL_HAL_MEM2].gpu_base;
-	config->apertures[1].sizebytes = hal->memspace[GSL_HAL_MEM2].sizebytes;
-
-	status = GSL_SUCCESS;
-    }
-
-    return status;
-}
-
-/* ---------------------------------------------------------------------------- */
 
 #ifdef CONFIG_KGSL_MMU_PAGE_FAULT
 /* page fault when a mapping fails. Not ideal! */

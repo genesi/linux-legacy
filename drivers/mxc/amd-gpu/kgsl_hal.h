@@ -72,28 +72,9 @@ struct kgsl_devconfig {
     struct kgsl_memregion  gmemspace;
 };
 
-// ----------------------
-// memory aperture config
-// ----------------------
-typedef struct _gsl_apertureconfig_t
-{
-    gsl_apertureid_t  id;
-    gsl_channelid_t   channel;
-    unsigned int      hostbase;
-    unsigned int      gpubase;
-    unsigned int      sizebytes;
-} gsl_apertureconfig_t;
-
-#define GSL_SHMEM_MAX_APERTURES     2
-
-// --------------------
-// shared memory config
-// --------------------
-typedef struct _gsl_shmemconfig_t
-{
-    int                   numapertures;
-    gsl_apertureconfig_t  apertures[GSL_SHMEM_MAX_APERTURES];
-} gsl_shmemconfig_t;
+#define GSL_HAL_MEM1                        0
+#define GSL_HAL_MEM2                        1
+#define GSL_SHMEM_MAX_APERTURES 2
 
 typedef struct _gsl_hal_t {
      struct kgsl_memregion z160_regspace;
@@ -110,7 +91,6 @@ typedef struct _gsl_hal_t {
 //////////////////////////////////////////////////////////////////////////////
 KGSLHAL_API int             kgsl_hal_init(void);
 KGSLHAL_API int             kgsl_hal_close(void);
-KGSLHAL_API int             kgsl_hal_getshmemconfig(gsl_shmemconfig_t *config);
 KGSLHAL_API int             kgsl_hal_getdevconfig(unsigned int device_id, struct kgsl_devconfig *config);
 KGSLHAL_API int             kgsl_hal_setpowerstate(unsigned int device_id, int state, unsigned int value);
 KGSLHAL_API unsigned int    kgsl_hal_getchipid(unsigned int device_id);
