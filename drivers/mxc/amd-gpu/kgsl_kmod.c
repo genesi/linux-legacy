@@ -290,7 +290,10 @@ static int kgsl_ioctl_sharedmem_alloc(struct file *fd, void __user *arg)
 	}
 
 	/* alternative for us: lock, alloc0, unlock */
-	status = kgsl_sharedmem_alloc(param.device_id, param.flags, param.sizebytes, &tmp);
+	mutex_lock(&gsl_driver.lock);
+	status = kgsl_sharedmem_alloc0(param.device_id, param.flags, param.sizebytes, &tmp);
+	mutex_unlock(&gsl_driver.lock);
+
 	if (status == GSL_SUCCESS) {
 		if (copy_to_user(param.memdesc, &tmp, sizeof(struct kgsl_memdesc))) {
 			kgsl_sharedmem_free(&tmp); // check result?
@@ -318,7 +321,7 @@ static int kgsl_ioctl_sharedmem_free(struct file *fd, void __user *arg)
 		return GSL_FAILURE;
 	}
 
-	if (copy_from_user(&tmp, arg, sizeof(tmp))) {
+	if (copy_from_user(&tmp, param.memdesc, sizeof(tmp))) {
                 pr_err("%s: copy_from_user error\n", __func__);
 		return GSL_FAILURE;
 	}
@@ -711,6 +714,8 @@ static int kgsl_ioctl_add_timestamp(struct file *fd, void __user *arg)
 static int kgsl_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, unsigned long arg)
 {
 	int result = GSL_FAILURE;
+
+//	pr_info("%s: cmd=%08x\n", __func__, cmd);
 
 	switch (cmd) {
 	case IOCTL_KGSL_DEVICE_REGREAD:
@@ -1151,12 +1156,12 @@ static struct platform_driver kgsl_driver = {
 
 static int __init kgsl_mod_init(void)
 {
-     return platform_driver_register(&kgsl_driver);
+	return platform_driver_register(&kgsl_driver);
 }
 
 static void __exit kgsl_mod_exit(void)
 {
-     platform_driver_unregister(&kgsl_driver);
+	platform_driver_unregister(&kgsl_driver);
 }
 
 #ifdef MODULE
@@ -1168,3 +1173,4 @@ module_exit(kgsl_mod_exit);
 MODULE_AUTHOR("Advanced Micro Devices");
 MODULE_DESCRIPTION("AMD graphics core driver for i.MX");
 MODULE_LICENSE("GPL v2");
+MODULE_ALIAS("platform:kgsl");
