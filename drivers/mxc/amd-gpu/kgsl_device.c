@@ -27,33 +27,7 @@
 #include "kgsl_cmdstream.h"
 #include "kgsl_debug.h"
 
-
-//////////////////////////////////////////////////////////////////////////////
-//  inline functions
-//////////////////////////////////////////////////////////////////////////////
-static __inline void
-kgsl_device_getfunctable(unsigned int device_id, struct kgsl_functable *ftbl)
-{
-    switch (device_id)
-    {
-    case KGSL_DEVICE_YAMATO:
-        kgsl_yamato_getfunctable(ftbl);
-        break;
-    case KGSL_DEVICE_G12:
-        kgsl_g12_getfunctable(ftbl);
-        break;
-    default:
-        break;
-    }
-}
-
-
-//////////////////////////////////////////////////////////////////////////////
-// functions
-//////////////////////////////////////////////////////////////////////////////
-
-int
-kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
+int kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
 {
     int              status = GSL_SUCCESS;
     struct kgsl_devconfig  config;
@@ -79,7 +53,18 @@ kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
     // if device configuration is present
     if (kgsl_hal_getdevconfig(device_id, &config) == GSL_SUCCESS)
     {
-        kgsl_device_getfunctable(device_id, &device->ftbl);
+
+    switch (device_id)
+    {
+    case KGSL_DEVICE_YAMATO:
+        kgsl_yamato_getfunctable(&device->ftbl);
+        break;
+    case KGSL_DEVICE_G12:
+        kgsl_g12_getfunctable(&device->ftbl);
+        break;
+    default:
+        break;
+    }
 
         memcpy(&device->regspace,  &config.regspace,  sizeof(struct kgsl_memregion));
 	// for Z430
