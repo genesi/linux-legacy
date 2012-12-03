@@ -172,19 +172,16 @@ kgsl_hal_init(void)
 #endif
     }
 
-    if (gsl_driver.enable_mmu) {
-	pr_info("%s: GPU MMU enabled\n", DRVNAME);
-	pa = gpu_reserved_mem;
-	va = (unsigned int)ioremap_wc(gpu_reserved_mem, gpu_reserved_mem_size);
-	if (!va)
-		pr_err("%s: ioremap failed!\n", DRVNAME);
-	res_size = gpu_reserved_mem_size;
-   } else {
-	pr_info("%s: GPU MMU disabled\n", DRVNAME);
 	pa = gpu_reserved_mem;
 	va = (unsigned int)ioremap(gpu_reserved_mem, gpu_reserved_mem_size);
 	if (!va)
 		pr_err("%s: ioremap failed!\n", DRVNAME);
+
+    if (gsl_driver.enable_mmu) {
+	pr_info("%s: GPU MMU enabled\n", DRVNAME);
+	res_size = gpu_reserved_mem_size;
+   } else {
+	pr_info("%s: GPU MMU disabled\n", DRVNAME);
 	res_size = gpu_reserved_mem_size - GSL_HAL_SHMEM_SIZE_EMEM_NOMMU;
     }
 

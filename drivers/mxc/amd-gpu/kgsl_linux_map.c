@@ -61,7 +61,7 @@ void *gsl_linux_map_alloc(unsigned int gpu_addr, unsigned int size)
 		}
 	}
 
-	va = __vmalloc(size, GFP_KERNEL, pgprot_writecombine(pgprot_kernel));
+	va = __vmalloc(size, GFP_KERNEL, pgprot_noncached(pgprot_kernel));
 	if(va == NULL){
 		mutex_unlock(&gsl_linux_map_mutex);
 		return NULL;
@@ -104,7 +104,7 @@ void gsl_linux_map_free(unsigned int gpu_addr)
 	mutex_unlock(&gsl_linux_map_mutex);
 }
 
-void *gsl_linux_map_find(unsigned int gpu_addr)
+void *kgsl_sharedmem_find(unsigned int gpu_addr)
 {
 	struct gsl_linux_map * map;
 	struct list_head *p;

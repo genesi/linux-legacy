@@ -14,8 +14,7 @@ mxc_kgsl-objs += kgsl_cmdstream.o \
 		kgsl_sharedmem.o \
 		kgsl_yamato.o \
 		kgsl_linux_map.o \
-		kgsl_kmod.o \
 		kgsl_hal.o \
 		kgsl_log.o \
-		kgsl_kmod_cleanup.o \
-		kgsl_pwrctrl.o
+		kgsl_pwrctrl.o \
+		kgsl.o \

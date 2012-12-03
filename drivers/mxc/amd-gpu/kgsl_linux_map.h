@@ -35,10 +35,11 @@
 int gsl_linux_map_init(void);
 void *gsl_linux_map_alloc(unsigned int gpu_addr, unsigned int size);
 void gsl_linux_map_free(unsigned int gpu_addr);
-void *gsl_linux_map_find(unsigned int gpu_addr);
 void *gsl_linux_map_read(void *dst, unsigned int gpuoffset, unsigned int sizebytes, unsigned int touserspace);
 void *gsl_linux_map_write(void *src, unsigned int gpuoffset, unsigned int sizebytes, unsigned int fromuserspace);
 void *gsl_linux_map_set(unsigned int gpuoffset, unsigned int value, unsigned int sizebytes);
 int gsl_linux_map_destroy(void);
+
+void *kgsl_sharedmem_find(unsigned int gpu_addr);
 
 #endif

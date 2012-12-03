@@ -48,7 +48,297 @@
 
 #include "kgsl_halconfig.h"
 
-#include "kgsl_kmod_cleanup.h"
+struct kgsl_alloc_list
+{
+	struct list_head node;
+	struct kgsl_memdesc allocated_block;
+	u32 allocation_number;
+};
+
+struct kgsl_file_private
+{
+	struct list_head allocated_blocks_head; // list head
+	u32 maximum_number_of_blocks;
+	u32 number_of_allocated_blocks;
+	s8 created_contexts_array[KGSL_DEVICE_MAX][KGSL_CONTEXT_MAX];
+};
+
+static const s8 EMPTY_ENTRY = -1;
+
+
+
+
+
+/*
+ * Local helper functions to check and convert device/context id's (1 based)
+ * to index (0 based).
+ */
+static u32 device_id_to_device_index(unsigned int device_id)
+{
+    DEBUG_ASSERT((KGSL_DEVICE_ANY < device_id) && 
+               (device_id <= KGSL_DEVICE_MAX));
+    return (u32)(device_id - 1);
+}
+
+/* 
+ * Local helper function to check and get pointer to per file descriptor data 
+ */
+static struct kgsl_file_private *get_fd_private_data(struct file *fd)
+{
+    struct kgsl_file_private *datp; 
+
+    DEBUG_ASSERT(fd);
+    datp = (struct kgsl_file_private *)fd->private_data;
+    DEBUG_ASSERT(datp);
+    return datp;
+}
+
+static s8 *find_first_entry_with(s8 *subarray, s8 context_id)
+{
+    s8 *entry = NULL;
+    int i;
+
+//printk(KERN_DEBUG "At %s, ctx_id = %d\n", __func__, context_id);
+
+    DEBUG_ASSERT(context_id >= EMPTY_ENTRY);
+    DEBUG_ASSERT(context_id <= KGSL_CONTEXT_MAX);  // TODO: check the bound.
+
+    for(i = 0; i < KGSL_CONTEXT_MAX; i++)        // TODO: check the bound.
+    {
+        if(subarray[i] == (s8)context_id)
+        {
+            entry = &subarray[i];
+            break;
+        }
+    }
+
+    return entry;
+}
+
+
+/*
+ * Add a memdesc into a list of allocated memory blocks for this file 
+ * descriptor. The list is build in such a way that it implements FIFO (i.e.
+ * list). Traces of tiger, tiger_ri and VG11 CTs should be analysed to make
+ * informed choice.
+ *
+ * NOTE! struct kgsl_memdescs are COPIED so user space should NOT change them.
+ */
+int add_memblock_to_allocated_list(struct file *fd,
+                                   struct kgsl_memdesc *allocated_block)
+{
+    int err = 0;
+    struct kgsl_file_private *datp;
+    struct kgsl_alloc_list *lisp;
+    struct list_head *head;
+
+    DEBUG_ASSERT(allocated_block);
+
+    datp = get_fd_private_data(fd);
+
+    head = &datp->allocated_blocks_head;
+    DEBUG_ASSERT(head);
+
+    /* allocate and put new entry in the list of allocated memory descriptors */
+    lisp = (struct kgsl_alloc_list *)kzalloc(sizeof(struct kgsl_alloc_list), GFP_KERNEL);
+    if(lisp)
+    {
+        INIT_LIST_HEAD(&lisp->node);
+
+        /* builds FIFO (list_add() would build LIFO) */
+        list_add_tail(&lisp->node, head);
+        memcpy(&lisp->allocated_block, allocated_block, sizeof(struct kgsl_memdesc));
+        lisp->allocation_number = datp->maximum_number_of_blocks;
+//        printk(KERN_DEBUG "List entry #%u allocated\n", lisp->allocation_number);
+
+        datp->maximum_number_of_blocks++;
+        datp->number_of_allocated_blocks++;
+
+        err = 0;
+    }
+    else
+    {
+        printk(KERN_ERR "%s: Could not allocate new list element\n", __func__);
+        err = -ENOMEM;
+    }
+
+    return err;
+}
+
+/* Delete a previously allocated memdesc from a list of allocated memory blocks */
+int del_memblock_from_allocated_list(struct file *fd,
+                                     struct kgsl_memdesc *freed_block)
+{
+    struct kgsl_file_private *datp;
+    struct kgsl_alloc_list *cursor, *next;
+    struct list_head *head;
+//    int is_different;
+
+    DEBUG_ASSERT(freed_block);
+
+    datp = get_fd_private_data(fd);
+
+    head = &datp->allocated_blocks_head;
+    DEBUG_ASSERT(head);
+
+    DEBUG_ASSERT(datp->number_of_allocated_blocks > 0);
+
+    if(!list_empty(head))
+    {
+        list_for_each_entry_safe(cursor, next, head, node)
+        {
+            if(cursor->allocated_block.gpuaddr == freed_block->gpuaddr)
+            {
+//                is_different = memcmp(&cursor->allocated_block, freed_block, sizeof(struct kgsl_memdesc));
+//                DEBUG_ASSERT(!is_different);
+
+                list_del(&cursor->node);
+//                printk(KERN_DEBUG "List entry #%u freed\n", cursor->allocation_number);
+                kfree(cursor);
+                datp->number_of_allocated_blocks--;
+                return 0;
+            }
+        }
+    }
+    return -EINVAL; // tried to free entry not existing or from empty list.
+}
+
+/* Delete all previously allocated memdescs from a list */
+int del_all_memblocks_from_allocated_list(struct file *fd)
+{
+    struct kgsl_file_private *datp;
+    struct kgsl_alloc_list *cursor, *next;
+    struct list_head *head;
+
+    datp = get_fd_private_data(fd);
+
+    head = &datp->allocated_blocks_head;
+    DEBUG_ASSERT(head);
+
+    if(!list_empty(head))
+    {
+        printk(KERN_INFO "Not all allocated memory blocks were freed. Doing it now.\n");
+        list_for_each_entry_safe(cursor, next, head, node)
+        {
+            printk(KERN_INFO "Freeing list entry #%u, gpuaddr=%x\n", (u32)cursor->allocation_number, cursor->allocated_block.gpuaddr);
+            kgsl_sharedmem_free(&cursor->allocated_block);
+            list_del(&cursor->node);
+            kfree(cursor);
+        }
+    }
+
+    DEBUG_ASSERT(list_empty(head));
+    datp->number_of_allocated_blocks = 0;
+
+    return 0;
+}
+
+void init_created_contexts_array(s8 *array)
+{
+    memset((void*)array, EMPTY_ENTRY, KGSL_DEVICE_MAX * KGSL_CONTEXT_MAX);
+}
+
+
+void add_device_context_to_array(struct file *fd,
+                                 unsigned int device_id,
+                                 unsigned int context_id)
+{
+    struct kgsl_file_private *datp;
+    s8 *entry;
+    s8 *subarray;
+    u32 device_index = device_id_to_device_index(device_id);
+
+    datp = get_fd_private_data(fd);
+
+    subarray = datp->created_contexts_array[device_index];
+    entry = find_first_entry_with(subarray, EMPTY_ENTRY);
+
+    DEBUG_ASSERT(entry);
+    DEBUG_ASSERT((datp->created_contexts_array[device_index] <= entry) &&
+               (entry < datp->created_contexts_array[device_index] + KGSL_CONTEXT_MAX));
+    DEBUG_ASSERT(context_id < 127);
+    *entry = (s8)context_id;
+}
+
+void del_device_context_from_array(struct file *fd, 
+                                   unsigned int device_id,
+                                   unsigned int context_id)
+{
+    struct kgsl_file_private *datp;
+    u32 device_index = device_id_to_device_index(device_id);
+    s8 *entry;
+    s8 *subarray;
+
+    datp = get_fd_private_data(fd);
+
+    DEBUG_ASSERT(context_id < 127);
+    subarray = &(datp->created_contexts_array[device_index][0]);
+    entry = find_first_entry_with(subarray, context_id);
+    DEBUG_ASSERT(entry);
+    DEBUG_ASSERT((datp->created_contexts_array[device_index] <= entry) &&
+               (entry < datp->created_contexts_array[device_index] + GSL_CONTEXT_MAX));
+    *entry = EMPTY_ENTRY;
+}
+
+void del_all_devices_contexts(struct file *fd)
+{
+    struct kgsl_file_private *datp;
+    unsigned int id;
+    u32 device_index;
+    u32 ctx_array_index;
+    s8 ctx;
+    int err;
+
+    datp = get_fd_private_data(fd);
+
+    /* device_id is 1 based */
+    for(id = KGSL_DEVICE_ANY + 1; id <= KGSL_DEVICE_MAX; id++)
+    {
+        device_index = device_id_to_device_index(id);
+        for(ctx_array_index = 0; ctx_array_index < KGSL_CONTEXT_MAX; ctx_array_index++)
+        {
+            ctx = datp->created_contexts_array[device_index][ctx_array_index];
+            if(ctx != EMPTY_ENTRY)
+            {
+		struct kgsl_device *device = &gsl_driver.device[id];
+
+		if (device && device->ftbl.device_drawctxt_destroy) {
+			mutex_lock(&gsl_driver.lock);
+        	        err = device->ftbl.device_drawctxt_destroy(device, ctx);
+			mutex_unlock(&gsl_driver.lock);
+		} else
+			err = GSL_FAILURE;
+
+                if(err != GSL_SUCCESS)
+                {
+                    printk(KERN_ERR "%s: could not destroy context %d on device id = %u\n", __func__, ctx, id);
+                }
+                else
+                {
+                    printk(KERN_DEBUG "%s: Destroyed context %d on device id = %u\n", __func__, ctx, id);
+                }
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 //#define GSL_IOCTL_DEBUG
@@ -382,7 +672,7 @@ static int kgsl_ioctl_sharedmem_write(struct file *fd, void __user *arg)
 		return GSL_FAILURE;
 	}
 
-	status = kgsl_sharedmem_write(&tmp, param.offsetbytes, param.dst, param.sizebytes, true);
+	status = kgsl_sharedmem_write(&tmp, param.offsetbytes, param.src, param.sizebytes, true);
 	if (status != GSL_SUCCESS) {
                 pr_err("%s: kgsl_sharedmem_write failed\n", __func__);
 	}
@@ -788,30 +1078,29 @@ static int kgsl_mmap(struct file *fd, struct vm_area_struct *vma)
 {
 	int result;
 	int status = 0;
-	unsigned long start = vma->vm_start;
-	unsigned long pfn = vma->vm_pgoff;
-	unsigned long size = vma->vm_end - vma->vm_start;
-	unsigned long prot = pgprot_writecombine(vma->vm_page_prot);
+	unsigned long vma_start = vma->vm_start;
+	unsigned long vma_size = vma->vm_end - vma->vm_start;
 	unsigned long addr = vma->vm_pgoff << PAGE_SHIFT;
 	void *va = NULL;
 
 	/* qcom:
 	 * no difference between enable or disable mmu re remap_pfn_range usage
-	 * mark vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot) before remap
 	 * also holds gsl_driver.lock!
 	 */
 
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+
 	if (gsl_driver.enable_mmu && (addr < GSL_LINUX_MAP_RANGE_END) && (addr >= GSL_LINUX_MAP_RANGE_START)) {
-		va = gsl_linux_map_find(addr);
-		while (size > 0) {
-			if (remap_pfn_range(vma, start, vmalloc_to_pfn(va), PAGE_SIZE, prot))
+		va = kgsl_sharedmem_find(addr);
+		while (vma_size > 0) {
+			if (remap_pfn_range(vma, vma_start, vmalloc_to_pfn(va), PAGE_SIZE, vma->vm_page_prot))
 				return -EAGAIN;
 		}
-		start += PAGE_SIZE;
+		vma_start += PAGE_SIZE;
 		va += PAGE_SIZE;
-		size -= PAGE_SIZE;
+		vma_size -= PAGE_SIZE;
 	} else {
-		if (remap_pfn_range(vma, start, pfn, size, prot))
+		if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff, vma_size, vma->vm_page_prot))
 			status = -EAGAIN;
 	}
 	vma->vm_ops = &kgsl_vmops;
