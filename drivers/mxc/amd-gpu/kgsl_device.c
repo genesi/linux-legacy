@@ -250,37 +250,6 @@ int kgsl_device_getproperty(unsigned int device_id, enum kgsl_property_type type
 	(void) sizebytes;
 
 	switch (type) {
-	case KGSL_PROP_SHMEM:
-	{
-		struct kgsl_shmemprop  *shem = (struct kgsl_shmemprop *) value;
-
-		/* BUG_ON? */
-		DEBUG_ASSERT(sizebytes == sizeof(gsl_shmemprop_t));
-
-		shem->numapertures   = gsl_driver.shmem.numapertures;
-		shem->aperture_mask  = GSL_APERTURE_MASK;
-		shem->aperture_shift = GSL_APERTURE_SHIFT;
-		break;
-	}
-	case KGSL_PROP_SHMEM_APERTURES:
-	{
-		int i;
-		struct kgsl_apertureprop  *aperture = (struct kgsl_apertureprop *) value;
-
-		DEBUG_ASSERT(sizebytes == (sizeof(struct kgsl_apertureprop) * gsl_driver.shmem.numapertures));
-
-		for (i = 0; i < gsl_driver.shmem.numapertures; i++) {
-			if (gsl_driver.shmem.apertures[i].memarena) {
-				aperture->gpuaddr  = GSL_APERTURE_GETGPUADDR(gsl_driver.shmem, i);
-				aperture->hostaddr = GSL_APERTURE_GETHOSTADDR(gsl_driver.shmem, i);
-			} else {
-				aperture->gpuaddr  = 0x0;
-				aperture->hostaddr = 0x0;
-			}
-			aperture++;
-		}
-		break;
-	}
 	case KGSL_PROP_DEVICE_SHADOW:
 	{
 		struct kgsl_shadowprop  *shadowprop = (struct kgsl_shadowprop *) value;

@@ -118,40 +118,17 @@ struct kgsl_memdesc {
 	unsigned int unused;
 };
 
-/* qcom: kgsl_devinfo is the structure returned by PROP_DEVICE_INFO, qcom code ignores anything other than 0x1 or 0x2 */
-
-/* NQ */
-struct kgsl_apertureprop {
-	unsigned int  gpuaddr;
-	unsigned int  hostaddr;
-};
-
-/* NQ */
-struct kgsl_shmemprop {
-	int numapertures;
-	unsigned int aperture_mask;
-	unsigned int aperture_shift;
-	struct kgsl_apertureprop *aperture;
-};
-
 struct kgsl_shadowprop {
 	unsigned int hostaddr; /* qcom: called gpuaddr */
 	unsigned int size;
 	unsigned int flags; /* contains KGSL_FLAGS_ values */
 };
 
-/* NQ */
+/* NQ - used internally by FSL kernel driver, userspace has no clue */
 struct kgsl_powerprop {
 	unsigned int value;
 	unsigned int flags;
 };
-
-/* NQ */
-struct kgsl_dmiprop {
-	unsigned int value;
-	unsigned int flags;
-};
-
 
 /*
  * please check of NQ items are even called from FSL userspace
