@@ -64,102 +64,77 @@ int kgsl_g12_stop(struct kgsl_device *device);
 static unsigned int drawctx_id  = 0;
 static int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout);
 
-void
-kgsl_g12_intrcallback(gsl_intrid_t id, void *cookie)
+void kgsl_g12_intrcallback(gsl_intrid_t id, void *cookie)
 {
-    struct kgsl_device  *device = (struct kgsl_device *) cookie;
+	struct kgsl_device *device = (struct kgsl_device *) cookie;
 
-    switch(id)
-    {
-        // non-error condition interrupt
-        case GSL_INTR_G12_G2D:
-			queue_work(device->irq_workq, &(device->irq_work));
-			break;
+	switch(id) {
+	/* non-error condition interrupt */
+	case GSL_INTR_G12_G2D:
+		queue_work(device->irq_workq, &(device->irq_work));
+		break;
 #ifndef _Z180
-        case GSL_INTR_G12_FBC:
-            // signal intr completion event
-            complete_all(&device->intr.evnt[id]);
-            break;
+	case GSL_INTR_G12_FBC:
+		/* signal intr completion event */
+		complete_all(&device->intr.evnt[id]);
+		break;
 #endif //_Z180
 
-        // error condition interrupt
-        case GSL_INTR_G12_FIFO:
-		printk(KERN_ERR "GPU: Z160 FIFO Error\n");
+	/* error condition interrupt */
+	case GSL_INTR_G12_FIFO:
+		pr_err("GPU: Z160 FIFO Error\n");
 		schedule_work(&device->irq_err_work);
 		break;
 
-        case GSL_INTR_G12_MH:
-            // don't do anything. this is handled by the MMU manager
-            break;
+	case GSL_INTR_G12_MH:
+		/* don't do anything. this is handled by the MMU manager */
+		break;
 
-        default:
-            break;
-    }
+	default:
+		break;
+
+	}
 }
 
-int
-kgsl_g12_isr(struct kgsl_device *device)
+int kgsl_g12_isr(struct kgsl_device *device)
 {
-    unsigned int           status;
-#ifdef _DEBUG
-    REG_MH_MMU_PAGE_FAULT  page_fault = {0};
-    REG_MH_AXI_ERROR       axi_error  = {0};
-#endif // DEBUG
+	unsigned int status;
 
-    // determine if G12 is interrupting
-    kgsl_g12_regread(device, (ADDR_VGC_IRQSTATUS >> 2), &status);
+	/* determine if G12 is interrupting */
+	kgsl_g12_regread(device, (ADDR_VGC_IRQSTATUS >> 2), &status);
 
-    if (status)
-    {
-        // if G12 MH is interrupting, clear MH block interrupt first, then master G12 MH interrupt
-        if (status & REG_VGC_IRQSTATUS__MH_MASK)
-        {
-#ifdef _DEBUG
-            // obtain mh error information
-            kgsl_g12_regread(device, ADDR_MH_MMU_PAGE_FAULT, (unsigned int *)&page_fault);
-            kgsl_g12_regread(device, ADDR_MH_AXI_ERROR, (unsigned int *)&axi_error);
-#endif // DEBUG
+	if (status) {
+		/* if G12 MH is interrupting, clear MH block interrupt first, then master G12 MH interrupt */
+		if (status & REG_VGC_IRQSTATUS__MH_MASK)
+			kgsl_intr_decode(device, GSL_INTR_BLOCK_G12_MH);
 
-            kgsl_intr_decode(device, GSL_INTR_BLOCK_G12_MH);
-        }
+		kgsl_intr_decode(device, GSL_INTR_BLOCK_G12);
+	}
 
-        kgsl_intr_decode(device, GSL_INTR_BLOCK_G12);
-    }
-
-    return (GSL_SUCCESS);
+	return GSL_SUCCESS;
 }
 
-int
-kgsl_g12_tlbinvalidate(struct kgsl_device *device, unsigned int reg_invalidate, unsigned int pid)
+/* qcom: kgsl_g12_setstate flags & GSL_MMUFLAGS_TLBFLUSH */
+int kgsl_g12_tlbinvalidate(struct kgsl_device *device, unsigned int reg_invalidate, unsigned int pid)
 {
 #ifdef CONFIG_KGSL_MMU_ENABLE
-    unsigned int mh_mmu_invalidate = 0x00000003L; // invalidate all and tc
+	unsigned int mh_mmu_invalidate = 0x00000003L; /* invalidate all and tc */
 
-    // unreferenced formal parameter
-    (void) pid;
-
-    kgsl_g12_regwrite(device, reg_invalidate, *(unsigned int *) &mh_mmu_invalidate);
-#else
-    (void)device;
-    (void)reg_invalidate;
+	kgsl_g12_regwrite(device, reg_invalidate, *(unsigned int *) &mh_mmu_invalidate);
 #endif
-    return (GSL_SUCCESS);
+	return GSL_SUCCESS;
 }
 
-int
-kgsl_g12_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase, uint32_t ptbase, unsigned int pid)
+/* qcom: kgsl_g12_setstate flags & GSL_MMUFLAGS_PTUPDATE. don't pass PTBASE! */
+int kgsl_g12_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase, uint32_t ptbase, unsigned int pid)
 {
-	// unreferenced formal parameter
-	(void) pid;
 #ifdef CONFIG_KGSL_MMU_ENABLE
-    device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT);
+	kgsl_g12_idle(device, GSL_TIMEOUT_DEFAULT);
 	kgsl_g12_regwrite(device, reg_ptbase, ptbase);
-#else
-    (void)device;
-    (void)reg_ptbase;
-    (void)reg_varange;
+
+	/* qcom: writes to MMU_VA_RANGE, MMU_INVALIDATE */
 #endif
-    return (GSL_SUCCESS);
+	return GSL_SUCCESS;
 }
 
 static void kgsl_g12_updatetimestamp(struct kgsl_device *device)
@@ -194,135 +169,124 @@ static void kgsl_g12_irqerr(struct work_struct *work)
 }
 
 
-int
-kgsl_g12_init(struct kgsl_device *device)
+int kgsl_g12_init(struct kgsl_device *device)
 {
-    int  status = GSL_FAILURE;
+	int status = GSL_FAILURE;
 
-    device->flags |= KGSL_FLAGS_INITIALIZED;
+	/* qcom: if init already, return */
 
-    kgsl_pwrctrl(device->id, GSL_PWRFLAGS_POWER_ON, 100);
+	device->flags |= KGSL_FLAGS_INITIALIZED;
 
-    // setup MH arbiter - MH offsets are considered to be dword based, therefore no down shift
-    kgsl_g12_regwrite(device, ADDR_MH_ARBITER_CONFIG, KGSL_G12_CFG_G12_MHARB);
+	/* qcom: init waitqueue head */
 
-    // init interrupt
-    status = kgsl_intr_init(device);
-    if (status != GSL_SUCCESS)
-    {
-        device->ftbl.stop(device);
-        return (status);
-    }
+	kgsl_pwrctrl(device->id, GSL_PWRFLAGS_POWER_ON, 100);
 
-    // enable irq
-    kgsl_g12_regwrite(device, (ADDR_VGC_IRQENABLE >> 2), 0x3);
+	/* setup MH arbiter - MH offsets are considered to be dword based, therefore no down shift */
+	kgsl_g12_regwrite(device, ADDR_MH_ARBITER_CONFIG, KGSL_G12_CFG_G12_MHARB);
+
+	/* init interrupt */
+	status = kgsl_intr_init(device);
+
+	if (status != GSL_SUCCESS) {
+		kgsl_g12_stop(device);
+		return status;
+	}
+
+	/* enable irq */
+	kgsl_g12_regwrite(device, (ADDR_VGC_IRQENABLE >> 2), 0x3);
 
 #ifdef CONFIG_KGSL_MMU_ENABLE
-    // enable master interrupt for G12 MH
-    kgsl_intr_attach(&device->intr, GSL_INTR_G12_MH, kgsl_g12_intrcallback, (void *) device);
-    kgsl_intr_enable(&device->intr, GSL_INTR_G12_MH);
+	/* enable master interrupt for G12 MH */
+	kgsl_intr_attach(&device->intr, GSL_INTR_G12_MH, kgsl_g12_intrcallback, (void *) device);
+	kgsl_intr_enable(&device->intr, GSL_INTR_G12_MH);
 
-    // init mmu
-    status = kgsl_mmu_init(device);
-    if (status != GSL_SUCCESS)
-    {
-        device->ftbl.stop(device);
-        return (status);
-    }
+	/* init mmu */
+	status = kgsl_mmu_init(device);
+	if (status != GSL_SUCCESS) {
+		kgsl_g12_stop(device);
+		return status;
+	}
 #endif
 
-    // enable interrupts
-    kgsl_intr_attach(&device->intr, GSL_INTR_G12_G2D,  kgsl_g12_intrcallback, (void *) device);
-    kgsl_intr_attach(&device->intr, GSL_INTR_G12_FIFO, kgsl_g12_intrcallback, (void *) device);
-    kgsl_intr_enable(&device->intr, GSL_INTR_G12_G2D);
-    kgsl_intr_enable(&device->intr, GSL_INTR_G12_FIFO);
-
+	/* enable interrupts */
+	kgsl_intr_attach(&device->intr, GSL_INTR_G12_G2D,  kgsl_g12_intrcallback, (void *) device);
+	kgsl_intr_attach(&device->intr, GSL_INTR_G12_FIFO, kgsl_g12_intrcallback, (void *) device);
+	kgsl_intr_enable(&device->intr, GSL_INTR_G12_G2D);
+	kgsl_intr_enable(&device->intr, GSL_INTR_G12_FIFO);
 #ifndef _Z180
-    kgsl_intr_attach(&device->intr, GSL_INTR_G12_FBC,  kgsl_g12_intrcallback, (void *) device);
-  //kgsl_intr_enable(&device->intr, GSL_INTR_G12_FBC);
-#endif //_Z180
+	kgsl_intr_attach(&device->intr, GSL_INTR_G12_FBC,  kgsl_g12_intrcallback, (void *) device);
+	//kgsl_intr_enable(&device->intr, GSL_INTR_G12_FBC);
+#endif /* _Z180 */
 
-    // create thread for IRQ handling
-    device->irq_workq = create_singlethread_workqueue("z160_workqueue");
-    INIT_WORK(&device->irq_work, kgsl_g12_irqtask);
-    INIT_WORK(&device->irq_err_work, kgsl_g12_irqerr);
+	/* create thread for IRQ handling - qcom: z1xx_sync_wq*/
+	device->irq_workq = create_singlethread_workqueue("z160_workqueue");
+	INIT_WORK(&device->irq_work, kgsl_g12_irqtask);
+	INIT_WORK(&device->irq_err_work, kgsl_g12_irqerr);
 
-    return (status);
+	return status;
 }
 
-int
-kgsl_g12_close(struct kgsl_device *device)
+int kgsl_g12_close(struct kgsl_device *device)
 {
-    int status = GSL_FAILURE; 
+	int status = GSL_FAILURE;
 
-    if (device->refcnt == 0)
-    {
-        // wait pending interrupts before shutting down G12 intr thread to
-        // empty irq counters. Otherwise there's a possibility to have them in
-        // registers next time systems starts up and this results in a hang.
-        status = device->ftbl.idle(device, 1000);
-        DEBUG_ASSERT(status == GSL_SUCCESS);
+	if (device->refcnt == 0) {
+		/* wait pending interrupts before shutting down G12 intr thread to
+		 * empty irq counters. Otherwise there's a possibility to have them in
+		 * registers next time systems starts up and this results in a hang. */
 
-	destroy_workqueue(device->irq_workq);
+		status = kgsl_g12_idle(device, 1000);
 
-        // shutdown command window
-        kgsl_g12_cmdwindow_close(device);
+		destroy_workqueue(device->irq_workq);
+
+		/* shutdown command window */
+		kgsl_g12_cmdwindow_close(device);
 
 #ifdef CONFIG_KGSL_MMU_ENABLE
-        // shutdown mmu
-        kgsl_mmu_close(device);
+		/* shutdown mmu */
+		kgsl_mmu_close(device);
 #endif
-        // disable interrupts
-        kgsl_intr_detach(&device->intr, GSL_INTR_G12_MH);
-        kgsl_intr_detach(&device->intr, GSL_INTR_G12_G2D);
-        kgsl_intr_detach(&device->intr, GSL_INTR_G12_FIFO);
+
+		/* disable interrupts */
+		kgsl_intr_detach(&device->intr, GSL_INTR_G12_MH);
+		kgsl_intr_detach(&device->intr, GSL_INTR_G12_G2D);
+		kgsl_intr_detach(&device->intr, GSL_INTR_G12_FIFO);
 #ifndef _Z180
-        kgsl_intr_detach(&device->intr, GSL_INTR_G12_FBC);
-#endif //_Z180
+		kgsl_intr_detach(&device->intr, GSL_INTR_G12_FBC);
+#endif /* _Z180 */
 
-        // shutdown interrupt
-        kgsl_intr_close(device);
+		/* shutdown interrupt */
+		kgsl_intr_close(device);
 
-        kgsl_pwrctrl(device->id, GSL_PWRFLAGS_POWER_OFF, 0);
+		kgsl_pwrctrl(device->id, GSL_PWRFLAGS_POWER_OFF, 0);
 
-        device->flags &= ~KGSL_FLAGS_INITIALIZED;
+		device->flags &= ~KGSL_FLAGS_INITIALIZED;
 
-        drawctx_id = 0;
+		drawctx_id = 0;
 
-        DEBUG_ASSERT(g_z1xx.numcontext == 0);
-
-	memset(&g_z1xx, 0, sizeof(struct kgsl_g12_z1xx));
-    }
-
-    return (GSL_SUCCESS);
+		BUG_ON(g_z1xx.numcontext == 0);
+		memset(&g_z1xx, 0, sizeof(struct kgsl_g12_z1xx));
+	}
+	return GSL_SUCCESS;
 }
 
-int
-kgsl_g12_destroy(struct kgsl_device *device)
+int kgsl_g12_destroy(struct kgsl_device *device)
 {
-    int           i;
-    unsigned int  pid;
+	int           i;
+	unsigned int  pid;
 
-#ifdef _DEBUG
-    // for now, signal catastrophic failure in a brute force way
-    DEBUG_ASSERT(0);
-#endif // _DEBUG
+	/* todo: hard reset core? */
 
-    //todo: hard reset core?
+	for (i = 0; i < GSL_CALLER_PROCESS_MAX; i++) {
+		pid = device->callerprocess[i];
 
-    for (i = 0; i < GSL_CALLER_PROCESS_MAX; i++)
-    {
-        pid = device->callerprocess[i];
-        if (pid)
-        {
-            device->ftbl.stop(device);
-            kgsl_driver_destroy(pid);
-
-            // todo: terminate client process?
-        }
-    }
-
-    return (GSL_SUCCESS);
+		if (pid) {
+			kgsl_g12_stop(device);
+			kgsl_driver_destroy(pid);
+			/* todo: terminate client process? */
+		}
+	}
+	return GSL_SUCCESS;
 }
 
 int kgsl_g12_start(struct kgsl_device *device, unsigned int flags)
@@ -474,38 +438,40 @@ int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords, unsi
 	return GSL_SUCCESS;
 }
 
-int
-kgsl_g12_waittimestamp(struct kgsl_device *device, unsigned int timestamp, unsigned int timeout)
+int kgsl_g12_waittimestamp(struct kgsl_device *device, unsigned int timestamp, unsigned int timeout)
 {
+	/* qcom: calls kgsl_g12_cmdstream_check_timestamp */
 	int status = wait_event_interruptible_timeout(device->timestamp_waitq,
-	                                              kgsl_cmdstream_check_timestamp(device->id, timestamp),
-												  msecs_to_jiffies(timeout));
+				kgsl_cmdstream_check_timestamp(device->id, timestamp),
+					msecs_to_jiffies(timeout));
 	if (status > 0)
 		return GSL_SUCCESS;
 	else
 		return GSL_FAILURE;
 }
 
-int
-kgsl_g12_getfunctable(struct kgsl_functable *ftbl)
+int kgsl_g12_getfunctable(struct kgsl_functable *ftbl)
 {
-	ftbl->init		= kgsl_g12_init;
-	ftbl->close		= kgsl_g12_close;
-	ftbl->destroy		= kgsl_g12_destroy;
-	ftbl->start		= kgsl_g12_start;
-	ftbl->stop		= kgsl_g12_stop;
-	ftbl->getproperty	= kgsl_g12_getproperty;
-	ftbl->idle		= kgsl_g12_idle;
-	ftbl->regread		= kgsl_g12_regread;
-	ftbl->regwrite		= kgsl_g12_regwrite;
-	ftbl->waittimestamp	= kgsl_g12_waittimestamp;
-	ftbl->runpending	= NULL;
-	ftbl->intr_isr		= kgsl_g12_isr;
+	if (ftbl == NULL)
+		return GSL_FAILURE;
+
+	ftbl->init = kgsl_g12_init;
+	ftbl->close = kgsl_g12_close;
+	ftbl->destroy = kgsl_g12_destroy;
+	ftbl->start = kgsl_g12_start;
+	ftbl->stop = kgsl_g12_stop;
+	ftbl->getproperty = kgsl_g12_getproperty;
+	ftbl->idle = kgsl_g12_idle;
+	ftbl->regread = kgsl_g12_regread;
+	ftbl->regwrite = kgsl_g12_regwrite;
+	ftbl->waittimestamp = kgsl_g12_waittimestamp;
+	ftbl->runpending = NULL;
+	ftbl->intr_isr = kgsl_g12_isr;
 	ftbl->mmu_tlbinvalidate	= kgsl_g12_tlbinvalidate;
-	ftbl->mmu_setpagetable	= kgsl_g12_setpagetable;
-	ftbl->cmdstream_issueibcmds	= kgsl_g12_issueibcmds;
-	ftbl->device_drawctxt_create	= kgsl_g12_drawctxt_create;
-	ftbl->device_drawctxt_destroy	= kgsl_g12_drawctxt_destroy;
+	ftbl->mmu_setpagetable = kgsl_g12_setpagetable;
+	ftbl->cmdstream_issueibcmds = kgsl_g12_issueibcmds;
+	ftbl->device_drawctxt_create = kgsl_g12_drawctxt_create;
+	ftbl->device_drawctxt_destroy = kgsl_g12_drawctxt_destroy;
 
 	return GSL_SUCCESS;
 }
