@@ -117,27 +117,6 @@ kgsl_cmdstream_issueibcmds(unsigned int device_id, int drawctxt_index, uint32_t 
     return status;
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_add_timestamp(unsigned int device_id, unsigned int *timestamp)
-{
-    struct kgsl_device* device  = &gsl_driver.device[device_id-1];
-    int status = GSL_FAILURE;
-
-    mutex_lock(&gsl_driver.lock);
-
-    if (device->ftbl.addtimestamp)
-    {
-        status = device->ftbl.addtimestamp(device, timestamp);
-    }
-
-    mutex_unlock(&gsl_driver.lock);
-    return status;
-}
-
-//----------------------------------------------------------------------------
-
 int kgsl_cmdstream_waittimestamp(unsigned int device_id, unsigned int timestamp, unsigned int timeout)
 {
     struct kgsl_device* device  = &gsl_driver.device[device_id-1];

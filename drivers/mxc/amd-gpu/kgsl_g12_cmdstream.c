@@ -130,11 +130,3 @@ int kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_
 
 	return GSL_SUCCESS;
 }
-
-int kgsl_g12_addtimestamp(struct kgsl_device* device, unsigned int *timestamp)
-{
-	device->current_timestamp++;
-	*timestamp = device->current_timestamp;
-
-	return GSL_SUCCESS;
-}

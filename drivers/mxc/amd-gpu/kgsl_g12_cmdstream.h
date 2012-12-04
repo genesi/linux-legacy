@@ -45,6 +45,4 @@ int kgsl_g12_cmdstream_issueibcmds(struct kgsl_device *device,
 			int sizedwords,
 			int *timestamp,
 			unsigned int flags);
-int kgsl_g12_cmdstream_addtimestamp(struct kgsl_device *device,
-			  int *timestamp);
 #endif  /* _GSL_CMDSTREAM_H */

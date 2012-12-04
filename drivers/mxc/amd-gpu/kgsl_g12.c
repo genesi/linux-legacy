@@ -520,7 +520,6 @@ kgsl_g12_getfunctable(struct kgsl_functable *ftbl)
 	ftbl->regwrite		= kgsl_g12_regwrite;
 	ftbl->waittimestamp	= kgsl_g12_waittimestamp;
 	ftbl->runpending	= NULL;
-	ftbl->addtimestamp	= kgsl_g12_addtimestamp;
 	ftbl->intr_isr		= kgsl_g12_isr;
 	ftbl->mmu_tlbinvalidate	= kgsl_g12_tlbinvalidate;
 	ftbl->mmu_setpagetable	= kgsl_g12_setpagetable;

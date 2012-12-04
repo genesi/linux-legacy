@@ -63,7 +63,6 @@ struct kgsl_functable {
 	int (*regwrite)        (struct kgsl_device *device, unsigned int offsetwords, unsigned int value);
 	int (*waittimestamp)   (struct kgsl_device *device, unsigned int timestamp, unsigned int timeout);
 	int (*runpending)      (struct kgsl_device *device);
-	int (*addtimestamp)    (struct kgsl_device *device_id, unsigned int *timestamp);
 	int (*intr_isr)               (struct kgsl_device *device);
 	int (*mmu_tlbinvalidate)      (struct kgsl_device *device, unsigned int reg_invalidate, unsigned int pid);
 	int (*mmu_setpagetable)       (struct kgsl_device *device, unsigned int reg_ptbase, uint32_t ptbase, unsigned int pid);

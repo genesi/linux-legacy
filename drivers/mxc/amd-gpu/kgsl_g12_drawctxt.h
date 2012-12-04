@@ -119,7 +119,6 @@ kgsl_g12_drawctxt_destroy(struct kgsl_device *device,
 #endif
 
 /* should be in kgsl_g12_drawctxt.h? */
-int kgsl_g12_addtimestamp(struct kgsl_device* device, unsigned int *timestamp);
 int kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags);
 int kgsl_g12_drawctxt_create(struct kgsl_device* device, unsigned int type, unsigned int *drawctxt_id, unsigned int flags);
 int kgsl_g12_drawctxt_destroy(struct kgsl_device* device, unsigned int drawctxt_id);
