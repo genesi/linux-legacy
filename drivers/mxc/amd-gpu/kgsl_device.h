@@ -57,7 +57,6 @@ struct kgsl_functable {
 	int (*start)           (struct kgsl_device *device, unsigned int flags);
 	int (*stop)            (struct kgsl_device *device);
 	int (*getproperty)     (struct kgsl_device *device, enum kgsl_property_type type, void *value, unsigned int sizebytes);
-	int (*setproperty)     (struct kgsl_device *device, enum kgsl_property_type type, void *value, unsigned int sizebytes);
 	int (*idle)            (struct kgsl_device *device, unsigned int timeout);
 	int (*regread)         (struct kgsl_device *device, unsigned int offsetwords, unsigned int *value);
 	int (*regwrite)        (struct kgsl_device *device, unsigned int offsetwords, unsigned int value);
@@ -132,13 +131,10 @@ int kgsl_device_stop(unsigned int device_id);
 int kgsl_device_idle(unsigned int device_id, unsigned int timeout);
 int kgsl_device_isidle(unsigned int device_id);
 int kgsl_device_getproperty(unsigned int device_id, enum kgsl_property_type type, void *value, unsigned int sizebytes);
-int kgsl_device_setproperty(unsigned int device_id, enum kgsl_property_type type, void *value, unsigned int sizebytes);
 int kgsl_device_regread(unsigned int device_id, unsigned int offsetwords, unsigned int *value);
 
-int kgsl_clock(unsigned int dev, int enable);
+int kgsl_pwrctrl(unsigned int device_id, int state, unsigned int value);
+
 int kgsl_device_active(struct kgsl_device *dev);
-int kgsl_device_clock(unsigned int id, int enable);
-int kgsl_device_autogate_init(struct kgsl_device *dev);
-void kgsl_device_autogate_exit(struct kgsl_device *dev);
 
 #endif  // __GSL_DEVICE_H

@@ -350,7 +350,7 @@ kgsl_yamato_init(struct kgsl_device *device)
 
     device->flags |= KGSL_FLAGS_INITIALIZED;
 
-    kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_POWER_ON, 100);
+    kgsl_pwrctrl(device->id, GSL_PWRFLAGS_POWER_ON, 100);
 
     //We need to make sure all blocks are powered up and clocked before
     //issuing a soft reset.  The overrides will be turned off (set to 0)
@@ -408,7 +408,7 @@ kgsl_yamato_close(struct kgsl_device *device)
         // shutdown interrupt
         kgsl_intr_close(device);
 
-        kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_POWER_OFF, 0);
+        kgsl_pwrctrl(device->id, GSL_PWRFLAGS_POWER_OFF, 0);
 
         device->flags &= ~KGSL_FLAGS_INITIALIZED;
     }
@@ -460,7 +460,7 @@ kgsl_yamato_start(struct kgsl_device *device, unsigned int flags)
 
     (void) flags;      // unreferenced formal parameter
 
-    kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_CLK_ON, 100);
+    kgsl_pwrctrl(device->id, GSL_PWRFLAGS_CLK_ON, 100);
 
     // default power management override when running in safe mode
     pm1 = (device->flags & KGSL_FLAGS_SAFEMODE) ? 0xFFFFFFFE : 0x00000000;
@@ -547,7 +547,7 @@ kgsl_yamato_stop(struct kgsl_device *device)
 
     if(device->refcnt == 0)
     {
-        kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_CLK_OFF, 0);
+        kgsl_pwrctrl(device->id, GSL_PWRFLAGS_CLK_OFF, 0);
     }
 
     device->flags &= ~KGSL_FLAGS_STARTED;
@@ -605,35 +605,6 @@ int kgsl_yamato_getproperty(struct kgsl_device *device, enum kgsl_property_type 
 		devinfo->high_precision    = 0;
 
 		status = GSL_SUCCESS;
-	}
-
-	return status;
-}
-
-int kgsl_yamato_setproperty(struct kgsl_device *device, enum kgsl_property_type type, void *value, unsigned int sizebytes)
-{
-	int status = GSL_FAILURE;
-	(void) sizebytes;
-
-	if (type == KGSL_PROP_DEVICE_POWER) {
-		struct kgsl_powerprop  *power = (struct kgsl_powerprop *) value;
-
-		DEBUG_ASSERT(sizebytes == sizeof(struct kgsl_powerprop));
-
-		if (!(device->flags & KGSL_FLAGS_SAFEMODE)) {
-			if (power->flags & GSL_PWRFLAGS_OVERRIDE_ON) {
-				kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0xfffffffe);
-				kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0xffffffff);
-			} else if (power->flags & GSL_PWRFLAGS_OVERRIDE_OFF) {
-				kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, 0x00000000);
-				kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, 0x00000000);
-			} else {
-				kgsl_hal_setpowerstate(device->id, power->flags, power->value);
-			}
-		}
-		status = GSL_SUCCESS;
-	} else {
-		status = GSL_FAILURE;
 	}
 
 	return status;
@@ -736,7 +707,6 @@ kgsl_yamato_getfunctable(struct kgsl_functable *ftbl)
     ftbl->start          = kgsl_yamato_start;
     ftbl->stop           = kgsl_yamato_stop;
     ftbl->getproperty    = kgsl_yamato_getproperty;
-    ftbl->setproperty    = kgsl_yamato_setproperty;
     ftbl->idle           = kgsl_yamato_idle;
 	ftbl->waittimestamp  = kgsl_yamato_waittimestamp;
     ftbl->regread        = kgsl_yamato_regread;

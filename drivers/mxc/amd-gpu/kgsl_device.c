@@ -276,28 +276,6 @@ int kgsl_device_getproperty(unsigned int device_id, enum kgsl_property_type type
 	return status;
 }
 
-int kgsl_device_setproperty(unsigned int device_id, enum kgsl_property_type type, void *value, unsigned int sizebytes)
-{
-	int status = GSL_SUCCESS;
-	struct kgsl_device  *device;
-
-	KGSL_DRV_VDBG("device_id=%d, type=%d, value=0x%08x, sizebytes=%u\n", device_id, type, (unsigned int) value, sizebytes);
-
-	DEBUG_ASSERT(value);
-
-	mutex_lock(&gsl_driver.lock);
-	device = &gsl_driver.device[device_id-1]; // device_id is 1 based
-	if (device->flags & KGSL_FLAGS_INITIALIZED) {
-		if (device->ftbl.setproperty) {
-			status = device->ftbl.setproperty(device, type, value, sizebytes);
-		}
-	}
-	mutex_unlock(&gsl_driver.lock);
-	return (status);
-}
-
-//----------------------------------------------------------------------------
-
 int
 kgsl_device_start(unsigned int device_id, unsigned int flags)
 {

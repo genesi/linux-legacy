@@ -461,22 +461,6 @@ done:
 	return result;
 }
 
-static int kgsl_ioctl_device_setproperty(struct file *fd, void __user *arg)
-{
-	int result;
-	struct kgsl_device_setproperty param;
-
-	if (copy_from_user(&param, arg, sizeof(param))) {
-		result = GSL_FAILURE; // -EFAULT
-		goto done;
-	}
-
-	result = kgsl_device_setproperty(param.device_id, param.type, param.value, param.sizebytes);
-
-done:
-	return result;
-}
-
 static int kgsl_ioctl_device_regread(struct file *fd, void __user *arg)
 {
 	int status = GSL_SUCCESS;
@@ -936,9 +920,6 @@ static int kgsl_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, un
 	case IOCTL_KGSL_DEVICE_GETPROPERTY:
 		result = kgsl_ioctl_device_getproperty(fd, (void __user *)arg);
 		break;
-	case IOCTL_KGSL_DEVICE_SETPROPERTY:
-		result = kgsl_ioctl_device_setproperty(fd, (void __user *)arg);
-		break;
 	case IOCTL_KGSL_SHAREDMEM_ALLOC:
 		/* qcom: runpending on each device first */
 		result = kgsl_ioctl_sharedmem_alloc(fd, (void __user *)arg);
@@ -1305,16 +1286,10 @@ static int gpu_remove(struct platform_device *pdev)
 static int gpu_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	int i;
-	struct kgsl_powerprop power;
 
 	/* this is hideous! */
-	power.flags = GSL_PWRFLAGS_POWER_OFF;
 	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
-		kgsl_device_setproperty(
-			(unsigned int) (i+1),
-			KGSL_PROP_DEVICE_POWER,
-			&power,
-			sizeof(struct kgsl_powerprop));
+		kgsl_pwrctrl(i, GSL_PWRFLAGS_POWER_OFF, 0);
 	}
 
 	return 0;
@@ -1323,16 +1298,12 @@ static int gpu_suspend(struct platform_device *pdev, pm_message_t state)
 static int gpu_resume(struct platform_device *pdev)
 {
 	int i;
-	struct kgsl_powerprop power;
 
-	power.flags = GSL_PWRFLAGS_POWER_ON;
+	/* this is hideous! */
 	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
-		kgsl_device_setproperty(
-			(unsigned int) (i+1),
-			KGSL_PROP_DEVICE_POWER,
-			&power,
-			sizeof(struct kgsl_powerprop));
+		kgsl_pwrctrl(i, GSL_PWRFLAGS_POWER_ON, 100);
 	}
+
 	return 0;
 }
 #else

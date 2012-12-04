@@ -18,6 +18,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include <linux/err.h>
+#include <linux/clk.h>
 #include <linux/timer.h>
 #include <linux/spinlock.h>
 #include <linux/slab.h>
@@ -45,6 +47,54 @@ static DECLARE_MUTEX(sem_dev);
 
 #define KGSL_DEVICE_IDLE_TIMEOUT 5000	/* unit ms */
 
+int kgsl_clock(unsigned int dev, int enable)
+{
+	struct clk *gpu_clk = NULL;
+	struct clk *garb_clk = NULL;
+	struct clk *emi_garb_clk = NULL;
+
+	switch (dev) {
+	case KGSL_DEVICE_G12:
+		gpu_clk = clk_get(0, "gpu2d_clk");
+		break;
+	case KGSL_DEVICE_YAMATO:
+		gpu_clk = clk_get(0, "gpu3d_clk");
+		garb_clk = clk_get(0, "garb_clk");
+		emi_garb_clk = clk_get(0, "emi_garb_clk");
+		break;
+	default:
+		pr_err("GPU device %d is invalid!\n", dev);
+		return GSL_FAILURE_DEVICEERROR;
+	}
+
+	if (IS_ERR(gpu_clk)) {
+		pr_err("GPU clock get failed!\n");
+		return GSL_FAILURE_DEVICEERROR;
+	}
+
+	if (enable) {
+		clk_enable(gpu_clk);
+		if (garb_clk) {
+		    clk_enable(garb_clk);
+		}
+		if (emi_garb_clk) {
+		    clk_enable(emi_garb_clk);
+		}
+	} else {
+		clk_disable(gpu_clk);
+		if (garb_clk) {
+		    clk_disable(garb_clk);
+		}
+		if (emi_garb_clk) {
+		    clk_disable(emi_garb_clk);
+		}
+	}
+
+	return GSL_SUCCESS;
+}
+
+
+
 static void clk_disable_task(struct work_struct *work)
 {
 	gsl_autogate_t *autogate;
@@ -61,10 +111,10 @@ static int _kgsl_device_active(struct kgsl_device *dev, int all)
 	int to_active = 0;
 	gsl_autogate_t *autogate = dev->autogate;
 	if (!autogate) {
-		printk(KERN_ERR "%s: autogate has exited!\n", __func__);
+		pr_err("%s: autogate has exited!\n", __func__);
 		return 0;
 	}
-//	printk(KERN_ERR "%s:%d id %d active %d\n", __func__, __LINE__, dev->id, autogate->active);
+//	pr_err("%s:%d id %d active %d\n", __func__, __LINE__, dev->id, autogate->active);
 
 	spin_lock_irqsave(&autogate->lock, flags);
 	if (in_interrupt()) {
@@ -99,7 +149,7 @@ static void kgsl_device_inactive(unsigned long data)
 	gsl_autogate_t *autogate = (gsl_autogate_t *)data;
 	unsigned long flags;
 
-//	printk(KERN_ERR "%s:%d id %d active %d\n", __func__, __LINE__, autogate->dev->id, autogate->active);
+//	pr_err("%s:%d id %d active %d\n", __func__, __LINE__, autogate->dev->id, autogate->active);
 	del_timer(&autogate->timer);
 	spin_lock_irqsave(&autogate->lock, flags);
 	WARN(!autogate->active, "GPU Device %d is already inactive\n", autogate->dev->id);
@@ -111,33 +161,14 @@ static void kgsl_device_inactive(unsigned long data)
 	spin_unlock_irqrestore(&autogate->lock, flags);
 }
 
-int kgsl_device_clock(unsigned int id, int enable)
-{
-	int ret = GSL_SUCCESS;
-	struct kgsl_device *device;
-
-	device = &gsl_driver.device[id-1];       // device_id is 1 based
-	if (device->flags & KGSL_FLAGS_INITIALIZED) {
-		if (enable)
-			kgsl_device_active(device);
-		else
-			kgsl_device_inactive((unsigned long)device);
-	} else {
-		printk(KERN_ERR "%s: Dev %d clock is already off!\n", __func__, id);
-		ret = GSL_FAILURE;
-	}
-	
-	return ret;
-}
-
 int kgsl_device_autogate_init(struct kgsl_device *dev)
 {
 	gsl_autogate_t *autogate;
 
-//	printk(KERN_ERR "%s:%d id %d\n", __func__, __LINE__, dev->id);
+//	pr_err("%s:%d id %d\n", __func__, __LINE__, dev->id);
 	autogate = kzalloc(sizeof(gsl_autogate_t), GFP_KERNEL);
 	if (!autogate) {
-		printk(KERN_ERR "%s: out of memory!\n", __func__);
+		pr_err("%s: out of memory!\n", __func__);
 		return -ENOMEM;
 	}
 	down(&sem_dev);
@@ -161,7 +192,7 @@ void kgsl_device_autogate_exit(struct kgsl_device *dev)
 {
 	gsl_autogate_t *autogate = dev->autogate;
 
-//	printk(KERN_ERR "%s:%d id %d active %d\n", __func__, __LINE__, dev->id,  autogate->active);
+//	pr_err("%s:%d id %d active %d\n", __func__, __LINE__, dev->id,  autogate->active);
 	down(&sem_dev);
 	del_timer_sync(&autogate->timer);
 	if (!autogate->active)
@@ -171,4 +202,42 @@ void kgsl_device_autogate_exit(struct kgsl_device *dev)
 	up(&sem_dev);
 	kfree(autogate);
 	dev->autogate = NULL;
+}
+
+int kgsl_pwrctrl(unsigned int device_id, int state, unsigned int value)
+{
+	struct kgsl_device *device = &gsl_driver.device[device_id-1];
+
+	/* unreferenced formal parameters */
+	(void) value;
+
+	switch (device_id) {
+	case KGSL_DEVICE_G12:
+	case KGSL_DEVICE_YAMATO:
+		break;
+	default:
+		return GSL_FAILURE_DEVICEERROR;
+	}
+
+	switch (state) {
+	case GSL_PWRFLAGS_CLK_ON:
+		break;
+	case GSL_PWRFLAGS_POWER_ON:
+		kgsl_clock(device_id, 1);
+		kgsl_device_autogate_init(device);
+		break;
+	case GSL_PWRFLAGS_CLK_OFF:
+		break;
+	case GSL_PWRFLAGS_POWER_OFF:
+		if (device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT) != GSL_SUCCESS) {
+			return GSL_FAILURE_DEVICEERROR;
+		}
+		kgsl_device_autogate_exit(device);
+		kgsl_clock(device_id, 0);
+		break;
+	default:
+		break;
+	}
+
+	return GSL_SUCCESS;
 }

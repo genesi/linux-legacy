@@ -92,7 +92,6 @@ typedef struct _gsl_hal_t {
 KGSLHAL_API int             kgsl_hal_init(void);
 KGSLHAL_API int             kgsl_hal_close(void);
 KGSLHAL_API int             kgsl_hal_getdevconfig(unsigned int device_id, struct kgsl_devconfig *config);
-KGSLHAL_API int             kgsl_hal_setpowerstate(unsigned int device_id, int state, unsigned int value);
 KGSLHAL_API unsigned int    kgsl_hal_getchipid(unsigned int device_id);
 
 #ifdef __cplusplus

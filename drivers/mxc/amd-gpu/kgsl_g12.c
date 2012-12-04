@@ -201,7 +201,7 @@ kgsl_g12_init(struct kgsl_device *device)
 
     device->flags |= KGSL_FLAGS_INITIALIZED;
 
-    kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_POWER_ON, 100);
+    kgsl_pwrctrl(device->id, GSL_PWRFLAGS_POWER_ON, 100);
 
     // setup MH arbiter - MH offsets are considered to be dword based, therefore no down shift
     kgsl_g12_regwrite(device, ADDR_MH_ARBITER_CONFIG, KGSL_G12_CFG_G12_MHARB);
@@ -283,7 +283,7 @@ kgsl_g12_close(struct kgsl_device *device)
         // shutdown interrupt
         kgsl_intr_close(device);
 
-        kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_POWER_OFF, 0);
+        kgsl_pwrctrl(device->id, GSL_PWRFLAGS_POWER_OFF, 0);
 
         device->flags &= ~KGSL_FLAGS_INITIALIZED;
 
@@ -330,7 +330,7 @@ int kgsl_g12_start(struct kgsl_device *device, unsigned int flags)
 	int  status = GSL_SUCCESS;
 	(void) flags;
 
-	kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_CLK_ON, 100);
+	kgsl_pwrctrl(device->id, GSL_PWRFLAGS_CLK_ON, 100);
 
 	/* qcom: bitch if not initialized */
 
@@ -364,7 +364,7 @@ int kgsl_g12_stop(struct kgsl_device *device)
 
 	/* qcom: destroy irq work */
 
-	status = kgsl_hal_setpowerstate(device->id, GSL_PWRFLAGS_CLK_OFF, 0);
+	status = kgsl_pwrctrl(device->id, GSL_PWRFLAGS_CLK_OFF, 0);
 	device->flags &= ~KGSL_FLAGS_STARTED;
 
 	return status;
@@ -396,26 +396,7 @@ int kgsl_g12_getproperty(struct kgsl_device *device, enum kgsl_property_type typ
 	return status;
 }
 
-int kgsl_g12_setproperty(struct kgsl_device *device, enum kgsl_property_type type, void *value, unsigned int sizebytes)
-{
-	int status = GSL_FAILURE;
-
-	if (type == KGSL_PROP_DEVICE_POWER) {
-		struct kgsl_powerprop  *power = (struct kgsl_powerprop *) value;
-
-		DEBUG_ASSERT(sizebytes == sizeof(struct kgsl_powerprop));
-
-		if (!(device->flags & KGSL_FLAGS_SAFEMODE)) {
-			kgsl_hal_setpowerstate(device->id, power->flags, power->value);
-		}
-
-		status = GSL_SUCCESS;
-	}
-	return status;
-}
-
-int
-kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout)
+int kgsl_g12_idle(struct kgsl_device *device, unsigned int timeout)
 {
 	if ( device->flags & KGSL_FLAGS_STARTED )
 	{
@@ -514,7 +495,6 @@ kgsl_g12_getfunctable(struct kgsl_functable *ftbl)
 	ftbl->start		= kgsl_g12_start;
 	ftbl->stop		= kgsl_g12_stop;
 	ftbl->getproperty	= kgsl_g12_getproperty;
-	ftbl->setproperty	= kgsl_g12_setproperty;
 	ftbl->idle		= kgsl_g12_idle;
 	ftbl->regread		= kgsl_g12_regread;
 	ftbl->regwrite		= kgsl_g12_regwrite;

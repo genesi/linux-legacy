@@ -124,12 +124,6 @@ struct kgsl_shadowprop {
 	unsigned int flags; /* contains KGSL_FLAGS_ values */
 };
 
-/* NQ - used internally by FSL kernel driver, userspace has no clue */
-struct kgsl_powerprop {
-	unsigned int value;
-	unsigned int flags;
-};
-
 /*
  * please check of NQ items are even called from FSL userspace
  */
