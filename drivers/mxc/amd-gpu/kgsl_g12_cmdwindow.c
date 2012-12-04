@@ -105,6 +105,9 @@ int kgsl_g12_cmdwindow_write0(struct kgsl_device *device,
 	kgsl_mmu_setpagetable(device, current->tgid);
 #endif
 
+	/* newer qualcomm drivers spinlock_irqsave around this
+	 * there's also a pre_hwaccess above it
+	 */
 	kgsl_g12_regwrite(device, cmdstream >> 2, cmdwinaddr);
 	kgsl_g12_regwrite(device, cmdstream >> 2, data);
 
