@@ -107,6 +107,9 @@ int kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_
 				&g_z1xx.cmdbufdesc[g_z1xx.curr], 0,
 				g_z1xx.cmdbuf[g_z1xx.curr],
 				(512 + 13) * sizeof(unsigned int), false);
+	/* in qcom .35 */
+	mb();
+
 
 	g_z1xx.offs = 0;
 	g_z1xx.curr = nextbuf;
