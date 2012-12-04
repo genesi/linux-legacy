@@ -494,73 +494,6 @@ int kgsl_g12_regwrite(struct kgsl_device *device, unsigned int offsetwords, unsi
 }
 
 int
-kgsl_g12_waitirq(struct kgsl_device *device, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout)
-{
-    int  status = GSL_FAILURE_NOTSUPPORTED;
-    int complete = 0;
-
-#ifndef _Z180
-    if (intr_id == GSL_INTR_G12_G2D || intr_id == GSL_INTR_G12_FBC)
-#else
-        if (intr_id == GSL_INTR_G12_G2D)
-#endif //_Z180
-        {
-            if (kgsl_intr_isenabled(&device->intr, intr_id) == GSL_SUCCESS)
-            {
-                // wait until intr completion event is received and check that
-                // the interrupt is still enabled. If event is received, but
-                // interrupt is not enabled any more, the driver is shutting
-                // down and event structure is not valid anymore.
-
-		if (timeout != OS_INFINITE)
-			complete = wait_for_completion_timeout(&device->intr.evnt[intr_id], msecs_to_jiffies(timeout));
-		else
-			complete = wait_for_completion_killable(&device->intr.evnt[intr_id]);
-
-                if (complete && kgsl_intr_isenabled(&device->intr, intr_id) == GSL_SUCCESS)
-                {
-                    unsigned int cntrs;
-                    int          i;
-		    struct completion *comp = &device->intr.evnt[intr_id];
-
-                    kgsl_device_active(device);
-
-                    INIT_COMPLETION(*comp);
-                    kgsl_g12_regread(device, (ADDR_VGC_IRQ_ACTIVE_CNT >> 2), &cntrs);
-
-                    for (i = 0; i < GSL_G12_INTR_COUNT; i++)
-                    {
-                        int intrcnt = cntrs >> ((8 * i)) & 255;
-
-                        // maximum allowed counter value is 254. if set to 255 then something has gone wrong
-                        if (intrcnt && (intrcnt < 0xFF))
-                        {
-                            device->intrcnt[i] += intrcnt;
-                        }
-                    }
-
-                    *count = device->intrcnt[intr_id - GSL_INTR_G12_MH];
-                    device->intrcnt[intr_id - GSL_INTR_G12_MH] = 0;
-                    status = GSL_SUCCESS;
-                }
-                else
-                {
-                    status = GSL_FAILURE_TIMEOUT;
-                }
-            }
-        }
-    else if(intr_id == GSL_INTR_FOOBAR)
-    {
-        if (kgsl_intr_isenabled(&device->intr, GSL_INTR_G12_G2D) == GSL_SUCCESS)
-        {
-            complete_all(&device->intr.evnt[GSL_INTR_G12_G2D]);
-        }
-    }
-
-    return (status);
-}
-
-int
 kgsl_g12_waittimestamp(struct kgsl_device *device, unsigned int timestamp, unsigned int timeout)
 {
 	int status = wait_event_interruptible_timeout(device->timestamp_waitq,
@@ -585,7 +518,6 @@ kgsl_g12_getfunctable(struct kgsl_functable *ftbl)
 	ftbl->idle		= kgsl_g12_idle;
 	ftbl->regread		= kgsl_g12_regread;
 	ftbl->regwrite		= kgsl_g12_regwrite;
-	ftbl->waitirq		= kgsl_g12_waitirq;
 	ftbl->waittimestamp	= kgsl_g12_waittimestamp;
 	ftbl->runpending	= NULL;
 	ftbl->addtimestamp	= kgsl_g12_addtimestamp;

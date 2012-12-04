@@ -61,7 +61,6 @@ struct kgsl_functable {
 	int (*idle)            (struct kgsl_device *device, unsigned int timeout);
 	int (*regread)         (struct kgsl_device *device, unsigned int offsetwords, unsigned int *value);
 	int (*regwrite)        (struct kgsl_device *device, unsigned int offsetwords, unsigned int value);
-	int (*waitirq)         (struct kgsl_device *device, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout);
 	int (*waittimestamp)   (struct kgsl_device *device, unsigned int timestamp, unsigned int timeout);
 	int (*runpending)      (struct kgsl_device *device);
 	int (*addtimestamp)    (struct kgsl_device *device_id, unsigned int *timestamp);
@@ -136,8 +135,6 @@ int kgsl_device_isidle(unsigned int device_id);
 int kgsl_device_getproperty(unsigned int device_id, enum kgsl_property_type type, void *value, unsigned int sizebytes);
 int kgsl_device_setproperty(unsigned int device_id, enum kgsl_property_type type, void *value, unsigned int sizebytes);
 int kgsl_device_regread(unsigned int device_id, unsigned int offsetwords, unsigned int *value);
-int kgsl_device_regwrite(unsigned int device_id, unsigned int offsetwords, unsigned int value);
-int kgsl_device_waitirq(unsigned int device_id, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout);
 
 int kgsl_clock(unsigned int dev, int enable);
 int kgsl_device_active(struct kgsl_device *dev);

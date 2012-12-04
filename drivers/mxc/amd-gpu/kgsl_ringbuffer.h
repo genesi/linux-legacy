@@ -184,17 +184,19 @@ struct kgsl_ringbuffer {
 // timestamp
 // ---------
 #ifdef GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
+#warning GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
 #define GSL_RB_USE_MEM_TIMESTAMP
 #endif //GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
 
 #ifdef  GSL_RB_USE_MEM_TIMESTAMP
+#warning GSL_RB_USE_MEM_TIMESTAMP
 #define GSL_RB_MEMPTRS_SCRATCH_MASK         0x1     // enable timestamp (...scratch0) memory shadowing
 #define GSL_RB_INIT_TIMESTAMP(rb)
 
 #else
 #define GSL_RB_MEMPTRS_SCRATCH_MASK         0x0     // disable
 #define GSL_RB_INIT_TIMESTAMP(rb) \
-           kgsl_device_regwrite((rb)->device->id, REG_CP_TIMESTAMP, 0);
+           kgsl_yamato_regwrite((rb)->device, REG_CP_TIMESTAMP, 0);
 //qcom: use yamato directly (why do they pass the id?)
 #endif // GSL_RB_USE_MEMTIMESTAMP
 
@@ -202,6 +204,7 @@ struct kgsl_ringbuffer {
 // mem rptr
 // --------
 #ifdef  GSL_RB_USE_MEM_RPTR
+#warning GSL_RB_USE_MEM_RPTR
 #define GSL_RB_CNTL_NO_UPDATE               0x0     // enable
 #define GSL_RB_GET_READPTR(rb, data) \
 	do { \
@@ -211,7 +214,7 @@ struct kgsl_ringbuffer {
 #define GSL_RB_CNTL_NO_UPDATE               0x1     // disable
 #define GSL_RB_GET_READPTR(rb, data) \
 	do { \
-		(rb)->device->fbtl.device_regread((rb)->device, REG_CP_RB_RPTR,(data)); \
+		kgsl_yamato_regread((rb)->device, REG_CP_RB_RPTR,(data)); \
 	} while (0)
 #endif // GSL_RB_USE_MEMRPTR
 
@@ -219,6 +222,7 @@ struct kgsl_ringbuffer {
 // wptr polling
 // ------------
 #ifdef  GSL_RB_USE_WPTR_POLLING
+#warning GSL_RB_USE_WPTR_POLLING
 #define GSL_RB_CNTL_POLL_EN                 0x1     // enable
 #define GSL_RB_UPDATE_WPTR_POLLING(rb) \
 	do { (rb)->memptrs->wptr_poll = (rb)->wptr; } while (0)

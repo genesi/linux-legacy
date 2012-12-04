@@ -455,58 +455,6 @@ kgsl_device_regread(unsigned int device_id, unsigned int offsetwords, unsigned i
     return (status);
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_device_regwrite(unsigned int device_id, unsigned int offsetwords, unsigned int value)
-{
-    int           status = GSL_FAILURE_NOTINITIALIZED;
-    struct kgsl_device  *device;
-
-    KGSL_DRV_VDBG("device_id=%d, offsetwords=%d, value=0x%08x\n", device_id, offsetwords, value );
-
-    mutex_lock(&gsl_driver.lock);
-
-    device = &gsl_driver.device[device_id-1];       // device_id is 1 based
-
-    DEBUG_ASSERT(offsetwords < device->regspace.sizebytes);
-
-    if (device->ftbl.regwrite)
-    {
-        status = device->ftbl.regwrite(device, offsetwords, value);
-    }
-
-    mutex_unlock(&gsl_driver.lock);
-
-    return (status);
-}
-
-//----------------------------------------------------------------------------
-
-int
-kgsl_device_waitirq(unsigned int device_id, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout)
-{
-    int           status = GSL_FAILURE_NOTINITIALIZED;
-    struct kgsl_device  *device;
-
-    KGSL_DRV_VDBG("device_id=%d, intr_id=%d, count=0x%08x, timoute=0x%08x\n", device_id, intr_id, (unsigned int) count, timeout);
-
-    mutex_lock(&gsl_driver.lock);
-
-    device = &gsl_driver.device[device_id-1];       // device_id is 1 based
-
-    if (device->ftbl.waitirq)
-    {
-        status = device->ftbl.waitirq(device, intr_id, count, timeout);
-    }
-
-    mutex_unlock(&gsl_driver.lock);
-
-    return (status);
-}
-
-//----------------------------------------------------------------------------
-
 int
 kgsl_device_runpending(struct kgsl_device *device)
 {
