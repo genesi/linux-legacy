@@ -27,6 +27,9 @@
 #include "kgsl_cmdstream.h"
 #include "kgsl_debug.h"
 
+/* move me to a header please */
+unsigned int kgsl_yamato_getchipid(struct kgsl_device *device);
+
 int kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
 {
     int              status = GSL_SUCCESS;
@@ -115,10 +118,10 @@ int kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
         }
         kgsl_sharedmem_set0(&device->memstore, 0, 0, device->memstore.size);
 
-        //
-        //  Read the chip ID after the device has been initialized.
-        //
-        device->chip_id       = kgsl_hal_getchipid(device->id);
+	if (device->id == KGSL_DEVICE_YAMATO)
+		device->chip_id = kgsl_yamato_getchipid(device);
+	else
+		device->chip_id = 0;
     }
 
     return (status);
