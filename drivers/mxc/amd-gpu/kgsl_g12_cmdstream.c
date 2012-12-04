@@ -125,6 +125,7 @@ int kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_
 
 	/* increment consumed timestamp */
 	device->current_timestamp++;
+	/* neko note: if we do this don't we need to increment *timestamp too? */
 	kgsl_sharedmem_write0(&device->memstore, KGSL_DEVICE_MEMSTORE_OFFSET(soptimestamp), &device->current_timestamp, 4, 0);
 	/* end FSL code */
 
