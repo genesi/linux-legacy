@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2009, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2002,2007-2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,6 +29,8 @@
 #ifndef __GSL_RINGBUFFER_H
 #define __GSL_RINGBUFFER_H
 
+#include "kgsl_types.h"
+
 // CONFIGURATION ITEMS
 //#define GSL_STATS_RINGBUFFER
 #define GSL_RB_USE_MEM_RPTR
@@ -37,140 +39,72 @@
 /* #define GSL_RB_USE_WPTR_POLLING */
 /* #define GSL_DEVICE_SHADOW_MEMSTORE_TO_USER */
 
-#include "kgsl_types.h"
+/* ringbuffer sizes log2quadword */
+#define GSL_RB_SIZE_8                        0
+#define GSL_RB_SIZE_16                       1
+#define GSL_RB_SIZE_32                       2
+#define GSL_RB_SIZE_64                       3
+#define GSL_RB_SIZE_128                      4
+#define GSL_RB_SIZE_256                      5
+#define GSL_RB_SIZE_512                      6
+#define GSL_RB_SIZE_1K                       7
+#define GSL_RB_SIZE_2K                       8
+#define GSL_RB_SIZE_4K                       9
+#define GSL_RB_SIZE_8K                      10
+#define GSL_RB_SIZE_16K                     11
+#define GSL_RB_SIZE_32K                     12
+#define GSL_RB_SIZE_64K                     13
+#define GSL_RB_SIZE_128K                    14
+#define GSL_RB_SIZE_256K                    15
+#define GSL_RB_SIZE_512K                    16
+#define GSL_RB_SIZE_1M                      17
+#define GSL_RB_SIZE_2M                      18
+#define GSL_RB_SIZE_4M                      19
 
+static const unsigned int kgsl_cfg_rb_sizelog2quadwords = GSL_RB_SIZE_32K;
+static const unsigned int kgsl_cfg_rb_blksizequadwords  = GSL_RB_SIZE_16;
 
-//////////////////////////////////////////////////////////////////////////////
-//  defines
-//////////////////////////////////////////////////////////////////////////////
+/* qcom: forward decls for device, device_private, drawctxt, ringbuffer */
 
-// ringbuffer sizes log2quadword
-#define     GSL_RB_SIZE_8                        0
-#define     GSL_RB_SIZE_16                       1
-#define     GSL_RB_SIZE_32                       2
-#define     GSL_RB_SIZE_64                       3
-#define     GSL_RB_SIZE_128                      4
-#define     GSL_RB_SIZE_256                      5
-#define     GSL_RB_SIZE_512                      6
-#define     GSL_RB_SIZE_1K                       7
-#define     GSL_RB_SIZE_2K                       8
-#define     GSL_RB_SIZE_4K                       9
-#define     GSL_RB_SIZE_8K                      10
-#define     GSL_RB_SIZE_16K                     11
-#define     GSL_RB_SIZE_32K                     12
-#define     GSL_RB_SIZE_64K                     13
-#define     GSL_RB_SIZE_128K                    14
-#define     GSL_RB_SIZE_256K                    15
-#define     GSL_RB_SIZE_512K                    16
-#define     GSL_RB_SIZE_1M                      17
-#define     GSL_RB_SIZE_2M                      18
-#define     GSL_RB_SIZE_4M                      19
+/* CP timestamp register */
+#define REG_CP_TIMESTAMP		REG_SCRATCH_REG0
 
-// offsets into memptrs
-#define GSL_RB_MEMPTRS_RPTR_OFFSET              (offsetof(struct kgsl_rbmemptrs, rptr))
-#define GSL_RB_MEMPTRS_WPTRPOLL_OFFSET          (offsetof(struct kgsl_rbmemptrs, wptr_poll))
-
-// dword base address of the GFX decode space
-#define GSL_HAL_SUBBLOCK_OFFSET(reg)            ((unsigned int)((reg) - (0x2000)))
-
-// CP timestamp register
-#define REG_CP_TIMESTAMP                          REG_SCRATCH_REG0
-
-
-//////////////////////////////////////////////////////////////////////////////
-// types
-//////////////////////////////////////////////////////////////////////////////
-
-#ifdef _DEBUG
-// ----------------
-// ringbuffer debug
-// ----------------
-struct kgsl_rb_debug {
-    unsigned int        pm4_ucode_rel;
-    unsigned int        pfp_ucode_rel;
-    unsigned int        cp_rb_base;
-    cp_rb_cntl_u        cp_rb_cntl;
-    unsigned int        cp_rb_rptr_addr;
-    unsigned int        cp_rb_rptr;
-    unsigned int        cp_rb_wptr;
-    unsigned int        cp_rb_wptr_base;
-    scratch_umsk_u      scratch_umsk;
-    unsigned int        scratch_addr;
-    cp_me_cntl_u        cp_me_cntl;
-    cp_me_status_u      cp_me_status;
-    cp_debug_u          cp_debug;
-    cp_stat_u           cp_stat;
-    rbbm_status_u       rbbm_status;
-    unsigned int        sop_timestamp;
-    unsigned int        eop_timestamp;
-};
-#endif // _DEBUG
-
-// -------------------
-// ringbuffer watchdog
-// -------------------
-struct kgsl_rbwatchdog {
-    unsigned int   flags;
-    unsigned int  rptr_sample;
-};
-
-// ------------------
-// memory ptr objects
-// ------------------
-#ifdef __GNUC__
-#pragma pack(push, 1)
-#else
-#pragma pack(push)
-#pragma pack(1)
-#endif
+#define GSL_RB_MEMPTRS_SCRATCH_COUNT	8
 struct kgsl_rbmemptrs {
-    volatile int  rptr;
-    int           wptr_poll;
-};
-#pragma pack(pop)
-
-// -----
-// stats
-// -----
-struct kgsl_rbstats {
-    __s64  wraps;
-    __s64  issues;
-    __s64  wordstotal;
+	volatile int rptr;
+	volatile int wptr_poll;
 };
 
+#define GSL_RB_MEMPTRS_RPTR_OFFSET \
+	(offsetof(struct kgsl_rbmemptrs, rptr))
 
-// -----------------
-// ringbuffer object
-// -----------------
+#define GSL_RB_MEMPTRS_WPTRPOLL_OFFSET \
+	(offsetof(struct kgsl_rbmemptrs, wptr_poll))
+
 struct kgsl_ringbuffer {
+	struct kgsl_device *device;
+	unsigned int flags;
 
-    struct kgsl_device      *device;
-    unsigned int       flags;
-    struct mutex	*mutex;
-    struct kgsl_memdesc     buffer_desc;              // allocated memory descriptor
-    struct kgsl_memdesc     memptrs_desc;
+	struct kgsl_memdesc buffer_desc;              // allocated memory descriptor
 
-    struct kgsl_rbmemptrs   *memptrs;
+	struct kgsl_memdesc memptrs_desc;
+	struct kgsl_rbmemptrs *memptrs;
 
-    unsigned int      sizedwords;               // ring buffer size dwords
-    unsigned int      blksizequadwords;
+	/* ring buffer size */
+	unsigned int sizedwords;
+	unsigned int blksizequadwords;
 
-    unsigned int      wptr;                     // write pointer offset in dwords from baseaddr
-    unsigned int      rptr;                     // read pointer  offset in dwords from baseaddr
-    unsigned int   timestamp;
+	unsigned int wptr; /* write pointer offset in dwords from baseaddr */
+	unsigned int rptr; /* read pointer offset in dwords from baseaddr */
+	unsigned int timestamp;
 
-
-    struct kgsl_rbwatchdog  watchdog;
-
-#ifdef GSL_STATS_RINGBUFFER
-    struct kgsl_rbstats     stats;
-#endif // GSL_STATS_RINGBUFFER
+	/* qcom: queue of memfrees pending timestamp elapse (struct list_head_memqueue) */
+	/* old qcom: watchdog, stats */
 };
 
+/* dword base address of the GFX decode space */
+#define GSL_HAL_SUBBLOCK_OFFSET(reg)	((unsigned int)((reg) - (0x2000)))
 
-// ----------
-// ring write
-// ----------
 #define GSL_RB_WRITE(ring, data) \
 	do { \
 		mb(); \
@@ -178,82 +112,61 @@ struct kgsl_ringbuffer {
 		ring++; \
 	} while (0)
 
-//      *(unsigned int *)(ring)++ = (unsigned int)(data);
 
-// ---------
-// timestamp
-// ---------
 #ifdef GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
 #warning GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
 #define GSL_RB_USE_MEM_TIMESTAMP
-#endif //GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
+#endif /* GSL_DEVICE_SHADOW_MEMSTORE_TO_USER */
 
 #ifdef  GSL_RB_USE_MEM_TIMESTAMP
+/* enable timestamp (...scratch0) memory shadowing */
 #warning GSL_RB_USE_MEM_TIMESTAMP
-#define GSL_RB_MEMPTRS_SCRATCH_MASK         0x1     // enable timestamp (...scratch0) memory shadowing
+#define GSL_RB_MEMPTRS_SCRATCH_MASK 0x1
 #define GSL_RB_INIT_TIMESTAMP(rb)
 
 #else
-#define GSL_RB_MEMPTRS_SCRATCH_MASK         0x0     // disable
+#define GSL_RB_MEMPTRS_SCRATCH_MASK 0x0
 #define GSL_RB_INIT_TIMESTAMP(rb) \
            kgsl_yamato_regwrite((rb)->device, REG_CP_TIMESTAMP, 0);
-//qcom: use yamato directly (why do they pass the id?)
-#endif // GSL_RB_USE_MEMTIMESTAMP
 
-// --------
-// mem rptr
-// --------
-#ifdef  GSL_RB_USE_MEM_RPTR
+#endif /* GSL_RB_USE_MEMTIMESTAMP */
+
+#ifdef GSL_RB_USE_MEM_RPTR
 #warning GSL_RB_USE_MEM_RPTR
-#define GSL_RB_CNTL_NO_UPDATE               0x0     // enable
+#define GSL_RB_CNTL_NO_UPDATE 0x0 /* enable */
 #define GSL_RB_GET_READPTR(rb, data) \
 	do { \
 		*(data) = (rb)->memptrs->rptr; \
 	} while (0)
 #else
-#define GSL_RB_CNTL_NO_UPDATE               0x1     // disable
+#define GSL_RB_CNTL_NO_UPDATE 0x1 /* disable */
 #define GSL_RB_GET_READPTR(rb, data) \
 	do { \
 		kgsl_yamato_regread((rb)->device, REG_CP_RB_RPTR,(data)); \
 	} while (0)
-#endif // GSL_RB_USE_MEMRPTR
+#endif /* GSL_RB_USE_MEMRPTR */
 
-// ------------
-// wptr polling
-// ------------
-#ifdef  GSL_RB_USE_WPTR_POLLING
+#ifdef GSL_RB_USE_WPTR_POLLING
 #warning GSL_RB_USE_WPTR_POLLING
-#define GSL_RB_CNTL_POLL_EN                 0x1     // enable
+#define GSL_RB_CNTL_POLL_EN 0x1 /* enable */
 #define GSL_RB_UPDATE_WPTR_POLLING(rb) \
 	do { (rb)->memptrs->wptr_poll = (rb)->wptr; } while (0)
 #else
-#define GSL_RB_CNTL_POLL_EN                 0x0     // disable
+#define GSL_RB_CNTL_POLL_EN 0x0 /* disable */
 #define GSL_RB_UPDATE_WPTR_POLLING(rb)
-#endif  // GSL_RB_USE_WPTR_POLLING
+#endif /* GSL_RB_USE_WPTR_POLLING */
 
-// -----
-// stats
-// -----
-#ifdef GSL_STATS_RINGBUFFER
-#define GSL_RB_STATS(x) x
-#else
-#define GSL_RB_STATS(x)
-#endif // GSL_STATS_RINGBUFFER
+/* qcom: fwd decl kgsl_mem_entry */
 
-
-//////////////////////////////////////////////////////////////////////////////
-//  prototypes
-//////////////////////////////////////////////////////////////////////////////
 int             kgsl_ringbuffer_init(struct kgsl_device *device);
 int             kgsl_ringbuffer_close(struct kgsl_ringbuffer *rb);
 int             kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb);
 int             kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb);
-unsigned int	kgsl_ringbuffer_issuecmds(struct kgsl_device *device, int pmodeoff, unsigned int *cmdaddr, int sizedwords, unsigned int pid); //pid is not in qcom
+unsigned int	kgsl_ringbuffer_issuecmds(struct kgsl_device *device, unsigned int flags, unsigned int *cmdaddr, int sizedwords, unsigned int pid); /* NQ: pid */
 int             kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags);
-// qcom: missing int kgsl_ringbuffer_gettimestampshadow(struct kgsl_device *device, unsigned int *sopaddr, unsigned int *eopaddr);
-void            kgsl_ringbuffer_watchdog(void);
-//qcom: missing void kgsl_cp_intrcallback(struct kgsl_device *device);
-int             kgsl_ringbuffer_querystats(struct kgsl_ringbuffer *rb, struct kgsl_rbstats *stats);
 int             kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb);
+
+// qcom: missing int kgsl_ringbuffer_gettimestampshadow(struct kgsl_device *device, unsigned int *sopaddr, unsigned int *eopaddr);
+// qcom: missing void kgsl_cp_intrcallback(struct kgsl_device *device);
 
 #endif  // __GSL_RINGBUFFER_H

@@ -40,11 +40,6 @@
 
 #include "g12_reg.h" // MH stuff
 #include "yamato_reg.h" // bleh
-/* ------------------------
- * Yamato ringbuffer config
- * ------------------------ */
-static const unsigned int gsl_cfg_rb_sizelog2quadwords = GSL_RB_SIZE_32K;
-static const unsigned int gsl_cfg_rb_blksizequadwords  = GSL_RB_SIZE_16;
 
 /* -----------------------------
  * interrupt block register data
