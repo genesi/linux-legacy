@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.31.14.29
-# Wed Dec  5 15:25:16 2012
+# Thu Dec  6 12:31:22 2012
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -1605,7 +1605,7 @@ CONFIG_FRAMEBUFFER_CONSOLE=y
 # CONFIG_FRAMEBUFFER_CONSOLE_ROTATION is not set
 CONFIG_FONTS=y
 # CONFIG_FONT_8x8 is not set
-CONFIG_FONT_8x16=y
+# CONFIG_FONT_8x16 is not set
 # CONFIG_FONT_6x11 is not set
 # CONFIG_FONT_7x14 is not set
 # CONFIG_FONT_PEARL_8x8 is not set
@@ -1614,6 +1614,7 @@ CONFIG_FONT_8x16=y
 # CONFIG_FONT_SUN8x16 is not set
 # CONFIG_FONT_SUN12x22 is not set
 # CONFIG_FONT_10x18 is not set
+CONFIG_FONT_FIXED_8x16=y
 # CONFIG_LOGO is not set
 CONFIG_SOUND=y
 # CONFIG_SOUND_OSS_CORE is not set
@@ -2153,7 +2154,6 @@ CONFIG_MXC_VPU=y
 CONFIG_MXC_KGSL=m
 CONFIG_KGSL_MMU_ENABLE=y
 # CONFIG_KGSL_FINE_GRAINED_LOCKING is not set
-# CONFIG_KGSL_PER_PROCESS_PAGE_TABLE is not set
 # CONFIG_KGSL_MMU_PAGE_FAULT is not set
 
 #
