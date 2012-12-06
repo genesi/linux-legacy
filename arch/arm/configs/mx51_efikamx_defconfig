@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.31.14.29
-# Thu Dec  6 12:31:22 2012
+# Thu Dec  6 15:26:40 2012
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -787,8 +787,7 @@ CONFIG_MAC80211_RC_DEFAULT="minstrel"
 CONFIG_MAC80211_LEDS=y
 # CONFIG_MAC80211_DEBUGFS is not set
 # CONFIG_MAC80211_DEBUG_MENU is not set
-CONFIG_WIMAX=m
-CONFIG_WIMAX_DEBUG_LEVEL=8
+# CONFIG_WIMAX is not set
 CONFIG_RFKILL=m
 CONFIG_RFKILL_LEDS=y
 CONFIG_RFKILL_INPUT=y
@@ -1076,10 +1075,8 @@ CONFIG_AR9170_LEDS=y
 # CONFIG_ATH6K_LEGACY is not set
 
 #
-# WiMAX Wireless Broadband devices
+# Enable WiMAX (Networking options) to see the WiMAX drivers
 #
-# CONFIG_WIMAX_I2400M_USB is not set
-# CONFIG_WIMAX_I2400M_SDIO is not set
 
 #
 # USB Network Adapters
