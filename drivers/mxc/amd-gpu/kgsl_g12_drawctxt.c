@@ -70,7 +70,7 @@ int kgsl_g12_drawctxt_create(struct kgsl_device* device, unsigned int type, unsi
 
 		/* todo: move this to device create or start. Error checking!! */
 		for (i = 0; i < GSL_HAL_NUMCMDBUFFERS; i++) {
-			if (kgsl_sharedmem_alloc0(KGSL_DEVICE_ANY, gslflags,
+			if (kgsl_sharedmem_alloc(gslflags,
 				GSL_HAL_CMDBUFFERSIZE, &g_z1xx.cmdbufdesc[i]) != GSL_SUCCESS)
 				return GSL_FAILURE;
 
@@ -79,7 +79,7 @@ int kgsl_g12_drawctxt_create(struct kgsl_device* device, unsigned int type, unsi
 			g_z1xx.curr = i;
 			g_z1xx.offs = 0;
 			addmarker(&g_z1xx);
-			kgsl_sharedmem_write0(&g_z1xx.cmdbufdesc[i], 0, g_z1xx.cmdbuf[i],
+			kgsl_sharedmem_write(&g_z1xx.cmdbufdesc[i], 0, g_z1xx.cmdbuf[i],
 						(512 + 13) * sizeof(unsigned int), false);
 		}
 
@@ -87,18 +87,18 @@ int kgsl_g12_drawctxt_create(struct kgsl_device* device, unsigned int type, unsi
 		cmd = VGV3_NEXTCMD_JUMP << VGV3_NEXTCMD_NEXTCMD_FSHIFT;
 
 		/* set cmd stream buffer to hw */
-		result = kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D,
+		result = kgsl_g12_cmdwindow_write(device, GSL_CMDWINDOW_2D,
 					ADDR_VGV3_MODE, 4);
 		if (result != GSL_SUCCESS)
 			return result;
 
-		result = kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D,
+		result = kgsl_g12_cmdwindow_write(device, GSL_CMDWINDOW_2D,
 					ADDR_VGV3_NEXTADDR,
 					g_z1xx.cmdbufdesc[0].gpuaddr );
 		if (result != GSL_SUCCESS)
 			return result;
 
-		result = kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D,
+		result = kgsl_g12_cmdwindow_write(device, GSL_CMDWINDOW_2D,
 					ADDR_VGV3_NEXTCMD,  cmd | 5);
 		if (result != GSL_SUCCESS)
 			return result;
@@ -114,32 +114,32 @@ int kgsl_g12_drawctxt_create(struct kgsl_device* device, unsigned int type, unsi
 		 * Edge buffer setup todo: move register setup to own function.
 		 * This function can be then called, if power managemnet is used and clocks are turned off and then on.
 		 */
-		result = kgsl_sharedmem_alloc0(KGSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE0BUFSIZE, &g_z1xx.e0);
+		result = kgsl_sharedmem_alloc(gslflags, GSL_HAL_EDGE0BUFSIZE, &g_z1xx.e0);
 		if (result != GSL_SUCCESS)
 			return result;
 
-		result = kgsl_sharedmem_alloc0(KGSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE1BUFSIZE, &g_z1xx.e1);
+		result = kgsl_sharedmem_alloc(gslflags, GSL_HAL_EDGE1BUFSIZE, &g_z1xx.e1);
 		if (result != GSL_SUCCESS)
 			return result;
 
-		result = kgsl_sharedmem_set0(&g_z1xx.e0, 0, 0, GSL_HAL_EDGE0BUFSIZE);
+		result = kgsl_sharedmem_set(&g_z1xx.e0, 0, 0, GSL_HAL_EDGE0BUFSIZE);
 		if (result != GSL_SUCCESS)
 			return result;
 
-		result = kgsl_sharedmem_set0(&g_z1xx.e1, 0, 0, GSL_HAL_EDGE1BUFSIZE);
+		result = kgsl_sharedmem_set(&g_z1xx.e1, 0, 0, GSL_HAL_EDGE1BUFSIZE);
 
-		result = kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, GSL_HAL_EDGE0REG, g_z1xx.e0.gpuaddr);
+		result = kgsl_g12_cmdwindow_write(device, GSL_CMDWINDOW_2D, GSL_HAL_EDGE0REG, g_z1xx.e0.gpuaddr);
 		if (result != GSL_SUCCESS)
 			return result;
 
-		result = kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, GSL_HAL_EDGE1REG, g_z1xx.e1.gpuaddr);
+		result = kgsl_g12_cmdwindow_write(device, GSL_CMDWINDOW_2D, GSL_HAL_EDGE1REG, g_z1xx.e1.gpuaddr);
 		if (result != GSL_SUCCESS)
 			return result;
 
 #ifdef _Z180
-		kgsl_sharedmem_alloc0(KGSL_DEVICE_ANY, gslflags, GSL_HAL_EDGE2BUFSIZE, &g_z1xx.e2);
-		kgsl_sharedmem_set0(&g_z1xx.e2, 0, 0, GSL_HAL_EDGE2BUFSIZE);
-		kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, GSL_HAL_EDGE2REG, g_z1xx.e2.gpuaddr);
+		kgsl_sharedmem_alloc(gslflags, GSL_HAL_EDGE2BUFSIZE, &g_z1xx.e2);
+		kgsl_sharedmem_set(&g_z1xx.e2, 0, 0, GSL_HAL_EDGE2BUFSIZE);
+		kgsl_g12_cmdwindow_write(device, GSL_CMDWINDOW_2D, GSL_HAL_EDGE2REG, g_z1xx.e2.gpuaddr);
 #endif
 	}
 
@@ -165,14 +165,14 @@ int kgsl_g12_drawctxt_destroy(struct kgsl_device* device, unsigned int drawctxt_
 	if (g_z1xx.numcontext == 0) {
 		int i;
 		for (i = 0; i < GSL_HAL_NUMCMDBUFFERS; i++) {
-			kgsl_sharedmem_free0(&g_z1xx.cmdbufdesc[i], current->tgid);
+			kgsl_sharedmem_free(&g_z1xx.cmdbufdesc[i]);
 			kfree(g_z1xx.cmdbuf[i]);
 		}
 		/* remember, qualcomm's code doesn't have these edge buffers? */
-		kgsl_sharedmem_free0(&g_z1xx.e0, current->tgid);
-		kgsl_sharedmem_free0(&g_z1xx.e1, current->tgid);
+		kgsl_sharedmem_free(&g_z1xx.e0);
+		kgsl_sharedmem_free(&g_z1xx.e1);
 #ifdef _Z180
-		kgsl_sharedmem_free0(&g_z1xx.e2, current->tgid);
+		kgsl_sharedmem_free(&g_z1xx.e2);
 #endif
 	}
 	return GSL_SUCCESS;

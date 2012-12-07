@@ -35,6 +35,18 @@
 #include "kgsl_pm4types.h"
 
 
+#define GSL_CP_INT_MASK \
+	(CP_INT_CNTL__SW_INT_MASK | \
+	 CP_INT_CNTL__T0_PACKET_IN_IB_MASK | \
+	 CP_INT_CNTL__OPCODE_ERROR_MASK | \
+	 CP_INT_CNTL__PROTECTED_MODE_ERROR_MASK | \
+	 CP_INT_CNTL__RESERVED_BIT_ERROR_MASK | \
+	 CP_INT_CNTL__IB_ERROR_MASK | \
+	 CP_INT_CNTL__IB2_INT_MASK | \
+	 CP_INT_CNTL__IB1_INT_MASK | \
+	 CP_INT_CNTL__RB_INT_MASK)
+
+
 #define uint32 unsigned int
 #include "pm4_microcode.inl"
 #include "pfp_microcode_nrt.inl"
@@ -72,35 +84,58 @@ inline unsigned int kgsl_ringbuffer_sizelog2quadwords(unsigned int sizedwords)
 }
 
 /* qcom: kgsl_cp_intrcallback(struct kgsl_device *device) and different layout */
-void kgsl_cp_intrcallback(gsl_intrid_t id, void *cookie)
+void kgsl_cp_intrcallback(struct kgsl_device *device)
 {
-	struct kgsl_ringbuffer  *rb = (struct kgsl_ringbuffer *) cookie;
+	unsigned int status = 0;
+	struct kgsl_ringbuffer *rb = &device->ringbuffer;
 
-	/* qualcomm's driver decodes the interrupt here so the gsl_intrid_t
-	 * is not required to be passed. ringbuffer is pulled from device->ringbuffer */
+	kgsl_yamato_regread(device, REG_CP_INT_STATUS, &status);
 
-	switch(id) {
-	/* error condition interrupt */
-	case GSL_INTR_YDX_CP_T0_PACKET_IN_IB:
-	case GSL_INTR_YDX_CP_OPCODE_ERROR:
-	case GSL_INTR_YDX_CP_PROTECTED_MODE_ERROR:
-	case GSL_INTR_YDX_CP_RESERVED_BIT_ERROR:
-	case GSL_INTR_YDX_CP_IB_ERROR:
-		pr_err("GPU: CP Error\n");
-		schedule_work(&rb->device->irq_err_work);
-		break;
-
-	/* non-error condition interrupt */
-	case GSL_INTR_YDX_CP_SW_INT:
-	case GSL_INTR_YDX_CP_IB2_INT:
-	case GSL_INTR_YDX_CP_IB1_INT:
-	case GSL_INTR_YDX_CP_RING_BUFFER:
-		/* signal intr completion event */
-		complete_all(&rb->device->intr.evnt[id]);
-		break;
-	default:
-		break;
+	if (status & CP_INT_CNTL__IB1_INT_MASK) {
+		/*this is the only used soft interrupt */
+		KGSL_CMD_WARN("ringbuffer ib1 interrupt\n");
+		//wake_up_interruptible_all(&device->ib1_wq);
 	}
+	if (status & CP_INT_CNTL__T0_PACKET_IN_IB_MASK) {
+		KGSL_CMD_FATAL("ringbuffer TO packet in IB interrupt\n");
+		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
+		//kgsl_ringbuffer_dump(rb);
+	}
+	if (status & CP_INT_CNTL__OPCODE_ERROR_MASK) {
+		KGSL_CMD_FATAL("ringbuffer opcode error interrupt\n");
+		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
+		//kgsl_ringbuffer_dump(rb);
+	}
+	if (status & CP_INT_CNTL__PROTECTED_MODE_ERROR_MASK) {
+		KGSL_CMD_FATAL("ringbuffer protected mode error interrupt\n");
+		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
+		//kgsl_ringbuffer_dump(rb);
+	}
+	if (status & CP_INT_CNTL__RESERVED_BIT_ERROR_MASK) {
+		KGSL_CMD_FATAL("ringbuffer reserved bit error interrupt\n");
+		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
+		//kgsl_ringbuffer_dump(rb);
+	}
+	if (status & CP_INT_CNTL__IB_ERROR_MASK) {
+		KGSL_CMD_FATAL("ringbuffer IB error interrupt\n");
+		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
+		//kgsl_ringbuffer_dump(rb);
+	}
+	if (status & CP_INT_CNTL__SW_INT_MASK)
+		KGSL_CMD_DBG("ringbuffer software interrupt\n");
+
+	if (status & CP_INT_CNTL__RB_INT_MASK)
+		KGSL_CMD_DBG("ringbuffer rb interrupt\n");
+
+	if (status & CP_INT_CNTL__IB2_INT_MASK)
+		KGSL_CMD_DBG("ringbuffer ib2 interrupt\n");
+
+	if (status & (~GSL_CP_INT_MASK))
+		KGSL_CMD_DBG("bad bits in REG_CP_INT_STATUS %08x\n", status);
+
+	/* only ack bits we understand */
+	status &= GSL_CP_INT_MASK;
+	kgsl_yamato_regwrite(device, REG_CP_INT_ACK, status);
 }
 
 static void kgsl_ringbuffer_submit(struct kgsl_ringbuffer *rb)
@@ -126,9 +161,9 @@ static void kgsl_ringbuffer_submit(struct kgsl_ringbuffer *rb)
 
 static int kgsl_ringbuffer_waitspace(struct kgsl_ringbuffer *rb, unsigned int numcmds, int wptr_ahead)
 {
-	int           nopcount;
-	unsigned int  freecmds;
-	unsigned int  *cmds;
+	int nopcount;
+	unsigned int freecmds;
+	unsigned int *cmds;
 
 	/* if wptr ahead, fill the remaining with NOPs */
 	if (wptr_ahead) {
@@ -253,9 +288,9 @@ int kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb)
 		return GSL_SUCCESS;
 	}
 
-	kgsl_sharedmem_set0(&rb->memptrs_desc, 0, 0,
+	kgsl_sharedmem_set(&rb->memptrs_desc, 0, 0,
 				sizeof(struct kgsl_rbmemptrs));
-	kgsl_sharedmem_set0(&rb->buffer_desc, 0, 0x12341234, /* qcom: 0xAA */
+	kgsl_sharedmem_set(&rb->buffer_desc, 0, 0x12341234, /* qcom: 0xAA */
 				(rb->sizedwords << 2));
 
 	kgsl_yamato_regwrite(device, REG_CP_RB_WPTR_BASE,
@@ -360,25 +395,8 @@ int kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb)
 	/* idle device to validate ME INIT */
 	status = kgsl_yamato_idle(device, GSL_TIMEOUT_DEFAULT);
 
-	/* enable cp interrupts, this is done as one regwrite in qcom */
-	kgsl_intr_attach(&device->intr, GSL_INTR_YDX_CP_SW_INT, kgsl_cp_intrcallback, (void *) rb);
-	kgsl_intr_attach(&device->intr, GSL_INTR_YDX_CP_T0_PACKET_IN_IB, kgsl_cp_intrcallback, (void *) rb);
-	kgsl_intr_attach(&device->intr, GSL_INTR_YDX_CP_OPCODE_ERROR, kgsl_cp_intrcallback, (void *) rb);
-	kgsl_intr_attach(&device->intr, GSL_INTR_YDX_CP_PROTECTED_MODE_ERROR, kgsl_cp_intrcallback, (void *) rb);
-	kgsl_intr_attach(&device->intr, GSL_INTR_YDX_CP_RESERVED_BIT_ERROR, kgsl_cp_intrcallback, (void *) rb);
-	kgsl_intr_attach(&device->intr, GSL_INTR_YDX_CP_IB_ERROR, kgsl_cp_intrcallback, (void *) rb);
-	kgsl_intr_attach(&device->intr, GSL_INTR_YDX_CP_IB2_INT, kgsl_cp_intrcallback, (void *) rb);
-	kgsl_intr_attach(&device->intr, GSL_INTR_YDX_CP_IB1_INT, kgsl_cp_intrcallback, (void *) rb);
-	kgsl_intr_attach(&device->intr, GSL_INTR_YDX_CP_RING_BUFFER, kgsl_cp_intrcallback, (void *) rb);
-	kgsl_intr_enable(&device->intr, GSL_INTR_YDX_CP_SW_INT);
-	kgsl_intr_enable(&device->intr, GSL_INTR_YDX_CP_T0_PACKET_IN_IB);
-	kgsl_intr_enable(&device->intr, GSL_INTR_YDX_CP_OPCODE_ERROR);
-	kgsl_intr_enable(&device->intr, GSL_INTR_YDX_CP_PROTECTED_MODE_ERROR);
-	kgsl_intr_enable(&device->intr, GSL_INTR_YDX_CP_RESERVED_BIT_ERROR);
-	kgsl_intr_enable(&device->intr, GSL_INTR_YDX_CP_IB_ERROR);
-	kgsl_intr_enable(&device->intr, GSL_INTR_YDX_CP_IB2_INT);
-	kgsl_intr_enable(&device->intr, GSL_INTR_YDX_CP_IB1_INT);
-	kgsl_intr_enable(&device->intr, GSL_INTR_YDX_CP_RING_BUFFER);
+	/* enable cp interrupts */
+	kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, GSL_CP_INT_MASK);
 
 	if (status == GSL_SUCCESS)
 		rb->flags |= KGSL_FLAGS_STARTED;
@@ -390,15 +408,7 @@ int kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb)
 {
 	if (rb->flags & KGSL_FLAGS_STARTED) {
 		/* disable cp interrupts */
-		kgsl_intr_detach(&rb->device->intr, GSL_INTR_YDX_CP_SW_INT);
-		kgsl_intr_detach(&rb->device->intr, GSL_INTR_YDX_CP_T0_PACKET_IN_IB);
-		kgsl_intr_detach(&rb->device->intr, GSL_INTR_YDX_CP_OPCODE_ERROR);
-		kgsl_intr_detach(&rb->device->intr, GSL_INTR_YDX_CP_PROTECTED_MODE_ERROR);
-		kgsl_intr_detach(&rb->device->intr, GSL_INTR_YDX_CP_RESERVED_BIT_ERROR);
-		kgsl_intr_detach(&rb->device->intr, GSL_INTR_YDX_CP_IB_ERROR);
-		kgsl_intr_detach(&rb->device->intr, GSL_INTR_YDX_CP_IB2_INT);
-		kgsl_intr_detach(&rb->device->intr, GSL_INTR_YDX_CP_IB1_INT);
-		kgsl_intr_detach(&rb->device->intr, GSL_INTR_YDX_CP_RING_BUFFER);
+		kgsl_yamato_regwrite(rb->device, REG_CP_INT_CNTL, 0);
 
 		/* ME_HALT */
 		kgsl_yamato_regwrite(rb->device, REG_CP_ME_CNTL, 0x10000000);
@@ -425,7 +435,7 @@ int kgsl_ringbuffer_init(struct kgsl_device *device)
 	flags = (GSL_MEMFLAGS_ALIGNPAGE | GSL_MEMFLAGS_CONPHYS |
 		GSL_MEMFLAGS_STRICTREQUEST);
 
-	status = kgsl_sharedmem_alloc0(device->id, flags, (rb->sizedwords << 2),
+	status = kgsl_sharedmem_alloc(flags, (rb->sizedwords << 2),
 					&rb->buffer_desc);
 
 	if (status != GSL_SUCCESS) {
@@ -438,7 +448,7 @@ int kgsl_ringbuffer_init(struct kgsl_device *device)
 	 * we need to make it at page boundary */
 	flags = (GSL_MEMFLAGS_ALIGNPAGE | GSL_MEMFLAGS_CONPHYS);
 
-	status = kgsl_sharedmem_alloc0(device->id, flags, sizeof(struct kgsl_rbmemptrs),
+	status = kgsl_sharedmem_alloc(flags, sizeof(struct kgsl_rbmemptrs),
 					&rb->memptrs_desc);
 
 	if (status != GSL_SUCCESS) {
@@ -475,10 +485,10 @@ int kgsl_ringbuffer_close(struct kgsl_ringbuffer *rb)
 	kgsl_ringbuffer_stop(rb);
 
 	if (rb->buffer_desc.hostptr)
-		kgsl_sharedmem_free0(&rb->buffer_desc, current->tgid);
+		kgsl_sharedmem_free(&rb->buffer_desc);
 
 	if (rb->memptrs_desc.hostptr)
-		kgsl_sharedmem_free0(&rb->memptrs_desc, current->tgid);
+		kgsl_sharedmem_free(&rb->memptrs_desc);
 
 	rb->flags &= ~KGSL_FLAGS_INITIALIZED;
 
@@ -491,7 +501,7 @@ int kgsl_ringbuffer_close(struct kgsl_ringbuffer *rb)
 /* neko: we assume pmodeoff = 0 */
 unsigned int kgsl_ringbuffer_issuecmds(struct kgsl_device *device,
 					unsigned int flags, unsigned int *cmds,
-					int sizedwords, unsigned int pid)
+					int sizedwords)
 {
 	struct kgsl_ringbuffer *rb = &device->ringbuffer;
 	unsigned int pmodesizedwords = 0;
@@ -502,7 +512,7 @@ unsigned int kgsl_ringbuffer_issuecmds(struct kgsl_device *device,
 		return GSL_FAILURE;
 
 	/* set mmu pagetable */
-	kgsl_mmu_setpagetable(device, pid);
+	kgsl_mmu_setpagetable(device);
 
 #ifdef GSL_RB_TIMESTAMP_INTERUPT
 	pmodesizedwords += 2;
@@ -572,7 +582,7 @@ int kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, 
 
 	/* qcom: calls qcom addcmds */
 	*timestamp = kgsl_ringbuffer_issuecmds(device,
-				0, &link[0], (cmds - link), current->tgid);
+				0, &link[0], (cmds - link));
 
 	/* NQ: idle device when running in safe mode */
 	if (device->flags & KGSL_FLAGS_SAFEMODE)

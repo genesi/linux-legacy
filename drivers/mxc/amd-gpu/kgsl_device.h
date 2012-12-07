@@ -31,21 +31,15 @@
 
 #include <linux/wait.h>
 #include <linux/workqueue.h>
+#include <linux/irq.h>
 
-//////////////////////////////////////////////////////////////////////////////
-//  types
-//////////////////////////////////////////////////////////////////////////////
-
-
-// forward declaration
 struct kgsl_device;
 
 #include "kgsl_types.h"
-#include "kgsl_intrmgr.h" // for gsl_intr_t
-#include "kgsl_ringbuffer.h" // for struct kgsl_ringbuffer
-#include "kgsl_drawctxt.h" // struct kgsl_drawctxt
-#include "kgsl_g12_cmdwindow.h" // for GSL_G12_INTR_COUNT
-#include "kgsl_mmu.h" // for kgsl_mmu
+#include "kgsl_ringbuffer.h"
+#include "kgsl_drawctxt.h"
+#include "kgsl_g12_cmdwindow.h"
+#include "kgsl_mmu.h"
 
 // --------------
 // function table
@@ -62,79 +56,77 @@ struct kgsl_functable {
 	int (*regwrite)        (struct kgsl_device *device, unsigned int offsetwords, unsigned int value);
 	int (*waittimestamp)   (struct kgsl_device *device, unsigned int timestamp, unsigned int timeout);
 	int (*runpending)      (struct kgsl_device *device);
-	int (*intr_isr)               (struct kgsl_device *device);
-	int (*mmu_tlbinvalidate)      (struct kgsl_device *device, unsigned int reg_invalidate, unsigned int pid);
-	int (*mmu_setpagetable)       (struct kgsl_device *device, unsigned int reg_ptbase, uint32_t ptbase, unsigned int pid);
+	int (*mmu_tlbinvalidate)      (struct kgsl_device *device, unsigned int reg_invalidate);
+	int (*mmu_setpagetable)       (struct kgsl_device *device, unsigned int reg_ptbase, uint32_t ptbase);
 	int (*cmdstream_issueibcmds)  (struct kgsl_device *device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags);
 	int (*device_drawctxt_create)         (struct kgsl_device *device, unsigned int type, unsigned int *drawctxt_id, unsigned int flags);
-	int (*device_drawctxt_destroy)        (struct kgsl_device *device_id, unsigned int drawctxt_id);
+	int (*device_drawctxt_destroy)        (struct kgsl_device *device, unsigned int drawctxt_id);
 };
 
 #define GSL_CALLER_PROCESS_MAX		64
 
-// device object
 struct kgsl_device {
-	unsigned int      refcnt;
-	unsigned int      callerprocess[GSL_CALLER_PROCESS_MAX];    // caller process table
-	struct kgsl_functable   ftbl;
-	unsigned int       flags;
-	unsigned int    id;
-	unsigned int      chip_id;
-	struct kgsl_memregion   regspace;
-	gsl_intr_t        intr;
-	struct kgsl_memdesc     memstore;
-	gsl_memqueue_t    memqueue; // queue of memfrees pending timestamp elapse
+	unsigned int refcnt;
+	unsigned int flags;
+	unsigned int id;
+	unsigned int chip_id;
+	struct kgsl_memregion regspace;
+	struct kgsl_memdesc memstore;
 
-#ifdef  GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
-	unsigned int      memstoreshadow[GSL_CALLER_PROCESS_MAX];
-#endif // GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
+	gsl_memqueue_t memqueue; // queue of memfrees pending timestamp elapse
+
+#ifdef GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
+	unsigned int memstoreshadow;
+#endif /* GSL_DEVICE_SHADOW_MEMSTORE_TO_USER */
 
 #ifdef CONFIG_KGSL_MMU_ENABLE
-	struct kgsl_mmu         mmu;
+	struct kgsl_mmu mmu;
 #endif
 
-	struct kgsl_memregion   gmemspace;
-	struct kgsl_ringbuffer  ringbuffer;
-	struct mutex 	  *drawctxt_mutex;
-	unsigned int      drawctxt_count;
-	struct kgsl_drawctxt    *drawctxt_active;
-	struct kgsl_drawctxt    drawctxt[KGSL_CONTEXT_MAX];
+	struct kgsl_memregion gmemspace;
+	struct kgsl_ringbuffer ringbuffer;
+	unsigned int drawctxt_count;
+	struct kgsl_drawctxt *drawctxt_active;
+	struct kgsl_drawctxt drawctxt[KGSL_CONTEXT_MAX];
+	/* qcom: hwaccess gate */
+	struct kgsl_functable   ftbl;
+	/* qcom: ib1_wq but this gets removed at later versions*/
 
-	unsigned int		intrcnt[GSL_G12_INTR_COUNT];
-	unsigned int		current_timestamp;
-	unsigned int		timestamp;
-	struct mutex 	  *cmdwindow_mutex;
+	unsigned int current_timestamp;
+	unsigned int timestamp;
 
-	struct mutex 	*cmdstream_mutex;
-	wait_queue_head_t timestamp_waitq;
-	struct workqueue_struct	*irq_workq;
+	wait_queue_head_t wait_timestamp_wq;
+	/* irq wq gets removed in later qcom versions but we need it */
+	struct workqueue_struct	*irq_wq;
 	struct work_struct irq_work;
-	struct work_struct irq_err_work;
 
-	void              *autogate;
+	void *autogate;
+	/* later qcom: cmdwindow spinlock */
 };
 
 
-//  prototypes
-int kgsl_device_init(struct kgsl_device *device, unsigned int device_id);
+int kgsl_device_init(struct kgsl_device *device, unsigned int device_id); // not sure if device_id needs to be passed
 int kgsl_device_close(struct kgsl_device *device);
 int kgsl_device_destroy(struct kgsl_device *device);
-int kgsl_device_attachcallback(struct kgsl_device *device, unsigned int pid);
-int kgsl_device_detachcallback(struct kgsl_device *device, unsigned int pid);
+int kgsl_device_attachcallback(struct kgsl_device *device);
+int kgsl_device_detachcallback(struct kgsl_device *device);
 int kgsl_device_runpending(struct kgsl_device *device);
 
 int kgsl_yamato_getfunctable(struct kgsl_functable *ftbl);
 int kgsl_g12_getfunctable(struct kgsl_functable *ftbl);
 
-int kgsl_device_start(unsigned int device_id, unsigned int flags);
-int kgsl_device_stop(unsigned int device_id);
-int kgsl_device_idle(unsigned int device_id, unsigned int timeout);
-int kgsl_device_isidle(unsigned int device_id);
-int kgsl_device_getproperty(unsigned int device_id, enum kgsl_property_type type, void *value, unsigned int sizebytes);
-int kgsl_device_regread(unsigned int device_id, unsigned int offsetwords, unsigned int *value);
+int kgsl_device_start(struct kgsl_device *device, unsigned int flags);
+int kgsl_device_stop(struct kgsl_device *device);
+int kgsl_device_idle(struct kgsl_device *device, unsigned int timeout);
+int kgsl_device_isidle(struct kgsl_device *device);
+int kgsl_device_getproperty(struct kgsl_device *device, enum kgsl_property_type type, void *value, unsigned int sizebytes);
+int kgsl_device_regread(struct kgsl_device *device, unsigned int offsetwords, unsigned int *value);
 
-int kgsl_pwrctrl(unsigned int device_id, int state, unsigned int value);
+int kgsl_pwrctrl(struct kgsl_device *device, int state, unsigned int value);
 
 int kgsl_device_active(struct kgsl_device *dev);
+
+irqreturn_t kgsl_g12_isr(int irq, void *data);
+irqreturn_t kgsl_yamato_isr(int irq, void *data);
 
 #endif  // __GSL_DEVICE_H

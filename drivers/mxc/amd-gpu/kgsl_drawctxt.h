@@ -91,7 +91,6 @@ typedef struct _gmem_shadow_t
 #define GSL_MAX_GMEM_SHADOW_BUFFERS 2
 
 struct kgsl_drawctxt {
-	unsigned int        pid;
     unsigned int         flags;
     unsigned int  type;
     struct kgsl_memdesc       gpustate;
@@ -117,6 +116,6 @@ void    kgsl_drawctxt_switch(struct kgsl_device *device, struct kgsl_drawctxt *d
 int     kgsl_drawctxt_create(struct kgsl_device* device, unsigned int type, unsigned int *drawctxt_id, unsigned int flags);
 int     kgsl_drawctxt_destroy(struct kgsl_device* device, unsigned int drawctxt_id);
 
-int     kgsl_drawctxt_bind_gmem_shadow(unsigned int device_id, unsigned int drawctxt_id, const struct kgsl_gmem_desc* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const struct kgsl_buffer_desc* shadow_buffer, unsigned int buffer_id);
+int     kgsl_drawctxt_bind_gmem_shadow(struct kgsl_device *device, unsigned int drawctxt_id, const struct kgsl_gmem_desc* gmem_rect, unsigned int shadow_x, unsigned int shadow_y, const struct kgsl_buffer_desc* shadow_buffer, unsigned int buffer_id);
 
 #endif  // __GSL_DRAWCTXT_H

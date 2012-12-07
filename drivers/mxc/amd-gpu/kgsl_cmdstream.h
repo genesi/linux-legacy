@@ -36,14 +36,14 @@
 #endif /* KGSL_DEVICE_SHADOW_MEMSTORE_TO_USER */
 
 /* old
--#define GSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, data)   kgsl_sharedmem_read0(&device->memstore, (data), GSL_DEVICE_MEMSTORE_OFFSET(soptimestamp), 4, false)
--#define GSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, data)   kgsl_sharedmem_read0(&device->memstore, (data), GSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp), 4, false)
+-#define GSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, data)   kgsl_sharedmem_read(&device->memstore, (data), GSL_DEVICE_MEMSTORE_OFFSET(soptimestamp), 4, false)
+-#define GSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, data)   kgsl_sharedmem_read(&device->memstore, (data), GSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp), 4, false)
 */
 
 /* new
 #ifdef KGSL_CMDSTREAM_USE_MEM_TIMESTAMP
 #define KGSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, data) \
-	kgsl_sharedmem_read0(&device->memstore, (data), \
+	kgsl_sharedmem_read(&device->memstore, (data), \
 		KGSL_DEVICE_MEMSTORE_OFFSET(soptimestamp), 4, false)
 	// the false above is not in qualcomm's driver
 #else
@@ -56,25 +56,24 @@
 */
 
 #define KGSL_CMDSTREAM_GET_SOP_TIMESTAMP(device, data) \
-	kgsl_sharedmem_read0(&device->memstore, (data), \
+	kgsl_sharedmem_read(&device->memstore, (data), \
 		KGSL_DEVICE_MEMSTORE_OFFSET(soptimestamp), 4, false)
 
 #define KGSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, data) \
-	kgsl_sharedmem_read0(&device->memstore, (data), \
+	kgsl_sharedmem_read(&device->memstore, (data), \
 		KGSL_DEVICE_MEMSTORE_OFFSET(eoptimestamp), 4, false)
 
-unsigned int kgsl_cmdstream_readtimestamp0(unsigned int device_id, enum kgsl_timestamp_type type);
 void kgsl_cmdstream_memqueue_drain(struct kgsl_device *device);
 int kgsl_cmdstream_init(struct kgsl_device *device);
 int kgsl_cmdstream_close(struct kgsl_device *device);
 
 // these all seem to be in the wrong place..?
-int kgsl_cmdstream_issueibcmds(unsigned int device_id, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags);
-unsigned int kgsl_cmdstream_readtimestamp(unsigned int device_id, enum kgsl_timestamp_type type);
-int kgsl_cmdstream_freememontimestamp(unsigned int device_id, struct kgsl_memdesc *memdesc, unsigned int timestamp, enum kgsl_timestamp_type type);
-int kgsl_cmdstream_waittimestamp(unsigned int device_id, unsigned int timestamp, unsigned int timeout);
+int kgsl_cmdstream_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags);
+unsigned int kgsl_cmdstream_readtimestamp(struct kgsl_device *device, enum kgsl_timestamp_type type);
+int kgsl_cmdstream_freememontimestamp(struct kgsl_device *device, struct kgsl_memdesc *memdesc, unsigned int timestamp, enum kgsl_timestamp_type type);
+int kgsl_cmdstream_waittimestamp(struct kgsl_device *device, unsigned int timestamp, unsigned int timeout);
 int kgsl_g12_cmdwindow_write(struct kgsl_device *device, enum kgsl_cmdwindow_type target, unsigned int addr, unsigned int data);
-int kgsl_add_timestamp(unsigned int device_id, unsigned int *timestamp);
-int kgsl_cmdstream_check_timestamp(unsigned int device_id, unsigned int timestamp);
+int kgsl_add_timestamp(struct kgsl_device *device, unsigned int *timestamp);
+int kgsl_cmdstream_check_timestamp(struct kgsl_device *device, unsigned int timestamp);
 
 #endif  // __GSL_CMDSTREAM_H

@@ -30,15 +30,9 @@
 #ifndef __GSL_CMDWINDOW_H
 #define __GSL_CMDWINDOW_H
 
-#ifndef _Z180
-#define GSL_G12_INTR_COUNT	4
-#else
-#define GSL_G12_INTR_COUNT	3
-#endif
-
 int kgsl_g12_cmdwindow_init(struct kgsl_device *device);
 int kgsl_g12_cmdwindow_close(struct kgsl_device *device);
-int kgsl_g12_cmdwindow_write0(struct kgsl_device *device,
+int kgsl_g12_cmdwindow_write(struct kgsl_device *device,
 		enum kgsl_cmdwindow_type target, unsigned int addr,
 		unsigned int data);
 

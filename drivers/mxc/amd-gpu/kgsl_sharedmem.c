@@ -248,18 +248,16 @@ int kgsl_sharedmem_freephysical(unsigned int virtaddr, unsigned int numpages, un
 
 
 int
-kgsl_sharedmem_alloc0(unsigned int device_id, unsigned int flags, int sizebytes, struct kgsl_memdesc *memdesc)
+kgsl_sharedmem_alloc(unsigned int flags, int sizebytes, struct kgsl_memdesc *memdesc)
 {
     gsl_apertureid_t  aperture_id;
     gsl_channelid_t   channel_id;
-    unsigned int    tmp_id;
     int               aperture_index, org_index;
     int               result  = GSL_FAILURE;
     struct kgsl_mmu         *mmu    = NULL;
     struct kgsl_sharedmem   *shmem  = &gsl_driver.shmem;
-
-KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_alloc(unsigned int device_id=%d, unsigned int flags=%x, int sizebytes=%d, struct kgsl_memdesc *memdesc=%x)\n",
-                    device_id, flags, sizebytes, (unsigned int) memdesc );
+    /* doesn't matter which device.. just use the first one (G12) */
+    struct kgsl_device *device = &gsl_driver.device[0];
 
     DEBUG_ASSERT(sizebytes);
     DEBUG_ASSERT(memdesc);
@@ -276,48 +274,10 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_alloc(unsigned int dev
         return (GSL_FAILURE);
     }
 
-    // execute pending device action
-    tmp_id = (device_id != KGSL_DEVICE_ANY) ? device_id : device_id+1;
-    for ( ; tmp_id <= KGSL_DEVICE_MAX; tmp_id++)
-    {
-        if (gsl_driver.device[tmp_id-1].flags & KGSL_FLAGS_INITIALIZED)
-        {
-            kgsl_device_runpending(&gsl_driver.device[tmp_id-1]);
-
-            if (tmp_id == device_id)
-            {
-                break;
-            }
-        }
-    }
-
-    // convert any device to an actual existing device
-    if (device_id == KGSL_DEVICE_ANY)
-    {
-        for ( ; ; )
-        {
-            device_id++;
-
-            if (device_id <= KGSL_DEVICE_MAX)
-            {
-                if (gsl_driver.device[device_id-1].flags & KGSL_FLAGS_INITIALIZED)
-                {
-                    break;
-                }
-            }
-            else
-            {
-                KGSL_MEM_VDBG("ERROR: Invalid device.\n" );
-                KGSL_MEM_VDBG("<-- kgsl_sharedmem_alloc. Return value %d\n", GSL_FAILURE );
-                return (GSL_FAILURE);
-            }
-        }
-    }
-
-    DEBUG_ASSERT(device_id > KGSL_DEVICE_ANY && device_id <= KGSL_DEVICE_MAX);
+    // execute pending device action!!!!!! NEKO NEKO NEKO
 
     // get mmu reference
-    mmu = &gsl_driver.device[device_id-1].mmu;
+    mmu = &device->mmu;
 
     aperture_index = kgsl_sharedmem_getapertureindex(shmem, aperture_id, channel_id);
 
@@ -379,7 +339,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_alloc(unsigned int dev
     if (result == GSL_SUCCESS)
     {
         GSL_MEMDESC_APERTURE_SET(memdesc, aperture_index);
-        GSL_MEMDESC_DEVICE_SET(memdesc, device_id);
+        GSL_MEMDESC_DEVICE_SET(memdesc, device->id);
 
         if (kgsl_memarena_isvirtualized(shmem->apertures[aperture_index].memarena))
         {
@@ -400,7 +360,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_alloc(unsigned int dev
                 result = kgsl_sharedmem_allocphysical(memdesc->gpuaddr, scatterlist.num, scatterlist.pages);
                 if (result == GSL_SUCCESS)
                 {
-                    result = kgsl_mmu_map(mmu, memdesc->gpuaddr, &scatterlist, flags, current->tgid);
+                    result = kgsl_mmu_map(mmu, memdesc->gpuaddr, &scatterlist, flags);
                     if (result != GSL_SUCCESS)
                     {
                         kgsl_sharedmem_freephysical(memdesc->gpuaddr, scatterlist.num, scatterlist.pages);
@@ -426,20 +386,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_alloc(unsigned int dev
     return (result);
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_sharedmem_alloc(unsigned int device_id, unsigned int flags, int sizebytes, struct kgsl_memdesc *memdesc)
-{
-	int status = GSL_SUCCESS;
-	mutex_lock(&gsl_driver.lock);
-	status = kgsl_sharedmem_alloc0(device_id, flags, sizebytes, memdesc);
-	mutex_unlock(&gsl_driver.lock);
-	return status;
-}
-
-int
-kgsl_sharedmem_free0(struct kgsl_memdesc *memdesc, unsigned int pid)
+int kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
 {
     int              status = GSL_SUCCESS;
     int              aperture_index;
@@ -457,7 +404,7 @@ kgsl_sharedmem_free0(struct kgsl_memdesc *memdesc, unsigned int pid)
     {
         if (kgsl_memarena_isvirtualized(shmem->apertures[aperture_index].memarena))
         {
-            status |= kgsl_mmu_unmap(&gsl_driver.device[device_id-1].mmu, memdesc->gpuaddr, memdesc->size, pid);
+            status |= kgsl_mmu_unmap(&gsl_driver.device[device_id-1].mmu, memdesc->gpuaddr, memdesc->size);
 
             if (!GSL_MEMDESC_EXTALLOC_ISMARKED(memdesc))
             {
@@ -480,22 +427,8 @@ kgsl_sharedmem_free0(struct kgsl_memdesc *memdesc, unsigned int pid)
     return (status);
 }
 
-//----------------------------------------------------------------------------
-
 int
-kgsl_sharedmem_free(struct kgsl_memdesc *memdesc)
-{
-	int status = GSL_SUCCESS;
-	mutex_lock(&gsl_driver.lock);
-	status = kgsl_sharedmem_free0(memdesc, current->tgid);
-	mutex_unlock(&gsl_driver.lock);
-	return status;
-}
-
-//----------------------------------------------------------------------------
-
-int
-kgsl_sharedmem_read0(const struct kgsl_memdesc *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace)
+kgsl_sharedmem_read(const struct kgsl_memdesc *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace)
 {
     int              aperture_index;
     struct kgsl_sharedmem  *shmem;
@@ -557,22 +490,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_read(struct kgsl_memde
     return (GSL_SUCCESS);
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_sharedmem_read(const struct kgsl_memdesc *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace)
-{
-	int status = GSL_SUCCESS;
-	mutex_lock(&gsl_driver.lock);
-	status = kgsl_sharedmem_read0(memdesc, dst, offsetbytes, sizebytes, touserspace);
-	mutex_unlock(&gsl_driver.lock);
-	return status;
-}
-
-//----------------------------------------------------------------------------
-
-int
-kgsl_sharedmem_write0(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace)
+int kgsl_sharedmem_write(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace)
 {
     int              aperture_index;
     struct kgsl_sharedmem  *shmem;
@@ -627,22 +545,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_write(struct kgsl_memd
     return (GSL_SUCCESS);
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_sharedmem_write(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace)
-{
-	int status = GSL_SUCCESS;
-	mutex_lock(&gsl_driver.lock);
-	status = kgsl_sharedmem_write0(memdesc, offsetbytes, src, sizebytes, fromuserspace);
-	mutex_unlock(&gsl_driver.lock);
-	return status;
-}
-
-//----------------------------------------------------------------------------
-
-int
-kgsl_sharedmem_set0(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes)
+int kgsl_sharedmem_set(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes)
 {
     int              aperture_index;
     struct kgsl_sharedmem  *shmem;
@@ -689,34 +592,14 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_set(struct kgsl_memdes
 
 //----------------------------------------------------------------------------
 
-int
-kgsl_sharedmem_set(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes)
-{
-	int status = GSL_SUCCESS;
-	mutex_lock(&gsl_driver.lock);
-	status = kgsl_sharedmem_set0(memdesc, offsetbytes, value, sizebytes);
-	mutex_unlock(&gsl_driver.lock);
-	return status;
-}
-
-//----------------------------------------------------------------------------
-
 unsigned int
-kgsl_sharedmem_largestfreeblock(unsigned int device_id, unsigned int flags)
+kgsl_sharedmem_largestfreeblock(struct kgsl_device *device, unsigned int flags)
 {
     gsl_apertureid_t  aperture_id;
     gsl_channelid_t   channel_id;
     int               aperture_index;
     unsigned int      result = 0;
     struct kgsl_sharedmem   *shmem;
-
-    // device_id is ignored at this level, it would be used with per-device memarena's
-
-    // unreferenced formal parameter
-    (void) device_id;
-
-KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_largestfreeblock(unsigned int device_id=%d, unsigned int flags=%x)\n",
-                    device_id, flags );
 
     GSL_MEMFLAGS_APERTURE_GET(flags, aperture_id);
     GSL_MEMFLAGS_CHANNEL_GET(flags, channel_id);
@@ -750,55 +633,11 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_largestfreeblock(unsig
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_map(unsigned int device_id, unsigned int flags, const gsl_scatterlist_t *scatterlist, struct kgsl_memdesc *memdesc)
+kgsl_sharedmem_map(struct kgsl_device *device, unsigned int flags, const gsl_scatterlist_t *scatterlist, struct kgsl_memdesc *memdesc)
 {
     int              status = GSL_FAILURE;
     struct kgsl_sharedmem  *shmem = &gsl_driver.shmem;
     int              aperture_index;
-    unsigned int   tmp_id;
-
-KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_map(unsigned int device_id=%d, unsigned int flags=%x, gsl_scatterlist_t scatterlist=%x, struct kgsl_memdesc *memdesc=%x)\n",
-                    device_id, flags, (unsigned int) scatterlist, (unsigned int) memdesc );
-
-    // execute pending device action
-    tmp_id = (device_id != KGSL_DEVICE_ANY) ? device_id : device_id+1;
-    for ( ; tmp_id <= KGSL_DEVICE_MAX; tmp_id++)
-    {
-        if (gsl_driver.device[tmp_id-1].flags & KGSL_FLAGS_INITIALIZED)
-        {
-            kgsl_device_runpending(&gsl_driver.device[tmp_id-1]);
-
-            if (tmp_id == device_id)
-            {
-                break;
-            }
-        }
-    }
-
-    // convert any device to an actual existing device
-    if (device_id == KGSL_DEVICE_ANY)
-    {
-        for ( ; ; )
-        {
-            device_id++;
-
-            if (device_id <= KGSL_DEVICE_MAX)
-            {
-                if (gsl_driver.device[device_id-1].flags & KGSL_FLAGS_INITIALIZED)
-                {
-                    break;
-                }
-            }
-            else
-            {
-                KGSL_MEM_VDBG("ERROR: Invalid device.\n" );
-                KGSL_MEM_VDBG("<-- kgsl_sharedmem_map. Return value %d\n", GSL_FAILURE );
-                return (GSL_FAILURE);
-            }
-        }
-    }
-
-    DEBUG_ASSERT(device_id > KGSL_DEVICE_ANY && device_id <= KGSL_DEVICE_MAX);
 
     if (shmem->flags & KGSL_FLAGS_INITIALIZED)
     {
@@ -813,12 +652,12 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_map(unsigned int devic
             if (status == GSL_SUCCESS)
             {
                 GSL_MEMDESC_APERTURE_SET(memdesc, aperture_index);
-                GSL_MEMDESC_DEVICE_SET(memdesc, device_id);
+                GSL_MEMDESC_DEVICE_SET(memdesc, device->id);
 
                 // mark descriptor's memory as externally allocated -- i.e. outside GSL
                 GSL_MEMDESC_EXTALLOC_SET(memdesc, 1);
 
-                status = kgsl_mmu_map(&gsl_driver.device[device_id-1].mmu, memdesc->gpuaddr, scatterlist, flags, current->tgid);
+                status = kgsl_mmu_map(&device->mmu, memdesc->gpuaddr, scatterlist, flags);
                 if (status != GSL_SUCCESS)
                 {
                     kgsl_memarena_free(shmem->apertures[aperture_index].memarena, memdesc);
@@ -837,7 +676,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_map(unsigned int devic
 int
 kgsl_sharedmem_unmap(struct kgsl_memdesc *memdesc)
 {
-    return (kgsl_sharedmem_free0(memdesc, current->tgid));
+    return (kgsl_sharedmem_free(memdesc));
 }
 
 //----------------------------------------------------------------------------
@@ -869,7 +708,7 @@ KGSL_MEM_VDBG(                    "--> int kgsl_sharedmem_getmap(struct kgsl_mem
 
         if (kgsl_memarena_isvirtualized(shmem->apertures[aperture_index].memarena))
         {
-            status = kgsl_mmu_getmap(&gsl_driver.device[device_id-1].mmu, memdesc->gpuaddr, memdesc->size, scatterlist, current->tgid);
+            status = kgsl_mmu_getmap(&gsl_driver.device[device_id-1].mmu, memdesc->gpuaddr, memdesc->size, scatterlist);
         }
         else
         {
@@ -986,15 +825,12 @@ kgsl_sharedmem_cacheoperation(const struct kgsl_memdesc *memdesc, unsigned int o
 //----------------------------------------------------------------------------
 
 int
-kgsl_sharedmem_fromhostpointer(unsigned int device_id, struct kgsl_memdesc *memdesc, void* hostptr)
+kgsl_sharedmem_fromhostpointer(struct kgsl_device *device, struct kgsl_memdesc *memdesc, void* hostptr)
 {
     int status  = GSL_FAILURE;
 
     memdesc->gpuaddr = (uint32_t)hostptr;  /* map physical address with hostptr    */
     memdesc->hostptr = hostptr;             /* set virtual address also in memdesc  */
-
-    /* unreferenced formal parameter */
-    (void)device_id;
 
     return (status);
 }

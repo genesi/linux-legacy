@@ -61,7 +61,7 @@ int kgsl_g12_cmdwindow_close(struct kgsl_device *device)
 	return GSL_SUCCESS;
 }
 
-int kgsl_g12_cmdwindow_write0(struct kgsl_device *device,
+int kgsl_g12_cmdwindow_write(struct kgsl_device *device,
 		enum kgsl_cmdwindow_type target, unsigned int addr,
 		unsigned int data)
 {
@@ -102,7 +102,7 @@ int kgsl_g12_cmdwindow_write0(struct kgsl_device *device,
 #endif
 	/* qcom: no mmu mess here */
 #ifdef CONFIG_KGSL_MMU_ENABLE
-	kgsl_mmu_setpagetable(device, current->tgid);
+	kgsl_mmu_setpagetable(device);
 #endif
 
 	/* newer qualcomm drivers spinlock_irqsave around this
@@ -116,17 +116,4 @@ int kgsl_g12_cmdwindow_write0(struct kgsl_device *device,
 #endif
 
 	return GSL_SUCCESS;
-}
-
-/* qcom: pass device */
-int kgsl_g12_cmdwindow_write(struct kgsl_device *device,
-		enum kgsl_cmdwindow_type target, unsigned int addr,
-		unsigned int data)
-{
-	int status = GSL_SUCCESS;
-	/* qcom: no lock held for write, no function split */
-	mutex_lock(&gsl_driver.lock);
-	status = kgsl_g12_cmdwindow_write0(device, target, addr, data);
-	mutex_unlock(&gsl_driver.lock);
-	return status;
 }

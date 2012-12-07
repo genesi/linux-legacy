@@ -162,7 +162,7 @@ int             kgsl_ringbuffer_init(struct kgsl_device *device);
 int             kgsl_ringbuffer_close(struct kgsl_ringbuffer *rb);
 int             kgsl_ringbuffer_start(struct kgsl_ringbuffer *rb);
 int             kgsl_ringbuffer_stop(struct kgsl_ringbuffer *rb);
-unsigned int	kgsl_ringbuffer_issuecmds(struct kgsl_device *device, unsigned int flags, unsigned int *cmdaddr, int sizedwords, unsigned int pid); /* NQ: pid */
+unsigned int	kgsl_ringbuffer_issuecmds(struct kgsl_device *device, unsigned int flags, unsigned int *cmdaddr, int sizedwords);
 int             kgsl_ringbuffer_issueibcmds(struct kgsl_device *device, int drawctxt_index, uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags);
 int             kgsl_ringbuffer_bist(struct kgsl_ringbuffer *rb);
 

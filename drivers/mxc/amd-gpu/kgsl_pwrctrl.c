@@ -47,7 +47,7 @@ static DECLARE_MUTEX(sem_dev);
 
 #define KGSL_DEVICE_IDLE_TIMEOUT 5000	/* unit ms */
 
-int kgsl_clock(unsigned int dev, int enable)
+static int kgsl_clock(unsigned int dev, int enable)
 {
 	struct clk *gpu_clk = NULL;
 	struct clk *garb_clk = NULL;
@@ -93,14 +93,14 @@ int kgsl_clock(unsigned int dev, int enable)
 	return GSL_SUCCESS;
 }
 
-
-
 static void clk_disable_task(struct work_struct *work)
 {
 	gsl_autogate_t *autogate;
 	autogate = container_of(work, gsl_autogate_t, dis_task);
-	if (autogate->dev->ftbl.idle)
+	if (autogate->dev->ftbl.idle) {
+		pr_info("%s: calling idle on device %d\n", __func__, autogate->dev->id);
 		autogate->dev->ftbl.idle(autogate->dev, GSL_TIMEOUT_DEFAULT);
+	}
 	kgsl_clock(autogate->dev->id, 0);
 	autogate->pending = 0;
 }
@@ -139,6 +139,7 @@ static int _kgsl_device_active(struct kgsl_device *dev, int all)
 	}
 	return 0;
 }
+
 int kgsl_device_active(struct kgsl_device *dev)
 {
 	return _kgsl_device_active(dev, 0);
@@ -204,14 +205,9 @@ void kgsl_device_autogate_exit(struct kgsl_device *dev)
 	dev->autogate = NULL;
 }
 
-int kgsl_pwrctrl(unsigned int device_id, int state, unsigned int value)
+int kgsl_pwrctrl(struct kgsl_device *device, int state, unsigned int value)
 {
-	struct kgsl_device *device = &gsl_driver.device[device_id-1];
-
-	/* unreferenced formal parameters */
-	(void) value;
-
-	switch (device_id) {
+	switch (device->id) {
 	case KGSL_DEVICE_G12:
 	case KGSL_DEVICE_YAMATO:
 		break;
@@ -223,17 +219,18 @@ int kgsl_pwrctrl(unsigned int device_id, int state, unsigned int value)
 	case GSL_PWRFLAGS_CLK_ON:
 		break;
 	case GSL_PWRFLAGS_POWER_ON:
-		kgsl_clock(device_id, 1);
+		kgsl_clock(device->id, 1);
 		kgsl_device_autogate_init(device);
 		break;
 	case GSL_PWRFLAGS_CLK_OFF:
 		break;
 	case GSL_PWRFLAGS_POWER_OFF:
+		pr_info("%s: calling idle on device %d\n", __func__, device->id);
 		if (device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT) != GSL_SUCCESS) {
 			return GSL_FAILURE_DEVICEERROR;
 		}
 		kgsl_device_autogate_exit(device);
-		kgsl_clock(device_id, 0);
+		kgsl_clock(device->id, 0);
 		break;
 	default:
 		break;

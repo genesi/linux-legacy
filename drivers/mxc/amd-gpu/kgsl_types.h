@@ -227,9 +227,6 @@ typedef enum _gsl_chipid_t
 #undef MINORID
 #undef PATCHID
 
-// -----------
-// aperture id
-// -----------
 typedef enum _gsl_apertureid_t
 {
     GSL_APERTURE_EMEM   = (GSL_MEMFLAGS_EMEM),
@@ -240,9 +237,6 @@ typedef enum _gsl_apertureid_t
     GSL_APERTURE_FOOBAR = 0x7FFFFFFF
 } gsl_apertureid_t;
 
-// ----------
-// channel id
-// ----------
 typedef enum _gsl_channelid_t
 {
     GSL_CHANNEL_1      = (GSL_MEMFLAGS_CHANNEL1 >> GSL_MEMFLAGS_CHANNEL_SHIFT),
@@ -254,9 +248,6 @@ typedef enum _gsl_channelid_t
     GSL_CHANNEL_FOOBAR = 0x7FFFFFFF
 } gsl_channelid_t;
 
-// ----------------------
-// page access permission
-// ----------------------
 typedef enum _gsl_ap_t
 {
     GSL_AP_NULL   = 0x0,
@@ -270,9 +261,7 @@ typedef enum _gsl_ap_t
     GSL_AP_FOOBAR = 0x7FFFFFFF
 } gsl_ap_t;
 
-// -------------
-// memory region
-// -------------
+/* perhaps these should be in kgsl_sharedmem.h */
 struct kgsl_memregion {
     unsigned char  *mmio_virt_base;
     unsigned int   mmio_phys_base;
@@ -280,29 +269,15 @@ struct kgsl_memregion {
     unsigned int   sizebytes;
 };
 
-// ------------------------
-// shared memory allocation
-// ------------------------
-
-// ---------------------------------
-// physical page scatter/gatter list
-// ---------------------------------
 typedef struct _gsl_scatterlist_t {
     int           contiguous;       // flag whether pages on the list are physically contiguous
     unsigned int  num;
     unsigned int  *pages;
 } gsl_scatterlist_t;
 
-// --------------
-// mem free queue
-// --------------
-//
-// this could be compressed down into the just the memdesc for the node
-//
 typedef struct _gsl_memnode_t {
     unsigned int       timestamp;
     struct kgsl_memdesc         memdesc;
-    unsigned int          pid;
     struct _gsl_memnode_t *next;
 } gsl_memnode_t;
 
@@ -310,56 +285,6 @@ typedef struct _gsl_memqueue_t {
     gsl_memnode_t   *head;
     gsl_memnode_t   *tail;
 } gsl_memqueue_t;
-
-// ---------
-// rectangle
-// ---------
-
-// ---------------------
-// command window target
-// ---------------------
-
-// ------------
-// interrupt id
-// ------------
-typedef enum _gsl_intrid_t
-{
-  GSL_INTR_YDX_MH_AXI_READ_ERROR = 0,
-  GSL_INTR_YDX_MH_AXI_WRITE_ERROR,
-  GSL_INTR_YDX_MH_MMU_PAGE_FAULT,
-
-  GSL_INTR_YDX_CP_SW_INT,
-  GSL_INTR_YDX_CP_T0_PACKET_IN_IB,
-  GSL_INTR_YDX_CP_OPCODE_ERROR,
-  GSL_INTR_YDX_CP_PROTECTED_MODE_ERROR,
-  GSL_INTR_YDX_CP_RESERVED_BIT_ERROR,
-  GSL_INTR_YDX_CP_IB_ERROR,
-  GSL_INTR_YDX_CP_IB2_INT,
-  GSL_INTR_YDX_CP_IB1_INT,
-  GSL_INTR_YDX_CP_RING_BUFFER,
-
-  GSL_INTR_YDX_RBBM_READ_ERROR,
-  GSL_INTR_YDX_RBBM_DISPLAY_UPDATE,
-  GSL_INTR_YDX_RBBM_GUI_IDLE,
-
-  GSL_INTR_YDX_SQ_PS_WATCHDOG,
-  GSL_INTR_YDX_SQ_VS_WATCHDOG,
-
-  GSL_INTR_G12_MH,
-  GSL_INTR_G12_G2D,
-  GSL_INTR_G12_FIFO,
-#ifndef _Z180
-  GSL_INTR_G12_FBC,
-#endif // _Z180
-
-  GSL_INTR_G12_MH_AXI_READ_ERROR,
-  GSL_INTR_G12_MH_AXI_WRITE_ERROR,
-  GSL_INTR_G12_MH_MMU_PAGE_FAULT,
-
-  GSL_INTR_COUNT,
-
-  GSL_INTR_FOOBAR = 0x7FFFFFFF
-} gsl_intrid_t;
 
 #define DEBUG_ASSERT(x)
 

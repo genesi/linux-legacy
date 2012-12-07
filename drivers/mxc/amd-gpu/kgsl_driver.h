@@ -37,60 +37,23 @@
 #include "kgsl_sharedmem.h" // struct kgsl_sharedmem
 #include "kgsl_buildconfig.h" // GSL_CALLER_PROCESS_MAX
 
-//////////////////////////////////////////////////////////////////////////////
-// types
-//////////////////////////////////////////////////////////////////////////////
-
-// -------------
-// driver object
-// -------------
 struct kgsl_driver {
-    unsigned int      flags_debug;
-    int              refcnt;
-    unsigned int     callerprocess[GSL_CALLER_PROCESS_MAX]; // caller process table
-    struct mutex     lock;                                 // global API mutex
-    void             *hal;
-    struct kgsl_sharedmem  shmem;
-    struct kgsl_device     device[KGSL_DEVICE_MAX];
-    int              dmi_state;     //  OS_TRUE = enabled, OS_FALSE otherwise
-    unsigned int      dmi_mode;      //  single, double, or triple buffering
-    int              dmi_frame;     //  set to -1 when DMI is enabled
-    int              dmi_max_frame; //  indicates the maximum frame # that we will support
-    int              enable_mmu;
+	unsigned int  flags_debug;
+	int refcnt;
+	struct mutex lock;
+	void *hal;
+	struct kgsl_sharedmem shmem;
+	struct kgsl_device device[KGSL_DEVICE_MAX];
+	int enable_mmu;
 	struct platform_device *pdev;
 };
 
-
-//////////////////////////////////////////////////////////////////////////////
-// external variable declarations
-//////////////////////////////////////////////////////////////////////////////
 extern struct kgsl_driver gsl_driver;
 
-
-//////////////////////////////////////////////////////////////////////////////
-//  inline functions
-//////////////////////////////////////////////////////////////////////////////
-static __inline int
-kgsl_driver_getcallerprocessindex(unsigned int pid, int *index)
-{
-    int  i;
-
-    // obtain index in caller process table
-    for (i = 0; i < GSL_CALLER_PROCESS_MAX; i++)
-    {
-        if (gsl_driver.callerprocess[i] == pid)
-        {
-            *index = i;
-            return (GSL_SUCCESS);
-        }
-    }
-
-    return (GSL_FAILURE);
-}
 int                kgsl_driver_init(void);
 int                kgsl_driver_close(void);
 int                kgsl_driver_entry(unsigned int flags);
 int                kgsl_driver_exit(void);
-int                kgsl_driver_destroy(unsigned int pid);
+int                kgsl_driver_destroy(void);
 
 #endif // __GSL_DRIVER_H

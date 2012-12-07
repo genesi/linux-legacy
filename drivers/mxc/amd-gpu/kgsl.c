@@ -44,7 +44,9 @@
 
 #include "kgsl_sharedmem.h"
 #include "kgsl_cmdstream.h"
+#include "kgsl_ringbuffer.h"
 #include "kgsl_g12_cmdwindow.h"
+#include "kgsl_g12_cmdstream.h"
 
 #include "kgsl_halconfig.h"
 
@@ -64,8 +66,6 @@ struct kgsl_file_private
 };
 
 static const s8 EMPTY_ENTRY = -1;
-
-
 
 
 
@@ -260,7 +260,7 @@ void add_device_context_to_array(struct file *fd,
     *entry = (s8)context_id;
 }
 
-void del_device_context_from_array(struct file *fd, 
+void del_device_context_from_array(struct file *fd,
                                    unsigned int device_id,
                                    unsigned int context_id)
 {
@@ -300,7 +300,7 @@ void del_all_devices_contexts(struct file *fd)
             ctx = datp->created_contexts_array[device_index][ctx_array_index];
             if(ctx != EMPTY_ENTRY)
             {
-		struct kgsl_device *device = &gsl_driver.device[id];
+		struct kgsl_device *device = &gsl_driver.device[device_index];//don't need to -1 this
 
 		if (device && device->ftbl.device_drawctxt_destroy) {
 			mutex_lock(&gsl_driver.lock);
@@ -322,27 +322,6 @@ void del_all_devices_contexts(struct file *fd)
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-//#define GSL_IOCTL_DEBUG
-
 int gpu_2d_irq, gpu_3d_irq;
 
 phys_addr_t gpu_2d_regbase;
@@ -362,8 +341,6 @@ static int kgsl_mmap(struct file *fd, struct vm_area_struct *vma);
 static int kgsl_fault(struct vm_area_struct *vma, struct vm_fault *vmf);
 static int kgsl_open(struct inode *inode, struct file *fd);
 static int kgsl_release(struct inode *inode, struct file *fd);
-static irqreturn_t z160_irq_handler(int irq, void *dev_id);
-static irqreturn_t z430_irq_handler(int irq, void *dev_id);
 
 static int gsl_kmod_major;
 static struct class *gsl_kmod_class;
@@ -406,12 +383,17 @@ static int kgsl_ioctl_cmdwindow_write(struct file *fd, void __user *arg)
 		goto done;
 	}
 	if (param.device_id == KGSL_DEVICE_YAMATO) {
+		pr_info("%s: invalid device\n", __func__);
 		result = GSL_FAILURE; // -EINVAL
 	} else if (param.device_id == KGSL_DEVICE_G12) {
 		// qcom: pre-hw-access, kgsl_g12_cmdwindow_write
 		struct kgsl_device *device = &gsl_driver.device[param.device_id-1];
-		result = kgsl_g12_cmdwindow_write0(device,
+
+//		pr_info("%s: target %x addr %x data %x\n", __func__, param.target, param.addr, param.data);
+		mutex_lock(&gsl_driver.lock);
+		result = kgsl_g12_cmdwindow_write(device,
 				param.target, param.addr, param.data);
+		mutex_unlock(&gsl_driver.lock);
 	} else {
 		result = GSL_FAILURE; // -EINVAL
 	}
@@ -454,7 +436,8 @@ static int kgsl_ioctl_device_getproperty(struct file *fd, void __user *arg)
 	 * - copy_to_user the result
 	 * - no idea how FSL code is even meant to work here!? does hwaccess_memread do it?
 	 */
-	result = kgsl_device_getproperty(param.device_id, param.type, tmp, param.sizebytes);
+//	pr_info("%s: type %x sizebytes %d\n", __func__, param.type, param.sizebytes);
+	result = kgsl_device_getproperty(&gsl_driver.device[param.device_id-1], param.type, tmp, param.sizebytes);
 
 	kfree(tmp);
 done:
@@ -474,7 +457,10 @@ static int kgsl_ioctl_device_regread(struct file *fd, void __user *arg)
 	}
 
 	/* qcom: call direct predicated on device id. g12 has pre-hw-access */
-	status = kgsl_device_regread(param.device_id, param.offsetwords, &tmp);
+//	pr_info("%s: dev %d offsetwords %x\n", __func__, param.device_id, param.offsetwords);
+	mutex_lock(&gsl_driver.lock);
+	status = kgsl_device_regread(&gsl_driver.device[param.device_id-1], param.offsetwords, &tmp);
+	mutex_unlock(&gsl_driver.lock);
 
 	if (status == GSL_SUCCESS) {
 		/* qcom: arg, &param, sizeof(param) */
@@ -499,8 +485,13 @@ static int kgsl_ioctl_cmdstream_waittimestamp(struct file *fd, void __user *arg)
 		return GSL_FAILURE;
 	}
 
-	/* qcom: per-device waittimestamp, driver lock around function, runpending to finish */
-	result = kgsl_cmdstream_waittimestamp(param.device_id, param.timestamp, param.timeout);
+	/* qcom: per-device waittimestamp, runpending to finish */
+	/* fsl: did not lock - even though comments say it should */
+//	pr_info("%s: dev %d timestamp %x timeout %d\n", __func__,
+//		param.device_id, param.timestamp, param.timeout);
+	mutex_lock(&gsl_driver.lock);
+	result = kgsl_cmdstream_waittimestamp(&gsl_driver.device[param.device_id-1], param.timestamp, param.timeout);
+	mutex_unlock(&gsl_driver.lock);
 
 	return result;
 }
@@ -517,9 +508,21 @@ static int kgsl_ioctl_cmdstream_issueibcmds(struct file *fd, void __user *arg)
 		return GSL_FAILURE;
 	}
 
-	/* qcom: per-device opencoded */
-	status = kgsl_cmdstream_issueibcmds(param.device_id, param.drawctxt_index,
+		//pr_info("%s: dev %d drawctxt %d ibaddr %x sizedwords %d flags %x\n", __func__,
+		//	param.device_id, param.drawctxt_index, param.ibaddr, param.sizedwords, param.flags);
+
+	/* original issueibcmds wrapper function calls device_active first.. */
+	if (param.device_id == KGSL_DEVICE_G12) {
+		mutex_lock(&gsl_driver.lock);
+		status = kgsl_g12_cmdstream_issueibcmds(&gsl_driver.device[param.device_id-1], param.drawctxt_index,
 						param.ibaddr, param.sizedwords, &tmp, param.flags);
+		mutex_unlock(&gsl_driver.lock);
+	} else if (param.device_id == KGSL_DEVICE_YAMATO) {
+		status = kgsl_ringbuffer_issueibcmds(&gsl_driver.device[param.device_id-1], param.drawctxt_index,
+						param.ibaddr, param.sizedwords, &tmp, param.flags);
+	} else {
+		return GSL_FAILURE;
+	}
 
 	if (status == GSL_SUCCESS) {
 		/* don't understand how copying it to param.timestamp gets it back into userspace...
@@ -544,22 +547,25 @@ static int kgsl_ioctl_sharedmem_alloc(struct file *fd, void __user *arg)
 		return GSL_FAILURE;
 	}
 
-	/* alternative for us: lock, alloc0, unlock */
+	//pr_info("%s: dev %x flags %x sizebytes %d\n", __func__,
+	//	param.device_id, param.flags, param.sizebytes);
 	mutex_lock(&gsl_driver.lock);
-	status = kgsl_sharedmem_alloc0(param.device_id, param.flags, param.sizebytes, &tmp);
+	status = kgsl_sharedmem_alloc(param.flags, param.sizebytes, &tmp);
 	mutex_unlock(&gsl_driver.lock);
 
 	if (status == GSL_SUCCESS) {
 		if (copy_to_user(param.memdesc, &tmp, sizeof(struct kgsl_memdesc))) {
+			mutex_lock(&gsl_driver.lock);
 			kgsl_sharedmem_free(&tmp); // check result?
+			mutex_unlock(&gsl_driver.lock);
 
 	                pr_err("%s: copy_to_user error\n", __func__);
 			return GSL_FAILURE;
 		}
 		add_memblock_to_allocated_list(fd, &tmp);
 	} else {
-		pr_err("%s (id=%d,flags=%x,size=%d) failed!\n", __func__,
-				param.device_id, param.flags, param.sizebytes);
+		//pr_info/*err*/("%s: id %d flags %x size %d) failed!\n", __func__,
+		//		param.device_id, param.flags, param.sizebytes);
         }
 
 	return status;
@@ -587,7 +593,11 @@ static int kgsl_ioctl_sharedmem_free(struct file *fd, void __user *arg)
 		pr_err("%s: tried to free memdesc that was not allocated!\n", __func__);
 	}
 
+	//pr_info("%s: calling free on this memdesc\n", __func__);
+	mutex_lock(&gsl_driver.lock);
 	status = kgsl_sharedmem_free(&tmp);
+	mutex_unlock(&gsl_driver.lock);
+
 	if (status == GSL_SUCCESS) {
 		if (copy_to_user(param.memdesc, &tmp, sizeof(tmp))) {
         	        pr_err("%s: copy_to_user error\n", __func__);
@@ -614,9 +624,11 @@ static int kgsl_ioctl_sharedmem_read(struct file *fd, void __user *arg)
 		return GSL_FAILURE;
 	}
 
+	mutex_lock(&gsl_driver.lock);
 	status = kgsl_sharedmem_read(&tmp, param.dst, param.offsetbytes, param.sizebytes, true);
+	mutex_unlock(&gsl_driver.lock);
 	if (status != GSL_SUCCESS) {
-                pr_err("%s: kgsl_sharedmem_read failed\n", __func__);
+                pr_err("%s: read failed\n", __func__);
 	}
 
 	return status;
@@ -638,9 +650,11 @@ static int kgsl_ioctl_sharedmem_write(struct file *fd, void __user *arg)
 		return GSL_FAILURE;
 	}
 
+	mutex_lock(&gsl_driver.lock);
 	status = kgsl_sharedmem_write(&tmp, param.offsetbytes, param.src, param.sizebytes, true);
+	mutex_unlock(&gsl_driver.lock);
 	if (status != GSL_SUCCESS) {
-                pr_err("%s: kgsl_sharedmem_write failed\n", __func__);
+                pr_err("%s: write failed\n", __func__);
 	}
 
 	return status;
@@ -662,9 +676,12 @@ static int kgsl_ioctl_sharedmem_set(struct file *fd, void __user *arg)
 		return GSL_FAILURE;
 	}
 
+	mutex_lock(&gsl_driver.lock);
 	status = kgsl_sharedmem_set(&tmp, param.offsetbytes, param.value, param.sizebytes);
+	mutex_unlock(&gsl_driver.lock);
+
 	if (status != GSL_SUCCESS) {
-                pr_err("%s: kgsl_sharedmem_set failed\n", __func__);
+                pr_err("%s: set failed\n", __func__);
 	}
 
 	return status;
@@ -680,7 +697,9 @@ static int kgsl_ioctl_device_start(struct file *fd, void __user *arg)
                 return GSL_FAILURE;
 	}
 
-	status = kgsl_device_start(param.device_id, param.flags);
+	//pr_info("%s: device %d handle 0x%08x flags 0x%08x\n", __func__,
+	//	param.device_id, (unsigned int) &gsl_driver.device[param.device_id-1], param.flags);
+	status = kgsl_device_start(&gsl_driver.device[param.device_id-1], param.flags);
 	return status;
 }
 
@@ -694,7 +713,9 @@ static int kgsl_ioctl_device_stop(struct file *fd, void __user *arg)
                 return GSL_FAILURE;
 	}
 
-	status = kgsl_device_stop(param.device_id);
+	//pr_info("%s: device %d handle 0x%08x\n", __func__,
+	//	param.device_id, (unsigned int) &gsl_driver.device[param.device_id-1]);
+	status = kgsl_device_stop(&gsl_driver.device[param.device_id-1]);
 	return status;
 }
 
@@ -708,7 +729,7 @@ static int kgsl_ioctl_device_idle(struct file *fd, void __user *arg)
                 return GSL_FAILURE;
 	}
 
-	status = kgsl_device_idle(param.device_id, param.timeout);
+	status = kgsl_device_idle(&gsl_driver.device[param.device_id-1], param.timeout);
 	return status;
 }
 
@@ -722,7 +743,9 @@ static int kgsl_ioctl_device_isidle(struct file *fd, void __user *arg)
                 return GSL_FAILURE;
 	}
 
-	status = kgsl_device_isidle(param.device_id);
+	//pr_info("%s: device %d handle 0x%08x\n", __func__,
+	//	param.device_id, (unsigned int) &gsl_driver.device[param.device_id-1]);
+	status = kgsl_device_isidle(&gsl_driver.device[param.device_id-1]);
 	return status;
 }
 
@@ -738,7 +761,9 @@ static int kgsl_ioctl_cmdstream_readtimestamp(struct file *fd, void __user *arg)
 	}
 
 	/* qcom: per device here */
-	tmp = kgsl_cmdstream_readtimestamp(param.device_id, param.type);
+	mutex_lock(&gsl_driver.lock);
+	tmp = kgsl_cmdstream_readtimestamp(&gsl_driver.device[param.device_id-1], param.type);
+	mutex_unlock(&gsl_driver.lock);
 	if (copy_to_user(param.timestamp, &tmp, sizeof(unsigned int))) {
 		pr_err("%s: copy_to_user error\n", __func__);
 		status = GSL_FAILURE;
@@ -765,10 +790,12 @@ static int kgsl_ioctl_cmdstream_freememontimestamp(struct file *fd, void __user 
 		 */
                 status = -EINVAL;
 	} else {
-		status = kgsl_cmdstream_freememontimestamp(param.device_id,
+		mutex_lock(&gsl_driver.lock);
+		status = kgsl_cmdstream_freememontimestamp(&gsl_driver.device[param.device_id-1],
 							param.memdesc,
 							param.timestamp,
 							param.type);
+		mutex_unlock(&gsl_driver.lock);
 		/* qcom: runpending here */
 	}
 	return status;
@@ -788,9 +815,15 @@ static int kgsl_ioctl_context_create(struct file *fd, void __user *arg)
 
 	/* qcom: per device */
 	device = &gsl_driver.device[param.device_id-1];
+
+	//pr_info("%s: dev %d type %d flags %x\n", __func__,
+	//	param.device_id, param.type, param.flags);
+
 	mutex_lock(&gsl_driver.lock);
 	status = device->ftbl.device_drawctxt_create(device, param.type, &tmp, param.flags);
 	mutex_unlock(&gsl_driver.lock);
+
+	//pr_info("%s: drawctxt_id %d returned (status %d)\n", __func__, tmp, status);
 
 	if (status == GSL_SUCCESS) {
 		if (copy_to_user(param.drawctxt_id, &tmp, sizeof(unsigned int))) {
@@ -819,6 +852,10 @@ static int kgsl_ioctl_context_destroy(struct file *fd, void __user *arg)
 	}
 
 	device = &gsl_driver.device[param.device_id-1];
+
+	//pr_info("%s: dev %d drawctxt_id %d\n", __func__,
+	//	param.device_id, param.drawctxt_id);
+
 	mutex_lock(&gsl_driver.lock);
 	status = device->ftbl.device_drawctxt_destroy(device, param.drawctxt_id);
 	mutex_unlock(&gsl_driver.lock);
@@ -840,7 +877,7 @@ static int kgsl_ioctl_sharedmem_largestfreeblock(struct file *fd, void __user *a
                 return GSL_FAILURE;
 	}
 
-	largestfreeblock = kgsl_sharedmem_largestfreeblock(param.device_id, param.flags);
+	largestfreeblock = kgsl_sharedmem_largestfreeblock(&gsl_driver.device[param.device_id-1], param.flags);
 	if (copy_to_user(param.largestfreeblock, &largestfreeblock, sizeof(unsigned int))) {
 		pr_err("%s: copy_to_user error\n", __func__);
                 return GSL_FAILURE;
@@ -886,7 +923,7 @@ static int kgsl_ioctl_sharedmem_fromhostpointer(struct file *fd, void __user *ar
                 return GSL_FAILURE;
 	}
 
-	status = kgsl_sharedmem_fromhostpointer(param.device_id, &tmp, param.hostptr);
+	status = kgsl_sharedmem_fromhostpointer(&gsl_driver.device[param.device_id-1], &tmp, param.hostptr);
 	return status;
 }
 
@@ -900,7 +937,7 @@ static int kgsl_ioctl_drawctxt_bind_gmem_shadow(struct file *fd, void __user *ar
                 return GSL_FAILURE;
 	}
 
-	status = kgsl_drawctxt_bind_gmem_shadow(param.device_id, param.drawctxt_id,
+	status = kgsl_drawctxt_bind_gmem_shadow(&gsl_driver.device[param.device_id-1], param.drawctxt_id,
 						param.gmem_rect, param.shadow_x,
 						param.shadow_y, param.shadow_buffer,
 						param.buffer_id);
@@ -911,7 +948,7 @@ static int kgsl_ioctl(struct inode *inode, struct file *fd, unsigned int cmd, un
 {
 	int result = GSL_FAILURE;
 
-//	pr_info("%s: cmd=%08x\n", __func__, cmd);
+	//pr_info("%s: cmd=%08x\n", __func__, cmd);
 
 	switch (cmd) {
 	case IOCTL_KGSL_DEVICE_REGREAD:
@@ -1104,39 +1141,27 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 
 static struct class *gsl_kmod_class;
 
-static irqreturn_t z160_irq_handler(int irq, void *dev_id)
+static int kgsl_platform_probe(struct platform_device *pdev)
 {
-	kgsl_intr_isr(&gsl_driver.device[KGSL_DEVICE_G12-1]);
-	return IRQ_HANDLED;
-}
+	struct resource *res;
+	struct device *dev;
+	struct mxc_gpu_platform_data *gpu_data = NULL; 	/* rename me and put me in mxc_kgsl.h */
 
-static irqreturn_t z430_irq_handler(int irq, void *dev_id)
-{
-	kgsl_intr_isr(&gsl_driver.device[KGSL_DEVICE_YAMATO-1]);
-	return IRQ_HANDLED;
-}
+	gpu_data = (struct mxc_gpu_platform_data *)pdev->dev.platform_data;
 
-static int gpu_probe(struct platform_device *pdev)
-{
-    struct resource *res;
-    struct device *dev;
-    struct mxc_gpu_platform_data *gpu_data = NULL;
+	if (gpu_data == NULL)
+		return 0;
 
-    gpu_data = (struct mxc_gpu_platform_data *)pdev->dev.platform_data;
+	z160_version = gpu_data->z160_revision;
+	enable_mmu = gpu_data->enable_mmu;
 
-    if (gpu_data == NULL)
-	return 0;
-
-    z160_version = gpu_data->z160_revision;
-    enable_mmu = gpu_data->enable_mmu;
-
-    res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "gpu_2d_irq");
-    if (!res) {
-	printk(KERN_ERR "gpu: unable to find 2D gpu irq\n");
-	goto nodev;
-    } else {
-	gpu_2d_irq = res->start;
-    }
+	res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "gpu_2d_irq");
+	if (!res) {
+		printk(KERN_ERR "gpu: unable to find 2D gpu irq\n");
+		goto nodev;
+	} else {
+		gpu_2d_irq = res->start;
+	}
 
     res = platform_get_resource_byname(pdev, IORESOURCE_IRQ, "gpu_3d_irq");
     if (!res) {
@@ -1183,7 +1208,7 @@ static int gpu_probe(struct platform_device *pdev)
 
     if (gpu_3d_irq > 0)
     {
-	if (request_irq(gpu_3d_irq, z430_irq_handler, 0, "ydx", NULL) < 0) {
+	if (request_irq(gpu_3d_irq, kgsl_yamato_isr, 0, "kgsl_yamato_irq", NULL) < 0) {
 	    printk(KERN_ERR "%s: request_irq error\n", __func__);
 	    gpu_3d_irq = 0;
 	    goto request_irq_error;
@@ -1192,7 +1217,7 @@ static int gpu_probe(struct platform_device *pdev)
 
     if (gpu_2d_irq > 0)
     {
-	if (request_irq(gpu_2d_irq, z160_irq_handler, 0, "g12", NULL) < 0) {
+	if (request_irq(gpu_2d_irq, kgsl_g12_isr, 0, "kgsl_g12_irq", NULL) < 0) {
 	    printk(KERN_ERR "Could not allocate IRQ for OpenVG!\n");
 	    gpu_2d_irq = 0;
 	}
@@ -1262,7 +1287,7 @@ nodev:
     return -ENODEV;
 }
 
-static int gpu_remove(struct platform_device *pdev)
+static int kgsl_platform_remove(struct platform_device *pdev)
 {
     device_destroy(gsl_kmod_class, MKDEV(gsl_kmod_major, 0));
     class_destroy(gsl_kmod_class);
@@ -1283,52 +1308,57 @@ static int gpu_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
-static int gpu_suspend(struct platform_device *pdev, pm_message_t state)
+static int kgsl_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	int i;
 
+	mutex_lock(&gsl_driver.lock);
 	/* this is hideous! */
 	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
-		kgsl_pwrctrl(i, GSL_PWRFLAGS_POWER_OFF, 0);
+		kgsl_pwrctrl(&gsl_driver.device[i], GSL_PWRFLAGS_POWER_OFF, 0);
 	}
+	mutex_unlock(&gsl_driver.lock);
 
 	return 0;
 }
 
-static int gpu_resume(struct platform_device *pdev)
+static int kgsl_resume(struct platform_device *pdev)
 {
 	int i;
 
+	mutex_lock(&gsl_driver.lock);
 	/* this is hideous! */
 	for (i = 0; i < KGSL_DEVICE_MAX; i++) {
-		kgsl_pwrctrl(i, GSL_PWRFLAGS_POWER_ON, 100);
+		kgsl_pwrctrl(&gsl_driver.device[i], GSL_PWRFLAGS_POWER_ON, 100);
 	}
+	mutex_unlock(&gsl_driver.lock);
 
 	return 0;
 }
 #else
-#define	gpu_suspend	NULL
-#define	gpu_resume	NULL
+#define	kgsl_suspend	NULL
+#define	kgsl_resume	NULL
 #endif /* !CONFIG_PM */
 
-static struct platform_driver kgsl_driver = {
+static struct platform_driver kgsl_platform_driver = {
 	.driver = {
+		.owner = THIS_MODULE,
 		.name = "mxc_gpu", // DRIVER_NAME please
 	},
-	.probe = gpu_probe,
-	.remove = gpu_remove,
-	.suspend = gpu_suspend,
-	.resume = gpu_resume,
+	.probe = kgsl_platform_probe,
+	.remove = __devexit_p(kgsl_platform_remove),
+	.suspend = kgsl_suspend,
+	.resume = kgsl_resume,
 };
 
 static int __init kgsl_mod_init(void)
 {
-	return platform_driver_register(&kgsl_driver);
+	return platform_driver_register(&kgsl_platform_driver);
 }
 
 static void __exit kgsl_mod_exit(void)
 {
-	platform_driver_unregister(&kgsl_driver);
+	platform_driver_unregister(&kgsl_platform_driver);
 }
 
 #ifdef MODULE

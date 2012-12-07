@@ -53,8 +53,8 @@ static void beginpacket(struct kgsl_g12_z1xx* z1xx, uint32_t cmd, unsigned int n
 }
 
 
-int kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_t ibaddr,
-			 int sizedwords, unsigned int *timestamp, unsigned int flags)
+int kgsl_g12_cmdstream_issueibcmds(struct kgsl_device *device, int drawctxt_index,
+			uint32_t ibaddr, int sizedwords, unsigned int *timestamp, unsigned int flags)
 {
 	unsigned int ofs = PACKETSIZE_STATESTREAM * sizeof(unsigned int);
 	unsigned int cnt = 5;
@@ -67,13 +67,15 @@ int kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_
 
 	(void) flags;
 
+	kgsl_device_active(device);
+
 	/* read what is the latest timestamp device have processed */
 	/* note: diverge from qcom */
 	KGSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, (int *)&processed_timestamp);
 
 	/* wait for the next buffer's timestamp to occur - note: diverge */
 	while(processed_timestamp < g_z1xx.timestamp[nextbuf]) {
-		kgsl_cmdstream_waittimestamp(device->id, g_z1xx.timestamp[nextbuf], 1000);
+		kgsl_cmdstream_waittimestamp(device, g_z1xx.timestamp[nextbuf], 1000);
 		KGSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, (int *)&processed_timestamp);
 	}
 
@@ -99,11 +101,11 @@ int kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_
 	// tmp.size = 12;
 	tmp.gpuaddr = ibaddr + (sizedwords * sizeof(unsigned int));
 
-	kgsl_sharedmem_write0(&tmp, 4, &nextaddr, 4, false);
-	kgsl_sharedmem_write0(&tmp, 8, &nextcnt,  4, false);
+	kgsl_sharedmem_write(&tmp, 4, &nextaddr, 4, false);
+	kgsl_sharedmem_write(&tmp, 8, &nextcnt,  4, false);
 
 	/* sync mem */
-	kgsl_sharedmem_write0((const struct kgsl_memdesc *)
+	kgsl_sharedmem_write((const struct kgsl_memdesc *)
 				&g_z1xx.cmdbufdesc[g_z1xx.curr], 0,
 				g_z1xx.cmdbuf[g_z1xx.curr],
 				(512 + 13) * sizeof(unsigned int), false);
@@ -118,18 +120,18 @@ int kgsl_g12_issueibcmds(struct kgsl_device* device, int drawctxt_index, uint32_
 	/* increment mark counter */
 #ifdef V3_SYNC
 	if (device->timestamp == device->current_timestamp) {
-		kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, flags);
-		kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 0);
+		kgsl_g12_cmdwindow_write(device, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, flags);
+		kgsl_g12_cmdwindow_write(device, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 0);
 	}
 #else
-	kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, flags);
-	kgsl_g12_cmdwindow_write0(device, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 0);
+	kgsl_g12_cmdwindow_write(device, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, flags);
+	kgsl_g12_cmdwindow_write(device, GSL_CMDWINDOW_2D, ADDR_VGV3_CONTROL, 0);
 #endif
 
 	/* increment consumed timestamp */
 	device->current_timestamp++;
 	/* neko note: if we do this don't we need to increment *timestamp too? */
-	kgsl_sharedmem_write0(&device->memstore, KGSL_DEVICE_MEMSTORE_OFFSET(soptimestamp), &device->current_timestamp, 4, 0);
+	kgsl_sharedmem_write(&device->memstore, KGSL_DEVICE_MEMSTORE_OFFSET(soptimestamp), &device->current_timestamp, 4, 0);
 	/* end FSL code */
 
 	return GSL_SUCCESS;

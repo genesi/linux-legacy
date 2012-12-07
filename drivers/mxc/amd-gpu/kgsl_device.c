@@ -32,241 +32,174 @@ unsigned int kgsl_yamato_getchipid(struct kgsl_device *device);
 
 int kgsl_device_init(struct kgsl_device *device, unsigned int device_id)
 {
-    int              status = GSL_SUCCESS;
-    struct kgsl_devconfig  config;
-    gsl_hal_t        *hal = (gsl_hal_t *)gsl_driver.hal;
+	int status = GSL_SUCCESS;
+	struct kgsl_devconfig  config;
+	gsl_hal_t *hal = (gsl_hal_t *)gsl_driver.hal;
 
-    KGSL_DRV_VDBG("device=0x%08x device_id=%d \n", (unsigned int) device, device_id );
+	pr_info("%s: device 0x%08x device_id %d\n", __func__,
+		(unsigned int) device, device_id );
 
-    if ((KGSL_DEVICE_YAMATO == device_id) && !(hal->has_z430)) {
-	return GSL_FAILURE_NOTSUPPORTED;
-    }
+	switch (device_id) {
+	case KGSL_DEVICE_YAMATO:
+		if (!hal->has_z430)
+			return GSL_FAILURE_NOTSUPPORTED;
+		break;
+	case KGSL_DEVICE_G12:
+		if (!hal->has_z160)
+			return GSL_FAILURE_NOTSUPPORTED;
+		break;
+	default:
+		return GSL_FAILURE_NOTSUPPORTED;
+		break;
+	}
 
-    if ((KGSL_DEVICE_G12 == device_id) && !(hal->has_z160)) {
-	return GSL_FAILURE_NOTSUPPORTED;
-    }
+	if (device->flags & KGSL_FLAGS_INITIALIZED) {
+		return status;
+	}
 
-    if (device->flags & KGSL_FLAGS_INITIALIZED)
-    {
-        return (GSL_SUCCESS);
-    }
+	memset(device, 0, sizeof(struct kgsl_device));
 
-    memset(device, 0, sizeof(struct kgsl_device));
+	// if device configuration is present
+	if (kgsl_hal_getdevconfig(device_id, &config) == GSL_SUCCESS) {
 
-    // if device configuration is present
-    if (kgsl_hal_getdevconfig(device_id, &config) == GSL_SUCCESS)
-    {
+		switch (device_id) {
+		case KGSL_DEVICE_YAMATO:
+			kgsl_yamato_getfunctable(&device->ftbl);
+			break;
+		case KGSL_DEVICE_G12:
+			kgsl_g12_getfunctable(&device->ftbl);
+			break;
+		default:
+			break;
+		}
 
-    switch (device_id)
-    {
-    case KGSL_DEVICE_YAMATO:
-        kgsl_yamato_getfunctable(&device->ftbl);
-        break;
-    case KGSL_DEVICE_G12:
-        kgsl_g12_getfunctable(&device->ftbl);
-        break;
-    default:
-        break;
-    }
+		memcpy(&device->regspace,  &config.regspace,  sizeof(struct kgsl_memregion));
+		memcpy(&device->gmemspace, &config.gmemspace, sizeof(struct kgsl_memregion));
 
-        memcpy(&device->regspace,  &config.regspace,  sizeof(struct kgsl_memregion));
-	// for Z430
-        memcpy(&device->gmemspace, &config.gmemspace, sizeof(struct kgsl_memregion));
-
-        device->refcnt        = 0;
-        device->id            = device_id;
+		device->refcnt        = 0;
+		device->id            = device_id;
 
 #ifdef CONFIG_KGSL_MMU_ENABLE
-        device->mmu.config    = config.mmu_config;
-        device->mmu.mpu_base  = config.mpu_base;
-        device->mmu.mpu_range = config.mpu_range;
-        device->mmu.va_base   = config.va_base;
-        device->mmu.va_range  = config.va_range;
+		device->mmu.config    = config.mmu_config;
+		device->mmu.mpu_base  = config.mpu_base;
+		device->mmu.mpu_range = config.mpu_range;
+		device->mmu.va_base   = config.va_base;
+		device->mmu.va_range  = config.va_range;
 #endif
 
-        if (device->ftbl.init)
-        {
-            status = device->ftbl.init(device);
-        }
-        else
-        {
-            status = GSL_FAILURE_NOTINITIALIZED;
-        }
+		if (device->ftbl.init) {
+			status = device->ftbl.init(device);
+		} else {
+			status = GSL_FAILURE_NOTINITIALIZED;
+		}
 
-        // init memqueue
-        device->memqueue.head = NULL;
-        device->memqueue.tail = NULL;
+		/* init memqueue */
+		device->memqueue.head = NULL;
+		device->memqueue.tail = NULL;
 
-        // init cmdstream
-        status = kgsl_cmdstream_init(device);
-        if (status != GSL_SUCCESS)
-        {
-            kgsl_device_stop(device->id);
-            return (status);
-        }
+		/* init cmdstream - surely if device init didn't pass we shouldn't get here */
+		status = kgsl_cmdstream_init(device);
+		if (status != GSL_SUCCESS) {
+			kgsl_device_stop(device);
+			return status;
+		}
 
-	// Create timestamp wait queue
-	init_waitqueue_head(&device->timestamp_waitq);
+		/* Create timestamp wait queue */
+		/* qcom: g12_init or yamato_init */
+		init_waitqueue_head(&device->wait_timestamp_wq);
 
-        // allocate memory store
-        status = kgsl_sharedmem_alloc0(device->id, GSL_MEMFLAGS_ALIGNPAGE | GSL_MEMFLAGS_CONPHYS, sizeof(struct kgsl_devmemstore), &device->memstore);
+		/* allocate memory store */
+		status = kgsl_sharedmem_alloc(GSL_MEMFLAGS_ALIGNPAGE | GSL_MEMFLAGS_CONPHYS, sizeof(struct kgsl_devmemstore), &device->memstore);
 
-        if (status != GSL_SUCCESS)
-        {
-            kgsl_device_stop(device->id);
-            return (status);
-        }
-        kgsl_sharedmem_set0(&device->memstore, 0, 0, device->memstore.size);
+		if (status != GSL_SUCCESS) {
+			kgsl_device_stop(device);
+			return status;
+		}
 
-	if (device->id == KGSL_DEVICE_YAMATO)
-		device->chip_id = kgsl_yamato_getchipid(device);
-	else
-		device->chip_id = 0;
-    }
+		kgsl_sharedmem_set(&device->memstore, 0, 0, device->memstore.size);
 
-    return (status);
-}
+		if (device->id == KGSL_DEVICE_YAMATO)
+			device->chip_id = kgsl_yamato_getchipid(device);
+		else
+			device->chip_id = 0;
+	}
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_device_close(struct kgsl_device *device)
-{
-    int  status = GSL_FAILURE_NOTINITIALIZED;
-
-    KGSL_DRV_VDBG("device=0x%08x \n", (unsigned int) device);
-
-    if (!(device->flags & KGSL_FLAGS_INITIALIZED)) {
 	return status;
-    }
-
-    /* make sure the device is stopped before close
-       kgsl_device_close is only called for last running caller process
-    */
-    while (device->refcnt > 0) {
-	mutex_unlock(&gsl_driver.lock);
-	kgsl_device_stop(device->id);
-	mutex_lock(&gsl_driver.lock);
-    }
-
-    // close cmdstream
-    status = kgsl_cmdstream_close(device);
-    if( status != GSL_SUCCESS ) return status;
-
-    if (device->ftbl.close) {
-	status = device->ftbl.close(device);
-    }
-
-    wake_up_interruptible_all(&(device->timestamp_waitq));
-
-    return (status);
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_device_destroy(struct kgsl_device *device)
+int kgsl_device_close(struct kgsl_device *device)
 {
-    int  status = GSL_FAILURE_NOTINITIALIZED;
+	int status = GSL_FAILURE_NOTINITIALIZED;
 
-    KGSL_DRV_VDBG("device=0x%08x\n", (unsigned int) device );
+	pr_info("%s: device 0x%08x id %d\n", __func__, (unsigned int) device, device->id);
 
-    if (device->flags & KGSL_FLAGS_INITIALIZED)
-    {
-        if (device->ftbl.destroy)
-        {
-            status = device->ftbl.destroy(device);
-        }
-    }
+	if (!(device->flags & KGSL_FLAGS_INITIALIZED)) {
+		return status;
+	}
 
-    return (status);
+	/* make sure the device is stopped before close
+	 * kgsl_device_close is only called for last running caller process
+	 */
+	while (device->refcnt > 0) {
+		/* are we sure the lock is held here? */
+		mutex_unlock(&gsl_driver.lock);
+		kgsl_device_stop(device);
+		mutex_lock(&gsl_driver.lock);
+	}
+
+	/* close cmdstream */
+	status = kgsl_cmdstream_close(device);
+	if (status != GSL_SUCCESS)
+		return status;
+
+	if (device->ftbl.close) {
+		status = device->ftbl.close(device);
+	}
+
+	wake_up_interruptible_all(&(device->wait_timestamp_wq));
+
+	return status;
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_device_attachcallback(struct kgsl_device *device, unsigned int pid)
+int kgsl_device_destroy(struct kgsl_device *device)
 {
-    int  status = GSL_SUCCESS;
-    int  pindex;
+	int status = GSL_FAILURE_NOTINITIALIZED;
 
-#ifdef CONFIG_KGSL_MMU_ENABLE
+	KGSL_DRV_VDBG("device=0x%08x\n", (unsigned int) device );
 
-    KGSL_DRV_VDBG("device=0x%08x, pid=0x%08x\n", (unsigned int) device, pid );
+	if (device->flags & KGSL_FLAGS_INITIALIZED) {
+		if (device->ftbl.destroy) {
+			status = device->ftbl.destroy(device);
+		}
+	}
 
-    if (device->flags & KGSL_FLAGS_INITIALIZED)
-    {
-        if (kgsl_driver_getcallerprocessindex(pid, &pindex) == GSL_SUCCESS)
-        {
-            device->callerprocess[pindex] = pid;
-
-            status = kgsl_mmu_attachcallback(&device->mmu, pid);
-        }
-    }
-
-#else
-    (void)pid;
-    (void)device;
-#endif
-
-    return (status);
-}
-
-//----------------------------------------------------------------------------
-
-int
-kgsl_device_detachcallback(struct kgsl_device *device, unsigned int pid)
-{
-    int  status = GSL_SUCCESS;
-    int  pindex;
-
-#ifdef CONFIG_KGSL_MMU_ENABLE
-
-    KGSL_DRV_VDBG("device=0x%08x, pid=0x%08x\n", (unsigned int) device, pid);
-
-    if (device->flags & KGSL_FLAGS_INITIALIZED)
-    {
-        if (kgsl_driver_getcallerprocessindex(pid, &pindex) == GSL_SUCCESS)
-        {
-            status |= kgsl_mmu_detachcallback(&device->mmu, pid);
-
-            device->callerprocess[pindex] = 0;
-        }
-    }
-
-#else
-    (void)pid;
-    (void)device;
-#endif
-
-    return (status);
+	return status;
 }
 
 /* qcom: ? */
-int kgsl_device_getproperty(unsigned int device_id, enum kgsl_property_type type, void *value, unsigned int sizebytes)
+int kgsl_device_getproperty(struct kgsl_device *device, enum kgsl_property_type type, void *value, unsigned int sizebytes)
 {
 	int  status  = GSL_SUCCESS;
-	struct kgsl_device  *device = &gsl_driver.device[device_id-1]; // device_id is 1 based
 
-	KGSL_DRV_VDBG("device_id=%d, type=%d, value=0x%08x, sizebytes=%u\n", device_id, (int) type, (unsigned int) value, sizebytes);
+	KGSL_DRV_VDBG("device_id=%d, type=%d, value=0x%08x, sizebytes=%u\n", device->id, (int) type, (unsigned int) value, sizebytes);
 
 	(void) sizebytes;
 
 	switch (type) {
 	case KGSL_PROP_DEVICE_SHADOW:
 	{
-		struct kgsl_shadowprop  *shadowprop = (struct kgsl_shadowprop *) value;
+		struct kgsl_shadowprop *shadowprop = (struct kgsl_shadowprop *) value;
 		DEBUG_ASSERT(sizebytes == sizeof(struct kgsl_shadowprop));
 
 		memset(shadowprop, 0, sizeof(struct kgsl_shadowprop));
 
-#ifdef  GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
+#ifdef GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
 		if (device->memstore.hostptr) {
 			shadowprop->hostaddr = (unsigned int) device->memstore.hostptr;
-			shadowprop->size     = device->memstore.size;
-			shadowprop->flags    = KGSL_FLAGS_INITIALIZED;
+			shadowprop->size = device->memstore.size;
+			shadowprop->flags = KGSL_FLAGS_INITIALIZED;
 		}
-#endif // GSL_DEVICE_SHADOW_MEMSTORE_TO_USER
+#endif
 		break;
 	}
 	default:
@@ -279,183 +212,149 @@ int kgsl_device_getproperty(unsigned int device_id, enum kgsl_property_type type
 	return status;
 }
 
-int
-kgsl_device_start(unsigned int device_id, unsigned int flags)
+int kgsl_device_start(struct kgsl_device *device, unsigned int flags)
 {
-    int           status = GSL_FAILURE_NOTINITIALIZED;
-    struct kgsl_device  *device;
-    gsl_hal_t     *hal = (gsl_hal_t *)gsl_driver.hal;
+	int           status = GSL_FAILURE_NOTINITIALIZED;
+	gsl_hal_t     *hal = (gsl_hal_t *)gsl_driver.hal;
 
-    KGSL_DRV_VDBG("device_id=%d, flags=%d\n", device_id, flags);
+	pr_info("%s: device %d flags 0x%08x\n", __func__, device->id, flags);
 
-    mutex_lock(&gsl_driver.lock);
+	mutex_lock(&gsl_driver.lock);
 
-    if ((KGSL_DEVICE_G12 == device_id) && !(hal->has_z160)) {
+	switch (device->id) {
+	case KGSL_DEVICE_YAMATO:
+		if (!hal->has_z430) {
+			mutex_unlock(&gsl_driver.lock);
+			return GSL_FAILURE_NOTSUPPORTED;
+		}
+		break;
+	case KGSL_DEVICE_G12:
+		if (!hal->has_z160) {
+			mutex_unlock(&gsl_driver.lock);
+			return GSL_FAILURE_NOTSUPPORTED;
+		}
+		break;
+	default:
+		mutex_unlock(&gsl_driver.lock);
+		return GSL_FAILURE_NOTSUPPORTED;
+		break;
+	}
+
+	pr_info("%s: calling device active\n", __func__);
+	kgsl_device_active(device);
+
+	if (!(device->flags & KGSL_FLAGS_INITIALIZED)) {
+		pr_info("%s: trying to start an uninitialized device! failing out\n", __func__);
+		mutex_unlock(&gsl_driver.lock);
+		return GSL_FAILURE;
+	}
+
+	device->refcnt++;
+
+	if (device->flags & KGSL_FLAGS_STARTED) {
+		pr_info("%s: device already started, unlocking and exiting\n", __func__);
+		mutex_unlock(&gsl_driver.lock);
+		return GSL_SUCCESS;
+	}
+
+	/* start device in safe mode */
+	if (flags & KGSL_FLAGS_SAFEMODE) {
+		KGSL_DRV_VDBG("Running the device in safe mode.\n");
+		device->flags |= KGSL_FLAGS_SAFEMODE;
+	}
+
+	if (device->ftbl.start) {
+		pr_info("%s: calling device start from function table\n", __func__);
+		status = device->ftbl.start(device, flags);
+	}
+
 	mutex_unlock(&gsl_driver.lock);
-	return GSL_FAILURE_NOTSUPPORTED;
-    }
 
-    if ((KGSL_DEVICE_YAMATO == device_id) && !(hal->has_z430)) {
+	return status;
+}
+
+int kgsl_device_stop(struct kgsl_device *device)
+{
+	int status = GSL_FAILURE_NOTINITIALIZED;
+
+	KGSL_DRV_VDBG("device id=%d\n", device->id );
+
+	mutex_lock(&gsl_driver.lock);
+
+	if (device->flags & KGSL_FLAGS_STARTED) {
+		device->refcnt--;
+
+		if (device->refcnt == 0) {
+			if (device->ftbl.stop)
+				status = device->ftbl.stop(device);
+		} else {
+			status = GSL_SUCCESS;
+		}
+	}
+
 	mutex_unlock(&gsl_driver.lock);
-	return GSL_FAILURE_NOTSUPPORTED;
-    }
 
-    device = &gsl_driver.device[device_id-1];       // device_id is 1 based
-
-    kgsl_device_active(device);
-
-    if (!(device->flags & KGSL_FLAGS_INITIALIZED))
-    {
-        mutex_unlock(&gsl_driver.lock);
-        KGSL_DRV_VDBG("ERROR: Trying to start uninitialized device.\n");
-        return (GSL_FAILURE);
-    }
-
-    device->refcnt++;
-
-    if (device->flags & KGSL_FLAGS_STARTED)
-    {
-        mutex_unlock(&gsl_driver.lock);
-        return (GSL_SUCCESS);
-    }
-
-    // start device in safe mode
-    if (flags & KGSL_FLAGS_SAFEMODE)
-    {
-        KGSL_DRV_VDBG("Running the device in safe mode.\n");
-        device->flags |= KGSL_FLAGS_SAFEMODE;
-    }
-
-    if (device->ftbl.start)
-    {
-        status = device->ftbl.start(device, flags);
-    }
-
-    mutex_unlock(&gsl_driver.lock);
-
-    return (status);
+	return status;
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_device_stop(unsigned int device_id)
+int kgsl_device_idle(struct kgsl_device *device, unsigned int timeout)
 {
-    int           status = GSL_FAILURE_NOTINITIALIZED;
-    struct kgsl_device  *device;
+	int           status = GSL_FAILURE_NOTINITIALIZED;
 
-    KGSL_DRV_VDBG("device_id=%d\n", device_id );
+	pr_info("%s: device %d, timeout %d\n", __func__, device->id, timeout );
 
-    mutex_lock(&gsl_driver.lock);
+	mutex_lock(&gsl_driver.lock);
 
-    device = &gsl_driver.device[device_id-1];       // device_id is 1 based
+	kgsl_device_active(device);
 
-    if (device->flags & KGSL_FLAGS_STARTED)
-    {
-        DEBUG_ASSERT(device->refcnt);
+	if (device->ftbl.idle)
+		status = device->ftbl.idle(device, timeout);
 
-        device->refcnt--;
+	mutex_unlock(&gsl_driver.lock);
 
-        if (device->refcnt == 0)
-        {
-            if (device->ftbl.stop)
-            {
-                status = device->ftbl.stop(device);
-            }
-        }
-        else
-        {
-            status = GSL_SUCCESS;
-        }
-    }
-
-    mutex_unlock(&gsl_driver.lock);
-
-    return (status);
+	return (status);
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_device_idle(unsigned int device_id, unsigned int timeout)
+int kgsl_device_isidle(struct kgsl_device *device)
 {
-    int           status = GSL_FAILURE_NOTINITIALIZED;
-    struct kgsl_device  *device;
-
-    KGSL_DRV_VDBG("device_id=%d, timeout=%d\n", device_id, timeout );
-
-    mutex_lock(&gsl_driver.lock);
-
-    device = &gsl_driver.device[device_id-1];       // device_id is 1 based
-
-    kgsl_device_active(device);
-    
-    if (device->ftbl.idle)
-    {
-        status = device->ftbl.idle(device, timeout);
-    }
-
-    mutex_unlock(&gsl_driver.lock);
-
-    return (status);
-}
-
-//----------------------------------------------------------------------------
-
-int
-kgsl_device_isidle(unsigned int device_id)
-{
-	unsigned int retired = kgsl_cmdstream_readtimestamp0(device_id, KGSL_TIMESTAMP_RETIRED);
-	unsigned int consumed = kgsl_cmdstream_readtimestamp0(device_id, KGSL_TIMESTAMP_CONSUMED);
+	unsigned int retired = kgsl_cmdstream_readtimestamp(device, KGSL_TIMESTAMP_RETIRED);
+	unsigned int consumed = kgsl_cmdstream_readtimestamp(device, KGSL_TIMESTAMP_CONSUMED);
 	unsigned int ts_diff = retired - consumed;
 	return (ts_diff >= 0) || (ts_diff < -KGSL_TIMESTAMP_EPSILON) ? GSL_SUCCESS : GSL_FAILURE;
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_device_regread(unsigned int device_id, unsigned int offsetwords, unsigned int *value)
+int kgsl_device_regread(struct kgsl_device *device, unsigned int offsetwords, unsigned int *value)
 {
-    int           status = GSL_FAILURE_NOTINITIALIZED;
-    struct kgsl_device  *device;
+	int status = GSL_FAILURE_NOTINITIALIZED;
 
-    mutex_lock(&gsl_driver.lock);
+	mutex_lock(&gsl_driver.lock);
 
-    device = &gsl_driver.device[device_id-1];       // device_id is 1 based
+	/* bug on here for invalid offsets greater than memspace */
+	if (device->ftbl.regread) {
+		status = device->ftbl.regread(device, offsetwords, value);
+	}
 
-    DEBUG_ASSERT(value);
-    DEBUG_ASSERT(offsetwords < device->regspace.sizebytes);
+	mutex_unlock(&gsl_driver.lock);
 
-    if (device->ftbl.regread)
-    {
-        status = device->ftbl.regread(device, offsetwords, value);
-    }
-
-    mutex_unlock(&gsl_driver.lock);
-
-    return (status);
+	return status;
 }
 
-int
-kgsl_device_runpending(struct kgsl_device *device)
+int kgsl_device_runpending(struct kgsl_device *device)
 {
-    int  status = GSL_FAILURE_NOTINITIALIZED;
+	int status = GSL_FAILURE_NOTINITIALIZED;
 
-    KGSL_DRV_VDBG("device=0x%08x\n", (unsigned int) device );
+	KGSL_DRV_VDBG("device=%d\n", (unsigned int) device->id);
 
-    if (device->flags & KGSL_FLAGS_INITIALIZED)
-    {
-        if (device->ftbl.runpending)
-        {
-            status = device->ftbl.runpending(device);
-        }
+	if (device->flags & KGSL_FLAGS_INITIALIZED) {
+		if (device->ftbl.runpending)
+			status = device->ftbl.runpending(device);
 
-	// free any pending freeontimestamps
-	kgsl_cmdstream_memqueue_drain(device);
-    }
+		/* free any pending freeontimestamps */
+		kgsl_cmdstream_memqueue_drain(device);
+	}
 
-    KGSL_DRV_VDBG("done %d\n", status );
+	KGSL_DRV_VDBG("done %d\n", status);
 
-    return (status);
+	return status;
 }
 

@@ -7,7 +7,6 @@ mxc_kgsl-objs += kgsl_cmdstream.o \
 		kgsl_g12_cmdstream.o \
 		kgsl_g12_cmdwindow.o \
 		kgsl_g12_drawctxt.o \
-		kgsl_intrmgr.o \
 		kgsl_memmgr.o \
 		kgsl_mmu.o \
 		kgsl_ringbuffer.o \

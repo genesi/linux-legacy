@@ -19,6 +19,7 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/io.h>
+#include <linux/irq.h>
 
 #include <linux/mxc_kgsl.h>
 
@@ -32,6 +33,7 @@
 #include "yamato_reg.h"
 #include "kgsl_pm4types.h"
 
+#include "kgsl_log.h"
 #include "kgsl_debug.h"
 
 /* move me to a header please */
@@ -39,6 +41,19 @@ int kgsl_yamato_regwrite(struct kgsl_device *device, unsigned int offsetwords, u
 int kgsl_yamato_regread(struct kgsl_device *device, unsigned int offsetwords, unsigned int *value);
 int kgsl_yamato_stop(struct kgsl_device *device);
 int kgsl_yamato_idle(struct kgsl_device *device, unsigned int timeout);
+
+void kgsl_mh_intrcallback(struct kgsl_device *device);
+void kgsl_cp_intrcallback(struct kgsl_device *device);
+
+
+#define GSL_RBBM_INT_MASK \
+	 (RBBM_INT_CNTL__RDERR_INT_MASK |  \
+	  RBBM_INT_CNTL__DISPLAY_UPDATE_INT_MASK)
+
+#define GSL_SQ_INT_MASK \
+	(SQ_INT_CNTL__PS_WATCHDOG_MASK | \
+	 SQ_INT_CNTL__VS_WATCHDOG_MASK)
+
 
 /* Yamato MH arbiter config*/
 #define KGSL_CFG_YAMATO_MHARB \
@@ -95,83 +110,88 @@ static int kgsl_yamato_gmemclose(struct kgsl_device *device)
 	return GSL_SUCCESS;
 }
 
-/* qcom: better! */
-void kgsl_yamato_rbbmintrcallback(gsl_intrid_t id, void *cookie)
+void kgsl_yamato_rbbm_intrcallback(struct kgsl_device *device)
 {
-	struct kgsl_device *device = (struct kgsl_device *) cookie;
+	unsigned int status = 0;
+	unsigned int rderr = 0;
 
-	switch(id) {
-	/* error condition interrupt */
-	case GSL_INTR_YDX_RBBM_READ_ERROR:
-		pr_err("GPU: Z430 RBBM Read Error\n");
-		schedule_work(&device->irq_err_work);
-		break;
-	/* non-error condition interrupt */
-	case GSL_INTR_YDX_RBBM_DISPLAY_UPDATE:
-	case GSL_INTR_YDX_RBBM_GUI_IDLE:
-		complete_all(&device->intr.evnt[id]);
-		break;
-	default:
-		break;
+	KGSL_DRV_VDBG("enter (device=%p)\n", device);
+
+	kgsl_yamato_regread(device, REG_RBBM_INT_STATUS, &status);
+
+	if (status & RBBM_INT_CNTL__RDERR_INT_MASK) {
+		kgsl_yamato_regread(device, REG_RBBM_READ_ERROR, &rderr);
+		KGSL_DRV_FATAL("rbbm read error interrupt: %08x\n", rderr);
+	} else if (status & RBBM_INT_CNTL__DISPLAY_UPDATE_INT_MASK) {
+		KGSL_DRV_DBG("rbbm display update interrupt\n");
+	} else if (status & RBBM_INT_CNTL__GUI_IDLE_INT_MASK) {
+		KGSL_DRV_DBG("rbbm gui idle interrupt\n");
+	} else {
+		KGSL_CMD_DBG("bad bits in REG_CP_INT_STATUS %08x\n", status);
 	}
+
+	status &= GSL_RBBM_INT_MASK;
+	kgsl_yamato_regwrite(device, REG_RBBM_INT_ACK, status);
+
+	KGSL_DRV_VDBG("return\n");
 }
 
-void kgsl_yamato_cpintrcallback(gsl_intrid_t id, void *cookie)
+void kgsl_yamato_sq_intrcallback(struct kgsl_device *device)
 {
-	struct kgsl_device  *device = (struct kgsl_device *) cookie;
+	unsigned int status = 0;
 
-	switch(id) {
-	case GSL_INTR_YDX_CP_RING_BUFFER:
-		wake_up_interruptible_all(&(device->timestamp_waitq));
-		break;
-	default:
-		break;
-	}
+	KGSL_DRV_VDBG("enter (device=%p)\n", device);
+
+	kgsl_yamato_regread(device, REG_SQ_INT_STATUS, &status);
+
+	if (status & SQ_INT_CNTL__PS_WATCHDOG_MASK)
+		KGSL_DRV_DBG("sq ps watchdog interrupt\n");
+	else if (status & SQ_INT_CNTL__VS_WATCHDOG_MASK)
+		KGSL_DRV_DBG("sq vs watchdog interrupt\n");
+	else
+		KGSL_DRV_DBG("bad bits in REG_SQ_INT_STATUS %08x\n", status);
+
+	status &= GSL_SQ_INT_MASK;
+	kgsl_yamato_regwrite(device, REG_SQ_INT_ACK, status);
+
+	KGSL_DRV_VDBG("return\n");
 }
 
-/* qcom: kgsl_yamato_sq_intrcallback */
-void kgsl_yamato_sqintrcallback(gsl_intrid_t id, void *cookie)
+irqreturn_t kgsl_yamato_isr(int irq, void *data)
 {
-	(void) cookie;
-
-	switch(id) {
-	/* error condition interrupt */
-	case GSL_INTR_YDX_SQ_PS_WATCHDOG:
-	case GSL_INTR_YDX_SQ_VS_WATCHDOG:
-		/* todo: take appropriate action */
-		break;
-	default:
-		break;
-	}
-}
-
-/* qcom: proper irqreturn_t returning irq handler!
- * call kgsl_??_intrcallback(device) same as below */
-int kgsl_yamato_isr(struct kgsl_device *device)
-{
+	irqreturn_t result = IRQ_NONE;
+	struct kgsl_device *device = &gsl_driver.device[KGSL_DEVICE_YAMATO-1];
 	unsigned int status;
 
 	/* determine if yamato is interrupting, and if so, which block */
 	kgsl_yamato_regread(device, REG_MASTER_INT_SIGNAL, &status);
 
-	if (status & MASTER_INT_SIGNAL__MH_INT_STAT)
-		kgsl_intr_decode(device, GSL_INTR_BLOCK_YDX_MH);
+	if (status & MASTER_INT_SIGNAL__MH_INT_STAT) {
+		kgsl_mh_intrcallback(device);
+		result = IRQ_HANDLED;
+	}
 
-	if (status & MASTER_INT_SIGNAL__CP_INT_STAT)
-		kgsl_intr_decode(device, GSL_INTR_BLOCK_YDX_CP);
+	if (status & MASTER_INT_SIGNAL__CP_INT_STAT) {
+		kgsl_cp_intrcallback(device);
+		result = IRQ_HANDLED;
+	}
 
-	if (status & MASTER_INT_SIGNAL__RBBM_INT_STAT)
-		kgsl_intr_decode(device, GSL_INTR_BLOCK_YDX_RBBM);
+	if (status & MASTER_INT_SIGNAL__RBBM_INT_STAT) {
+		kgsl_yamato_rbbm_intrcallback(device);
+		result = IRQ_HANDLED;
+	}
 
-	if (status & MASTER_INT_SIGNAL__SQ_INT_STAT)
-		kgsl_intr_decode(device, GSL_INTR_BLOCK_YDX_SQ);
+	if (status & MASTER_INT_SIGNAL__SQ_INT_STAT) {
+		kgsl_yamato_sq_intrcallback(device);
+		result = IRQ_HANDLED;
+	}
 
 	/* qcom: reset timeout in idle timer mod_timer(device->idle_timer, jiffies + device->interval_timeout */
 	return GSL_SUCCESS;
 }
 
 /* qcom: part of kgsl_yamato_setstate flags & KGSL_MMUFLAGS_TLBFLUSH */
-int kgsl_yamato_tlbinvalidate(struct kgsl_device *device, unsigned int reg_invalidate, unsigned int pid)
+int kgsl_yamato_tlbinvalidate(struct kgsl_device *device, unsigned int reg_invalidate)
 {
 	unsigned int link[2];
 	unsigned int *cmds = &link[0];
@@ -186,7 +206,7 @@ int kgsl_yamato_tlbinvalidate(struct kgsl_device *device, unsigned int reg_inval
 		*cmds++ = mh_mmu_invalidate;
 		sizedwords += 2;
 
-		kgsl_ringbuffer_issuecmds(device, 1, &link[0], sizedwords, pid);
+		kgsl_ringbuffer_issuecmds(device, 1, &link[0], sizedwords);
 	}
 	else
 		kgsl_yamato_regwrite(device, reg_invalidate, mh_mmu_invalidate);
@@ -196,7 +216,7 @@ int kgsl_yamato_tlbinvalidate(struct kgsl_device *device, unsigned int reg_inval
 
 
 /* qcom: part of kgsl_yamato_setstate flags & KGSL_MMUFLAGS_PTUPDATE */
-int kgsl_yamato_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase, uint32_t ptbase, unsigned int pid)
+int kgsl_yamato_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase, uint32_t ptbase)
 {
 	unsigned int link[25];
 	unsigned int *cmds = &link[0];
@@ -253,7 +273,7 @@ int kgsl_yamato_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase
 
 		/* qcom: invalidate state packet */
 
-		kgsl_ringbuffer_issuecmds(device, 1, &link[0], sizedwords, pid);
+		kgsl_ringbuffer_issuecmds(device, 1, &link[0], sizedwords);
 	}
 	else
 	{
@@ -263,13 +283,6 @@ int kgsl_yamato_setpagetable(struct kgsl_device *device, unsigned int reg_ptbase
 
 	return GSL_SUCCESS;
 }
-
-static void kgsl_yamato_irqerr(struct work_struct *work)
-{
-	struct kgsl_device *device = &gsl_driver.device[KGSL_DEVICE_YAMATO-1];
-	device->ftbl.destroy(device);
-}
-
 
 unsigned int kgsl_yamato_getchipid(struct kgsl_device *device)
 {
@@ -304,7 +317,7 @@ int kgsl_yamato_init(struct kgsl_device *device)
 
 	device->flags |= KGSL_FLAGS_INITIALIZED;
 
-	kgsl_pwrctrl(device->id, GSL_PWRFLAGS_POWER_ON, 100);
+	kgsl_pwrctrl(device, GSL_PWRFLAGS_POWER_ON, 100);
 
 	/* We need to make sure all blocks are powered up and clocked
 	 * before issuing a soft reset. The overrides will be turned off
@@ -328,22 +341,12 @@ int kgsl_yamato_init(struct kgsl_device *device)
 	kgsl_yamato_regwrite(device, REG_SQ_VS_PROGRAM, 0x00000000);
 	kgsl_yamato_regwrite(device, REG_SQ_PS_PROGRAM, 0x00000000);
 
-	/* init interrupt */
-	status = kgsl_intr_init(device);
-	if (status != GSL_SUCCESS) {
-		kgsl_yamato_stop(device);
-		return status;
-	}
-
 	/* init mmu */
 	status = kgsl_mmu_init(device);
 	if (status != GSL_SUCCESS) {
 		kgsl_yamato_stop(device);
 		return status;
 	}
-
-	/* handle error condition */
-	INIT_WORK(&device->irq_err_work, kgsl_yamato_irqerr);
 
 	return status;
 }
@@ -356,9 +359,7 @@ int kgsl_yamato_close(struct kgsl_device *device)
 		kgsl_mmu_close(device);
 
 		/* shutdown interrupt */
-		kgsl_intr_close(device);
-
-		kgsl_pwrctrl(device->id, GSL_PWRFLAGS_POWER_OFF, 0);
+		kgsl_pwrctrl(device, GSL_PWRFLAGS_POWER_OFF, 0);
 
 		device->flags &= ~KGSL_FLAGS_INITIALIZED;
 	}
@@ -368,22 +369,12 @@ int kgsl_yamato_close(struct kgsl_device *device)
 
 int kgsl_yamato_destroy(struct kgsl_device *device)
 {
-	int i;
-	unsigned int  pid;
-
 	/* todo: - hard reset core? */
-
 	kgsl_drawctxt_destroyall(device);
 
-	for (i = 0; i < GSL_CALLER_PROCESS_MAX; i++) {
-		pid = device->callerprocess[i];
-		if (pid) {
-			kgsl_yamato_stop(device);
-			kgsl_driver_destroy(pid);
-			/* todo: terminate client process? */
-		}
-	}
-
+	kgsl_yamato_stop(device);
+	kgsl_driver_destroy();
+	/* todo: terminate client process? */
 	return GSL_SUCCESS;
 }
 
@@ -392,7 +383,7 @@ int kgsl_yamato_start(struct kgsl_device *device, unsigned int flags)
 	int           status = GSL_FAILURE;
 	unsigned int  pm1, pm2;
 
-	kgsl_pwrctrl(device->id, GSL_PWRFLAGS_CLK_ON, 100);
+	kgsl_pwrctrl(device, GSL_PWRFLAGS_CLK_ON, 100);
 
 	/* default power management override when running in safe mode */
 	pm1 = (device->flags & KGSL_FLAGS_SAFEMODE) ? 0xFFFFFFFE : 0x00000000;
@@ -400,24 +391,11 @@ int kgsl_yamato_start(struct kgsl_device *device, unsigned int flags)
 	kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE1, pm1);
 	kgsl_yamato_regwrite(device, REG_RBBM_PM_OVERRIDE2, pm2);
 
-	/* enable rbbm interrupts */
-	kgsl_intr_attach(&device->intr, GSL_INTR_YDX_RBBM_READ_ERROR, kgsl_yamato_rbbmintrcallback, (void *) device);
-	kgsl_intr_attach(&device->intr, GSL_INTR_YDX_RBBM_DISPLAY_UPDATE, kgsl_yamato_rbbmintrcallback, (void *) device);
-	kgsl_intr_attach(&device->intr, GSL_INTR_YDX_RBBM_GUI_IDLE, kgsl_yamato_rbbmintrcallback, (void *) device);
-	kgsl_intr_enable(&device->intr, GSL_INTR_YDX_RBBM_READ_ERROR);
-	kgsl_intr_enable(&device->intr, GSL_INTR_YDX_RBBM_DISPLAY_UPDATE);
-#if defined GSL_RB_TIMESTAMP_INTERUPT
-	kgsl_intr_attach(&device->intr, GSL_INTR_YDX_CP_RING_BUFFER, kgsl_yamato_cpintrcallback, (void *) device);
-	kgsl_intr_enable(&device->intr, GSL_INTR_YDX_CP_RING_BUFFER);
-#endif
+	/* enable RBBM interrupts */
+	kgsl_yamato_regwrite(device, REG_RBBM_INT_CNTL, GSL_RBBM_INT_MASK);
 
-	//kgsl_intr_enable(&device->intr, GSL_INTR_YDX_RBBM_GUI_IDLE);
-
-	// enable sq interrupts
-	kgsl_intr_attach(&device->intr, GSL_INTR_YDX_SQ_PS_WATCHDOG, kgsl_yamato_sqintrcallback, (void *) device);
-	kgsl_intr_attach(&device->intr, GSL_INTR_YDX_SQ_VS_WATCHDOG, kgsl_yamato_sqintrcallback, (void *) device);
-	//kgsl_intr_enable(&device->intr, GSL_INTR_YDX_SQ_PS_WATCHDOG);
-	//kgsl_intr_enable(&device->intr, GSL_INTR_YDX_SQ_VS_WATCHDOG);
+	/* make sure SQ interrupts are disabled */
+	kgsl_yamato_regwrite(device, REG_SQ_INT_CNTL, 0);
 
 	/* init gmem */
 	kgsl_yamato_gmeminit(device);
@@ -451,19 +429,10 @@ int kgsl_yamato_stop(struct kgsl_device *device)
 
 	cmds[0] = pm4_type3_packet(PM4_WAIT_FOR_IDLE, 1);
 	cmds[0] = 0;
-	kgsl_ringbuffer_issuecmds(device, 0, cmds, 2, current->tgid);
+	kgsl_ringbuffer_issuecmds(device, 0, cmds, 2);
 
-	/* disable rbbm interrupts */
-	kgsl_intr_detach(&device->intr, GSL_INTR_YDX_RBBM_READ_ERROR);
-	kgsl_intr_detach(&device->intr, GSL_INTR_YDX_RBBM_DISPLAY_UPDATE);
-	kgsl_intr_detach(&device->intr, GSL_INTR_YDX_RBBM_GUI_IDLE);
-#if defined GSL_RB_TIMESTAMP_INTERUPT
-	kgsl_intr_detach(&device->intr, GSL_INTR_YDX_CP_RING_BUFFER);
-#endif
-
-	/* disable sq interrupts */
-	kgsl_intr_detach(&device->intr, GSL_INTR_YDX_SQ_PS_WATCHDOG);
-	kgsl_intr_detach(&device->intr, GSL_INTR_YDX_SQ_VS_WATCHDOG);
+	kgsl_yamato_regwrite(device, REG_RBBM_INT_CNTL, 0);
+	kgsl_yamato_regwrite(device, REG_SQ_INT_CNTL, 0);
 
 	kgsl_drawctxt_close(device);
 
@@ -474,7 +443,7 @@ int kgsl_yamato_stop(struct kgsl_device *device)
 	kgsl_yamato_gmemclose(device);
 
 	if(device->refcnt == 0) {
-		kgsl_pwrctrl(device->id, GSL_PWRFLAGS_CLK_OFF, 0);
+		kgsl_pwrctrl(device, GSL_PWRFLAGS_CLK_OFF, 0);
 	}
 
 	device->flags &= ~KGSL_FLAGS_STARTED;
@@ -592,7 +561,7 @@ int kgsl_yamato_check_timestamp(struct kgsl_device *device, unsigned int timesta
 	 * will hit on first loop cycle. So it don't effect performance.
 	 */
 	for (i = 0; i < 10; i++) {
-		if (kgsl_cmdstream_check_timestamp(device->id, timestamp))
+		if (kgsl_cmdstream_check_timestamp(device, timestamp))
 			return 1;
 		udelay(10);
 	}
@@ -606,7 +575,7 @@ int kgsl_yamato_waittimestamp(struct kgsl_device *device, unsigned int timestamp
 	int status = GSL_SUCCESS;
 	long timeout;
 
-	timeout = wait_event_interruptible_timeout(device->timestamp_waitq,
+	timeout = wait_event_interruptible_timeout(device->wait_timestamp_wq,
 			kgsl_yamato_check_timestamp(device, timestamp),
 			msecs_to_jiffies(msecs));
 	if (timeout > 0)
@@ -646,7 +615,6 @@ int kgsl_yamato_getfunctable(struct kgsl_functable *ftbl)
 	ftbl->close = kgsl_yamato_close;
 	ftbl->destroy = kgsl_yamato_destroy;
 	ftbl->runpending = kgsl_yamato_runpending;
-	ftbl->intr_isr = kgsl_yamato_isr;
 
 	return GSL_SUCCESS;
 }

@@ -32,9 +32,8 @@
 #include "kgsl_hal.h" // MAX_APERTURES
 #include "kgsl_memmgr.h"
 
-//////////////////////////////////////////////////////////////////////////////
-//  defines
-//////////////////////////////////////////////////////////////////////////////
+struct kgsl_device;
+
 
 #define GSL_APERTURE_MASK                   0x000000FF
 #define GSL_DEVICEID_MASK                   0x0000FF00
@@ -101,25 +100,20 @@ struct kgsl_sharedmem
 //////////////////////////////////////////////////////////////////////////////
 int             kgsl_sharedmem_init(struct kgsl_sharedmem *shmem);
 int             kgsl_sharedmem_close(struct kgsl_sharedmem *shmem);
-int             kgsl_sharedmem_alloc0(unsigned int device_id, unsigned int flags, int sizebytes, struct kgsl_memdesc *memdesc);
-int             kgsl_sharedmem_free0(struct kgsl_memdesc *memdesc, unsigned int pid);
-int             kgsl_sharedmem_read0(const struct kgsl_memdesc *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace);
-int             kgsl_sharedmem_write0(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace);
-int             kgsl_sharedmem_set0(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes);
 int             kgsl_sharedmem_querystats(struct kgsl_sharedmem *shmem, gsl_sharedmem_stats_t *stats);
 unsigned int    kgsl_sharedmem_convertaddr(unsigned int addr, int type);
 
 
-int                kgsl_sharedmem_alloc(unsigned int device_id, unsigned int flags, int sizebytes, struct kgsl_memdesc *memdesc);
+int                kgsl_sharedmem_alloc(unsigned int flags, int sizebytes, struct kgsl_memdesc *memdesc);
 int                kgsl_sharedmem_free(struct kgsl_memdesc *memdesc);
 int                kgsl_sharedmem_read(const struct kgsl_memdesc *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace);
 int                kgsl_sharedmem_write(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace);
 int                kgsl_sharedmem_set(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes);
-unsigned int       kgsl_sharedmem_largestfreeblock(unsigned int device_id, unsigned int flags);
-int                kgsl_sharedmem_map(unsigned int device_id, unsigned int flags, const gsl_scatterlist_t *scatterlist, struct kgsl_memdesc *memdesc);
+unsigned int       kgsl_sharedmem_largestfreeblock(struct kgsl_device *device, unsigned int flags);
+int                kgsl_sharedmem_map(struct kgsl_device *device, unsigned int flags, const gsl_scatterlist_t *scatterlist, struct kgsl_memdesc *memdesc);
 int                kgsl_sharedmem_unmap(struct kgsl_memdesc *memdesc);
 int                kgsl_sharedmem_getmap(const struct kgsl_memdesc *memdesc, gsl_scatterlist_t *scatterlist);
 int                kgsl_sharedmem_cacheoperation(const struct kgsl_memdesc *memdesc, unsigned int offsetbytes, unsigned int sizebytes, unsigned int operation);
-int                kgsl_sharedmem_fromhostpointer(unsigned int device_id, struct kgsl_memdesc *memdesc, void* hostptr);
+int                kgsl_sharedmem_fromhostpointer(struct kgsl_device *device, struct kgsl_memdesc *memdesc, void* hostptr);
 
 #endif // __GSL_SHAREDMEM_H

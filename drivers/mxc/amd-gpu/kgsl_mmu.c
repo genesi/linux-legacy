@@ -29,26 +29,14 @@
 #include "kgsl_driver.h"
 #include "kgsl_debug.h"
 
-//////////////////////////////////////////////////////////////////////////////
-// types
-//////////////////////////////////////////////////////////////////////////////
+struct kgsl_pte_debug {
+	unsigned int write     :1;
+	unsigned int read      :1;
+	unsigned int dirty     :1;
+	unsigned int reserved  :9;
+	unsigned int phyaddr   :20;
+};
 
-// ---------
-// pte debug
-// ---------
-
-typedef struct _gsl_pte_debug_t
-{
-    unsigned int    write     :1;
-    unsigned int    read      :1;
-    unsigned int    reserved  :10;
-    unsigned int    phyaddr   :20;
-} gsl_pte_debug_t;
-
-
-//////////////////////////////////////////////////////////////////////////////
-//  defines
-//////////////////////////////////////////////////////////////////////////////
 #define GSL_PT_ENTRY_SIZEBYTES              4
 #define GSL_PT_EXTRA_ENTRIES                16
 
@@ -58,20 +46,15 @@ typedef struct _gsl_pte_debug_t
 #define GSL_PT_PAGE_AP_MASK                 0x00000003
 #define GSL_PT_PAGE_ADDR_MASK               ~(PAGE_SIZE-1)
 
+
+
 #define GSL_MMUFLAGS_TLBFLUSH               0x80000000
 
 #define GSL_TLBFLUSH_FILTER_ENTRY_NUMBITS   (sizeof(unsigned char) * 8)
 
 
-//////////////////////////////////////////////////////////////////////////////
-// constants
-//////////////////////////////////////////////////////////////////////////////
 const unsigned int GSL_PT_PAGE_AP[4] = {(GSL_PT_PAGE_READ | GSL_PT_PAGE_WRITE), GSL_PT_PAGE_READ, GSL_PT_PAGE_WRITE, 0};
 
-
-/////////////////////////////////////////////////////////////////////////////
-// macros
-//////////////////////////////////////////////////////////////////////////////
 
 #define GSL_PT_ENTRY_GET(va)                ((va - pagetable->va_base) >> PAGE_SHIFT)
 #define GSL_PT_VIRT_GET(pte)                (pagetable->va_base + (pte * PAGE_SIZE))
@@ -81,7 +64,7 @@ const unsigned int GSL_PT_PAGE_AP[4] = {(GSL_PT_PAGE_READ | GSL_PT_PAGE_WRITE), 
 #define GSL_PT_MAP_GET(pte)                 *((unsigned int *)(((unsigned int)pagetable->base.hostptr) + ((pte) * GSL_PT_ENTRY_SIZEBYTES)))
 #define GSL_PT_MAP_GETADDR(pte)             (GSL_PT_MAP_GET(pte) & GSL_PT_PAGE_ADDR_MASK)
 
-#define GSL_PT_MAP_DEBUG(pte)               ((gsl_pte_debug_t*) &GSL_PT_MAP_GET(pte))
+#define GSL_PT_MAP_DEBUG(pte)               ((struct kgsl_pte_debug *) &GSL_PT_MAP_GET(pte))
 
 #define GSL_PT_MAP_SETBITS(pte, bits)       (GSL_PT_MAP_GET(pte) |= (((unsigned int) bits) & GSL_PT_PAGE_AP_MASK))
 #define GSL_PT_MAP_SETADDR(pte, pageaddr)   (GSL_PT_MAP_GET(pte)  = (GSL_PT_MAP_GET(pte) & ~GSL_PT_PAGE_ADDR_MASK) | (((unsigned int) pageaddr) & GSL_PT_PAGE_ADDR_MASK))
@@ -99,615 +82,372 @@ const unsigned int GSL_PT_PAGE_AP[4] = {(GSL_PT_PAGE_READ | GSL_PT_PAGE_WRITE), 
 #define GSL_TLBFLUSH_FILTER_RESET()             memset(mmu->tlbflushfilter.base, 0, mmu->tlbflushfilter.size)
 
 
-//////////////////////////////////////////////////////////////////////////////
-// process index in pagetable object table
-//////////////////////////////////////////////////////////////////////////////
-static __inline int
-kgsl_mmu_getprocessindex(unsigned int pid, int *pindex)
+#define GSL_MMU_INT_MASK \
+	(MH_INTERRUPT_MASK__AXI_READ_ERROR | \
+	 MH_INTERRUPT_MASK__AXI_WRITE_ERROR)
+
+static const struct kgsl_mmu_reg mmu_reg[KGSL_DEVICE_MAX] = {
+	{
+		.config = REG_MH_MMU_CONFIG,
+		.mpu_base = REG_MH_MMU_MPU_BASE,
+		.mpu_end = REG_MH_MMU_MPU_END,
+		.va_range = REG_MH_MMU_VA_RANGE,
+		.pt_page = REG_MH_MMU_PT_BASE,
+		.page_fault = REG_MH_MMU_PAGE_FAULT,
+		.trans_error = REG_MH_MMU_TRAN_ERROR,
+		.invalidate = REG_MH_MMU_INVALIDATE,
+		.interrupt_mask = REG_MH_INTERRUPT_MASK,
+		.interrupt_status = REG_MH_INTERRUPT_STATUS,
+		.interrupt_clear = REG_MH_INTERRUPT_CLEAR
+	},
+	{
+		.config = ADDR_MH_MMU_CONFIG,
+		.mpu_base = ADDR_MH_MMU_MPU_BASE,
+		.mpu_end = ADDR_MH_MMU_MPU_END,
+		.va_range = ADDR_MH_MMU_VA_RANGE,
+		.pt_page = ADDR_MH_MMU_PT_BASE,
+		.page_fault = ADDR_MH_MMU_PAGE_FAULT,
+		.trans_error = ADDR_MH_MMU_TRAN_ERROR,
+		.invalidate = ADDR_MH_MMU_INVALIDATE,
+		.interrupt_mask = ADDR_MH_INTERRUPT_MASK,
+		.interrupt_status = ADDR_MH_INTERRUPT_STATUS,
+		.interrupt_clear = ADDR_MH_INTERRUPT_CLEAR
+	}
+};
+
+static __inline struct kgsl_pagetable* kgsl_mmu_getpagetableobject(struct kgsl_mmu *mmu)
 {
-    int status = GSL_SUCCESS;
-#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
-    if (kgsl_driver_getcallerprocessindex(pid, pindex) != GSL_SUCCESS)
-    {
-        status = GSL_FAILURE;
-    }
-#else
-    (void) pid;      // unreferenced formal parameter
-    *pindex = 0;
-#endif
-    return (status);
+	return (struct kgsl_pagetable *) mmu->pagetable;
 }
 
-//////////////////////////////////////////////////////////////////////////////
-// pagetable object for current caller process
-//////////////////////////////////////////////////////////////////////////////
-static __inline struct kgsl_pagetable*
-kgsl_mmu_getpagetableobject(struct kgsl_mmu *mmu, unsigned int pid)
+void kgsl_mh_intrcallback(struct kgsl_device *device)
 {
-    int pindex = 0;
-    if (kgsl_mmu_getprocessindex(pid, &pindex) == GSL_SUCCESS)
-    {
-        return (mmu->pagetable[pindex]);
-    }
-    else
-    {
-        return (NULL);
-    }
+//	struct kgsl_mmu *mmu = &device->mmu;
+	unsigned int devindex = device->id-1;
+	unsigned int status = 0, reg;
+
+	device->ftbl.regread(device, mmu_reg[devindex].interrupt_status, &status);
+
+	if (status & MH_INTERRUPT_MASK__AXI_READ_ERROR) {
+		pr_err("axi read error interrupt\n");
+	} else if (status & MH_INTERRUPT_MASK__AXI_WRITE_ERROR) {
+		pr_err("axi write error interrupt\n");
+	} else if (status & MH_INTERRUPT_MASK__MMU_PAGE_FAULT) {
+		device->ftbl.regread(device, mmu_reg[devindex].page_fault, &reg);
+		pr_err("mmu page fault interrupt: %08x\n", reg);
+	} else {
+		pr_err("bad bits in REG_MH_INTERRUPT_STATUS %08x\n", status);
+	}
+
+	device->ftbl.regwrite(device, mmu_reg[devindex].interrupt_clear, status);
+
+	/* TODO: figure out how to handle error interrupts.
+	 * specifically page faults should probably nuke the client that
+	 * caused them, but we don't have enough info to figure that out yet.
+	 *
+	 * fsl code just destroyed the device, booooo
+	 */
 }
 
-
-//////////////////////////////////////////////////////////////////////////////
-//  functions
-//////////////////////////////////////////////////////////////////////////////
-
-void
-kgsl_mh_intrcallback(gsl_intrid_t id, void *cookie)
+int kgsl_mmu_checkconsistency(struct kgsl_pagetable *pagetable)
 {
-    struct kgsl_mmu     *mmu = (struct kgsl_mmu *) cookie;
-    unsigned int   devindex = mmu->device->id-1;        // device_id is 1 based
+	unsigned int pte;
+	unsigned int data;
+	struct kgsl_pte_debug *pte_debug;
 
-    KGSL_MEM_VDBG(
-                    "--> void kgsl_mh_ntrcallback(gsl_intrid_t id=%d, void *cookie=0x%08x)\n", id, (unsigned int) cookie );
+	if (pagetable->last_superpte % GSL_PT_SUPER_PTE != 0)
+		return GSL_FAILURE;
 
-    // error condition interrupt
-    if (id == gsl_cfg_mh_intr[devindex].AXI_READ_ERROR  ||
-        id == gsl_cfg_mh_intr[devindex].AXI_WRITE_ERROR ||
-        id == gsl_cfg_mh_intr[devindex].MMU_PAGE_FAULT)
-    {
-	printk(KERN_ERR "GPU: AXI Read/Write Error or MMU page fault\n");
-	schedule_work(&mmu->device->irq_err_work);
-    }
+	/* go through page table and make sure there are no detectable errors */
+	pte = 0;
+	while (pte < pagetable->max_entries) {
+		pte_debug = GSL_PT_MAP_DEBUG(pte);
 
-    KGSL_MEM_VDBG( "<-- kgsl_mh_intrcallback.\n" );
-}
-
-//----------------------------------------------------------------------------
-
-#ifdef _DEBUG
-static void
-kgsl_mmu_debug(struct kgsl_mmu *mmu, gsl_mmu_debug_t *regs)
-{
-    unsigned int  devindex = mmu->device->id-1;         // device_id is 1 based
-
-    memset(regs, 0, sizeof(gsl_mmu_debug_t));
-
-    mmu->device->ftbl.regread(mmu->device, gsl_cfg_mmu_reg[devindex].CONFIG,     &regs->config);
-    mmu->device->ftbl.regread(mmu->device, gsl_cfg_mmu_reg[devindex].MPU_BASE,   &regs->mpu_base);
-    mmu->device->ftbl.regread(mmu->device, gsl_cfg_mmu_reg[devindex].MPU_END,    &regs->mpu_end);
-    mmu->device->ftbl.regread(mmu->device, gsl_cfg_mmu_reg[devindex].VA_RANGE,   &regs->va_range);
-    mmu->device->ftbl.regread(mmu->device, gsl_cfg_mmu_reg[devindex].PT_BASE,    &regs->pt_base);
-    mmu->device->ftbl.regread(mmu->device, gsl_cfg_mmu_reg[devindex].PAGE_FAULT, &regs->page_fault);
-    mmu->device->ftbl.regread(mmu->device, gsl_cfg_mmu_reg[devindex].TRAN_ERROR, &regs->trans_error);
-    mmu->device->ftbl.regread(mmu->device, gsl_cfg_mmu_reg[devindex].INVALIDATE, &regs->invalidate);
-}
-#endif
-
-//----------------------------------------------------------------------------
-
-int
-kgsl_mmu_checkconsistency(struct kgsl_pagetable *pagetable)
-{
-    unsigned int     pte;
-    unsigned int     data;
-    gsl_pte_debug_t  *pte_debug;
-
-    KGSL_MEM_VDBG(
-                    "--> int kgsl_mmu_checkconsistency(struct kgsl_pagetable *pagetable=0x%08x)\n", (unsigned int) pagetable );
-
-    if (pagetable->last_superpte % GSL_PT_SUPER_PTE != 0)
-    {
-        DEBUG_ASSERT(0);
-        KGSL_MEM_VDBG( "<-- kgsl_mmu_checkconsistency. Return value %d\n", GSL_FAILURE );
-        return (GSL_FAILURE);
-    }
-
-    // go through page table and make sure there are no detectable errors
-    pte = 0;
-    while (pte < pagetable->max_entries)
-    {
-        pte_debug = GSL_PT_MAP_DEBUG(pte);
-
-        if (GSL_PT_MAP_GETADDR(pte) != 0)
-        {
-            // pte is in use
-
-            // access first couple bytes of a page
-            data = *((unsigned int *)GSL_PT_VIRT_GET(pte));
-        }
-
-        pte++;
-    }
-
-    KGSL_MEM_VDBG( "<-- kgsl_mmu_checkconsistency. Return value %d\n", GSL_SUCCESS );
-    return (GSL_SUCCESS);
-}
-
-//----------------------------------------------------------------------------
-
-int
-kgsl_mmu_destroypagetableobject(struct kgsl_mmu *mmu, unsigned int pid)
-{
-    unsigned int   tmp_id;
-    struct kgsl_device     *tmp_device;
-    int              pindex;
-    struct kgsl_pagetable  *pagetable;
-
-    KGSL_MEM_VDBG( "--> struct kgsl_pagetable* kgsl_mmu_destroypagetableobject(struct kgsl_mmu *mmu=0x%08x, uint pid=0x%08x)\n", (unsigned int) mmu, pid );
-
-    if (kgsl_mmu_getprocessindex(pid, &pindex) != GSL_SUCCESS)
-    {
-        KGSL_MEM_VDBG( "<-- kgsl_mmu_destroypagetableobject. Return value 0x%08x\n", GSL_SUCCESS );
-        return (GSL_FAILURE);
-    }
-
-    pagetable = mmu->pagetable[pindex];
-
-    // if pagetable object exists for current "current device mmu"/"current caller process" combination
-    if (pagetable)
-    {
-        // no more "device mmu"/"caller process" combinations attached to current pagetable object
-        if (pagetable->refcnt == 0)
-        {
-#ifdef _DEBUG
-            // memory leak check
-            if (pagetable->last_superpte != 0 || GSL_PT_MAP_GETADDR(pagetable->last_superpte))
-            {
-                    DEBUG_ASSERT(0);
-                    return (GSL_FAILURE);
-            }
-#endif // _DEBUG
-
-            if (pagetable->base.gpuaddr)
-            {
-                kgsl_sharedmem_free0(&pagetable->base, current->tgid);
-            }
-
-            kfree(pagetable);
-
-            // clear pagetable object reference for all "device mmu"/"current caller process" combinations
-            for (tmp_id = KGSL_DEVICE_ANY + 1; tmp_id <= KGSL_DEVICE_MAX; tmp_id++)
-            {
-                tmp_device = &gsl_driver.device[tmp_id-1];
-
-                if (tmp_device->mmu.flags & KGSL_FLAGS_STARTED)
-                {
-                    tmp_device->mmu.pagetable[pindex] = NULL;
-                }
-            }
-        }
-    }
-
-    KGSL_MEM_VDBG( "<-- kgsl_mmu_destroypagetableobject. Return value 0x%08x\n", GSL_SUCCESS );
-
-    return (GSL_SUCCESS);
-}
-
-//----------------------------------------------------------------------------
-
-struct kgsl_pagetable*
-kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu, unsigned int pid)
-{
-    //
-    // create pagetable object for "current device mmu"/"current caller
-    // process" combination. If none exists, setup a new pagetable object.
-    //
-    int              status         = GSL_SUCCESS;
-    struct kgsl_pagetable  *tmp_pagetable = NULL;
-    unsigned int   tmp_id;
-    struct kgsl_device     *tmp_device;
-    int              pindex;
-    unsigned int      flags;
-
-    KGSL_MEM_VDBG( "--> struct kgsl_pagetable* kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu=0x%08x, uint pid=0x%08x)\n", (unsigned int) mmu, pid );
-
-    status = kgsl_mmu_getprocessindex(pid, &pindex);
-    if (status != GSL_SUCCESS)
-    {
-        KGSL_MEM_VDBG( "<-- kgsl_mmu_createpagetableobject. Return value 0x%08x\n", (unsigned int) NULL );
-        return (NULL);
-    }
-    // if pagetable object does not already exists for "current device mmu"/"current caller process" combination
-    if (!mmu->pagetable[pindex])
-    {
-        // then, check if pagetable object already exists for any "other device mmu"/"current caller process" combination
-        for (tmp_id = KGSL_DEVICE_ANY + 1; tmp_id <= KGSL_DEVICE_MAX; tmp_id++)
-        {
-            tmp_device = &gsl_driver.device[tmp_id-1];
-
-            if (tmp_device->mmu.flags & KGSL_FLAGS_STARTED)
-            {
-                if (tmp_device->mmu.pagetable[pindex])
-                {
-                    tmp_pagetable = tmp_device->mmu.pagetable[pindex];
-                    break;
-                }
-            }
-        }
-
-        // pagetable object exists
-        if (tmp_pagetable)
-        {
-            DEBUG_ASSERT(tmp_pagetable->va_base  == mmu->va_base);
-            DEBUG_ASSERT(tmp_pagetable->va_range == mmu->va_range);
-
-            // set pagetable object reference
-            mmu->pagetable[pindex] = tmp_pagetable;
-        }
-        // create new pagetable object
-        else
-        {
-            mmu->pagetable[pindex] = (void *)kmalloc(sizeof(struct kgsl_pagetable), GFP_KERNEL);
-            if (!mmu->pagetable[pindex])
-            {
-                KGSL_MEM_VDBG( "ERROR: Unable to allocate pagetable object.\n" );
-                KGSL_MEM_VDBG( "<-- kgsl_mmu_createpagetableobject. Return value 0x%08x\n", (unsigned int) NULL );
-                return (NULL);
-            }
-
-            memset(mmu->pagetable[pindex], 0, sizeof(struct kgsl_pagetable));
-
-			mmu->pagetable[pindex]->pid           = pid;
-            mmu->pagetable[pindex]->refcnt        = 0;
-            mmu->pagetable[pindex]->va_base       = mmu->va_base;
-            mmu->pagetable[pindex]->va_range      = mmu->va_range;
-            mmu->pagetable[pindex]->last_superpte = 0;
-            mmu->pagetable[pindex]->max_entries   = (mmu->va_range >> PAGE_SHIFT) + GSL_PT_EXTRA_ENTRIES;
-
-            // allocate page table memory
-            flags  = (GSL_MEMFLAGS_ALIGN4K | GSL_MEMFLAGS_CONPHYS | GSL_MEMFLAGS_STRICTREQUEST);
-            status = kgsl_sharedmem_alloc0(mmu->device->id, flags, mmu->pagetable[pindex]->max_entries * GSL_PT_ENTRY_SIZEBYTES, &mmu->pagetable[pindex]->base);
-
-            if (status == GSL_SUCCESS)
-            {
-                // reset page table entries
-                kgsl_sharedmem_set0(&mmu->pagetable[pindex]->base, 0, 0, mmu->pagetable[pindex]->base.size);
-            }
-            else
-            {
-                kgsl_mmu_destroypagetableobject(mmu, pid);
-            }
-        }
-    }
-
-    KGSL_MEM_VDBG( "<-- kgsl_mmu_createpagetableobject. Return value 0x%08x\n", (unsigned int) mmu->pagetable[pindex] );
-
-    return (mmu->pagetable[pindex]);
-}
-
-//----------------------------------------------------------------------------
-
-int
-kgsl_mmu_setpagetable(struct kgsl_device *device, unsigned int pid)
-{
-    //
-    // set device mmu to use current caller process's page table
-    //
-    int              status   = GSL_SUCCESS;
-    unsigned int     devindex = device->id-1;       // device_id is 1 based
-    struct kgsl_mmu        *mmu     = &device->mmu;
-
-    KGSL_MEM_VDBG(
-                    "--> struct kgsl_pagetable* kgsl_mmu_setpagetable(struct kgsl_device *device=0x%08x)\n", (unsigned int) device );
-
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_lock(mmu->mutex);
-#endif
-
-    if (mmu->flags & KGSL_FLAGS_STARTED)
-    {
-#ifdef CONFIG_KGSL_PER_PROCESS_PAGE_TABLE
-		// page table not current, then setup mmu to use new specified page table
-		if (mmu->hwpagetable->pid != pid)
-		{
-			struct kgsl_pagetable  *pagetable = kgsl_mmu_getpagetableobject(mmu, pid);
-			if (pagetable)
-			{
-				mmu->hwpagetable = pagetable;
-
-				// flag tlb flush
-				mmu->flags |= GSL_MMUFLAGS_TLBFLUSH;
-
-				status = mmu->device->ftbl.mmu_setpagetable(mmu->device, gsl_cfg_mmu_reg[devindex].PT_BASE, pagetable->base.gpuaddr, pid);
-
-				GSL_MMU_STATS(mmu->stats.pt.switches++);
-			}
-			else
-			{
-				status = GSL_FAILURE;
-			}
+		if (GSL_PT_MAP_GETADDR(pte) != 0) {
+			/* pte is in use */
+			/* access first couple bytes of a page */
+			data = *((unsigned int *)GSL_PT_VIRT_GET(pte));
 		}
+		pte++;
+	}
+	return GSL_SUCCESS;
+}
+
+int kgsl_mmu_destroypagetableobject(struct kgsl_mmu *mmu)
+{
+	unsigned int tmp_id;
+	struct kgsl_device *tmp_device;
+	struct kgsl_pagetable *pagetable;
+
+	pagetable = kgsl_mmu_getpagetableobject(mmu);
+
+	/* if pagetable object exists for current "current device mmu"/"current caller process" combination */
+	if (pagetable) {
+		/* no more "device mmu"/"caller process" combinations attached to current pagetable object */
+		if (pagetable->refcnt == 0) {
+#ifdef DEBUG
+			/* memory leak check */
+			if (pagetable->last_superpte != 0 || GSL_PT_MAP_GETADDR(pagetable->last_superpte))
+				return GSL_FAILURE;
 #endif
+		}
 
-        // if needed, invalidate device specific tlb
-		if ((mmu->flags & GSL_MMUFLAGS_TLBFLUSH) && status == GSL_SUCCESS)
-        {
-            mmu->flags &= ~GSL_MMUFLAGS_TLBFLUSH;
+		if (pagetable->base.gpuaddr) {
+			kgsl_sharedmem_free(&pagetable->base);
+		}
 
-            GSL_TLBFLUSH_FILTER_RESET();
+		kfree(pagetable);
 
-			status = mmu->device->ftbl.mmu_tlbinvalidate(mmu->device, gsl_cfg_mmu_reg[devindex].INVALIDATE, pid);
+		/* clear pagetable object reference for all "device mmu"/"current caller process" combinations */
+		for (tmp_id = KGSL_DEVICE_ANY + 1; tmp_id <= KGSL_DEVICE_MAX; tmp_id++) {
+			tmp_device = &gsl_driver.device[tmp_id-1];
 
-			GSL_MMU_STATS(mmu->stats.tlbflushes++);
+			if (tmp_device->mmu.flags & KGSL_FLAGS_STARTED)
+				tmp_device->mmu.pagetable = NULL;
 		}
 	}
 
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_unlock(mmu->mutex);
-#endif
-    KGSL_MEM_VDBG( "<-- kgsl_mmu_setpagetable. Return value %d\n", status );
-
-    return (status);
+	return (GSL_SUCCESS);
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_mmu_init(struct kgsl_device *device)
+/* create pagetable object for "current device mmu"/"current caller
+ * process" combination. If none exists, setup a new pagetable object. */
+struct kgsl_pagetable *kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu)
 {
-    //
-    // intialize device mmu
-    //
-    // call this with the global lock held
-    //
-    int              status;
-    unsigned int      flags;
-    struct kgsl_pagetable  *pagetable;
-    unsigned int     devindex = device->id-1;       // device_id is 1 based
-    struct kgsl_mmu        *mmu     = &device->mmu;
-#ifdef _DEBUG
-    gsl_mmu_debug_t  regs;
-#endif // _DEBUG
+	int status = GSL_SUCCESS;
+	struct kgsl_pagetable *tmp_pagetable = NULL;
+	unsigned int tmp_id;
+	struct kgsl_device *tmp_device;
+	unsigned int flags;
 
-    KGSL_MEM_VDBG(
-                    "--> int kgsl_mmu_init(struct kgsl_device *device=0x%08x)\n", (unsigned int) device );
+	if (!mmu->pagetable) {
+		/* then, check if pagetable object already exists for any "other device mmu" */
+		for (tmp_id = KGSL_DEVICE_ANY + 1; tmp_id <= KGSL_DEVICE_MAX; tmp_id++) {
+			tmp_device = &gsl_driver.device[tmp_id-1];
 
-    if (device->ftbl.mmu_tlbinvalidate == NULL || device->ftbl.mmu_setpagetable == NULL ||
-        !(device->flags & KGSL_FLAGS_INITIALIZED))
-    {
-        KGSL_MEM_VDBG( "<-- kgsl_mmu_init. Return value %d\n", GSL_FAILURE );
-        return (GSL_FAILURE);
-    }
+			if (tmp_device->mmu.flags & KGSL_FLAGS_STARTED) {
+				if (tmp_device->mmu.pagetable) {
+					tmp_pagetable = tmp_device->mmu.pagetable;
+					break;
+				}
+			}
+		}
 
-    if (mmu->flags & KGSL_FLAGS_INITIALIZED0)
-    {
-        KGSL_MEM_VDBG("MMU already initialized.\n" );
-        KGSL_MEM_VDBG( "<-- kgsl_mmu_init. Return value %d\n", GSL_SUCCESS );
-        return (GSL_SUCCESS);
-    }
+		/* pagetable object exists */
+		if (tmp_pagetable) {
+			/* set pagetable object reference */
+			mmu->pagetable = tmp_pagetable;
+		} else {
+			/* create new pagetable object */
+			mmu->pagetable = (void *)kzalloc(sizeof(struct kgsl_pagetable), GFP_KERNEL);
+			if (!mmu->pagetable)
+				return NULL;
 
-    // setup backward reference
-    mmu->device = device;
+			mmu->pagetable->refcnt        = 0;
+			mmu->pagetable->va_base       = mmu->va_base;
+			mmu->pagetable->va_range      = mmu->va_range;
+			mmu->pagetable->last_superpte = 0;
+			mmu->pagetable->max_entries   = (mmu->va_range >> PAGE_SHIFT) + GSL_PT_EXTRA_ENTRIES;
 
-    // disable MMU when running in safe mode
-    if (device->flags & KGSL_FLAGS_SAFEMODE)
-    {
-        mmu->config = 0x00000000;
-    }
+			/* allocate page table memory */
+			flags  = (GSL_MEMFLAGS_ALIGN4K | GSL_MEMFLAGS_CONPHYS | GSL_MEMFLAGS_STRICTREQUEST);
+			status = kgsl_sharedmem_alloc(flags, mmu->pagetable->max_entries * GSL_PT_ENTRY_SIZEBYTES, &mmu->pagetable->base);
 
-    // setup MMU and sub-client behavior
-    device->ftbl.regwrite(device, gsl_cfg_mmu_reg[devindex].CONFIG, mmu->config);
+			if (status == GSL_SUCCESS) {
+				kgsl_sharedmem_set(&mmu->pagetable->base, 0, 0, mmu->pagetable->base.size);
+			} else {
+				kgsl_mmu_destroypagetableobject(mmu);
+			}
+		}
+	}
 
-    // enable axi interrupts
-    kgsl_intr_attach(&device->intr, gsl_cfg_mh_intr[devindex].AXI_READ_ERROR, kgsl_mh_intrcallback, (void *) mmu);
-    kgsl_intr_attach(&device->intr, gsl_cfg_mh_intr[devindex].AXI_WRITE_ERROR, kgsl_mh_intrcallback, (void *) mmu);
-    kgsl_intr_enable(&device->intr, gsl_cfg_mh_intr[devindex].AXI_READ_ERROR);
-    kgsl_intr_enable(&device->intr, gsl_cfg_mh_intr[devindex].AXI_WRITE_ERROR);
-
-    mmu->refcnt  = 0;
-    mmu->flags  |= KGSL_FLAGS_INITIALIZED0;
-
-    // MMU enabled
-    if (mmu->config & 0x1)
-    {
-        // idle device
-        device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT);
-
-        // make sure aligned to pagesize
-        DEBUG_ASSERT((mmu->mpu_base & ((1 << PAGE_SHIFT)-1)) == 0);
-        DEBUG_ASSERT(((mmu->mpu_base + mmu->mpu_range) & ((1 << PAGE_SHIFT)-1)) == 0);
-
-        // define physical memory range accessible by the core
-        device->ftbl.regwrite(device, gsl_cfg_mmu_reg[devindex].MPU_BASE, mmu->mpu_base);
-        device->ftbl.regwrite(device, gsl_cfg_mmu_reg[devindex].MPU_END,  mmu->mpu_base + mmu->mpu_range);
-
-        // enable page fault interrupt
-        kgsl_intr_attach(&device->intr, gsl_cfg_mh_intr[devindex].MMU_PAGE_FAULT, kgsl_mh_intrcallback, (void *) mmu);
-        kgsl_intr_enable(&device->intr, gsl_cfg_mh_intr[devindex].MMU_PAGE_FAULT);
-
-        mmu->flags |= KGSL_FLAGS_INITIALIZED;
-
-        // sub-client MMU lookups require address translation
-        if ((mmu->config & ~0x1) > 0)
-        {
-	    // this needs to be error checked better
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-	    mmu->mutex = kmalloc(sizeof(struct mutex), GFP_KERNEL);
-	    mutex_init(mmu->mutex);
-#endif
-            // make sure virtual address range is a multiple of 64Kb
-            DEBUG_ASSERT((mmu->va_range & ((1 << 16)-1)) == 0);
-
-            // setup pagetable object
-            pagetable = kgsl_mmu_createpagetableobject(mmu, current->tgid);
-            if (!pagetable)
-            {
-                kgsl_mmu_close(device);
-                KGSL_MEM_VDBG( "<-- kgsl_mmu_init. Return value %d\n", GSL_FAILURE );
-                return (GSL_FAILURE);
-            }
-
-            mmu->hwpagetable = pagetable;
-
-            // create tlb flush filter to track dirty superPTE's -- one bit per superPTE
-            mmu->tlbflushfilter.size = (mmu->va_range / (PAGE_SIZE * GSL_PT_SUPER_PTE * 8)) + 1;
-            mmu->tlbflushfilter.base = (unsigned int *)kmalloc(mmu->tlbflushfilter.size, GFP_KERNEL);
-            if (!mmu->tlbflushfilter.base)
-            {
-                kgsl_mmu_close(device);
-                KGSL_MEM_VDBG( "<-- kgsl_mmu_init. Return value %d\n", GSL_FAILURE );
-                return (GSL_FAILURE);
-            }
-
-            GSL_TLBFLUSH_FILTER_RESET();
-
-            // set page table base
-            device->ftbl.regwrite(device, gsl_cfg_mmu_reg[devindex].PT_BASE, mmu->hwpagetable->base.gpuaddr);
-
-            // define virtual address range
-            device->ftbl.regwrite(device, gsl_cfg_mmu_reg[devindex].VA_RANGE, (mmu->hwpagetable->va_base | (mmu->hwpagetable->va_range >> 16)));
-
-            // allocate memory used for completing r/w operations that cannot be mapped by the MMU
-            flags  = (GSL_MEMFLAGS_ALIGN32 | GSL_MEMFLAGS_CONPHYS | GSL_MEMFLAGS_STRICTREQUEST);
-            status = kgsl_sharedmem_alloc0(device->id, flags, 32, &mmu->dummyspace);
-            if (status != GSL_SUCCESS)
-            {
-                KGSL_MEM_VDBG( "ERROR: Unable to allocate dummy space memory.\n" );
-                kgsl_mmu_close(device);
-                KGSL_MEM_VDBG( "<-- kgsl_mmu_init. Return value %d\n", status );
-                return (status);
-            }
-
-            device->ftbl.regwrite(device, gsl_cfg_mmu_reg[devindex].TRAN_ERROR, mmu->dummyspace.gpuaddr);
-
-            // call device specific tlb invalidate
-			device->ftbl.mmu_tlbinvalidate(device, gsl_cfg_mmu_reg[devindex].INVALIDATE, mmu->hwpagetable->pid);
-
-			GSL_MMU_STATS(mmu->stats.tlbflushes++);
-
-            mmu->flags |= KGSL_FLAGS_STARTED;
-        }
-    }
-
-    KGSL_DEBUG(GSL_DBGFLAGS_MMU, kgsl_mmu_debug(&device->mmu, &regs));
-
-    KGSL_MEM_VDBG( "<-- kgsl_mmu_init. Return value %d\n", GSL_SUCCESS );
-
-    return (GSL_SUCCESS);
+	return mmu->pagetable;
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t *scatterlist, unsigned int flags, unsigned int pid)
+/* set device mmu to use current caller process's page table */
+int kgsl_mmu_setpagetable(struct kgsl_device *device)
 {
-    //
-    // map physical pages into the gpu page table
-    //
-    int              status = GSL_SUCCESS;
-    unsigned int     i, phyaddr, ap;
-    unsigned int     pte, ptefirst, ptelast, superpte;
-    int              flushtlb;
-    struct kgsl_pagetable  *pagetable;
+	int status = GSL_SUCCESS;
+	unsigned int devindex = device->id-1; /* device_id is 1 based */
+	struct kgsl_mmu *mmu = &device->mmu;
 
-    KGSL_MEM_VDBG(
-                    "--> int kgsl_mmu_map(struct kgsl_mmu *mmu=0x%08x, uint32_t gpubaseaddr=0x%08x, gsl_scatterlist_t *scatterlist=%x, unsigned int flags=%x, uint pid=0x%08x)\n",
-                    (unsigned int) mmu, gpubaseaddr, (unsigned int) scatterlist, flags, pid );
+	if (mmu->flags & KGSL_FLAGS_STARTED) {
+		struct kgsl_pagetable *pagetable = kgsl_mmu_getpagetableobject(mmu);
 
-    DEBUG_ASSERT(scatterlist);
+		mmu->hwpagetable = pagetable;
 
-    if (scatterlist->num <= 0)
-    {
-        KGSL_MEM_VDBG( "ERROR: num pages is too small.\n" );
-        DEBUG_ASSERT(0);
-        KGSL_MEM_VDBG( "<-- kgsl_mmu_map. Return value %d\n", GSL_FAILURE );
-        return (GSL_FAILURE);
-    }
+		GSL_TLBFLUSH_FILTER_RESET();
 
-    // get gpu access permissions
-    ap = GSL_PT_PAGE_AP[((flags & GSL_MEMFLAGS_GPUAP_MASK) >> GSL_MEMFLAGS_GPUAP_SHIFT)];
+		status = mmu->device->ftbl.mmu_tlbinvalidate(mmu->device, mmu_reg[devindex].invalidate);
+	}
 
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_lock(mmu->mutex);
-#endif
-
-    pagetable = kgsl_mmu_getpagetableobject(mmu, pid);
-    if (!pagetable)
-    {
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-	mutex_unlock(mmu->mutex);
-#endif
-        return (GSL_FAILURE);
-    }
-
-    // check consistency, debug only
-    KGSL_DEBUG(GSL_DBGFLAGS_MMU, kgsl_mmu_checkconsistency(pagetable));
-
-    ptefirst = GSL_PT_ENTRY_GET(gpubaseaddr);
-    ptelast  = GSL_PT_ENTRY_GET(gpubaseaddr + (PAGE_SIZE * (scatterlist->num-1)));
-    flushtlb = 0;
-
-    if (!GSL_PT_MAP_GETADDR(ptefirst))
-    {
-        // tlb needs to be flushed when the first and last pte are not at superpte boundaries
-        if ((ptefirst & (GSL_PT_SUPER_PTE-1)) != 0 || ((ptelast+1) & (GSL_PT_SUPER_PTE-1)) != 0)
-        {
-            flushtlb = 1;
-        }
-
-        // create page table entries
-        for (pte = ptefirst; pte <= ptelast; pte++)
-        {
-            if (scatterlist->contiguous)
-            {
-                phyaddr = scatterlist->pages[0] + ((pte-ptefirst) * PAGE_SIZE);
-            }
-            else
-            {
-                phyaddr = scatterlist->pages[pte-ptefirst];
-            }
-
-            GSL_PT_MAP_SETADDR(pte, phyaddr);
-            GSL_PT_MAP_SETBITS(pte, ap);
-
-            // tlb needs to be flushed when a dirty superPTE gets backed
-            if ((pte & (GSL_PT_SUPER_PTE-1)) == 0)
-            {
-                if (GSL_TLBFLUSH_FILTER_ISDIRTY(pte / GSL_PT_SUPER_PTE))
-                {
-                    flushtlb = 1;
-                }
-            }
-        }
-
-        if (flushtlb)
-        {
-            // every device's tlb needs to be flushed because the current page table is shared among all devices
-            for (i = 0; i < KGSL_DEVICE_MAX; i++)
-            {
-                if (gsl_driver.device[i].flags & KGSL_FLAGS_INITIALIZED)
-                {
-                    gsl_driver.device[i].mmu.flags |= GSL_MMUFLAGS_TLBFLUSH;
-                }
-            }
-        }
-
-        // determine new last mapped superPTE 
-        superpte = ptelast - (ptelast & (GSL_PT_SUPER_PTE-1));
-        if (superpte > pagetable->last_superpte)
-        {
-            pagetable->last_superpte = superpte;
-        }
-
-		GSL_MMU_STATS(mmu->stats.pt.maps++);
-    }
-    else
-    {
-        // this should never happen
-        KGSL_MEM_VDBG( "FATAL: This should never happen.\n" );
-        DEBUG_ASSERT(0);
-        status = GSL_FAILURE;
-    }
-
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_unlock(mmu->mutex);
-#endif
-
-    KGSL_MEM_VDBG( "<-- kgsl_mmu_map. Return value %d\n", GSL_SUCCESS );
-
-    return (status);
+	return status;
 }
 
-//----------------------------------------------------------------------------
+/*
+ * initialize device mmu
+ * call this with the global lock held
+ */
+int kgsl_mmu_init(struct kgsl_device *device)
+{
+	int status;
+	unsigned int flags;
+	struct kgsl_pagetable  *pagetable;
+	unsigned int devindex = device->id-1;
+	struct kgsl_mmu *mmu = &device->mmu;
+
+	if (device->ftbl.mmu_tlbinvalidate == NULL || device->ftbl.mmu_setpagetable == NULL ||
+			!(device->flags & KGSL_FLAGS_INITIALIZED))
+		return GSL_FAILURE;
+
+	if (mmu->flags & KGSL_FLAGS_INITIALIZED0)
+		return GSL_SUCCESS;
+
+	/* setup backward reference */
+	mmu->device = device;
+
+	/* disable MMU when running in safe mode */
+	if (device->flags & KGSL_FLAGS_SAFEMODE)
+		mmu->config = 0x00000000;
+
+	/* setup MMU and sub-client behavior */
+	device->ftbl.regwrite(device, mmu_reg[devindex].config, mmu->config);
+
+	device->ftbl.regwrite(device, mmu_reg[devindex].interrupt_mask, GSL_MMU_INT_MASK);
+
+	mmu->refcnt  = 0;
+	mmu->flags  |= KGSL_FLAGS_INITIALIZED0;
+
+	/* MMU enabled */
+	if (mmu->config & 0x1) {
+		/* idle device */
+		pr_info("%s: calling idle on device %d\n", __func__, device->id);
+		device->ftbl.idle(device, GSL_TIMEOUT_DEFAULT);
+
+		// define physical memory range accessible by the core
+		device->ftbl.regwrite(device, mmu_reg[devindex].mpu_base, mmu->mpu_base);
+		device->ftbl.regwrite(device, mmu_reg[devindex].mpu_end,  mmu->mpu_base + mmu->mpu_range);
+
+		device->ftbl.regwrite(device, mmu_reg[devindex].interrupt_mask,
+				GSL_MMU_INT_MASK | MH_INTERRUPT_MASK__MMU_PAGE_FAULT);
+
+		mmu->flags |= KGSL_FLAGS_INITIALIZED;
+
+		/* sub-client MMU lookups require address translation */
+		if ((mmu->config & ~0x1) > 0) {
+			/* make sure virtual address range is a multiple of 64Kb ? */
+			/* setup pagetable object */
+			pagetable = kgsl_mmu_createpagetableobject(mmu);
+			if (!pagetable) {
+				kgsl_mmu_close(device);
+				return GSL_FAILURE;
+			}
+
+			mmu->hwpagetable = pagetable;
+
+			/* create tlb flush filter to track dirty superPTE's -- one bit per superPTE */
+			mmu->tlbflushfilter.size = (mmu->va_range / (PAGE_SIZE * GSL_PT_SUPER_PTE * 8)) + 1;
+			mmu->tlbflushfilter.base = (unsigned int *)kmalloc(mmu->tlbflushfilter.size, GFP_KERNEL);
+			if (!mmu->tlbflushfilter.base) {
+				kgsl_mmu_close(device);
+				return GSL_FAILURE;
+			}
+
+			GSL_TLBFLUSH_FILTER_RESET();
+
+			/* set page table base */
+			device->ftbl.regwrite(device, mmu_reg[devindex].pt_page, mmu->hwpagetable->base.gpuaddr);
+
+			/* define virtual address range */
+			device->ftbl.regwrite(device, mmu_reg[devindex].va_range, (mmu->hwpagetable->va_base | (mmu->hwpagetable->va_range >> 16)));
+
+			/* allocate memory used for completing r/w operations that cannot be mapped by the MMU */
+			flags  = (GSL_MEMFLAGS_ALIGN32 | GSL_MEMFLAGS_CONPHYS | GSL_MEMFLAGS_STRICTREQUEST);
+			status = kgsl_sharedmem_alloc(flags, 32, &mmu->dummyspace);
+			if (status != GSL_SUCCESS) {
+				kgsl_mmu_close(device);
+				return status;
+			}
+
+			device->ftbl.regwrite(device, mmu_reg[devindex].trans_error, mmu->dummyspace.gpuaddr);
+
+			device->ftbl.mmu_tlbinvalidate(device, mmu_reg[devindex].invalidate);
+
+			mmu->flags |= KGSL_FLAGS_STARTED;
+		}
+	}
+	return GSL_SUCCESS;
+}
+
+/* map physical pages into the gpu page table */
+int kgsl_mmu_map(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, const gsl_scatterlist_t *scatterlist, unsigned int flags)
+{
+	int status = GSL_SUCCESS;
+	unsigned int i, phyaddr, ap;
+	unsigned int pte, ptefirst, ptelast, superpte;
+	int flushtlb;
+	struct kgsl_pagetable *pagetable;
+
+	if (scatterlist->num <= 0)
+		return GSL_FAILURE;
+
+	/* get gpu access permissions */
+	ap = GSL_PT_PAGE_AP[((flags & GSL_MEMFLAGS_GPUAP_MASK) >> GSL_MEMFLAGS_GPUAP_SHIFT)];
+
+	pagetable = kgsl_mmu_getpagetableobject(mmu);
+	if (!pagetable)
+		return GSL_FAILURE;
+
+	/* debug only but no harm.. */
+	kgsl_mmu_checkconsistency(pagetable);
+
+	ptefirst = GSL_PT_ENTRY_GET(gpubaseaddr);
+	ptelast  = GSL_PT_ENTRY_GET(gpubaseaddr + (PAGE_SIZE * (scatterlist->num-1)));
+	flushtlb = 0;
+
+	if (!GSL_PT_MAP_GETADDR(ptefirst)) {
+		/* tlb needs to be flushed when the first and last pte are not at superpte boundaries */
+		if ((ptefirst & (GSL_PT_SUPER_PTE-1)) != 0 ||
+			((ptelast+1) & (GSL_PT_SUPER_PTE-1)) != 0)
+			flushtlb = 1;
+
+		/* create page table entries */
+		for (pte = ptefirst; pte <= ptelast; pte++) {
+			if (scatterlist->contiguous)
+				phyaddr = scatterlist->pages[0] + ((pte-ptefirst) * PAGE_SIZE);
+			else
+				phyaddr = scatterlist->pages[pte-ptefirst];
+
+			GSL_PT_MAP_SETADDR(pte, phyaddr);
+			GSL_PT_MAP_SETBITS(pte, ap);
+
+			/* tlb needs to be flushed when a dirty superPTE gets backed */
+			if ((pte & (GSL_PT_SUPER_PTE-1)) == 0) {
+				if (GSL_TLBFLUSH_FILTER_ISDIRTY(pte / GSL_PT_SUPER_PTE))
+					flushtlb = 1;
+			}
+		}
+
+
+		if (flushtlb) {
+			/* every device's tlb needs to be flushed because the current page table is shared among all devices */
+			for (i = 0; i < KGSL_DEVICE_MAX; i++) {
+				if (gsl_driver.device[i].flags & KGSL_FLAGS_INITIALIZED) {
+					gsl_driver.device[i].mmu.flags |= GSL_MMUFLAGS_TLBFLUSH;
+				}
+			}
+		}
+
+		/* determine new last mapped superPTE */
+		superpte = ptelast - (ptelast & (GSL_PT_SUPER_PTE-1));
+		if (superpte > pagetable->last_superpte)
+			pagetable->last_superpte = superpte;
+	} else {
+		/* this should never happen */
+		status = GSL_FAILURE;
+	}
+	return status;
+}
 
 static bool is_superpte_empty(struct kgsl_pagetable  *pagetable, unsigned int superpte)
 {
@@ -716,393 +456,202 @@ static bool is_superpte_empty(struct kgsl_pagetable  *pagetable, unsigned int su
 		if (GSL_PT_MAP_GET(superpte+i))
 			return false;
 	}
+
 	return true;
 }
 
-int
-kgsl_mmu_unmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, unsigned int pid)
+/* remove mappings in the specified address range from the gpu page table */
+int kgsl_mmu_unmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range)
 {
-    //
-    // remove mappings in the specified address range from the gpu page table
-    //
-    int              status = GSL_SUCCESS;
-    struct kgsl_pagetable  *pagetable;
-    unsigned int     numpages;
-    unsigned int     pte, ptefirst, ptelast, superpte;
+	int status = GSL_SUCCESS;
+	struct kgsl_pagetable *pagetable;
+	unsigned int numpages;
+	unsigned int pte, ptefirst, ptelast, superpte;
 
-    KGSL_MEM_VDBG(
-                    "--> int kgsl_mmu_unmap(struct kgsl_mmu *mmu=0x%08x, uint32_t gpubaseaddr=0x%08x, int range=%d, uint pid=0x%08x)\n",
-                    (unsigned int) mmu, gpubaseaddr, range, pid );
+	if (range <= 0)
+		return GSL_FAILURE;
 
-    if (range <= 0)
-    {
-        KGSL_MEM_VDBG( "ERROR: Range is too small.\n" );
-        DEBUG_ASSERT(0);
-        KGSL_MEM_VDBG( "<-- kgsl_mmu_unmap. Return value %d\n", GSL_FAILURE );
-        return (GSL_FAILURE);
-    }
+	numpages = (range >> PAGE_SHIFT);
+	if (range & (PAGE_SIZE-1))
+		numpages++;
 
-    numpages = (range >> PAGE_SHIFT);
-    if (range & (PAGE_SIZE-1))
-    {
-        numpages++;
-    }
+	pagetable = kgsl_mmu_getpagetableobject(mmu);
+	if (!pagetable)
+		return GSL_FAILURE;
 
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_lock(mmu->mutex);
-#endif
-    pagetable = kgsl_mmu_getpagetableobject(mmu, pid);
-    if (!pagetable)
-    {
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-	mutex_unlock(mmu->mutex);
-#endif
-        return (GSL_FAILURE);
-    }
+	/* check consistency here? */
 
-    // check consistency, debug only
-    KGSL_DEBUG(GSL_DBGFLAGS_MMU, kgsl_mmu_checkconsistency(pagetable));
+	ptefirst = GSL_PT_ENTRY_GET(gpubaseaddr);
+	ptelast  = GSL_PT_ENTRY_GET(gpubaseaddr + (PAGE_SIZE * (numpages-1)));
 
-    ptefirst = GSL_PT_ENTRY_GET(gpubaseaddr);
-    ptelast  = GSL_PT_ENTRY_GET(gpubaseaddr + (PAGE_SIZE * (numpages-1)));
+	if (GSL_PT_MAP_GETADDR(ptefirst)) {
+		superpte = ptefirst - (ptefirst & (GSL_PT_SUPER_PTE-1));
+		GSL_TLBFLUSH_FILTER_SETDIRTY(superpte / GSL_PT_SUPER_PTE);
+		/* remove page table entries */
 
-    if (GSL_PT_MAP_GETADDR(ptefirst))
-    {
-        superpte = ptefirst - (ptefirst & (GSL_PT_SUPER_PTE-1));
-        GSL_TLBFLUSH_FILTER_SETDIRTY(superpte / GSL_PT_SUPER_PTE);
+		for (pte = ptefirst; pte <= ptelast; pte++) {
+			GSL_PT_MAP_RESET(pte);
+			superpte = pte - (pte & (GSL_PT_SUPER_PTE-1));
+			if (pte == superpte) {
+				GSL_TLBFLUSH_FILTER_SETDIRTY(superpte / GSL_PT_SUPER_PTE);
+			}
+		}
 
-        // remove page table entries
-        for (pte = ptefirst; pte <= ptelast; pte++)
-        {
-            GSL_PT_MAP_RESET(pte);
+		/* determine new last mapped superPTE */
+		superpte = ptelast - (ptelast & (GSL_PT_SUPER_PTE-1));
+		if (superpte == pagetable->last_superpte && pagetable->last_superpte >= GSL_PT_SUPER_PTE) {
+			do {
+				if (is_superpte_empty(pagetable, superpte))
+					pagetable->last_superpte -= GSL_PT_SUPER_PTE;
+				else
+					break;
+			} while (!GSL_PT_MAP_GETADDR(pagetable->last_superpte) && pagetable->last_superpte >= GSL_PT_SUPER_PTE);
+		}
+        } else {
+		/* this should never happen */
+		status = GSL_FAILURE;
+	}
 
-            superpte = pte - (pte & (GSL_PT_SUPER_PTE-1));
-            if (pte == superpte)
-            {
-                GSL_TLBFLUSH_FILTER_SETDIRTY(superpte / GSL_PT_SUPER_PTE);
-            }
-        }
+	/* invalidate tlb, debug only */
+	//mmu->device->ftbl.mmu_tlbinvalidate(mmu->device, gsl_cfg_mmu_reg[mmu->device->id-1].INVALIDATE);
 
-        // determine new last mapped superPTE 
-        superpte = ptelast - (ptelast & (GSL_PT_SUPER_PTE-1));
-        if (superpte == pagetable->last_superpte && pagetable->last_superpte >= GSL_PT_SUPER_PTE)
-        {
-            do
-            {
-		if (is_superpte_empty(pagetable, superpte))
-		    pagetable->last_superpte -= GSL_PT_SUPER_PTE;
-		else
-		    break;
-            } while (!GSL_PT_MAP_GETADDR(pagetable->last_superpte) && pagetable->last_superpte >= GSL_PT_SUPER_PTE);
-        }
-
-		GSL_MMU_STATS(mmu->stats.pt.unmaps++);
-    }
-    else
-    {
-        // this should never happen
-        KGSL_MEM_VDBG( "FATAL: This should never happen.\n" );
-        DEBUG_ASSERT(0);
-        status = GSL_FAILURE;
-    }
-
-    // invalidate tlb, debug only
-	KGSL_DEBUG(GSL_DBGFLAGS_MMU, mmu->device->ftbl.mmu_tlbinvalidate(mmu->device, gsl_cfg_mmu_reg[mmu->device->id-1].INVALIDATE, pagetable->pid));
-
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_unlock(mmu->mutex);
-#endif
-    KGSL_MEM_VDBG( "<-- kgsl_mmu_unmap. Return value %d\n", GSL_SUCCESS );
-
-    return (status);
+	return status;
 }
 
-//----------------------------------------------------------------------------
-
-int         
-kgsl_mmu_getmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, gsl_scatterlist_t *scatterlist, unsigned int pid)
+/* obtain scatter list of physical pages for the given gpu address range.
+ * if all pages are physically contiguous they are coalesced into a single
+ * scatterlist entry. */
+int kgsl_mmu_getmap(struct kgsl_mmu *mmu, uint32_t gpubaseaddr, int range, gsl_scatterlist_t *scatterlist)
 {
-    //
-    // obtain scatter list of physical pages for the given gpu address range.
-    // if all pages are physically contiguous they are coalesced into a single
-    // scatterlist entry.
-    //
-    struct kgsl_pagetable  *pagetable;
-    unsigned int     numpages;
-    unsigned int     pte, ptefirst, ptelast;
-    unsigned int     contiguous = 1;
+	struct kgsl_pagetable  *pagetable;
+	unsigned int numpages;
+	unsigned int pte, ptefirst, ptelast;
+	unsigned int contiguous = 1;
 
-    numpages = (range >> PAGE_SHIFT);
-    if (range & (PAGE_SIZE-1))
-    {
-        numpages++;
-    }
+	numpages = (range >> PAGE_SHIFT);
+	if (range & (PAGE_SIZE-1))
+		numpages++;
 
-    if (range <= 0 || scatterlist->num != numpages)
-    {
-        KGSL_MEM_VDBG( "ERROR: Range is too small.\n" );
-        DEBUG_ASSERT(0);
-        KGSL_MEM_VDBG( "<-- kgsl_mmu_getmap. Return value %d\n", GSL_FAILURE );
-        return (GSL_FAILURE);
-    }
+	if (range <= 0 || scatterlist->num != numpages)
+		return GSL_FAILURE;
 
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_lock(mmu->mutex);
-#endif
-    pagetable = kgsl_mmu_getpagetableobject(mmu, pid);
-    if (!pagetable)
-    {
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-	mutex_unlock(mmu->mutex);
-#endif
-        return (GSL_FAILURE);
-    }
+	pagetable = kgsl_mmu_getpagetableobject(mmu);
+	if (!pagetable)
+		return GSL_FAILURE;
 
-    ptefirst = GSL_PT_ENTRY_GET(gpubaseaddr);
-    ptelast  = GSL_PT_ENTRY_GET(gpubaseaddr + (PAGE_SIZE * (numpages-1)));
+	ptefirst = GSL_PT_ENTRY_GET(gpubaseaddr);
+	ptelast  = GSL_PT_ENTRY_GET(gpubaseaddr + (PAGE_SIZE * (numpages-1)));
 
-    // determine whether pages are physically contiguous
-    if (numpages > 1)
-    {
-        for (pte = ptefirst; pte <= ptelast-1; pte++)
-        {
-            if (GSL_PT_MAP_GETADDR(pte) + PAGE_SIZE != GSL_PT_MAP_GETADDR(pte+1))
-            {
-                contiguous = 0;
-                break;
-            }
-        }
-    }
+	/* determine whether pages are physically contiguous */
+	if (numpages > 1) {
+		for (pte = ptefirst; pte <= (ptelast - 1); pte++) {
+			if ((GSL_PT_MAP_GETADDR(pte) + PAGE_SIZE) != GSL_PT_MAP_GETADDR(pte+1)) {
+				contiguous = 0;
+				break;
+			}
+		}
+	}
 
-    if (!contiguous)
-    {
-        // populate scatter list
-        for (pte = ptefirst; pte <= ptelast; pte++)
-        {
-            scatterlist->pages[pte-ptefirst] = GSL_PT_MAP_GETADDR(pte);
-        }
-    }
-    else
-    {
-        // coalesce physically contiguous pages into a single scatter list entry
-        scatterlist->pages[0] = GSL_PT_MAP_GETADDR(ptefirst);
-    }
+	if (!contiguous) {
+		/* populate scatter list */
+		for (pte = ptefirst; pte <= ptelast; pte++) {
+			scatterlist->pages[pte-ptefirst] = GSL_PT_MAP_GETADDR(pte);
+		}
+	} else {
+		/* coalesce physically contiguous pages into a single scatter list entry */
+		scatterlist->pages[0] = GSL_PT_MAP_GETADDR(ptefirst);
+	}
 
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_unlock(mmu->mutex);
-#endif
-    scatterlist->contiguous = contiguous;
-
-    return (GSL_SUCCESS);
+	scatterlist->contiguous = contiguous;
+	return GSL_SUCCESS;
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_mmu_close(struct kgsl_device *device)
+/* close device mmu. call this with the global lock held */
+int kgsl_mmu_close(struct kgsl_device *device)
 {
-    //
-    // close device mmu
-    //
-    // call this with the global lock held
-    //
-    struct kgsl_mmu     *mmu     = &device->mmu;
-    unsigned int  devindex = mmu->device->id-1;         // device_id is 1 based
-#ifdef _DEBUG
-    int           i;
-#endif // _DEBUG
+	struct kgsl_mmu *mmu = &device->mmu;
+	unsigned int  devindex = mmu->device->id-1;
 
-    KGSL_MEM_VDBG( "--> int kgsl_mmu_close(struct kgsl_device *device=0x%08x)\n", (unsigned int) device );
+	if (mmu->flags & KGSL_FLAGS_INITIALIZED0) {
+		if (mmu->flags & KGSL_FLAGS_STARTED) {
+			/* terminate pagetable object */
+			kgsl_mmu_destroypagetableobject(mmu);
+		}
 
-    if (mmu->flags & KGSL_FLAGS_INITIALIZED0)
-    {
-        if (mmu->flags & KGSL_FLAGS_STARTED)
-        {
-            // terminate pagetable object
-            kgsl_mmu_destroypagetableobject(mmu, current->tgid);
-        }
-
-        // no more processes attached to current device mmu
-        if (mmu->refcnt == 0)
-        {
-#ifdef _DEBUG
-            // check if there are any orphaned pagetable objects lingering around
-            for (i = 0; i < GSL_MMU_PAGETABLE_MAX; i++)
-            {
-                if (mmu->pagetable[i])
-                {
-                        DEBUG_ASSERT(0);
-                        return (GSL_FAILURE);
-                }
-            }
-#endif // _DEBUG
-
-            // disable mh interrupts
-            kgsl_intr_detach(&device->intr, gsl_cfg_mh_intr[devindex].AXI_READ_ERROR);
-            kgsl_intr_detach(&device->intr, gsl_cfg_mh_intr[devindex].AXI_WRITE_ERROR);
-            kgsl_intr_detach(&device->intr, gsl_cfg_mh_intr[devindex].MMU_PAGE_FAULT);
-
-            // disable MMU
-            device->ftbl.regwrite(device, gsl_cfg_mmu_reg[devindex].CONFIG, 0x00000000);
-
-            if (mmu->tlbflushfilter.base)
-            {
-                kfree(mmu->tlbflushfilter.base);
-            }
-
-            if (mmu->dummyspace.gpuaddr)
-            {
-                kgsl_sharedmem_free0(&mmu->dummyspace, current->tgid);
-            }
-
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-	    // this needs to be error checked better!
-	    kfree(mmu->mutex);
-	    mmu->mutex = NULL;
+		/* no more processes attached to current device mmu */
+		if (mmu->refcnt == 0) {
+#ifdef DEBUG
+			int i;
+			/* check if there are any orphaned pagetable objects lingering around */
+			for (i = 0; i < GSL_MMU_PAGETABLE_MAX; i++) {
+				if (mmu->pagetable[i])
+					return GSL_FAILURE;
+			}
 #endif
-            mmu->flags &= ~KGSL_FLAGS_STARTED;
-            mmu->flags &= ~KGSL_FLAGS_INITIALIZED;
-            mmu->flags &= ~KGSL_FLAGS_INITIALIZED0;
-        }
-    }
 
-    KGSL_MEM_VDBG( "<-- kgsl_mmu_close. Return value %d\n", GSL_SUCCESS );
+			/* disable mh interrupts */
+			device->ftbl.regwrite(device, mmu_reg[devindex].interrupt_mask, 0);
 
-    return (GSL_SUCCESS);
+			/* disable MMU */
+			device->ftbl.regwrite(device, mmu_reg[devindex].config, 0x00000000);
+
+			if (mmu->tlbflushfilter.base)
+				kfree(mmu->tlbflushfilter.base);
+
+			if (mmu->dummyspace.gpuaddr)
+				kgsl_sharedmem_free(&mmu->dummyspace);
+
+			mmu->flags &= ~KGSL_FLAGS_STARTED;
+			mmu->flags &= ~KGSL_FLAGS_INITIALIZED;
+			mmu->flags &= ~KGSL_FLAGS_INITIALIZED0;
+		}
+	}
+
+	return GSL_SUCCESS;
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_mmu_attachcallback(struct kgsl_mmu *mmu, unsigned int pid)
+/* attach process. call with global lock held */
+int kgsl_mmu_attachcallback(struct kgsl_mmu *mmu)
 {
-    //
-    // attach process
-    //
-    // call this with the global lock held
-    //
-    int              status = GSL_SUCCESS;
-    struct kgsl_pagetable  *pagetable;
+	int status = GSL_SUCCESS;
+	struct kgsl_pagetable  *pagetable;
 
-    KGSL_MEM_VDBG( "--> int kgsl_mmu_attachcallback(struct kgsl_mmu *mmu=0x%08x, uint pid=0x%08x)\n", (unsigned int) mmu, pid );
+	if (mmu->flags & KGSL_FLAGS_INITIALIZED0) {
+		/* attach to current device mmu */
+		mmu->refcnt++;
 
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_lock(mmu->mutex);
-#endif
-    if (mmu->flags & KGSL_FLAGS_INITIALIZED0)
-    {
-        // attach to current device mmu
-        mmu->refcnt++;
+		if (mmu->flags & KGSL_FLAGS_STARTED) {
+			/* attach to pagetable object */
+			pagetable = kgsl_mmu_createpagetableobject(mmu);
 
-        if (mmu->flags & KGSL_FLAGS_STARTED)
-        {
-            // attach to pagetable object
-            pagetable = kgsl_mmu_createpagetableobject(mmu, pid);
-            if(pagetable)
-            {
-                pagetable->refcnt++;
-            }
-            else
-            {
-                status = GSL_FAILURE;
-            }
-        }
-    }
-
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_unlock(mmu->mutex);
-#endif
-    KGSL_MEM_VDBG( "<-- kgsl_mmu_attachcallback. Return value %d\n", status );
-
-    return (status);
+			if (pagetable)
+				pagetable->refcnt++;
+			else
+				status = GSL_FAILURE;
+		}
+	}
+	return status;
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_mmu_detachcallback(struct kgsl_mmu *mmu, unsigned int pid)
+/* detach process */
+int kgsl_mmu_detachcallback(struct kgsl_mmu *mmu)
 {
-    //
-    // detach process
-    //
-    int              status = GSL_SUCCESS;
-    struct kgsl_pagetable  *pagetable;
+	int status = GSL_SUCCESS;
+	struct kgsl_pagetable  *pagetable;
 
-    KGSL_MEM_VDBG( "--> int kgsl_mmu_detachcallback(struct kgsl_mmu *mmu=0x%08x, uint pid=0x%08x)\n", (unsigned int) mmu, pid );
+	if (mmu->flags & KGSL_FLAGS_INITIALIZED0) {
+		/* detach from current device mmu */
+		mmu->refcnt--;
 
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_lock(mmu->mutex);
-#endif
-    if (mmu->flags & KGSL_FLAGS_INITIALIZED0)
-    {
-        // detach from current device mmu
-        mmu->refcnt--;
+		if (mmu->flags & KGSL_FLAGS_STARTED) {
+			/* detach from pagetable object */
+			pagetable = kgsl_mmu_getpagetableobject(mmu);
 
-        if (mmu->flags & KGSL_FLAGS_STARTED)
-        {
-            // detach from pagetable object
-            pagetable = kgsl_mmu_getpagetableobject(mmu, pid);
-            if(pagetable)
-            {
-                pagetable->refcnt--;
-            }
-            else
-            {
-                status = GSL_FAILURE;
-            }
-        }
-    }
-
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_unlock(mmu->mutex);
-#endif
-    KGSL_MEM_VDBG( "<-- kgsl_mmu_detachcallback. Return value %d\n", status );
-
-    return (status);
-}
-
-//----------------------------------------------------------------------------
-
-int
-kgsl_mmu_querystats(struct kgsl_mmu *mmu, gsl_mmustats_t *stats)
-{
-#ifdef GSL_STATS_MMU
-    int              status = GSL_SUCCESS;
-
-    DEBUG_ASSERT(stats);
-
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_lock(mmu->mutex);
-#endif
-    if (mmu->flags & KGSL_FLAGS_STARTED)
-    {
-		memcpy(stats, &mmu->stats, sizeof(gsl_mmustats_t));
-    }
-    else
-    {
-		memset(stats, 0, sizeof(gsl_mmustats_t));
-    }
-
-#ifdef CONFIG_KGSL_FINE_GRAINED_LOCKING
-    mutex_unlock(mmu->mutex);
-#endif
-    return (status);
-#else
-    // unreferenced formal parameters
-    (void) mmu;
-    (void) stats;
-
-    return (GSL_FAILURE_NOTSUPPORTED);
-#endif // GSL_STATS_MMU
-}
-
-//----------------------------------------------------------------------------
-
-int
-kgsl_mmu_bist(struct kgsl_mmu *mmu)
-{
-    // unreferenced formal parameter
-    (void) mmu;
-
-    return (GSL_SUCCESS);
+			if (pagetable)
+				pagetable->refcnt--;
+			else
+				status = GSL_FAILURE;
+		}
+	}
+	return status;
 }
