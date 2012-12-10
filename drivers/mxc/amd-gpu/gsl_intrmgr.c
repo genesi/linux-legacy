@@ -279,23 +279,3 @@ kgsl_intr_detach(gsl_intr_t *intr, gsl_intrid_t id)
 
     return (GSL_SUCCESS);
 }
-
-//----------------------------------------------------------------------------
-
-int
-kgsl_intr_isenabled(gsl_intr_t *intr, gsl_intrid_t id)
-{
-    int                        status = GSL_FAILURE;
-    const gsl_intrblock_reg_t  *block = kgsl_intr_id2block(id);
-
-    if (block != NULL)
-    {
-        // check if interrupt is enabled
-        if (intr->enabled[block->id] & gsl_cfg_intr_mask[id])
-        {
-            status = GSL_SUCCESS;
-        }
-    }
-
-    return (status);
-}

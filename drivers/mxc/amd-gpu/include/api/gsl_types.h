@@ -513,9 +513,7 @@ typedef enum _gsl_intrid_t
   GSL_INTR_G12_MH_AXI_WRITE_ERROR,
   GSL_INTR_G12_MH_MMU_PAGE_FAULT,
 
-  GSL_INTR_COUNT,
-
-  GSL_INTR_FOOBAR = 0x7FFFFFFF
+  GSL_INTR_COUNT
 } gsl_intrid_t;
 
 #endif  // __GSL_TYPES_H

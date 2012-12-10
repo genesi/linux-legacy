@@ -80,13 +80,6 @@ typedef struct _kgsl_device_regwrite_t {
     unsigned int    value;
 } kgsl_device_regwrite_t;
 
-typedef struct _kgsl_device_waitirq_t {
-    gsl_deviceid_t  device_id;
-    gsl_intrid_t    intr_id;
-    unsigned int    *count;
-    unsigned int    timeout;
-} kgsl_device_waitirq_t;
-
 typedef struct _kgsl_cmdstream_issueibcmds_t {
     gsl_deviceid_t  device_id;
     int     drawctxt_index;
@@ -218,7 +211,6 @@ typedef struct _kgsl_device_clock_t {
 #define IOCTL_KGSL_DEVICE_SETPROPERTY           _IOW(GSL_MAGIC, 0x25, struct _kgsl_device_setproperty_t)
 #define IOCTL_KGSL_DEVICE_REGREAD               _IOWR(GSL_MAGIC, 0x26, struct _kgsl_device_regread_t)
 #define IOCTL_KGSL_DEVICE_REGWRITE              _IOW(GSL_MAGIC, 0x27, struct _kgsl_device_regwrite_t)
-#define IOCTL_KGSL_DEVICE_WAITIRQ               _IOWR(GSL_MAGIC, 0x28, struct _kgsl_device_waitirq_t)
 #define IOCTL_KGSL_CMDSTREAM_ISSUEIBCMDS        _IOWR(GSL_MAGIC, 0x29, struct _kgsl_cmdstream_issueibcmds_t)
 #define IOCTL_KGSL_CMDSTREAM_READTIMESTAMP      _IOWR(GSL_MAGIC, 0x2A, struct _kgsl_cmdstream_readtimestamp_t)
 #define IOCTL_KGSL_CMDSTREAM_FREEMEMONTIMESTAMP _IOW(GSL_MAGIC, 0x2B, struct _kgsl_cmdstream_freememontimestamp_t)

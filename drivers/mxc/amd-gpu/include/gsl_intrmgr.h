@@ -99,7 +99,6 @@ int             kgsl_intr_attach(gsl_intr_t *intr, gsl_intrid_t id, gsl_intr_cal
 int             kgsl_intr_detach(gsl_intr_t *intr, gsl_intrid_t id);
 int             kgsl_intr_enable(gsl_intr_t *intr, gsl_intrid_t id);
 int             kgsl_intr_disable(gsl_intr_t *intr, gsl_intrid_t id);
-int             kgsl_intr_isenabled(gsl_intr_t *intr, gsl_intrid_t id);
 void            kgsl_intr_decode(gsl_device_t *device, gsl_intrblock_t block_id);
 
 #endif  // __GSL_INTMGR_H

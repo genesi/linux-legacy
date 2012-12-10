@@ -50,7 +50,6 @@ typedef struct _gsl_functable_t {
 	int (*device_idle)            (gsl_device_t *device, unsigned int timeout);
 	int (*device_regread)         (gsl_device_t *device, unsigned int offsetwords, unsigned int *value);
 	int (*device_regwrite)        (gsl_device_t *device, unsigned int offsetwords, unsigned int value);
-	int (*device_waitirq)         (gsl_device_t *device, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout);
 	int (*device_waittimestamp)   (gsl_device_t *device, gsl_timestamp_t timestamp, unsigned int timeout);
 	int (*device_runpending)      (gsl_device_t *device);
 	int (*device_addtimestamp)    (gsl_device_t *device_id, gsl_timestamp_t *timestamp);
@@ -92,7 +91,6 @@ struct _gsl_device_t {
 #endif // GSL_BLD_YAMATO
 
 #ifdef GSL_BLD_G12
-	unsigned int		intrcnt[GSL_G12_INTR_COUNT];
 	gsl_timestamp_t		current_timestamp;
 	gsl_timestamp_t		timestamp;
 #ifdef IRQTHREAD_POLL

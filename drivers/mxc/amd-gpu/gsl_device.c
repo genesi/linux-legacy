@@ -618,35 +618,6 @@ kgsl_device_regwrite(gsl_deviceid_t device_id, unsigned int offsetwords, unsigne
     return (status);
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_device_waitirq(gsl_deviceid_t device_id, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout)
-{
-    int           status = GSL_FAILURE_NOTINITIALIZED;
-    gsl_device_t  *device;
-
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE,
-                    "--> int kgsl_device_waitirq(gsl_deviceid_t device_id=%D, gsl_intrid_t intr_id=%d, unsigned int *count=0x%08x, unsigned int timout=0x%08x)\n", device_id, intr_id, count, timeout);
-
-    mutex_lock(&gsl_driver.lock);
-
-    device = &gsl_driver.device[device_id-1];       // device_id is 1 based
-
-    if (device->ftbl.device_waitirq)
-    {
-        status = device->ftbl.device_waitirq(device, intr_id, count, timeout);
-    }
-
-    mutex_unlock(&gsl_driver.lock);
-
-    kgsl_log_write( KGSL_LOG_GROUP_DEVICE | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_device_waitirq. Return value %B\n", status );
-
-    return (status);
-}
-
-//----------------------------------------------------------------------------
-
 int
 kgsl_device_runpending(gsl_device_t *device)
 {

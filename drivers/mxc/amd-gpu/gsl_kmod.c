@@ -258,32 +258,6 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
             kgslStatus = kgsl_device_regwrite(param.device_id, param.offsetwords, param.value);
             break;
         }
-    case IOCTL_KGSL_DEVICE_WAITIRQ:
-        {
-            kgsl_device_waitirq_t param;
-            unsigned int count;
-
-            printk(KERN_ERR "%s: IOCTL_KGSL_DEVICE_WAITIRQ obsoleted!\n", __func__);
-//          kgslStatus = -ENOTTY; break;
-
-            if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_device_waitirq_t)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_device_waitirq(param.device_id, param.intr_id, &count, param.timeout);
-            if (kgslStatus == GSL_SUCCESS)
-            {
-                if (copy_to_user(param.count, &count, sizeof(unsigned int)))
-                {
-                    printk(KERN_ERR "%s: copy_to_user error\n", __func__);
-                    kgslStatus = GSL_FAILURE;
-                    break;
-                }
-            }
-            break;
-        }
     case IOCTL_KGSL_CMDSTREAM_ISSUEIBCMDS:
         {
             kgsl_cmdstream_issueibcmds_t param;

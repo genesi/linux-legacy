@@ -64,7 +64,6 @@ int                kgsl_device_getproperty(gsl_deviceid_t device_id, gsl_propert
 int                kgsl_device_setproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void *value, unsigned int sizebytes);
 int                kgsl_device_regread(gsl_deviceid_t device_id, unsigned int offsetwords, unsigned int *value);
 int                kgsl_device_regwrite(gsl_deviceid_t device_id, unsigned int offsetwords, unsigned int value);
-int                kgsl_device_waitirq(gsl_deviceid_t device_id, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout);
 
 
 ////////////////////////////////////////////////////////////////////////////

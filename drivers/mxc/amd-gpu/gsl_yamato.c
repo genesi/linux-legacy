@@ -810,41 +810,6 @@ kgsl_yamato_regwrite(gsl_device_t *device, unsigned int offsetwords, unsigned in
     return (GSL_SUCCESS);
 }
 
-//----------------------------------------------------------------------------
-
-int
-kgsl_yamato_waitirq(gsl_device_t *device, gsl_intrid_t intr_id, unsigned int *count, unsigned int timeout)
-{
-    int  status = GSL_FAILURE_NOTSUPPORTED;
-
-    if (intr_id == GSL_INTR_YDX_CP_IB1_INT || intr_id == GSL_INTR_YDX_CP_IB2_INT ||
-        intr_id == GSL_INTR_YDX_CP_SW_INT  || intr_id == GSL_INTR_YDX_RBBM_DISPLAY_UPDATE)
-    {
-        if (kgsl_intr_isenabled(&device->intr, intr_id) == GSL_SUCCESS)
-        {
-            // wait until intr completion event is received
-	    int complete = OS_SUCCESS;
-
-	    if (timeout != OS_INFINITE)
-		complete = wait_for_completion_timeout(&device->intr.evnt[intr_id], msecs_to_jiffies(timeout));
-	    else
-		wait_for_completion_killable(&device->intr.evnt[intr_id]);
-
-            if (complete == OS_SUCCESS)
-            {
-                *count = 1;
-                status = GSL_SUCCESS;
-            }
-            else
-            {
-                status = GSL_FAILURE_TIMEOUT;
-            }
-        }
-    }
-
-    return (status);
-}
-
 int kgsl_yamato_check_timestamp(gsl_deviceid_t device_id, gsl_timestamp_t timestamp)
 {
 	int i;
@@ -902,7 +867,6 @@ kgsl_yamato_getfunctable(gsl_functable_t *ftbl)
 	ftbl->device_waittimestamp  = kgsl_yamato_waittimestamp;
     ftbl->device_regread        = kgsl_yamato_regread;
     ftbl->device_regwrite       = kgsl_yamato_regwrite;
-    ftbl->device_waitirq        = kgsl_yamato_waitirq;
     ftbl->device_runpending     = kgsl_yamato_runpending;
     ftbl->intr_isr              = kgsl_yamato_isr;
     ftbl->mmu_tlbinvalidate     = kgsl_yamato_tlbinvalidate;
