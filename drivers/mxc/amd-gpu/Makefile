@@ -21,8 +21,3 @@ gpu-objs += 	gsl_cmdstream.o \
 		gsl_hal.o \
 		gsl_kmod_cleanup.o \
 		misc.o
-
-ifdef CONFIG_MXC_AMD_GPU_LOGGING
-gpu-objs += gsl_log.o
-EXTRA_CFLAGS += -DGSL_LOG
-endif
