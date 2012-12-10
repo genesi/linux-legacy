@@ -243,21 +243,6 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
             }
             break;
         }
-    case IOCTL_KGSL_DEVICE_REGWRITE:
-        {
-            kgsl_device_regwrite_t param;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_REGWRITE\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_device_regwrite_t)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_device_regwrite(param.device_id, param.offsetwords, param.value);
-            break;
-        }
     case IOCTL_KGSL_CMDSTREAM_ISSUEIBCMDS:
         {
             kgsl_cmdstream_issueibcmds_t param;
