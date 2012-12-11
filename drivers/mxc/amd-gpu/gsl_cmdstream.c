@@ -54,6 +54,9 @@ gsl_timestamp_t kgsl_cmdstream_readtimestamp0(gsl_deviceid_t device_id, gsl_time
 		// end-of-pipeline timestamp
 		GSL_CMDSTREAM_GET_EOP_TIMESTAMP(device, (unsigned int*)&timestamp);
     }
+
+    rmb();
+
     kgsl_log_write( KGSL_LOG_GROUP_COMMAND | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_ringbuffer_readtimestamp. Return value %d\n", timestamp );
     return (timestamp);
 }
