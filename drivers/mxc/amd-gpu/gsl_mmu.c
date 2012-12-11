@@ -653,6 +653,8 @@ kgsl_mmu_map(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, const gsl_scatterlist_t *sca
             KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, KGSL_DEBUG_DUMPX(BB_DUMP_SET_MMUTBL, pte , *(unsigned int*)(((char*)pagetable->base.hostptr) + (pte * GSL_PT_ENTRY_SIZEBYTES)), 0, "kgsl_mmu_map"));
         }
 
+        mb();
+
         if (flushtlb)
         {
             // every device's tlb needs to be flushed because the current page table is shared among all devices
@@ -781,6 +783,8 @@ kgsl_mmu_unmap(gsl_mmu_t *mmu, gpuaddr_t gpubaseaddr, int range, unsigned int pi
         DEBUG_ASSERT(0);
         status = GSL_FAILURE;
     }
+
+    mb();
 
     // invalidate tlb, debug only
 	KGSL_DEBUG(GSL_DBGFLAGS_MMU, mmu->device->ftbl.mmu_tlbinvalidate(mmu->device, gsl_cfg_mmu_reg[mmu->device->id-1].INVALIDATE, pagetable->pid));
