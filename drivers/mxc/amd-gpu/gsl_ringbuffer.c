@@ -689,7 +689,7 @@ kgsl_ringbuffer_init(gsl_device_t *device)
     }
 
     // allocate memory for polling and timestamps
-    flags = (GSL_MEMFLAGS_ALIGN32 | GSL_MEMFLAGS_CONPHYS);
+    flags = (GSL_MEMFLAGS_ALIGNPAGE | GSL_MEMFLAGS_CONPHYS);
     KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, flags = GSL_MEMFLAGS_ALIGN32);
 
     status = kgsl_sharedmem_alloc0(device->id, flags, sizeof(gsl_rbmemptrs_t), &rb->memptrs_desc);
