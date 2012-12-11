@@ -29,6 +29,7 @@
 #ifndef __GSL_RINGBUFFER_H
 #define __GSL_RINGBUFFER_H
 
+#include <linux/io.h>
 
 //////////////////////////////////////////////////////////////////////////////
 //  defines
@@ -161,9 +162,12 @@ typedef struct _gsl_ringbuffer_t {
 // ----------
 // ring write
 // ----------
-#define GSL_RB_WRITE(ring, data)        \
-      KGSL_DEBUG(GSL_DBGFLAGS_DUMPX, KGSL_DEBUG_DUMPX(BB_DUMP_RINGBUF_WRT, (unsigned int)ring, data, 0, "GSL_RB_WRITE")); \
-      *(unsigned int *)(ring)++ = (unsigned int)(data);
+#define GSL_RB_WRITE(ring, data) \
+	do { \
+		mb(); \
+		writel(data, ring); \
+		ring++; \
+	} while (0)
 
 // ---------
 // timestamp
