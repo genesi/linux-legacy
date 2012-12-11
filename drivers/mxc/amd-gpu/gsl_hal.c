@@ -102,14 +102,11 @@ kgsl_hal_init(void)
 	return GSL_FAILURE_ALREADYINITIALIZED;
     }
 
-    gsl_driver.hal = (void *)kmalloc(sizeof(gsl_hal_t), GFP_KERNEL);
+    gsl_driver.hal = (void *)kzalloc(sizeof(gsl_hal_t), GFP_KERNEL);
 
     if (!gsl_driver.hal) {
 	return GSL_FAILURE_OUTOFMEM;
     }
-
-    memset(gsl_driver.hal, 0, sizeof(gsl_hal_t));
-
 
     /* overlay structure on hal memory */
     hal = (gsl_hal_t *) gsl_driver.hal;
