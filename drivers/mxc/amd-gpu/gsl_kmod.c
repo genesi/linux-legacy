@@ -334,6 +334,7 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
                 break;
             }
             kgslStatus = kgsl_cmdstream_waittimestamp(param.device_id, param.timestamp, param.timeout);
+            rmb();
             break;
         }
     case IOCTL_KGSL_CMDWINDOW_WRITE:
