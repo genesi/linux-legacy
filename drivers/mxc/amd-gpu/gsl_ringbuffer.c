@@ -349,6 +349,9 @@ kgsl_ringbuffer_submit(gsl_ringbuffer_t *rb)
     kgsl_device_active(rb->device);
 
     GSL_RB_UPDATE_WPTR_POLLING(rb);
+    dsb();
+    wmb();
+    mb();
 
     // send the wptr to the hw
     rb->device->ftbl.device_regwrite(rb->device, mmCP_RB_WPTR, rb->wptr);
