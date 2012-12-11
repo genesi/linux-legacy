@@ -103,7 +103,6 @@ extern int z160_version;
 // functions
 //////////////////////////////////////////////////////////////////////////////
 
-static int kgsl_g12_addtimestamp(gsl_device_t* device, gsl_timestamp_t *timestamp);
 static int kgsl_g12_issueibcmds(gsl_device_t* device, int drawctxt_index, gpuaddr_t ibaddr, int sizedwords, gsl_timestamp_t *timestamp, unsigned int flags);
 static int kgsl_g12_context_create(gsl_device_t* device, gsl_context_type_t type, unsigned int *drawctxt_id, gsl_flags_t flags);
 static int kgsl_g12_context_destroy(gsl_device_t* device, unsigned int drawctxt_id);
@@ -595,7 +594,6 @@ kgsl_g12_getfunctable(gsl_functable_t *ftbl)
     ftbl->device_regwrite       = kgsl_g12_regwrite;
 	ftbl->device_waittimestamp  = kgsl_g12_waittimestamp;
     ftbl->device_runpending     = NULL;
-    ftbl->device_addtimestamp   = kgsl_g12_addtimestamp;
     ftbl->intr_isr              = kgsl_g12_isr;
     ftbl->mmu_tlbinvalidate     = kgsl_g12_tlbinvalidate;
     ftbl->mmu_setpagetable      = kgsl_g12_setpagetable;
@@ -824,14 +822,4 @@ kgsl_g12_context_destroy(gsl_device_t* device, unsigned int drawctxt_id)
     return (GSL_SUCCESS);
 }
 
-//----------------------------------------------------------------------------
-
-static int
-kgsl_g12_addtimestamp(gsl_device_t* device, gsl_timestamp_t *timestamp)
-{
-    device->current_timestamp++;
-    *timestamp = device->current_timestamp;
-
-    return (GSL_SUCCESS);
-}
-#endif
+#endif /* GSL_BLD_G12 */

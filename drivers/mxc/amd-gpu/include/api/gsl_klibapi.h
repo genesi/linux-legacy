@@ -74,7 +74,6 @@ gsl_timestamp_t    kgsl_cmdstream_readtimestamp(gsl_deviceid_t device_id, gsl_ti
 int                kgsl_cmdstream_freememontimestamp(gsl_deviceid_t device_id, gsl_memdesc_t *memdesc, gsl_timestamp_t timestamp, gsl_timestamp_type_t type);
 int                kgsl_cmdstream_waittimestamp(gsl_deviceid_t device_id, gsl_timestamp_t timestamp, unsigned int timeout);
 int                kgsl_cmdwindow_write(gsl_deviceid_t device_id, gsl_cmdwindow_t target, unsigned int addr, unsigned int data);
-int                kgsl_add_timestamp(gsl_deviceid_t device_id, gsl_timestamp_t *timestamp);
 int                kgsl_cmdstream_check_timestamp(gsl_deviceid_t device_id, gsl_timestamp_t timestamp);
 
 ////////////////////////////////////////////////////////////////////////////

@@ -52,7 +52,6 @@ typedef struct _gsl_functable_t {
 	int (*device_regwrite)        (gsl_device_t *device, unsigned int offsetwords, unsigned int value);
 	int (*device_waittimestamp)   (gsl_device_t *device, gsl_timestamp_t timestamp, unsigned int timeout);
 	int (*device_runpending)      (gsl_device_t *device);
-	int (*device_addtimestamp)    (gsl_device_t *device_id, gsl_timestamp_t *timestamp);
 	int (*intr_isr)               (gsl_device_t *device);
 	int (*mmu_tlbinvalidate)      (gsl_device_t *device, unsigned int reg_invalidate, unsigned int pid);
 	int (*mmu_setpagetable)       (gsl_device_t *device, unsigned int reg_ptbase, gpuaddr_t ptbase, unsigned int pid);

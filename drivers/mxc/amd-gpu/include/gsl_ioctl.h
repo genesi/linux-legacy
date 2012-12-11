@@ -182,11 +182,6 @@ typedef struct _kgsl_sharedmem_fromhostpointer_t {
     void        *hostptr;
 } kgsl_sharedmem_fromhostpointer_t;
 
-typedef struct _kgsl_add_timestamp_t {
-    gsl_deviceid_t device_id;
-    gsl_timestamp_t *timestamp;
-} kgsl_add_timestamp_t;
-
 typedef struct _kgsl_device_clock_t {
     gsl_deviceid_t device; /* GSL_DEVICE_YAMATO = 1, GSL_DEVICE_G12 = 2 */
     int enable; /* 0: disable, 1: enable */
@@ -220,7 +215,6 @@ typedef struct _kgsl_device_clock_t {
 #define IOCTL_KGSL_SHAREDMEM_LARGESTFREEBLOCK   _IOWR(GSL_MAGIC, 0x36, struct _kgsl_sharedmem_largestfreeblock_t)
 #define IOCTL_KGSL_SHAREDMEM_CACHEOPERATION     _IOW(GSL_MAGIC, 0x37, struct _kgsl_sharedmem_cacheoperation_t)
 #define IOCTL_KGSL_SHAREDMEM_FROMHOSTPOINTER    _IOW(GSL_MAGIC, 0x38, struct _kgsl_sharedmem_fromhostpointer_t)
-#define IOCTL_KGSL_ADD_TIMESTAMP                _IOWR(GSL_MAGIC, 0x39, struct _kgsl_add_timestamp_t)
 #define IOCTL_KGSL_DRIVER_EXIT		        _IOWR(GSL_MAGIC, 0x3A, NULL)
 #define IOCTL_KGSL_DEVICE_CLOCK			_IOWR(GSL_MAGIC, 0x60, struct _kgsl_device_clock_t)
 

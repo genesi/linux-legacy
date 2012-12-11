@@ -98,25 +98,6 @@ kgsl_cmdstream_issueibcmds(gsl_deviceid_t device_id, int drawctxt_index, gpuaddr
 
 //----------------------------------------------------------------------------
 
-int
-kgsl_add_timestamp(gsl_deviceid_t device_id, gsl_timestamp_t *timestamp)
-{
-    gsl_device_t* device  = &gsl_driver.device[device_id-1];
-    int status = GSL_FAILURE;
-
-    mutex_lock(&gsl_driver.lock);
-
-    if (device->ftbl.device_addtimestamp)
-    {
-        status = device->ftbl.device_addtimestamp(device, timestamp);
-    }
-
-    mutex_unlock(&gsl_driver.lock);
-    return status;
-}
-
-//----------------------------------------------------------------------------
-
 int kgsl_cmdstream_waittimestamp(gsl_deviceid_t device_id, gsl_timestamp_t timestamp, unsigned int timeout)
 {
     gsl_device_t* device  = &gsl_driver.device[device_id-1];

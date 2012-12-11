@@ -55,7 +55,6 @@ int                     gsl_device_getinfo(gsl_devhandle_t devhandle, gsl_devinf
 int                     gsl_device_setpowerstate(gsl_devhandle_t devhandle, gsl_flags_t flags);
 int                     gsl_device_setdmistate(gsl_devhandle_t devhandle,  gsl_flags_t flags);
 int                     gsl_device_waittimestamp(gsl_devhandle_t devhandle, gsl_timestamp_t timestamp, unsigned int timeout);
-int                     gsl_device_addtimestamp(gsl_devhandle_t devhandle, gsl_timestamp_t *timestamp);
 
 //  direct register API
 int                     gsl_register_read(gsl_devhandle_t devhandle, unsigned int offsetwords, unsigned int *data);
