@@ -18,7 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <gsl.h>
+#include "gsl.h"
 
 #include <linux/timer.h>
 #include <linux/spinlock.h>

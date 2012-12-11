@@ -1,7 +1,3 @@
-EXTRA_CFLAGS := \
-	-I$(obj)/include \
-	-I$(obj)/include/api
-
 obj-$(CONFIG_MXC_AMD_GPU) += gpu.o
 gpu-objs += 	gsl_cmdstream.o \
 		gsl_cmdwindow.o \

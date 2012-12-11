@@ -47,7 +47,7 @@ typedef struct _gsl_device_t    gsl_device_t;
 #include "gsl_klibapi.h"
 
 #ifdef GSL_BLD_YAMATO
-#include <reg/yamato.h>
+#include "reg/yamato.h"
 
 #include "gsl_pm4types.h"
 #include "gsl_utils.h"
@@ -56,7 +56,7 @@ typedef struct _gsl_device_t    gsl_device_t;
 #endif
 
 #ifdef GSL_BLD_G12
-#include <reg/g12_reg.h>
+#include "reg/g12_reg.h"
 
 #include "gsl_cmdwindow.h"
 #endif
