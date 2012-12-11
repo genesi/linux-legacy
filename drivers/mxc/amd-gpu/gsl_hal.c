@@ -164,7 +164,7 @@ kgsl_hal_init(void)
     if (gsl_driver.enable_mmu) {
 	printk(KERN_INFO "GPU MMU enabled\n");
 	pa = gpu_reserved_mem;
-	va = (unsigned int)ioremap_wc(gpu_reserved_mem, gpu_reserved_mem_size);
+	va = (unsigned int)ioremap(gpu_reserved_mem, gpu_reserved_mem_size);
 	res_size = gpu_reserved_mem_size;
    } else {
 	printk(KERN_INFO "GPU MMU disabled\n");
