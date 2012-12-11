@@ -19,6 +19,8 @@
 #include <linux/slab.h>
 #include <linux/sched.h>
 
+#include "mxc_kgsl.h"
+
 #include "gsl.h"
 #include "gsl_hal.h"
 

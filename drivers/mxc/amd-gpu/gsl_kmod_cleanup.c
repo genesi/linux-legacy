@@ -15,6 +15,8 @@
  * 02110-1301, USA.
  *
  */
+
+#include "mxc_kgsl.h"
  
 #include "gsl.h"
 #include "gsl_kmod_cleanup.h"

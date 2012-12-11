@@ -16,6 +16,8 @@
  *
  */
 
+#include "mxc_kgsl.h"
+
 #include "gsl_types.h"
 #include "gsl.h"
 #include "gsl_buildconfig.h"

@@ -20,6 +20,8 @@
  * Copyright (C) 2010-2011 Freescale Semiconductor, Inc. All Rights Reserved.
  */
 
+#include "mxc_kgsl.h"
+
 #include "gsl_hal.h"
 #include "gsl_halconfig.h"
 #include "gsl_linux_map.h"

@@ -19,6 +19,8 @@
 #include <linux/sched.h>
 #include <asm/div64.h>
 
+#include "mxc_kgsl.h"
+
 #include "gsl.h"
 #include "gsl_hal.h"
 

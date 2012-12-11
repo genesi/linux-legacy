@@ -19,6 +19,8 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 
+#include "mxc_kgsl.h"
+
 #include "gsl.h"
 
 //////////////////////////////////////////////////////////////////////////////

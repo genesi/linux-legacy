@@ -18,6 +18,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#include "mxc_kgsl.h"
+
 #include "gsl.h"
 
 #include <linux/timer.h>
