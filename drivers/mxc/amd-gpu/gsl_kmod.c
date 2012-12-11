@@ -634,21 +634,6 @@ static int gsl_kmod_ioctl(struct inode *inode, struct file *fd, unsigned int cmd
             kgslStatus = kgsl_sharedmem_fromhostpointer(param.device_id, &memdesc, param.hostptr);
             break;
         }
-    case IOCTL_KGSL_DEVICE_CLOCK:
-        {
-            kgsl_device_clock_t param;
-#if defined(GSL_IOCTL_DEBUG)
-	    printk(KERN_INFO "--> %s: IOCTL_KGSL_DEVICE_CLOCK\n", __func__);
-#endif
-            if (copy_from_user(&param, (void __user *)arg, sizeof(kgsl_device_clock_t)))
-            {
-                printk(KERN_ERR "%s: copy_from_user error\n", __func__);
-                kgslStatus = GSL_FAILURE;
-                break;
-            }
-            kgslStatus = kgsl_device_clock(param.device, param.enable);
-            break;
-        }
     default:
         kgslStatus = -ENOTTY;
         break;

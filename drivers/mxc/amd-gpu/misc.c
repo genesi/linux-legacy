@@ -108,6 +108,7 @@ static void kgsl_device_inactive(unsigned long data)
 	spin_unlock_irqrestore(&autogate->lock, flags);
 }
 
+#if 0
 int kgsl_device_clock(gsl_deviceid_t id, int enable)
 {
 	int ret = GSL_SUCCESS;
@@ -126,6 +127,7 @@ int kgsl_device_clock(gsl_deviceid_t id, int enable)
 	
 	return ret;
 }
+#endif
 
 int kgsl_device_autogate_init(gsl_device_t *dev)
 {

@@ -119,7 +119,6 @@ int     kgsl_g12_getfunctable(gsl_functable_t *ftbl);
 
 int kgsl_clock(gsl_deviceid_t dev, int enable);
 int kgsl_device_active(gsl_device_t *dev);
-int kgsl_device_clock(gsl_deviceid_t id, int enable);
 int kgsl_device_autogate_init(gsl_device_t *dev);
 void kgsl_device_autogate_exit(gsl_device_t *dev);
 
