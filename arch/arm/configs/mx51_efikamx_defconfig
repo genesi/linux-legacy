@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.31.14.28
-# Mon Dec 10 21:03:06 2012
+# Linux kernel version: 2.6.31.14.27
+# Tue Nov 20 12:15:11 2012
 #
 CONFIG_ARM=y
 CONFIG_HAVE_PWM=y
@@ -64,7 +64,7 @@ CONFIG_CGROUP_FREEZER=y
 # CONFIG_CGROUP_DEVICE is not set
 CONFIG_CPUSETS=y
 # CONFIG_PROC_PID_CPUSET is not set
-CONFIG_CGROUP_CPUACCT=y
+# CONFIG_CGROUP_CPUACCT is not set
 CONFIG_RESOURCE_COUNTERS=y
 # CONFIG_CGROUP_MEM_RES_CTLR is not set
 # CONFIG_SYSFS_DEPRECATED_V2 is not set
