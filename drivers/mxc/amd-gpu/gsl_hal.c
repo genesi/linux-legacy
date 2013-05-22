@@ -174,12 +174,12 @@ kgsl_hal_init(void)
 	va = (unsigned int)ioremap(gpu_reserved_mem, gpu_reserved_mem_size);
 	if (!va)
 		pr_err("%s: ioremap failed!\n", DRVNAME);
-	res_size = gpu_reserved_mem_size - GSL_HAL_SHMEM_SIZE_EMEM_NOMMU;
+	res_size = gpu_reserved_mem_size;
     }
 
     if (va) {
 	/* it would be awesome if we didn't have to do this on module init.. */
-	memset((void *)va, 0, res_size);
+	memset((void *)va, 0, gpu_reserved_mem_size);
 
 	/* set up a "memchunk" so we know what we can iounmap on exit */
 	hal->memchunk.mmio_virt_base = (void *)va;
@@ -195,9 +195,9 @@ kgsl_hal_init(void)
 
 	hal->memspace[GSL_HAL_MEM2].mmio_virt_base = (void *) va;
 	hal->memspace[GSL_HAL_MEM2].gpu_base       = pa;
-	hal->memspace[GSL_HAL_MEM2].sizebytes      = res_size;
-	va += res_size;
-	pa += res_size;
+	hal->memspace[GSL_HAL_MEM2].sizebytes      = GSL_HAL_SHMEM_SIZE_EMEM_NOMMU_PHYS;
+	va += hal->memspace[GSL_HAL_MEM2].sizebytes;
+	pa += hal->memspace[GSL_HAL_MEM2].sizebytes;
 
 #ifdef GSL_HAL_DEBUG
 	pr_info("%s: GSL_HAL_MEM2 aperture (PHYS) pa = 0x%p va = 0x%p size = 0x%08x\n", DRVNAME,
@@ -214,7 +214,7 @@ kgsl_hal_init(void)
 	} else {
 	    hal->memspace[GSL_HAL_MEM1].mmio_virt_base = (void *) va;
 	    hal->memspace[GSL_HAL_MEM1].gpu_base       = pa;
-	    hal->memspace[GSL_HAL_MEM1].sizebytes	= GSL_HAL_SHMEM_SIZE_EMEM_NOMMU;
+	    hal->memspace[GSL_HAL_MEM1].sizebytes	= GSL_HAL_SHMEM_SIZE_EMEM_NOMMU_EMEM;
 	}
 
 #ifdef GSL_HAL_DEBUG
