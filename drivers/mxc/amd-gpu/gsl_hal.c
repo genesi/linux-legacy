@@ -50,6 +50,8 @@ extern int gpu_3d_regsize;
 extern int gmem_size;
 extern int gpu_2d_irq, gpu_3d_irq;
 extern int enable_mmu;
+extern phys_addr_t gpu_reserved_mem;
+extern int gpu_reserved_mem_size;
 
 
 KGSLHAL_API int
@@ -122,6 +124,29 @@ kgsl_hal_init(void)
 	pr_info("%s: GPU MMU enabled\n", DRVNAME);
     }
 
+    va = (unsigned int) ioremap_wc(gpu_reserved_mem, gpu_reserved_mem_size);
+    if (va) {
+	/* it would be nice if we didn't do this on module init.. */
+        memset((void *)va, 0, gpu_reserved_mem_size);
+
+	hal->memchunk.mmio_virt_base = (void *) va;
+	hal->memchunk.mmio_phys_base = (void *) gpu_reserved_mem;
+	hal->memchunk.sizebytes = (void *) gpu_reserved_mem_size;
+
+#ifdef GSL_HAL_DEBUG
+	pr_info("%s: EMEM: phys 0x%p virt 0x%p size %dMiB\n", DRVNAME, (void *)hal->memchunk.mmio_phys_base,
+									(void *)hal->memchunk.mmio_virt_base,
+									hal->memchunk.sizebytes / SZ_1M);
+#endif
+	hal->memspace.mmio_virt_base = (void *) va;
+	hal->memspace.gpu_base       = gpu_reserved_mem;
+	hal->memspace.sizebytes      = gpu_reserved_mem_size;
+
+    } else {
+	pr_err("%s: ioremap of reserved memory failed!\n", DRVNAME);
+	return GSL_FAILURE_SYSTEMERROR;
+    }
+
     return GSL_SUCCESS;
 }
 
@@ -146,19 +171,42 @@ kgsl_hal_close(void)
 	    iounmap(hal->z160_regspace.mmio_virt_base);
 	}
 
+	if (hal->memchunk.mmio_virt_base) {
+	    iounmap(hal->memchunk.mmio_virt_base);
+	}
+
 /*
 	if (gsl_driver.enable_mmu) {
 	    gsl_linux_map_destroy();
 	}
 */
 	/* release hal struct */
-	memset(hal, 0, sizeof(gsl_hal_t));
-	kfree(gsl_driver.hal);
 	gsl_driver.hal = NULL;
+	memset(hal, 0, sizeof(gsl_hal_t));
+	kfree(hal);
     }
 
     return GSL_SUCCESS;
 }
+
+KGSLHAL_API int
+kgsl_hal_getshmemconfig(gsl_shmemconfig_t *config)
+{
+    int        status = GSL_FAILURE_DEVICEERROR;
+    gsl_hal_t  *hal   = (gsl_hal_t *) gsl_driver.hal;
+
+    memset(config, 0, sizeof(gsl_shmemconfig_t));
+
+    if (hal) {
+       config->emem_hostbase = hal->memchunk.mmio_virt_base;
+       config->emem_gpubase = hal->memchunk.mmio_phys_base;
+       config->emem_sizebytes = hal->memchunk.sizebytes;
+       status = GSL_SUCCESS;
+    }
+
+    return status;
+}
+
 
 KGSLHAL_API int
 kgsl_hal_getdevconfig(gsl_deviceid_t device_id, gsl_devconfig_t *config)
