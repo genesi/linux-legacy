@@ -27,13 +27,11 @@
  * these are a bit overzealous: a whole byte for a bit flag?
  */
 #define GSL_MEMARENAPRIV_SIGNATURE_MASK         0x0000FFFF
-#define GSL_MEMARENAPRIV_APERTUREID_MASK        0xF0000000
 #define GSL_MEMARENAPRIV_MMUVIRTUALIZED_MASK    0x0F000000
 #define GSL_MEMARENAPRIV_CONPHYS_MASK		0x00F00000 //neko
 
 #define GSL_MEMARENAPRIV_SIGNATURE_SHIFT        0
 #define GSL_MEMARENAPRIV_MMUVIRTUALIZED_SHIFT   24
-#define GSL_MEMARENAPRIV_APERTUREID_SHIFT       28
 #define GSL_MEMARENAPRIV_CONPHYS_SHIFT		20 //neko
 
 #define GSL_MEMARENA_INSTANCE_SIGNATURE         0x0000CAFE
@@ -48,12 +46,10 @@
 // macros
 #define GSL_MEMARENA_SET_SIGNATURE          (memarena->priv |= ((GSL_MEMARENA_INSTANCE_SIGNATURE << GSL_MEMARENAPRIV_SIGNATURE_SHIFT) & GSL_MEMARENAPRIV_SIGNATURE_MASK))
 #define GSL_MEMARENA_SET_MMU_VIRTUALIZED    (memarena->priv |= ((mmu_virtualized << GSL_MEMARENAPRIV_MMUVIRTUALIZED_SHIFT) & GSL_MEMARENAPRIV_MMUVIRTUALIZED_MASK))
-#define GSL_MEMARENA_SET_ID                 (memarena->priv |= ((aperture_id << GSL_MEMARENAPRIV_APERTUREID_SHIFT) & GSL_MEMARENAPRIV_APERTUREID_MASK))
 #define GSL_MEMARENA_SET_CONPHYS            (memarena->priv |= ((conphys << GSL_MEMARENAPRIV_CONPHYS_SHIFT) & GSL_MEMARENAPRIV_CONPHYS_MASK))//neko
 
 #define GSL_MEMARENA_GET_SIGNATURE          ((memarena->priv & GSL_MEMARENAPRIV_SIGNATURE_MASK)   >> GSL_MEMARENAPRIV_SIGNATURE_SHIFT)
 #define GSL_MEMARENA_IS_MMU_VIRTUALIZED     ((memarena->priv & GSL_MEMARENAPRIV_MMUVIRTUALIZED_MASK) >> GSL_MEMARENAPRIV_MMUVIRTUALIZED_SHIFT)
-#define GSL_MEMARENA_GET_ID                 ((memarena->priv & GSL_MEMARENAPRIV_APERTUREID_MASK)  >> GSL_MEMARENAPRIV_APERTUREID_SHIFT)
 #define GSL_MEMARENA_IS_CONPHYS		    ((memarena->priv & GSL_MEMARENAPRIV_CONPHYS_MASK) >> GSL_MEMARENAPRIV_CONPHYS_SHIFT)//neko
 
 //  validate
@@ -267,13 +263,13 @@ kgsl_memarena_releasememblknode(gsl_memarena_t *memarena, memblk_t *memblk)
 //----------------------------------------------------------------------------
 
 gsl_memarena_t*
-kgsl_memarena_create(int aperture_id, int mmu_virtualized, unsigned int hostbaseaddr, gpuaddr_t gpubaseaddr, int sizebytes)
+kgsl_memarena_create(int mmu_virtualized, unsigned int hostbaseaddr, gpuaddr_t gpubaseaddr, int sizebytes)
 {
     static int      count = 0;
     gsl_memarena_t  *memarena;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
-                    "--> gsl_memarena_t* kgsl_memarena_create(int aperture_id=%d, gpuaddr_t gpubaseaddr=0x%08x, int sizebytes=%d)\n", aperture_id, gpubaseaddr, sizebytes );
+                    "--> gsl_memarena_t* kgsl_memarena_create(gpuaddr_t gpubaseaddr=0x%08x, int sizebytes=%d)\n", gpubaseaddr, sizebytes );
 
     memarena = (gsl_memarena_t *)kmalloc(sizeof(gsl_memarena_t), GFP_KERNEL);
 
@@ -289,7 +285,6 @@ kgsl_memarena_create(int aperture_id, int mmu_virtualized, unsigned int hostbase
 
     GSL_MEMARENA_SET_SIGNATURE;
     GSL_MEMARENA_SET_MMU_VIRTUALIZED;
-    GSL_MEMARENA_SET_ID;
 
     mutex_init(&memarena->lock);
 
@@ -338,13 +333,10 @@ kgsl_memarena_destroy(gsl_memarena_t *memarena)
     // memory leak check
     if (memarena->freelist.head->blksize != memarena->sizebytes)
     {
-        if (GSL_MEMARENA_GET_ID == GSL_APERTURE_EMEM)
-        {
             // external memory leak detected
             kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_FATAL,
                             "ERROR: External memory leak detected.\n" );
             return (GSL_FAILURE);
-        }
     }
 #endif // _DEBUG
 
@@ -524,8 +516,6 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, gsl_m
     //
 
     // when allocating from external memory aperture, round up size of requested block to multiple of page size if needed
-    if (GSL_MEMARENA_GET_ID == GSL_APERTURE_EMEM)
-    {
         if ((flags & GSL_MEMFLAGS_FORCEPAGESIZE) || GSL_MEMARENA_IS_MMU_VIRTUALIZED)
         {
             if (size & (GSL_PAGESIZE-1))
@@ -533,7 +523,6 @@ kgsl_memarena_alloc(gsl_memarena_t *memarena, gsl_flags_t flags, int size, gsl_m
                 size = ((size >> GSL_PAGESIZE_SHIFT) + 1) << GSL_PAGESIZE_SHIFT;
             }
         }
-    }
 
     // determine shift count for alignment requested
     alignmentshift = gsl_memarena_alignmentshift(flags);

@@ -25,33 +25,12 @@
 /////////////////////////////////////////////////////////////////////////////
 // macros
 //////////////////////////////////////////////////////////////////////////////
-#define GSL_SHMEM_APERTURE_MARK(aperture_id)    \
-    (shmem->priv |= (((aperture_id + 1) << GSL_APERTURE_SHIFT) & GSL_APERTURE_MASK))
-
-#define GSL_SHMEM_APERTURE_ISMARKED(aperture_id)    \
-    (((shmem->priv & GSL_APERTURE_MASK) >> GSL_APERTURE_SHIFT) & (aperture_id + 1))
-
-#define GSL_MEMFLAGS_APERTURE_GET(flags, aperture_id)                                                       \
-    aperture_id = (gsl_apertureid_t)((flags & GSL_MEMFLAGS_APERTURE_MASK) >> GSL_MEMFLAGS_APERTURE_SHIFT);  \
-    DEBUG_ASSERT(aperture_id < GSL_APERTURE_MAX);
-
-#define GSL_MEMFLAGS_CHANNEL_GET(flags, channel_id)                                                     \
-    channel_id = (gsl_channelid_t)((flags & GSL_MEMFLAGS_CHANNEL_MASK) >> GSL_MEMFLAGS_CHANNEL_SHIFT);  \
-    DEBUG_ASSERT(channel_id < GSL_CHANNEL_MAX);
-
-#define GSL_MEMDESC_APERTURE_SET(memdesc, aperture_index)   \
-    memdesc->priv = (memdesc->priv & ~GSL_APERTURE_MASK) | ((aperture_index << GSL_APERTURE_SHIFT) & GSL_APERTURE_MASK);
 
 #define GSL_MEMDESC_DEVICE_SET(memdesc, device_id)  \
     memdesc->priv = (memdesc->priv & ~GSL_DEVICEID_MASK) | ((device_id << GSL_DEVICEID_SHIFT) & GSL_DEVICEID_MASK);
 
 #define GSL_MEMDESC_EXTALLOC_SET(memdesc, flag) \
     memdesc->priv = (memdesc->priv & ~GSL_EXTALLOC_MASK) | ((flag << GSL_EXTALLOC_SHIFT) & GSL_EXTALLOC_MASK);
-
-#define GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index)                           \
-    DEBUG_ASSERT(memdesc);                                                            \
-    aperture_index = ((memdesc->priv & GSL_APERTURE_MASK) >> GSL_APERTURE_SHIFT);   \
-    DEBUG_ASSERT(aperture_index < GSL_SHMEM_MAX_APERTURES);
 
 #define GSL_MEMDESC_DEVICE_GET(memdesc, device_id)                                              \
     DEBUG_ASSERT(memdesc);                                                                        \
@@ -62,17 +41,6 @@
     ((memdesc->priv & GSL_EXTALLOC_MASK) >> GSL_EXTALLOC_SHIFT)
 
 
-//////////////////////////////////////////////////////////////////////////////
-// aperture index in shared memory object
-//////////////////////////////////////////////////////////////////////////////
-static __inline int
-kgsl_sharedmem_getapertureindex(gsl_sharedmem_t *shmem, gsl_apertureid_t aperture_id, gsl_channelid_t channel_id)
-{
-    DEBUG_ASSERT(shmem->aperturelookup[aperture_id][channel_id] < shmem->numapertures);
-
-    return (shmem->aperturelookup[aperture_id][channel_id]);
-}
-
 
 //////////////////////////////////////////////////////////////////////////////
 // functions
@@ -81,12 +49,9 @@ kgsl_sharedmem_getapertureindex(gsl_sharedmem_t *shmem, gsl_apertureid_t apertur
 int
 kgsl_sharedmem_init(gsl_sharedmem_t *shmem)
 {
-    int                i;
     int                status;
     gsl_shmemconfig_t  config;
     int                mmu_virtualized;
-    gsl_apertureid_t   aperture_id;
-    gsl_channelid_t    channel_id;
     unsigned int       hostbaseaddr;
     gpuaddr_t          gpubaseaddr;
     int                sizebytes;
@@ -107,63 +72,28 @@ kgsl_sharedmem_init(gsl_sharedmem_t *shmem)
         return (status);
     }
 
-    shmem->numapertures = config.numapertures;
+    hostbaseaddr    = config.emem_hostbase;
+    gpubaseaddr     = config.emem_gpubase;
+    sizebytes       = config.emem_sizebytes;
+    mmu_virtualized = 0;
 
-    for (i = 0; i < shmem->numapertures; i++)
+    // make sure aligned to page size
+    DEBUG_ASSERT((gpubaseaddr & ((1 << GSL_PAGESIZE_SHIFT) - 1)) == 0);
+
+    // make a multiple of page size
+    sizebytes = (sizebytes & ~((1 << GSL_PAGESIZE_SHIFT) - 1));
+
+    if (sizebytes > 0)
     {
-        aperture_id     = config.apertures[i].id;
-        channel_id      = config.apertures[i].channel;
-        hostbaseaddr    = config.apertures[i].hostbase;
-        gpubaseaddr     = config.apertures[i].gpubase;
-        sizebytes       = config.apertures[i].sizebytes;
-        mmu_virtualized = 0;
+        shmem->memarena = kgsl_memarena_create(mmu_virtualized, hostbaseaddr, gpubaseaddr, sizebytes);
 
-        // handle mmu virtualized aperture
-        if (aperture_id == GSL_APERTURE_MMU)
-        {
-            mmu_virtualized = 1;
-            aperture_id     = GSL_APERTURE_EMEM;
-        }
-
-        // make sure aligned to page size
-        DEBUG_ASSERT((gpubaseaddr & ((1 << GSL_PAGESIZE_SHIFT) - 1)) == 0);
-
-        // make a multiple of page size
-        sizebytes = (sizebytes & ~((1 << GSL_PAGESIZE_SHIFT) - 1));
-
-        if (sizebytes > 0)
-        {
-            shmem->apertures[i].memarena = kgsl_memarena_create(aperture_id, mmu_virtualized, hostbaseaddr, gpubaseaddr, sizebytes);
-
-            if (!shmem->apertures[i].memarena)
+            if (!shmem->memarena)
             {
                 kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_ERROR, "ERROR: Unable to allocate memarena.\n" );
                 kgsl_sharedmem_close(shmem);
                 kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_sharedmem_init. Return value %B\n", GSL_FAILURE );
                 return (GSL_FAILURE);
             }
-
-            shmem->apertures[i].id       = aperture_id;
-            shmem->apertures[i].channel  = channel_id;
-            shmem->apertures[i].numbanks = 1;
-
-            // create aperture lookup table
-            if (GSL_SHMEM_APERTURE_ISMARKED(aperture_id))
-            {
-                // update "current aperture_id"/"current channel_id" index
-                shmem->aperturelookup[aperture_id][channel_id] = i;
-            }
-            else
-            {
-                // initialize "current aperture_id"/"channel_id" indexes
-                for (channel_id = GSL_CHANNEL_1; channel_id < GSL_CHANNEL_MAX; channel_id++)
-                {
-                    shmem->aperturelookup[aperture_id][channel_id] = i;
-                }
-
-                GSL_SHMEM_APERTURE_MARK(aperture_id);
-            }
-        }
     }
 
     shmem->flags |= GSL_FLAGS_INITIALIZED;
@@ -178,20 +108,16 @@ kgsl_sharedmem_init(gsl_sharedmem_t *shmem)
 int
 kgsl_sharedmem_close(gsl_sharedmem_t *shmem)
 {
-    int  i;
     int  result = GSL_SUCCESS;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_sharedmem_close(gsl_sharedmem_t *shmem=0x%08x)\n", shmem );
 
     if (shmem->flags & GSL_FLAGS_INITIALIZED)
     {
-        for (i = 0; i < shmem->numapertures; i++)
-        {
-            if (shmem->apertures[i].memarena)
+            if (shmem->memarena)
             {
-                result = kgsl_memarena_destroy(shmem->apertures[i].memarena);
+                result = kgsl_memarena_destroy(shmem->memarena);
             }
-        }
 
         memset(shmem, 0, sizeof(gsl_sharedmem_t));
     }
@@ -206,12 +132,8 @@ kgsl_sharedmem_close(gsl_sharedmem_t *shmem)
 int
 kgsl_sharedmem_alloc0(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes, gsl_memdesc_t *memdesc)
 {
-    gsl_apertureid_t  aperture_id;
-    gsl_channelid_t   channel_id;
     gsl_deviceid_t    tmp_id;
-    int               aperture_index, org_index;
     int               result  = GSL_FAILURE;
-    gsl_mmu_t         *mmu    = NULL;
     gsl_sharedmem_t   *shmem  = &gsl_driver.shmem;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
@@ -220,9 +142,6 @@ kgsl_sharedmem_alloc0(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes
 
     DEBUG_ASSERT(sizebytes);
     DEBUG_ASSERT(memdesc);
-
-    GSL_MEMFLAGS_APERTURE_GET(flags, aperture_id);
-    GSL_MEMFLAGS_CHANNEL_GET(flags, channel_id);
 
     memset(memdesc, 0, sizeof(gsl_memdesc_t));
 
@@ -273,110 +192,7 @@ kgsl_sharedmem_alloc0(gsl_deviceid_t device_id, gsl_flags_t flags, int sizebytes
 
     DEBUG_ASSERT(device_id > GSL_DEVICE_ANY && device_id <= GSL_DEVICE_MAX);
 
-    // get mmu reference
-    mmu = &gsl_driver.device[device_id-1].mmu;
-
-    aperture_index = kgsl_sharedmem_getapertureindex(shmem, aperture_id, channel_id);
-
-    //do not proceed if it is a strict request, the aperture requested is not present, and the MMU is enabled
-    if (!((flags & GSL_MEMFLAGS_STRICTREQUEST) && aperture_id != shmem->apertures[aperture_index].id && kgsl_mmu_isenabled(mmu)))
-    {
-        // do allocation
-        result = kgsl_memarena_alloc(shmem->apertures[aperture_index].memarena, flags, sizebytes, memdesc);
-
-        // if allocation failed
-        if (result != GSL_SUCCESS)
-        {
-            org_index = aperture_index;
-
-            // then failover to other channels within the current aperture
-            for (channel_id = GSL_CHANNEL_1; channel_id < GSL_CHANNEL_MAX; channel_id++)
-            {
-                aperture_index = kgsl_sharedmem_getapertureindex(shmem, aperture_id, channel_id);
-
-                if (aperture_index != org_index)
-                {
-                    // do allocation
-                    result = kgsl_memarena_alloc(shmem->apertures[aperture_index].memarena, flags, sizebytes, memdesc);
-
-                    if (result == GSL_SUCCESS)
-                    {
-                        break;
-                    }
-                }
-            }
-
-            // if allocation still has not succeeded, then failover to EMEM/MMU aperture, but
-            // not if it's a strict request and the MMU is enabled
-            if (result != GSL_SUCCESS && aperture_id != GSL_APERTURE_EMEM
-                && !((flags & GSL_MEMFLAGS_STRICTREQUEST) && kgsl_mmu_isenabled(mmu)))
-            {
-                aperture_id = GSL_APERTURE_EMEM;
-
-                // try every channel
-                for (channel_id = GSL_CHANNEL_1; channel_id < GSL_CHANNEL_MAX; channel_id++)
-                {
-                    aperture_index = kgsl_sharedmem_getapertureindex(shmem, aperture_id, channel_id);
-
-                    if (aperture_index != org_index)
-                    {
-                        // do allocation
-                        result = kgsl_memarena_alloc(shmem->apertures[aperture_index].memarena, flags, sizebytes, memdesc);
-
-                        if (result == GSL_SUCCESS)
-                        {
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (result == GSL_SUCCESS)
-    {
-        GSL_MEMDESC_APERTURE_SET(memdesc, aperture_index);
-        GSL_MEMDESC_DEVICE_SET(memdesc, device_id);
-
-        if (kgsl_memarena_isvirtualized(shmem->apertures[aperture_index].memarena))
-        {
-            gsl_scatterlist_t scatterlist;
-
-            scatterlist.contiguous = 0;
-            scatterlist.num        = memdesc->size / GSL_PAGESIZE;
-
-            if (memdesc->size & (GSL_PAGESIZE-1))
-            {
-                scatterlist.num++;
-            }
-
-            scatterlist.pages = kmalloc(sizeof(unsigned int) * scatterlist.num, GFP_KERNEL);
-            if (scatterlist.pages)
-            {
-                // allocate physical pages
-                result = kgsl_hal_allocphysical(memdesc->gpuaddr, scatterlist.num, scatterlist.pages);
-                if (result == GSL_SUCCESS)
-                {
-                    result = kgsl_mmu_map(mmu, memdesc->gpuaddr, &scatterlist, flags, current->tgid);
-                    if (result != GSL_SUCCESS)
-                    {
-                        kgsl_hal_freephysical(memdesc->gpuaddr, scatterlist.num, scatterlist.pages);
-                    }
-                }
-
-                kfree(scatterlist.pages);
-            }
-            else
-            {
-                result = GSL_FAILURE;
-            }
-
-            if (result != GSL_SUCCESS)
-            {
-                kgsl_memarena_free(shmem->apertures[aperture_index].memarena, memdesc);
-            }
-        }
-    }
+    result = kgsl_memarena_alloc(shmem->memarena, flags, sizebytes, memdesc);
 
     KGSL_DEBUG_TBDUMP_SETMEM( memdesc->gpuaddr, 0, memdesc->size );
 
@@ -403,30 +219,18 @@ int
 kgsl_sharedmem_free0(gsl_memdesc_t *memdesc, unsigned int pid)
 {
     int              status = GSL_SUCCESS;
-    int              aperture_index;
     gsl_deviceid_t   device_id;
     gsl_sharedmem_t  *shmem;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "--> int kgsl_sharedmem_free(gsl_memdesc_t *memdesc=%M)\n", memdesc );
 
-    GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
     GSL_MEMDESC_DEVICE_GET(memdesc, device_id);
 
     shmem = &gsl_driver.shmem;
 
     if (shmem->flags & GSL_FLAGS_INITIALIZED)
     {
-        if (kgsl_memarena_isvirtualized(shmem->apertures[aperture_index].memarena))
-        {
-            status |= kgsl_mmu_unmap(&gsl_driver.device[device_id-1].mmu, memdesc->gpuaddr, memdesc->size, pid);
-
-            if (!GSL_MEMDESC_EXTALLOC_ISMARKED(memdesc))
-            {
-                status |= kgsl_hal_freephysical(memdesc->gpuaddr, memdesc->size / GSL_PAGESIZE, NULL);
-            }
-        }
-
-        kgsl_memarena_free(shmem->apertures[aperture_index].memarena, memdesc);
+        kgsl_memarena_free(shmem->memarena, memdesc);
 
         // clear descriptor
         memset(memdesc, 0, sizeof(gsl_memdesc_t));
@@ -458,15 +262,12 @@ kgsl_sharedmem_free(gsl_memdesc_t *memdesc)
 int
 kgsl_sharedmem_read0(const gsl_memdesc_t *memdesc, void *dst, unsigned int offsetbytes, unsigned int sizebytes, unsigned int touserspace)
 {
-    int              aperture_index;
     gsl_sharedmem_t  *shmem;
     unsigned int     gpuoffsetbytes;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_sharedmem_read(gsl_memdesc_t *memdesc=%M, void *dst=0x%08x, uint offsetbytes=%u, uint sizebytes=%u)\n",
                     memdesc, dst, offsetbytes, sizebytes );
-
-    GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
 
     if (GSL_MEMDESC_EXTALLOC_ISMARKED(memdesc))
     {
@@ -486,19 +287,19 @@ kgsl_sharedmem_read0(const gsl_memdesc_t *memdesc, void *dst, unsigned int offse
     DEBUG_ASSERT(dst);
     DEBUG_ASSERT(sizebytes);
 
-    if (memdesc->gpuaddr < shmem->apertures[aperture_index].memarena->gpubaseaddr)
+    if (memdesc->gpuaddr < shmem->memarena->gpubaseaddr)
     {
         return (GSL_FAILURE_BADPARAM);
     }
 
-    if (memdesc->gpuaddr + sizebytes > shmem->apertures[aperture_index].memarena->gpubaseaddr + shmem->apertures[aperture_index].memarena->sizebytes)
+    if ((memdesc->gpuaddr + sizebytes) > (shmem->memarena->gpubaseaddr + shmem->memarena->sizebytes))
     {
         return (GSL_FAILURE_BADPARAM);
     }
 
-    gpuoffsetbytes = (memdesc->gpuaddr - shmem->apertures[aperture_index].memarena->gpubaseaddr) + offsetbytes;
+    gpuoffsetbytes = (memdesc->gpuaddr - shmem->memarena->gpubaseaddr) + offsetbytes;
 
-    GSL_HAL_MEM_READ(dst, shmem->apertures[aperture_index].memarena->hostbaseaddr, gpuoffsetbytes, sizebytes, touserspace);
+    GSL_HAL_MEM_READ(dst, shmem->memarena->hostbaseaddr, gpuoffsetbytes, sizebytes, touserspace);
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE, "<-- kgsl_sharedmem_read. Return value %B\n", GSL_SUCCESS );
 
@@ -522,15 +323,12 @@ kgsl_sharedmem_read(const gsl_memdesc_t *memdesc, void *dst, unsigned int offset
 int
 kgsl_sharedmem_write0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, void *src, unsigned int sizebytes, unsigned int fromuserspace)
 {
-    int              aperture_index;
     gsl_sharedmem_t  *shmem;
     unsigned int     gpuoffsetbytes;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_sharedmem_write(gsl_memdesc_t *memdesc=%M, uint offsetbytes=%u, void *src=0x%08x, uint sizebytes=%u)\n",
                     memdesc, offsetbytes, src, sizebytes );
-
-    GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
 
     if (GSL_MEMDESC_EXTALLOC_ISMARKED(memdesc))
     {
@@ -549,12 +347,12 @@ kgsl_sharedmem_write0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, vo
 
     DEBUG_ASSERT(src);
     DEBUG_ASSERT(sizebytes);
-    DEBUG_ASSERT(memdesc->gpuaddr >= shmem->apertures[aperture_index].memarena->gpubaseaddr);
-    DEBUG_ASSERT((memdesc->gpuaddr + sizebytes) <= (shmem->apertures[aperture_index].memarena->gpubaseaddr + shmem->apertures[aperture_index].memarena->sizebytes));
+    DEBUG_ASSERT(memdesc->gpuaddr >= shmem->memarena->gpubaseaddr);
+    DEBUG_ASSERT((memdesc->gpuaddr + sizebytes) <= (shmem->memarena->gpubaseaddr + shmem->memarena->sizebytes));
 
-    gpuoffsetbytes = (memdesc->gpuaddr - shmem->apertures[aperture_index].memarena->gpubaseaddr) + offsetbytes;
+    gpuoffsetbytes = (memdesc->gpuaddr - shmem->memarena->gpubaseaddr) + offsetbytes;
 
-    GSL_HAL_MEM_WRITE(shmem->apertures[aperture_index].memarena->hostbaseaddr, gpuoffsetbytes, src, sizebytes, fromuserspace);
+    GSL_HAL_MEM_WRITE(shmem->memarena->hostbaseaddr, gpuoffsetbytes, src, sizebytes, fromuserspace);
 
     KGSL_DEBUG(GSL_DBGFLAGS_PM4MEM, KGSL_DEBUG_DUMPMEMWRITE((memdesc->gpuaddr + offsetbytes), sizebytes, src));
 
@@ -582,15 +380,12 @@ kgsl_sharedmem_write(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, voi
 int
 kgsl_sharedmem_set0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsigned int value, unsigned int sizebytes)
 {
-    int              aperture_index;
     gsl_sharedmem_t  *shmem;
     unsigned int     gpuoffsetbytes;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_sharedmem_set(gsl_memdesc_t *memdesc=%M, unsigned int offsetbytes=%d, unsigned int value=0x%08x, unsigned int sizebytes=%d)\n",
                     memdesc, offsetbytes, value, sizebytes );
-
-    GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
 
     if (GSL_MEMDESC_EXTALLOC_ISMARKED(memdesc))
     {
@@ -608,12 +403,12 @@ kgsl_sharedmem_set0(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsi
     }
 
     DEBUG_ASSERT(sizebytes);
-    DEBUG_ASSERT(memdesc->gpuaddr >= shmem->apertures[aperture_index].memarena->gpubaseaddr);
-    DEBUG_ASSERT((memdesc->gpuaddr + sizebytes) <= (shmem->apertures[aperture_index].memarena->gpubaseaddr + shmem->apertures[aperture_index].memarena->sizebytes));
+    DEBUG_ASSERT(memdesc->gpuaddr >= shmem->memarena->gpubaseaddr);
+    DEBUG_ASSERT((memdesc->gpuaddr + sizebytes) <= (shmem->memarena->gpubaseaddr + shmem->memarena->sizebytes));
 
-    gpuoffsetbytes = (memdesc->gpuaddr - shmem->apertures[aperture_index].memarena->gpubaseaddr) + offsetbytes;
+    gpuoffsetbytes = (memdesc->gpuaddr - shmem->memarena->gpubaseaddr) + offsetbytes;
 
-    GSL_HAL_MEM_SET(shmem->apertures[aperture_index].memarena->hostbaseaddr, gpuoffsetbytes, value, sizebytes);
+    GSL_HAL_MEM_SET(shmem->memarena->hostbaseaddr, gpuoffsetbytes, value, sizebytes);
 
     KGSL_DEBUG(GSL_DBGFLAGS_PM4MEM, KGSL_DEBUG_DUMPMEMSET((memdesc->gpuaddr + offsetbytes), sizebytes, value));
 
@@ -641,9 +436,6 @@ kgsl_sharedmem_set(const gsl_memdesc_t *memdesc, unsigned int offsetbytes, unsig
 unsigned int
 kgsl_sharedmem_largestfreeblock(gsl_deviceid_t device_id, gsl_flags_t flags)
 {
-    gsl_apertureid_t  aperture_id;
-    gsl_channelid_t   channel_id;
-    int               aperture_index;
     unsigned int      result = 0;
     gsl_sharedmem_t   *shmem;
 
@@ -655,9 +447,6 @@ kgsl_sharedmem_largestfreeblock(gsl_deviceid_t device_id, gsl_flags_t flags)
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
                     "--> int kgsl_sharedmem_largestfreeblock(gsl_deviceid_t device_id=%D, gsl_flags_t flags=%x)\n",
                     device_id, flags );
-
-    GSL_MEMFLAGS_APERTURE_GET(flags, aperture_id);
-    GSL_MEMFLAGS_CHANNEL_GET(flags, channel_id);
 
     mutex_lock(&gsl_driver.lock);
 
@@ -671,12 +460,7 @@ kgsl_sharedmem_largestfreeblock(gsl_deviceid_t device_id, gsl_flags_t flags)
         return (0);
     }
 
-    aperture_index = kgsl_sharedmem_getapertureindex(shmem, aperture_id, channel_id);
-
-    if (aperture_id == shmem->apertures[aperture_index].id)
-    {
-        result = kgsl_memarena_getlargestfreeblock(shmem->apertures[aperture_index].memarena, flags);
-    }
+    result = kgsl_memarena_getlargestfreeblock(shmem->memarena, flags);
 
     mutex_unlock(&gsl_driver.lock);
 
@@ -692,7 +476,6 @@ kgsl_sharedmem_map(gsl_deviceid_t device_id, gsl_flags_t flags, const gsl_scatte
 {
     int              status = GSL_FAILURE;
     gsl_sharedmem_t  *shmem = &gsl_driver.shmem;
-    int              aperture_index;
     gsl_deviceid_t   tmp_id;
 
     kgsl_log_write( KGSL_LOG_GROUP_MEMORY | KGSL_LOG_LEVEL_TRACE,
@@ -741,17 +524,14 @@ kgsl_sharedmem_map(gsl_deviceid_t device_id, gsl_flags_t flags, const gsl_scatte
 
     if (shmem->flags & GSL_FLAGS_INITIALIZED)
     {
-        aperture_index = kgsl_sharedmem_getapertureindex(shmem, GSL_APERTURE_EMEM, GSL_CHANNEL_1);
-
-        if (kgsl_memarena_isvirtualized(shmem->apertures[aperture_index].memarena))
+        if (kgsl_memarena_isvirtualized(shmem->memarena))
         {
             DEBUG_ASSERT(scatterlist->num);
             DEBUG_ASSERT(scatterlist->pages);
 
-            status = kgsl_memarena_alloc(shmem->apertures[aperture_index].memarena, flags, scatterlist->num *GSL_PAGESIZE, memdesc);
+            status = kgsl_memarena_alloc(shmem->memarena, flags, scatterlist->num *GSL_PAGESIZE, memdesc);
             if (status == GSL_SUCCESS)
             {
-                GSL_MEMDESC_APERTURE_SET(memdesc, aperture_index);
                 GSL_MEMDESC_DEVICE_SET(memdesc, device_id);
 
                 // mark descriptor's memory as externally allocated -- i.e. outside GSL
@@ -760,7 +540,7 @@ kgsl_sharedmem_map(gsl_deviceid_t device_id, gsl_flags_t flags, const gsl_scatte
                 status = kgsl_mmu_map(&gsl_driver.device[device_id-1].mmu, memdesc->gpuaddr, scatterlist, flags, current->tgid);
                 if (status != GSL_SUCCESS)
                 {
-                    kgsl_memarena_free(shmem->apertures[aperture_index].memarena, memdesc);
+                    kgsl_memarena_free(shmem->memarena, memdesc);
                 }
             }
         }
@@ -785,7 +565,6 @@ int
 kgsl_sharedmem_getmap(const gsl_memdesc_t *memdesc, gsl_scatterlist_t *scatterlist)
 {
     int              status = GSL_SUCCESS;
-    int              aperture_index;
     gsl_deviceid_t   device_id;
     gsl_sharedmem_t  *shmem;
 
@@ -793,7 +572,6 @@ kgsl_sharedmem_getmap(const gsl_memdesc_t *memdesc, gsl_scatterlist_t *scatterli
                     "--> int kgsl_sharedmem_getmap(gsl_memdesc_t *memdesc=%M, gsl_scatterlist_t scatterlist=%S)\n",
                     memdesc, scatterlist );
 
-    GSL_MEMDESC_APERTURE_GET(memdesc, aperture_index);
     GSL_MEMDESC_DEVICE_GET(memdesc, device_id);
 
     shmem = &gsl_driver.shmem;
@@ -802,12 +580,12 @@ kgsl_sharedmem_getmap(const gsl_memdesc_t *memdesc, gsl_scatterlist_t *scatterli
     {
         DEBUG_ASSERT(scatterlist->num);
         DEBUG_ASSERT(scatterlist->pages);
-        DEBUG_ASSERT(memdesc->gpuaddr >= shmem->apertures[aperture_index].memarena->gpubaseaddr);
-        DEBUG_ASSERT((memdesc->gpuaddr + memdesc->size) <= (shmem->apertures[aperture_index].memarena->gpubaseaddr + shmem->apertures[aperture_index].memarena->sizebytes));
+        DEBUG_ASSERT(memdesc->gpuaddr >= shmem->memarena->gpubaseaddr);
+        DEBUG_ASSERT((memdesc->gpuaddr + memdesc->size) <= (shmem->memarena->gpubaseaddr + shmem->memarena->sizebytes));
 
         memset(scatterlist->pages, 0, sizeof(unsigned int) * scatterlist->num);
 
-        if (kgsl_memarena_isvirtualized(shmem->apertures[aperture_index].memarena))
+        if (kgsl_memarena_isvirtualized(shmem->memarena))
         {
             status = kgsl_mmu_getmap(&gsl_driver.device[device_id-1].mmu, memdesc->gpuaddr, memdesc->size, scatterlist, current->tgid);
         }
@@ -826,60 +604,18 @@ kgsl_sharedmem_getmap(const gsl_memdesc_t *memdesc, gsl_scatterlist_t *scatterli
 
 //----------------------------------------------------------------------------
 
-int
-kgsl_sharedmem_querystats(gsl_sharedmem_t *shmem, gsl_sharedmem_stats_t *stats)
-{
-#ifdef GSL_STATS_MEM
-    int  status = GSL_SUCCESS;
-    int  i;
-
-    DEBUG_ASSERT(stats);
-
-    if (shmem->flags & GSL_FLAGS_INITIALIZED)
-    {
-        for (i = 0; i < shmem->numapertures; i++)
-        {
-            if (shmem->apertures[i].memarena)
-            {
-                stats->apertures[i].id      = shmem->apertures[i].id;
-                stats->apertures[i].channel = shmem->apertures[i].channel;
-
-                status |= kgsl_memarena_querystats(shmem->apertures[i].memarena, &stats->apertures[i].memarena);
-            }
-        }
-    }
-    else
-    {
-        memset(stats, 0, sizeof(gsl_sharedmem_stats_t));
-    }
-
-    return (status);
-#else
-    // unreferenced formal parameters
-    (void) shmem;
-    (void) stats;
-
-    return (GSL_FAILURE_NOTSUPPORTED);
-#endif // GSL_STATS_MEM
-}
-
-//----------------------------------------------------------------------------
-
 unsigned int
 kgsl_sharedmem_convertaddr(unsigned int addr, int type)
 {
     gsl_sharedmem_t  *shmem  = &gsl_driver.shmem;
     unsigned int     cvtaddr = 0;
     unsigned int     gpubaseaddr, hostbaseaddr, sizebytes;
-    int              i;
 
     if ((shmem->flags & GSL_FLAGS_INITIALIZED))
     {
-        for (i = 0; i < shmem->numapertures; i++)
-        {
-            hostbaseaddr = shmem->apertures[i].memarena->hostbaseaddr;
-            gpubaseaddr  = shmem->apertures[i].memarena->gpubaseaddr;
-            sizebytes    = shmem->apertures[i].memarena->sizebytes;
+            hostbaseaddr = shmem->memarena->hostbaseaddr;
+            gpubaseaddr  = shmem->memarena->gpubaseaddr;
+            sizebytes    = shmem->memarena->sizebytes;
 
             // convert from gpu to host
             if (type == 0)
@@ -887,7 +623,6 @@ kgsl_sharedmem_convertaddr(unsigned int addr, int type)
                 if (addr >= gpubaseaddr && addr < (gpubaseaddr + sizebytes))
                 {
                     cvtaddr = hostbaseaddr + (addr - gpubaseaddr);
-                    break;
                 }
             }
             // convert from host to gpu
@@ -896,10 +631,8 @@ kgsl_sharedmem_convertaddr(unsigned int addr, int type)
                 if (addr >= hostbaseaddr && addr < (hostbaseaddr + sizebytes))
                 {
                     cvtaddr = gpubaseaddr + (addr - hostbaseaddr);
-                    break;
                 }
             }
-        }
     }
 
     return (cvtaddr);

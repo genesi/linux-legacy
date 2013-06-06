@@ -111,7 +111,7 @@ typedef struct _gsl_memarena_t {
 //////////////////////////////////////////////////////////////////////////////
 //  prototypes
 //////////////////////////////////////////////////////////////////////////////
-gsl_memarena_t* kgsl_memarena_create(int aperture_id, int mmu_virtualized, unsigned int hostbaseaddr, gpuaddr_t gpubaseaddr, int sizebytes);
+gsl_memarena_t* kgsl_memarena_create(int mmu_virtualized, unsigned int hostbaseaddr, gpuaddr_t gpubaseaddr, int sizebytes);
 int             kgsl_memarena_destroy(gsl_memarena_t *memarena);
 int             kgsl_memarena_isvirtualized(gsl_memarena_t *memarena);
 int             kgsl_memarena_querystats(gsl_memarena_t *memarena, gsl_memarena_stats_t *stats);

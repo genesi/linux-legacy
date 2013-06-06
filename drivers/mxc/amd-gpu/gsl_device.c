@@ -306,7 +306,7 @@ kgsl_device_getproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void
 
         DEBUG_ASSERT(sizebytes == sizeof(gsl_shmemprop_t));
 
-        shem->numapertures   = gsl_driver.shmem.numapertures;
+        shem->numapertures   = 1;
         shem->aperture_mask  = GSL_APERTURE_MASK;
         shem->aperture_shift = GSL_APERTURE_SHIFT;
 
@@ -320,19 +320,15 @@ kgsl_device_getproperty(gsl_deviceid_t device_id, gsl_property_type_t type, void
 
         DEBUG_ASSERT(sizebytes == (sizeof(gsl_apertureprop_t) * gsl_driver.shmem.numapertures));
 
-        for (i = 0; i < gsl_driver.shmem.numapertures; i++)
+        if (gsl_driver.shmem.memarena)
         {
-            if (gsl_driver.shmem.apertures[i].memarena)
-            {
-                aperture->gpuaddr  = GSL_APERTURE_GETGPUADDR(gsl_driver.shmem, i);
-                aperture->hostaddr = GSL_APERTURE_GETHOSTADDR(gsl_driver.shmem, i);
-            }
-            else
-            {
-                aperture->gpuaddr  = 0x0;
-                aperture->hostaddr = 0x0;
-            }
-            aperture++;
+            aperture->gpuaddr  = GSL_SHMEM_MEMARENA_GETGPUADDR(gsl_driver.shmem);
+            aperture->hostaddr = GSL_SHMEM_MEMARENA_GETHOSTADDR(gsl_driver.shmem);
+        }
+         else
+        {
+            aperture->gpuaddr  = 0x0;
+            aperture->hostaddr = 0x0;
         }
 
         break;

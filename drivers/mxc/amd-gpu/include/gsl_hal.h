@@ -88,32 +88,21 @@ typedef struct _gsl_devconfig_t {
 
 } gsl_devconfig_t;
 
-// ----------------------
-// memory aperture config
-// ----------------------
-typedef struct _gsl_apertureconfig_t
-{
-    gsl_apertureid_t  id;
-    gsl_channelid_t   channel;
-    unsigned int      hostbase;
-    unsigned int      gpubase;
-    unsigned int      sizebytes;
-} gsl_apertureconfig_t;
-
 // --------------------
 // shared memory config
 // --------------------
-typedef struct _gsl_shmemconfig_t 
+typedef struct _gsl_shmemconfig_t
 {
-    int                   numapertures;
-    gsl_apertureconfig_t  apertures[GSL_SHMEM_MAX_APERTURES];
+    unsigned int emem_hostbase;
+    unsigned int emem_gpubase;
+    unsigned int emem_sizebytes;
 } gsl_shmemconfig_t;
 
 typedef struct _gsl_hal_t {
      gsl_memregion_t z160_regspace;
      gsl_memregion_t z430_regspace;
      gsl_memregion_t memchunk;
-     gsl_memregion_t memspace[GSL_SHMEM_MAX_APERTURES];
+     gsl_memregion_t memspace;
      unsigned int has_z160;
      unsigned int has_z430;
 } gsl_hal_t;
