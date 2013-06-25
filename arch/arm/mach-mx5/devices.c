@@ -393,6 +393,12 @@ static struct resource vpu_resources[] = {
 		.end = MXC_INT_VPU,
 		.flags	= IORESOURCE_IRQ,
 	},
+	{
+		.start = 0,
+		.end = 0,
+		.name = "vpu_reserved_mem",
+		.flags = IORESOURCE_MEM,
+	},
 };
 
 struct platform_device mxcvpu_device = {

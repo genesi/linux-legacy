@@ -291,6 +291,7 @@ static void __init mx51_efikamx_fixup(struct machine_desc *desc, struct tag *tag
 	int total_mem = SZ_512M;
 	int fb_mem = SZ_16M;
 	int gpu_mem = SZ_32M + SZ_16M;
+	int vpu_mem = SZ_32M;
 	int sys_mem;
 
 	mxc_set_cpu_type(MXC_CPU_MX51);
@@ -305,15 +306,17 @@ static void __init mx51_efikamx_fixup(struct machine_desc *desc, struct tag *tag
 		}
 	}
 
-	sys_mem = total_mem - gpu_mem - fb_mem;
+	sys_mem = total_mem - gpu_mem - fb_mem - vpu_mem;
 
 	if (mem_tag) {
 		unsigned int fb_start = mem_tag->u.mem.start + sys_mem;
 		unsigned int gpu_start = fb_start + fb_mem;
+		unsigned int vpu_start = gpu_start + gpu_mem;
 
 		mem_tag->u.mem.size = sys_mem;
 		mx51_efikamx_display_adjust_mem(fb_start, fb_mem);
 		mx51_efikamx_gpu_adjust_mem(gpu_start, gpu_mem);
+		mx51_efikamx_vpu_adjust_mem(vpu_start, vpu_mem);
 	}
 }
 

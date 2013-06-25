@@ -34,6 +34,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
+#include <linux/genalloc.h>
 
 #include <asm/uaccess.h>
 #include <asm/io.h>
@@ -79,6 +80,13 @@ static void __iomem *vpu_base;
 static int vpu_irq;
 static u32 phy_vpu_base_addr;
 static struct mxc_vpu_platform_data *vpu_plat;
+
+static u32 vpu_reserved_phy;
+static u32 vpu_reserved_virt;
+static u32 vpu_reserved_phy_size;
+static struct gen_pool *vpu_pool;
+
+#define vpu_phys_to_virt(p) (vpu_reserved_virt + ((p) - vpu_reserved_phy))
 
 /* IRAM setting */
 static struct iram_setting iram;
@@ -145,16 +153,29 @@ static u32 dis_flag_regsave[4];
  * Private function to alloc dma buffer
  * @return status  0 success.
  */
-static int vpu_alloc_dma_buffer(struct vpu_mem_desc *mem)
+static int vpu_alloc_dma_buffer(struct vpu_mem_desc *mem, bool gen_pool)
 {
-	mem->cpu_addr = (unsigned long)
-	    dma_alloc_coherent(NULL, PAGE_ALIGN(mem->size),
-			       (dma_addr_t *) (&mem->phy_addr),
-			       GFP_DMA | GFP_KERNEL);
-	pr_debug("[ALLOC] mem alloc cpu_addr = 0x%x\n", mem->cpu_addr);
-	if ((void *)(mem->cpu_addr) == NULL) {
-		printk(KERN_ERR "Physical memory allocation error!\n");
-		return -1;
+	if (gen_pool) {
+		mem->cpu_addr = gen_pool_alloc(vpu_pool, mem->size);
+		pr_debug("vpu alloc - %dB@0x%p\n", mem->size, (void *)mem->cpu_addr);
+		WARN_ON(!mem->cpu_addr);
+		if (!mem->cpu_addr) {
+			printk(KERN_ERR "Physical memory allocation error!\n");
+			return -1;
+		}
+		mem->phy_addr = __pa(mem->cpu_addr);
+		pr_debug("vpu alloc - 0x%p/0x%p\n", (void*)mem->cpu_addr, (void*)mem->phy_addr);
+	} else {
+		mem->cpu_addr = (unsigned long)
+		    dma_alloc_coherent(NULL, PAGE_ALIGN(mem->size),
+				       (dma_addr_t *) (&mem->phy_addr),
+				       GFP_DMA | GFP_KERNEL);
+		pr_debug("[ALLOC] mem alloc cpu_addr = 0x%x\n", mem->cpu_addr);
+		pr_debug("vpu alloc - %dB@0x%p (0x%p)\n", mem->size, (void *)mem->cpu_addr, (void*)mem->phy_addr);
+		if ((void *)(mem->cpu_addr) == NULL) {
+			printk(KERN_ERR "Physical memory allocation error!\n");
+			return -1;
+		}
 	}
 	return 0;
 }
@@ -162,11 +183,17 @@ static int vpu_alloc_dma_buffer(struct vpu_mem_desc *mem)
 /*!
  * Private function to free dma buffer
  */
-static void vpu_free_dma_buffer(struct vpu_mem_desc *mem)
+static void vpu_free_dma_buffer(struct vpu_mem_desc *mem, bool gen_pool)
 {
-	if (mem->cpu_addr != 0) {
-		dma_free_coherent(0, PAGE_ALIGN(mem->size),
-				  (void *)mem->cpu_addr, mem->phy_addr);
+	if (gen_pool) {
+		pr_debug("vpu free - 0x%p/0x%p\n", (void*)mem->cpu_addr, (void*)mem->phy_addr);
+		if (mem->cpu_addr != 0)
+			gen_pool_free(vpu_pool, mem->cpu_addr, mem->size);
+	} else {
+		if (mem->cpu_addr != 0) {
+			dma_free_coherent(0, PAGE_ALIGN(mem->size),
+					  (void *)mem->cpu_addr, mem->phy_addr);
+		}
 	}
 }
 
@@ -182,7 +209,7 @@ static int vpu_free_buffers(void)
 	list_for_each_entry_safe(rec, n, &head, list) {
 		mem = rec->mem;
 		if (mem.cpu_addr != 0) {
-			vpu_free_dma_buffer(&mem);
+			vpu_free_dma_buffer(&mem, true);
 			pr_debug("[FREE] freed paddr=0x%08X\n", mem.phy_addr);
 			/* delete from list */
 			list_del(&rec->list);
@@ -270,7 +297,7 @@ static int vpu_ioctl(struct inode *inode, struct file *filp, u_int cmd,
 			pr_debug("[ALLOC] mem alloc size = 0x%x\n",
 				 rec->mem.size);
 
-			ret = vpu_alloc_dma_buffer(&(rec->mem));
+			ret = vpu_alloc_dma_buffer(&(rec->mem), true);
 			if (ret == -1) {
 				kfree(rec);
 				printk(KERN_ERR
@@ -305,7 +332,7 @@ static int vpu_ioctl(struct inode *inode, struct file *filp, u_int cmd,
 			pr_debug("[FREE] mem freed cpu_addr = 0x%x\n",
 				 vpu_mem.cpu_addr);
 			if ((void *)vpu_mem.cpu_addr != NULL) {
-				vpu_free_dma_buffer(&vpu_mem);
+				vpu_free_dma_buffer(&vpu_mem, true);
 			}
 
 			spin_lock(&vpu_lock);
@@ -377,7 +404,7 @@ static int vpu_ioctl(struct inode *inode, struct file *filp, u_int cmd,
 					spin_unlock(&vpu_lock);
 					return -EFAULT;
 				}
-				if (vpu_alloc_dma_buffer(&share_mem) == -1)
+				if (vpu_alloc_dma_buffer(&share_mem, false) == -1)
 					ret = -EFAULT;
 				else {
 					if (copy_to_user((void __user *)arg,
@@ -404,7 +431,7 @@ static int vpu_ioctl(struct inode *inode, struct file *filp, u_int cmd,
 						   sizeof(struct vpu_mem_desc)))
 					return -EFAULT;
 
-				if (vpu_alloc_dma_buffer(&bitwork_mem) == -1)
+				if (vpu_alloc_dma_buffer(&bitwork_mem, true) == -1)
 					ret = -EFAULT;
 				else if (copy_to_user((void __user *)arg,
 						      &bitwork_mem,
@@ -445,7 +472,7 @@ static int vpu_release(struct inode *inode, struct file *filp)
 		vpu_free_buffers();
 
 		/* Free shared memory when vpu device is idle */
-		vpu_free_dma_buffer(&share_mem);
+		vpu_free_dma_buffer(&share_mem, false);
 		share_mem.cpu_addr = 0;
 	}
 	spin_unlock(&vpu_lock);
@@ -593,6 +620,20 @@ static int vpu_dev_probe(struct platform_device *pdev)
 			  (void *)(&vpu_data));
 	if (err)
 		goto err_out_class;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "vpu_reserved_mem");
+	if (!res) {
+		printk(KERN_ERR "vpu: unable to find vpu reserved memory\n");
+		return -ENODEV;
+	}
+	vpu_reserved_phy = res->start;
+	vpu_reserved_phy_size = res->end - res->start + 1;
+
+	vpu_pool = gen_pool_create(PAGE_SHIFT,-1);
+	vpu_reserved_virt = ioremap(vpu_reserved_phy, vpu_reserved_phy_size);
+	gen_pool_add(vpu_pool, vpu_reserved_virt, vpu_reserved_phy_size, -1);
+
+	printk("i.MX VPU pool: %ld KB@0x%p (0x%p)\n", vpu_reserved_phy_size / 1024, vpu_reserved_phy, vpu_reserved_virt);
 
 	vpu_data.workqueue = create_workqueue("vpu_wq");
 	INIT_WORK(&vpu_data.work, vpu_worker_callback);
@@ -779,9 +820,9 @@ static void __exit vpu_exit(void)
 		vpu_major = 0;
 	}
 
-	vpu_free_dma_buffer(&bitwork_mem);
-	vpu_free_dma_buffer(&pic_para_mem);
-	vpu_free_dma_buffer(&user_data_mem);
+	vpu_free_dma_buffer(&bitwork_mem, true);
+	vpu_free_dma_buffer(&pic_para_mem, true);
+	vpu_free_dma_buffer(&user_data_mem, true);
 
 	clk_put(vpu_clk);
 
