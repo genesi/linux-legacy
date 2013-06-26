@@ -431,7 +431,7 @@ static int vpu_ioctl(struct inode *inode, struct file *filp, u_int cmd,
 						   sizeof(struct vpu_mem_desc)))
 					return -EFAULT;
 
-				if (vpu_alloc_dma_buffer(&bitwork_mem, true) == -1)
+				if (vpu_alloc_dma_buffer(&bitwork_mem, false) == -1)
 					ret = -EFAULT;
 				else if (copy_to_user((void __user *)arg,
 						      &bitwork_mem,
@@ -820,7 +820,7 @@ static void __exit vpu_exit(void)
 		vpu_major = 0;
 	}
 
-	vpu_free_dma_buffer(&bitwork_mem, true);
+	vpu_free_dma_buffer(&bitwork_mem, false);
 	vpu_free_dma_buffer(&pic_para_mem, true);
 	vpu_free_dma_buffer(&user_data_mem, true);
 
